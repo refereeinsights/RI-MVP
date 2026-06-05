@@ -31,7 +31,7 @@ export async function enrichPlannerEventsWithLinkedVenue<
   }
 
   const { data: venueRows, error } = await (supabase.from("venues_public" as any) as any)
-    .select("id,name,address,city,state")
+    .select("id,name,address,city,state,seo_slug")
     .in("id", venueIds);
 
   if (error) {

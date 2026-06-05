@@ -12,6 +12,12 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-06-05
+
+- TI Weekend Planner Stage `3.3C-5` conservative venue matching + venue/map click paths:
+  - Added conservative imported-event venue resolution in `apps/ti-web/lib/planner/venueResolution.ts` and wired `apps/ti-web/lib/planner/ics-import.ts` to batch-resolve venue candidates during import/refresh without external geocoding, without backfill, and without overwriting any existing non-null `venue_id`.
+  - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, and `apps/ti-web/lib/planner/enrichVenueMetadata.ts` so linked venues open TI venue pages in new tabs, unmatched meaningful source locations open maps, field-only labels stay non-clickable, month-view event chips advertise clickability, and linked venue rows preserve the existing Stage `3.1` display hierarchy.
+
 ## 2026-06-04
 
 - TI Weekend Planner Stage `3.3C-4D` week-view time-window polish:

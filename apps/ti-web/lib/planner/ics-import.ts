@@ -5,6 +5,7 @@ import ical from "node-ical";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "@/lib/venues/isUuid";
+import { resolvePlannerVenueMatches } from "@/lib/planner/venueResolution";
 
 const MAX_URL_LEN = 2000;
 const MAX_ICS_CHARS = 2_000_000; // ~2MB
@@ -438,20 +439,49 @@ export function normalizeIcsEvents(params: {
   return { events: out, errors, parsedTotal };
 }
 
-async function loadExistingUids(params: { supabase: SupabaseClient; userId: string; sourceId: string }) {
+async function loadExistingEventsByUid(params: { supabase: SupabaseClient; userId: string; sourceId: string; uids: string[] }) {
+  if (!params.uids.length) return new Map<string, {
+    id: string;
+    title: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    timezone: string | null;
+    address_text: string | null;
+    team_name: string | null;
+    venue_id: string | null;
+  }>();
   const { data, error } = await (params.supabase.from("planner_events" as any) as any)
-    .select("source_event_uid")
+    .select("id,source_event_uid,title,starts_at,ends_at,timezone,address_text,team_name,venue_id")
     .eq("user_id", params.userId)
     .eq("source_id", params.sourceId)
-    .not("source_event_uid", "is", null)
-    .limit(2000);
-  if (error) return new Set<string>();
-  const set = new Set<string>();
+    .in("source_event_uid", params.uids.slice(0, MAX_EVENTS_PER_SYNC))
+    .limit(params.uids.length);
+  if (error) return new Map();
+  const byUid = new Map<string, {
+    id: string;
+    title: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    timezone: string | null;
+    address_text: string | null;
+    team_name: string | null;
+    venue_id: string | null;
+  }>();
   (data ?? []).forEach((r: any) => {
     const v = String(r?.source_event_uid ?? "").trim();
-    if (v) set.add(v);
+    if (!v) return;
+    byUid.set(v, {
+      id: String(r?.id ?? ""),
+      title: r?.title ?? null,
+      starts_at: r?.starts_at ?? null,
+      ends_at: r?.ends_at ?? null,
+      timezone: r?.timezone ?? null,
+      address_text: r?.address_text ?? null,
+      team_name: r?.team_name ?? null,
+      venue_id: r?.venue_id ?? null,
+    });
   });
-  return set;
+  return byUid;
 }
 
 export async function importIcsToPlanner(params: {
@@ -552,13 +582,32 @@ export async function importIcsToPlanner(params: {
     finalSourceId = String(upsertSource.data.id);
   }
 
-  const existingUidSet = await loadExistingUids({ supabase, userId: input.userId, sourceId: finalSourceId });
+  const usableSourceUids = usableEvents
+    .map((event) => String(event.source_event_uid ?? "").trim())
+    .filter(Boolean)
+    .slice(0, MAX_EVENTS_PER_SYNC);
+  const existingEventsByUid = await loadExistingEventsByUid({
+    supabase,
+    userId: input.userId,
+    sourceId: finalSourceId,
+    uids: usableSourceUids,
+  });
+
+  const venueMatchesByUid = await resolvePlannerVenueMatches(
+    supabase,
+    usableEvents.map((event) => ({
+      id: String(event.source_event_uid ?? "").trim(),
+      address_text: event.address_text,
+      city: null,
+      state: null,
+    })),
+  );
 
   const newEvents: NormalizedPlannerEvent[] = [];
   const existingEvents: NormalizedPlannerEvent[] = [];
   for (const e of usableEvents) {
     if (!e.source_event_uid) continue; // should never happen
-    if (existingUidSet.has(e.source_event_uid)) existingEvents.push(e);
+    if (existingEventsByUid.has(e.source_event_uid)) existingEvents.push(e);
     else newEvents.push(e);
   }
 
@@ -580,6 +629,7 @@ export async function importIcsToPlanner(params: {
       notes: e.notes,
       address_text: e.address_text,
       team_name: e.team_name,
+      venue_id: venueMatchesByUid.get(e.source_event_uid) ?? null,
       source_type: "ics",
       source_id: finalSourceId,
       source_event_uid: e.source_event_uid,
@@ -590,6 +640,7 @@ export async function importIcsToPlanner(params: {
       const code = String((res.error as any).code ?? "");
       if (code === "23505") {
         for (const e of inserts) {
+          const matchedVenueId = e.venue_id ? String(e.venue_id).trim() : "";
           const patch = {
             title: e.title,
             starts_at: e.starts_at,
@@ -597,6 +648,7 @@ export async function importIcsToPlanner(params: {
             timezone: e.timezone,
             address_text: e.address_text,
             team_name: e.team_name,
+            ...(matchedVenueId ? { venue_id: matchedVenueId } : {}),
             source_type: "ics",
           };
           const u = await (supabase.from("planner_events" as any) as any)
@@ -621,57 +673,10 @@ export async function importIcsToPlanner(params: {
 
   // Updates exclude notes and protected fields
   if (existingEvents.length) {
-    const existingByUid = new Map<
-      string,
-      {
-        id: string;
-        title: string | null;
-        starts_at: string | null;
-        ends_at: string | null;
-        timezone: string | null;
-        address_text: string | null;
-        team_name: string | null;
-      }
-    >();
-
-    if (input.mode === "refresh") {
-      const uids = existingEvents
-        .map((e) => String(e.source_event_uid || "").trim())
-        .filter(Boolean)
-        .slice(0, MAX_EVENTS_PER_SYNC);
-
-      if (uids.length) {
-        const { data, error } = await (supabase.from("planner_events" as any) as any)
-          .select("id,source_event_uid,title,starts_at,ends_at,timezone,address_text,team_name")
-          .eq("user_id", input.userId)
-          .eq("source_id", finalSourceId)
-          .in("source_event_uid", uids)
-          .limit(uids.length);
-        if (error) {
-          logSupabaseError("select planner_events for change detection failed", error);
-          return { ok: false, status: 500, error: genericImportFailure() };
-        }
-
-        for (const row of (data ?? []) as any[]) {
-          const uid = String(row?.source_event_uid || "").trim();
-          if (!uid) continue;
-          existingByUid.set(uid, {
-            id: String(row?.id || ""),
-            title: row?.title ?? null,
-            starts_at: row?.starts_at ?? null,
-            ends_at: row?.ends_at ?? null,
-            timezone: row?.timezone ?? null,
-            address_text: row?.address_text ?? null,
-            team_name: row?.team_name ?? null,
-          });
-        }
-      }
-    }
-
     for (const e of existingEvents.slice(0, MAX_EVENTS_PER_SYNC)) {
+      const uid = String(e.source_event_uid || "").trim();
+      const prev = uid ? existingEventsByUid.get(uid) : null;
       if (input.mode === "refresh") {
-        const uid = String(e.source_event_uid || "").trim();
-        const prev = uid ? existingByUid.get(uid) : null;
         if (prev) {
           const changeLabels: ("time" | "location" | "title" | "team" | "timezone")[] = [];
           if ((prev.title ?? null) !== (e.title ?? null)) changeLabels.push("title");
@@ -700,6 +705,9 @@ export async function importIcsToPlanner(params: {
         timezone: e.timezone,
         address_text: e.address_text,
         team_name: e.team_name,
+        ...(prev && !String(prev.venue_id ?? "").trim() && venueMatchesByUid.get(uid)
+          ? { venue_id: venueMatchesByUid.get(uid) ?? null }
+          : {}),
         source_type: "ics",
       };
       const res = await (supabase.from("planner_events" as any) as any)

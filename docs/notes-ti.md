@@ -13,6 +13,12 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-06-05
+
+- TI Weekend Planner Stage `3.3C-5` conservative venue matching + venue/map click paths:
+  - Added conservative batch venue matching for imported/refreshing ICS events using internal TI venue data only, with no backfill and no overwrite of any existing non-null `venue_id`.
+  - Updated planner list/calendar event location behavior so linked venues open TI venue pages in new tabs, meaningful unmatched source locations open maps, field-only labels stay informational, and month-view event chips more clearly signal clickability.
+
 ## 2026-06-04
 
 - TI Weekend Planner Stage `3.3C-4D` week-view time-window polish:

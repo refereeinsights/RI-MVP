@@ -559,6 +559,42 @@ Use this after Stage `3.3C-4C` is stable. Keep scope on the week view’s defaul
 
 ---
 
+### Stage 3.3C-5 UAT (conservative venue matching + venue/map click paths)
+
+Use this after Stage `3.3C-4D` is stable. Keep scope on conservative imported-event venue matching, new-tab venue navigation, unmatched-address map fallback, and month-view click affordance.
+
+- [ ] Month-view click affordance:
+  - [ ] Month-view calendar event chips show pointer affordance on hover.
+  - [ ] Clicking a month-view event still opens the event detail modal.
+- [ ] Conservative auto-matching:
+  - [ ] Imported events with exact/strongly normalized address matches link to the correct TI venue.
+  - [ ] Name-only matches only auto-link when city/state context uniquely supports the venue.
+  - [ ] If multiple similarly plausible candidates exist, no auto-link occurs.
+  - [ ] No external geocoding or third-party matching flow appears in the product.
+- [ ] Refresh preservation:
+  - [ ] Any event with an existing non-null `venue_id` keeps that venue on refresh.
+  - [ ] Existing linked venues are not silently replaced during refresh.
+- [ ] Linked venue click paths:
+  - [ ] Linked venue name opens the TI venue page in a new tab.
+  - [ ] Linked venue new-tab links use safe browser behavior and do not hijack the event-card click action.
+  - [ ] A separate `Map` / `Directions` action remains available for matched venues.
+- [ ] Unmatched source-location fallback:
+  - [ ] A meaningful source address/location opens maps when clicked.
+  - [ ] Ambiguous labels such as `Field 1`, `Gym B`, or `Court 3` do not become map links.
+  - [ ] If both a field label and a real location are present, both remain visible.
+- [ ] Manual venue controls:
+  - [ ] Existing `Find venue`, `Change venue`, and clear/unset venue flows still work on auto-matched events.
+  - [ ] Manual venue editing remains available after refresh.
+- [ ] Signal preservation:
+  - [ ] Existing Stage `3.1` linked-venue/source-location display hierarchy remains intact.
+  - [ ] Source identity, child colors, and conflict indicators remain readable and distinct.
+- [ ] Mobile safety (`375px` if possible):
+  - [ ] Venue links and source-location fallback links remain tappable.
+  - [ ] Directions/map actions remain reachable.
+  - [ ] No accidental tap collisions are introduced inside planner cards or the event detail modal.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

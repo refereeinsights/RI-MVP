@@ -11,6 +11,7 @@ import {
   type PlannerDuplicateReason,
 } from "@/lib/planner/duplicates";
 import { compactAssignmentLabel, getFamilyColorToken } from "@/lib/planner/familyColors";
+import { isMapLinkEligibleLocation, mapsSearchUrl, plannerEventLocationForMaps } from "@/lib/planner/venueResolution";
 import type {
   PlannerChildWithTeamsRow,
   PlannerEventCreateBody,
@@ -19,6 +20,7 @@ import type {
   PlannerSourceRow,
   PlannerEventUpdateBody,
 } from "@/lib/planner/types";
+import { getVenueHref } from "@/lib/venues/getVenueHref";
 import styles from "./Planner.module.css";
 
 type Props = {
@@ -329,12 +331,6 @@ function formatDateRangeLabel(start: string | null, end: string | null) {
   const eText = e && !Number.isNaN(e.getTime()) ? fmt.format(e) : null;
   if (sText && eText) return `${sText} – ${eText}`;
   return sText || eText;
-}
-
-function mapsSearchUrl(query: string) {
-  const q = String(query ?? "").trim();
-  if (!q) return null;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
 function appleMapsUrl(query: string) {
@@ -694,21 +690,29 @@ export default function PlannerClient(props: Props) {
   const venueDisplayLineForEvent = (e: PlannerEventRow) => (linkedVenueLabelForEvent(e) || sourceLocationForEvent(e) || "").trim();
   const venueHrefForEvent = (e: PlannerEventRow) => {
     const venue = e.linkedVenue ?? null;
-    const canonicalIdentifier = String(venue?.seo_slug ?? "").trim() || String(venue?.id ?? "").trim();
-    if (!canonicalIdentifier) return null;
-    return `/venues/${encodeURIComponent(canonicalIdentifier)}`;
+    const venueId = String(venue?.id ?? "").trim();
+    if (!venueId) return null;
+    return getVenueHref({ id: venueId, seo_slug: venue?.seo_slug ?? null });
   };
   const venueContextRowsForEvent = (e: PlannerEventRow) => {
+    const fieldLabel = String(e.field_label ?? "").trim();
     const linked = linkedVenueLabelForEvent(e);
     const source = sourceLocationForEvent(e);
     const linkedHref = venueHrefForEvent(e);
     const rows: Array<{
-      key: "linkedVenue" | "sourceLocation";
-      label: "Linked venue" | "Source location";
+      key: "fieldLabel" | "linkedVenue" | "sourceLocation";
+      label: "Field label" | "Linked venue" | "Source location";
       text: string;
       href?: string | null;
     }> = [];
 
+    if (fieldLabel) {
+      rows.push({
+        key: "fieldLabel",
+        label: "Field label",
+        text: fieldLabel,
+      });
+    }
     if (linked) {
       rows.push({
         key: "linkedVenue",
@@ -722,6 +726,7 @@ export default function PlannerClient(props: Props) {
         key: "sourceLocation",
         label: "Source location",
         text: source,
+        href: isMapLinkEligibleLocation(source) ? mapsSearchUrl(source) : null,
       });
     }
     return rows;
@@ -738,8 +743,7 @@ export default function PlannerClient(props: Props) {
     return linkedName;
   };
   const mapLocationForEvent = (e: PlannerEventRow) => {
-    const linked = linkedVenueLabelForEvent(e);
-    return linked || sourceLocationForEvent(e);
+    return plannerEventLocationForMaps(e);
   };
   const mapsUrlForEvent = (e: PlannerEventRow) => {
     const loc = mapLocationForEvent(e);
@@ -3102,10 +3106,16 @@ export default function PlannerClient(props: Props) {
                               <div key={`${e.id}-${row.key}`} className={styles.venueContextRow}>
                                 <span className={styles.venueContextLabel}>{row.label}</span>
                                 <span className={styles.venueContextValue}>
-                                  {row.key === "linkedVenue" && row.href ? (
-                                    <Link className={styles.venueLink} href={row.href}>
-                                      {row.text}
-                                    </Link>
+                                  {row.href ? (
+                                    row.key === "linkedVenue" ? (
+                                      <Link className={styles.venueLink} href={row.href} target="_blank" rel="noopener noreferrer">
+                                        {row.text}
+                                      </Link>
+                                    ) : (
+                                      <a className={styles.venueLink} href={row.href} target="_blank" rel="noopener noreferrer">
+                                        {row.text}
+                                      </a>
+                                    )
                                   ) : (
                                     row.text
                                   )}

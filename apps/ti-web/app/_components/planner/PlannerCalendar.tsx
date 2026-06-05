@@ -13,7 +13,9 @@ import "temporal-polyfill/global";
 import "@schedule-x/theme-shadcn/dist/index.css";
 import type { PlannerChildWithTeamsRow, PlannerEventRow, PlannerSourceRow } from "@/lib/planner/types";
 import { compactAssignmentLabel, getFamilyColorToken, getUnassignedFamilyColorToken } from "@/lib/planner/familyColors";
+import { isMapLinkEligibleLocation, mapsSearchUrl, plannerEventLocationForMaps } from "@/lib/planner/venueResolution";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import { getVenueHref } from "@/lib/venues/getVenueHref";
 import styles from "./Planner.module.css";
 
 type Props = {
@@ -120,13 +122,22 @@ export default function PlannerCalendar(props: Props) {
     return "";
   }
 
-  function venueLinesForEvent(e: PlannerEventRow) {
-    const linked = linkedVenueLabelForEvent(e);
+  function venueHrefForEvent(e: PlannerEventRow) {
+    const venue = e.linkedVenue ?? null;
+    const venueId = String(venue?.id ?? "").trim();
+    if (!venueId) return null;
+    return getVenueHref({ id: venueId, seo_slug: venue?.seo_slug ?? null });
+  }
+
+  function sourceLocationHrefForEvent(e: PlannerEventRow) {
     const source = sourceLocationForEvent(e);
-    const lines: string[] = [];
-    if (linked) lines.push(`Linked venue: ${linked}`);
-    if (source && source !== linked) lines.push(`Source location: ${source}`);
-    return lines;
+    if (!source || !isMapLinkEligibleLocation(source)) return null;
+    return mapsSearchUrl(source);
+  }
+
+  function mapHrefForEvent(e: PlannerEventRow) {
+    const location = plannerEventLocationForMaps(e);
+    return location ? mapsSearchUrl(location) : null;
   }
 
   const sourceAssignmentsById = useMemo(() => {
@@ -628,13 +639,49 @@ export default function PlannerCalendar(props: Props) {
               ) : null}
 
               {(() => {
-                const lines = venueLinesForEvent(detailEvent);
-                if (!lines.length) return null;
-                return lines.map((line) => (
-                  <div key={line} className={styles.eventDetailMeta}>
-                    {line}
+                const fieldLabel = String(detailEvent.field_label ?? "").trim();
+                const linkedVenueLabel = linkedVenueLabelForEvent(detailEvent);
+                const linkedVenueHref = venueHrefForEvent(detailEvent);
+                const sourceLocationLabel = sourceLocationForEvent(detailEvent);
+                const sourceLocationHref = sourceLocationHrefForEvent(detailEvent);
+                const directionsHref = mapHrefForEvent(detailEvent);
+                if (!fieldLabel && !linkedVenueLabel && !sourceLocationLabel && !directionsHref) return null;
+                return (
+                  <div className={styles.eventDetailVenueBlock}>
+                    {fieldLabel ? <div className={styles.eventDetailMeta}>Field label: {fieldLabel}</div> : null}
+                    {linkedVenueLabel ? (
+                      <div className={styles.eventDetailMeta}>
+                        Linked venue:{" "}
+                        {linkedVenueHref ? (
+                          <a className={styles.venueLink} href={linkedVenueHref} target="_blank" rel="noopener noreferrer">
+                            {linkedVenueLabel}
+                          </a>
+                        ) : (
+                          linkedVenueLabel
+                        )}
+                      </div>
+                    ) : null}
+                    {sourceLocationLabel && sourceLocationLabel !== linkedVenueLabel ? (
+                      <div className={styles.eventDetailMeta}>
+                        Source location:{" "}
+                        {sourceLocationHref ? (
+                          <a className={styles.venueLink} href={sourceLocationHref} target="_blank" rel="noopener noreferrer">
+                            {sourceLocationLabel}
+                          </a>
+                        ) : (
+                          sourceLocationLabel
+                        )}
+                      </div>
+                    ) : null}
+                    {directionsHref ? (
+                      <div className={styles.eventDetailActionRow}>
+                        <a className={styles.secondaryBtn} href={directionsHref} target="_blank" rel="noopener noreferrer">
+                          Directions
+                        </a>
+                      </div>
+                    ) : null}
                   </div>
-                ));
+                );
               })()}
 
               {detailEvent.notes ? <div className={styles.eventDetailNotes}>{detailEvent.notes}</div> : null}

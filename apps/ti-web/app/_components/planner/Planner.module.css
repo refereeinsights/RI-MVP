@@ -507,6 +507,13 @@
   outline-offset: 2px;
 }
 
+.sxWrapper :global(.sx__event),
+.sxWrapper :global(.sx__month-grid-event),
+.sxWrapper :global(.sx__date-grid-event),
+.sxWrapper :global(.sx__time-grid-event) {
+  cursor: pointer;
+}
+
 .calendarFrame {
   display: flex;
   flex-direction: column;
@@ -876,6 +883,24 @@
 
 .venueLink:hover {
   color: #166534;
+}
+
+.venueLink:focus-visible {
+  outline: 2px solid rgba(21, 128, 61, 0.35);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.eventDetailVenueBlock {
+  display: grid;
+  gap: 6px;
+}
+
+.eventDetailActionRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .eventActions {
