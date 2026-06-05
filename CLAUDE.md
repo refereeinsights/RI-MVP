@@ -596,6 +596,39 @@ Use this after Stage `3.3C-4D` is stable. Keep scope on conservative imported-ev
 
 ---
 
+### Stage 3.3C-6 UAT (compact Season date-range filter)
+
+Use this after Stage `3.3C-5` is stable. Keep scope on the new compact `Dates` control in `Season`, its quick actions, and consistency between list and calendar filtering.
+
+- [ ] Season-only control:
+  - [ ] `Season` view shows a compact `Dates` control near the family filter row.
+  - [ ] `Upcoming` does not expose the custom date-range control.
+  - [ ] `This Weekend` does not expose the custom date-range control.
+- [ ] Date range entry:
+  - [ ] Opening `Dates` reveals labeled `Start date` and `End date` fields.
+  - [ ] Setting only `Start date` filters to events on/after that date.
+  - [ ] Setting only `End date` filters to events on/before that date.
+  - [ ] Setting both dates filters to the inclusive bounded range.
+  - [ ] Invalid ranges (start after end) are blocked or clearly corrected.
+- [ ] Quick actions:
+  - [ ] `This weekend` narrows `Season` to the current weekend date window.
+  - [ ] `Next 30 days` narrows `Season` to the next 30-day window.
+  - [ ] `Clear` removes any custom date override.
+  - [ ] `This season` returns to the normal `seasonRange` preset behavior.
+- [ ] Consistency:
+  - [ ] Child/team family filtering still works with a custom date range.
+  - [ ] List view and calendar view show the same in-range events.
+  - [ ] Empty-state copy is understandable when no Season events match the selected date range.
+- [ ] Mobile safety (`375px` if possible):
+  - [ ] The filter row remains usable without horizontal page overflow.
+  - [ ] The date popover stays readable/tappable on narrow screens.
+- [ ] No regressions:
+  - [ ] `seasonRange` and `seasonFilter` still work when no custom date range is active.
+  - [ ] Upcoming / This Weekend behavior remains unchanged.
+  - [ ] Assignment, venue, duplicate, and timezone behavior remain unchanged.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

@@ -14,6 +14,10 @@ Maintenance rules:
 
 ## 2026-06-05
 
+- TI Weekend Planner Stage `3.3C-6` compact Season date-range filter:
+  - Added a compact Season-only `Dates` control in `apps/ti-web/app/_components/planner/PlannerClient.tsx` with a lightweight start/end popover, quick actions (`This weekend`, `Next 30 days`, `Clear`, `This season`), and inclusive date-range handling that preserves existing Upcoming / This Weekend behavior.
+  - Extended the Season event fetch path to honor custom start/end overrides without changing assignment, venue, import, duplicate, or timezone models, and kept the existing `seasonRange` presets as the default behavior whenever no custom range is active.
+  - Updated `apps/ti-web/app/_components/planner/Planner.module.css` so the new date-range control stays compact beside the family filter, opens as a contained panel, and remains mobile-safe without introducing page-level horizontal overflow.
 - TI Weekend Planner Stage `3.3C-5` conservative venue matching + venue/map click paths:
   - Added conservative imported-event venue resolution in `apps/ti-web/lib/planner/venueResolution.ts` and wired `apps/ti-web/lib/planner/ics-import.ts` to batch-resolve venue candidates during import/refresh without external geocoding, without backfill, and without overwriting any existing non-null `venue_id`.
   - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, and `apps/ti-web/lib/planner/enrichVenueMetadata.ts` so linked venues open TI venue pages in new tabs, unmatched meaningful source locations open maps, field-only labels stay non-clickable, month-view event chips advertise clickability, and linked venue rows preserve the existing Stage `3.1` display hierarchy.

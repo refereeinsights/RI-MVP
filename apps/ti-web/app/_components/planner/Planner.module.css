@@ -344,6 +344,52 @@
   max-width: 260px;
 }
 
+.dateFilterWrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.dateFilterBtnActive {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.dateFilterPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(360px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #dbe4ee;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14);
+}
+
+.dateFilterFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dateFilterQuickActions,
+.dateFilterActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dateFilterError {
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .scheduleViewButtonsRow {
   display: flex;
   gap: 8px;
@@ -1121,7 +1167,8 @@
   .headerActions,
   .scheduleViewButtonsRow,
   .calendarToggle,
-  .eventActions {
+  .eventActions,
+  .dateFilterActions {
     display: grid;
     grid-template-columns: 1fr 1fr;
     width: 100%;
@@ -1130,7 +1177,8 @@
   .headerActions > *,
   .scheduleViewButtonsRow > *,
   .calendarToggle > *,
-  .eventActions > * {
+  .eventActions > *,
+  .dateFilterActions > * {
     justify-content: center;
   }
 
@@ -1177,6 +1225,16 @@
     max-width: 100%;
     justify-content: flex-start;
     text-align: left;
+  }
+
+  .dateFilterPanel {
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+
+  .dateFilterFields {
+    grid-template-columns: 1fr;
   }
 
   .calendarModeRow {
@@ -1253,5 +1311,9 @@
   .calendarToggle {
     justify-content: flex-start;
     text-align: left;
+  }
+
+  .dateFilterWrap {
+    justify-content: flex-start;
   }
 }

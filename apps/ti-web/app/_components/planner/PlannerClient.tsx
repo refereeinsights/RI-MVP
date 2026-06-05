@@ -334,6 +334,34 @@ function formatDateRangeLabel(start: string | null, end: string | null) {
   return sText || eText;
 }
 
+function parseLocalDateInput(value: string | null) {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (![year, month, day].every(Number.isFinite)) return null;
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
+}
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function dateInputToStartIso(value: string | null) {
+  const parsed = parseLocalDateInput(value);
+  return parsed ? parsed.toISOString() : null;
+}
+
+function dateInputToExclusiveEndIso(value: string | null) {
+  const parsed = parseLocalDateInput(value);
+  return parsed ? addDaysLocal(parsed, 1).toISOString() : null;
+}
+
 function appleMapsUrl(query: string) {
   const q = String(query ?? "").trim();
   if (!q) return null;
@@ -491,6 +519,11 @@ export default function PlannerClient(props: Props) {
   const [scheduleView, setScheduleView] = useState<ScheduleView>("upcoming");
   const [seasonRange, setSeasonRange] = useState<SeasonRangePreset>("6mo");
   const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>("all");
+  const [seasonDateFilterOpen, setSeasonDateFilterOpen] = useState(false);
+  const [seasonDateStart, setSeasonDateStart] = useState("");
+  const [seasonDateEnd, setSeasonDateEnd] = useState("");
+  const [seasonDateDraftStart, setSeasonDateDraftStart] = useState("");
+  const [seasonDateDraftEnd, setSeasonDateDraftEnd] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [calendarsOpen, setCalendarsOpen] = useState(false);
   const [dismissSeasonCalendarGateForSession, setDismissSeasonCalendarGateForSession] = useState(false);
@@ -901,7 +934,7 @@ export default function PlannerClient(props: Props) {
     };
   }, [editingId, editVenueId, editTournamentId, tz, editTimeZoneLocked]);
 
-	  async function loadEvents() {
+  async function loadEvents() {
 	    setEventsPagingBusy(true);
 	    const now = new Date();
 	    const limit = 200;
@@ -913,6 +946,8 @@ export default function PlannerClient(props: Props) {
 	    const effectiveLens: PlannerLens = scheduleView === "weekend" ? "weekend" : "season";
 	    const effectiveSeasonRange: SeasonRangePreset = scheduleView === "upcoming" ? "30d" : seasonRange;
 	    const effectiveSeasonFilter: SeasonFilter = scheduleView === "upcoming" ? "all" : seasonFilter;
+      const customSeasonStartIso = scheduleView === "season" ? dateInputToStartIso(seasonDateStart) : null;
+      const customSeasonEndIso = scheduleView === "season" ? dateInputToExclusiveEndIso(seasonDateEnd) : null;
 
 	    if (effectiveLens === "weekend") {
 	      const range = computeWeekendRangeLocal(now);
@@ -928,6 +963,8 @@ export default function PlannerClient(props: Props) {
 	            : addMonthsLocal(fromDate, 6);
 	      from = fromDate.toISOString();
 	      to = toDate.toISOString();
+        if (customSeasonStartIso) from = customSeasonStartIso;
+        if (customSeasonEndIso) to = customSeasonEndIso;
 
 	      if (effectiveSeasonFilter === "games") types = ["game"];
 	      else if (effectiveSeasonFilter === "practices") types = ["practice"];
@@ -1077,7 +1114,7 @@ export default function PlannerClient(props: Props) {
 	  useEffect(() => {
 	    void loadEvents().catch(() => {});
 	    // eslint-disable-next-line react-hooks/exhaustive-deps
-	  }, [scheduleView, seasonRange, seasonFilter]);
+	  }, [scheduleView, seasonRange, seasonFilter, seasonDateStart, seasonDateEnd]);
 
   const eventsForScheduleView = useMemo(() => {
     if (scheduleView !== "upcoming") return events;
@@ -1118,6 +1155,21 @@ export default function PlannerClient(props: Props) {
     if (familyFilter === "all") return eventsForScheduleView;
     return eventsForScheduleView.filter((event) => familyFilterMatchesEvent(event, familyFilter));
   }, [eventsForScheduleView, familyFilter]);
+
+  const seasonDateRangeLabel = useMemo(() => {
+    return formatDateRangeLabel(seasonDateStart || null, seasonDateEnd || null);
+  }, [seasonDateEnd, seasonDateStart]);
+
+  const seasonDateDraftError = useMemo(() => {
+    if (!seasonDateDraftStart || !seasonDateDraftEnd) return null;
+    if (seasonDateDraftStart <= seasonDateDraftEnd) return null;
+    return "Start date must be on or before end date.";
+  }, [seasonDateDraftEnd, seasonDateDraftStart]);
+
+  useEffect(() => {
+    if (scheduleView === "season") return;
+    setSeasonDateFilterOpen(false);
+  }, [scheduleView]);
 
   useEffect(() => {
     // If entitlement is revoked mid-session, force back to list.
@@ -1350,6 +1402,38 @@ export default function PlannerClient(props: Props) {
     if (scheduleView === "season") return "Season";
     return "Upcoming";
   }, [scheduleView]);
+
+  function openSeasonDateFilter() {
+    setSeasonDateDraftStart(seasonDateStart);
+    setSeasonDateDraftEnd(seasonDateEnd);
+    setSeasonDateFilterOpen(true);
+  }
+
+  function closeSeasonDateFilter() {
+    setSeasonDateDraftStart(seasonDateStart);
+    setSeasonDateDraftEnd(seasonDateEnd);
+    setSeasonDateFilterOpen(false);
+  }
+
+  function applySeasonDateFilter(nextStart: string, nextEnd: string) {
+    setSeasonDateStart(nextStart);
+    setSeasonDateEnd(nextEnd);
+    setSeasonDateFilterOpen(false);
+  }
+
+  function clearSeasonDateFilter() {
+    applySeasonDateFilter("", "");
+  }
+
+  function applySeasonDateQuickRange(kind: "weekend" | "next30") {
+    const today = startOfDayLocal(new Date());
+    if (kind === "weekend") {
+      const weekendRange = computeWeekendRangeLocal(today);
+      applySeasonDateFilter(toDateInputValue(weekendRange.fridayStart), toDateInputValue(addDaysLocal(weekendRange.fridayStart, 2)));
+      return;
+    }
+    applySeasonDateFilter(toDateInputValue(today), toDateInputValue(addDaysLocal(today, 29)));
+  }
 
   const sourceCountLabel = useMemo(() => {
     if (sourcesBusy) return "Loading calendars…";
@@ -2851,21 +2935,102 @@ export default function PlannerClient(props: Props) {
                   </button>
 		            </div>
 
-              {familyFilterOptions.length > 1 ? (
+              {familyFilterOptions.length > 1 || scheduleView === "season" ? (
                 <div className={styles.scheduleSelectRow}>
-                  <select
-                    className={styles.select}
-                    value={familyFilter}
-                    onChange={(e) => setFamilyFilter(e.target.value as FamilyFilterValue)}
-                    disabled={busy || familyProfilesBusy}
-                    aria-label="Filter schedule by child or team"
-                  >
-                    {familyFilterOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  {familyFilterOptions.length > 1 ? (
+                    <select
+                      className={styles.select}
+                      value={familyFilter}
+                      onChange={(e) => setFamilyFilter(e.target.value as FamilyFilterValue)}
+                      disabled={busy || familyProfilesBusy}
+                      aria-label="Filter schedule by child or team"
+                    >
+                      {familyFilterOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                  {scheduleView === "season" ? (
+                    <div className={styles.dateFilterWrap}>
+                      <button
+                        className={`${styles.secondaryBtn}${seasonDateRangeLabel ? ` ${styles.dateFilterBtnActive}` : ""}`}
+                        type="button"
+                        onClick={() => {
+                          if (busy) return;
+                          if (seasonDateFilterOpen) {
+                            closeSeasonDateFilter();
+                            return;
+                          }
+                          openSeasonDateFilter();
+                        }}
+                        disabled={busy}
+                        aria-expanded={seasonDateFilterOpen}
+                        aria-controls="season-date-filter-panel"
+                      >
+                        {seasonDateRangeLabel ? `Dates: ${seasonDateRangeLabel}` : "Dates"}
+                      </button>
+                      {seasonDateFilterOpen ? (
+                        <div className={styles.dateFilterPanel} id="season-date-filter-panel">
+                          <div className={styles.dateFilterFields}>
+                            <div>
+                              <label className={styles.label} htmlFor="season-date-start">
+                                Start date
+                              </label>
+                              <input
+                                id="season-date-start"
+                                className={styles.input}
+                                type="date"
+                                value={seasonDateDraftStart}
+                                onChange={(e) => setSeasonDateDraftStart(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className={styles.label} htmlFor="season-date-end">
+                                End date
+                              </label>
+                              <input
+                                id="season-date-end"
+                                className={styles.input}
+                                type="date"
+                                value={seasonDateDraftEnd}
+                                onChange={(e) => setSeasonDateDraftEnd(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          {seasonDateDraftError ? <div className={styles.dateFilterError}>{seasonDateDraftError}</div> : null}
+                          <div className={styles.dateFilterQuickActions}>
+                            <button className={styles.secondaryBtn} type="button" onClick={() => applySeasonDateQuickRange("weekend")}>
+                              This weekend
+                            </button>
+                            <button className={styles.secondaryBtn} type="button" onClick={() => applySeasonDateQuickRange("next30")}>
+                              Next 30 days
+                            </button>
+                            <button className={styles.secondaryBtn} type="button" onClick={clearSeasonDateFilter}>
+                              Clear
+                            </button>
+                            <button className={styles.secondaryBtn} type="button" onClick={clearSeasonDateFilter}>
+                              This season
+                            </button>
+                          </div>
+                          <div className={styles.dateFilterActions}>
+                            <button
+                              className={styles.primaryBtn}
+                              type="button"
+                              onClick={() => applySeasonDateFilter(seasonDateDraftStart, seasonDateDraftEnd)}
+                              disabled={Boolean(seasonDateDraftError)}
+                            >
+                              Apply
+                            </button>
+                            <button className={styles.secondaryBtn} type="button" onClick={closeSeasonDateFilter}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -2880,6 +3045,9 @@ export default function PlannerClient(props: Props) {
 		          ) : scheduleView === "upcoming" ? (
 		            <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>Next 30 days · loaded events only</div>
 		          ) : null}
+              {scheduleView === "season" && seasonDateRangeLabel ? (
+                <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>Dates: {seasonDateRangeLabel}</div>
+              ) : null}
               {familyFilter !== "all" ? (
                 <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>Filtered by {activeFamilyFilterLabel}</div>
               ) : null}
@@ -3050,7 +3218,11 @@ export default function PlannerClient(props: Props) {
 	            </div>
 	          ) : (
 	            <div className={styles.muted}>
-	              {familyFilter === "all" ? (
+	              {seasonDateRangeLabel ? familyFilter === "all" ? (
+                  <>No season events match this date range. Clear <b>Dates</b> or choose another range.</>
+                ) : (
+                  <>No season events match <b>{activeFamilyFilterLabel}</b> in this date range. Clear <b>Dates</b> or choose another range.</>
+                ) : familyFilter === "all" ? (
                   <>No season events yet. Connect a team calendar or add events manually to build your planner.</>
                 ) : (
                   <>No season events match <b>{activeFamilyFilterLabel}</b>. Try <b>All schedules</b> or another family filter.</>
