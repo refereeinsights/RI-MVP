@@ -8,21 +8,32 @@ function mockSupabaseWithVenues(venues: Array<{ id: string; name: string | null;
     from() {
       let stateFilter = "";
       let cityFilter = "";
+      let hasStateFilter = false;
+      let hasCityFilter = false;
       return {
         select() {
           return this;
         },
         eq(_column: string, value: string) {
           stateFilter = value;
+          hasStateFilter = true;
           return this;
         },
         ilike(_column: string, value: string) {
           cityFilter = value.toLowerCase();
+          hasCityFilter = true;
           return this;
         },
         async limit() {
           return {
-            data: venues.filter((venue) => String(venue.state ?? "") === stateFilter && String(venue.city ?? "").toLowerCase() === cityFilter),
+            data:
+              hasStateFilter || hasCityFilter
+                ? venues.filter(
+                    (venue) =>
+                      (!hasStateFilter || String(venue.state ?? "") === stateFilter) &&
+                      (!hasCityFilter || String(venue.city ?? "").toLowerCase() === cityFilter),
+                  )
+                : venues,
             error: null,
           };
         },
@@ -83,6 +94,47 @@ test("resolvePlannerVenueMatches matches exact venue name with city/state contex
   ]);
 
   assert.equal(matches.get("evt1"), "v1");
+});
+
+test("resolvePlannerVenueMatches extracts venue name from source location text with trailing city/state/country", async () => {
+  const supabase = mockSupabaseWithVenues([
+    { id: "v1", name: "Dwight Merkel Sports Complex", address: "Foo", city: "Spokane", state: "WA" },
+    { id: "v2", name: "Another Complex", address: "Bar", city: "Spokane", state: "WA" },
+  ]);
+
+  const matches = await resolvePlannerVenueMatches(supabase as any, [
+    { id: "evt1", address_text: "Dwight Merkel Sports Complex Spokane, WA, United States", city: null, state: null },
+  ]);
+
+  assert.equal(matches.get("evt1"), "v1");
+});
+
+test("resolvePlannerVenueMatches strips trailing sub-venue text from full street addresses", async () => {
+  const supabase = mockSupabaseWithVenues([
+    { id: "v1", name: "The Warehouse Athletic Facility", address: "800 N Hamilton St", city: "Spokane", state: "WA" },
+    { id: "v2", name: "The Hub", address: "19619 E Cataldo Ave", city: "Liberty Lake", state: "WA" },
+  ]);
+
+  const matches = await resolvePlannerVenueMatches(supabase as any, [
+    { id: "evt1", address_text: "800 N Hamilton St, Spokane, WA 99202, USA - Warehouse Court 3", city: null, state: null },
+    { id: "evt2", address_text: "19619 E Cataldo Ave, Liberty Lake, WA 99016, USA - The Hub Court 1", city: null, state: null },
+  ]);
+
+  assert.equal(matches.get("evt1"), "v1");
+  assert.equal(matches.get("evt2"), "v2");
+});
+
+test("resolvePlannerVenueMatches does not auto-link global name matches when multiple venues share the same name", async () => {
+  const supabase = mockSupabaseWithVenues([
+    { id: "v1", name: "Dwight Merkel Sports Complex", address: "Foo", city: "Spokane", state: "WA" },
+    { id: "v2", name: "Dwight Merkel Sports Complex", address: "Bar", city: "Seattle", state: "WA" },
+  ]);
+
+  const matches = await resolvePlannerVenueMatches(supabase as any, [
+    { id: "evt1", address_text: "Dwight Merkel Sports Complex", city: null, state: null },
+  ]);
+
+  assert.equal(matches.has("evt1"), false);
 });
 
 test("resolvePlannerVenueMatches does not auto-link when multiple candidates share an exact address", async () => {

@@ -957,6 +957,14 @@
   justify-content: flex-start;
 }
 
+.eventActionSummaryRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  justify-content: flex-start;
+}
+
 .eventActionsCenter {
   justify-content: center;
 }
@@ -1168,6 +1176,7 @@
   .scheduleViewButtonsRow,
   .calendarToggle,
   .eventActions,
+  .eventActionSummaryRow,
   .dateFilterActions {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1178,6 +1187,7 @@
   .scheduleViewButtonsRow > *,
   .calendarToggle > *,
   .eventActions > *,
+  .eventActionSummaryRow > *,
   .dateFilterActions > * {
     justify-content: center;
   }

@@ -52,6 +52,8 @@ const ADDRESS_ALIASES = new Map<string, string>([
   ["mt", "mount"], ["ft", "fort"], ["ste", "suite"], ["suite", "suite"],
 ]);
 
+const COUNTRY_SUFFIX_PATTERN = /\b(?:united states|usa|u\.?s\.?a?\.?)$/i;
+
 function collapseWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -95,9 +97,61 @@ function looksLikeStreetAddress(value: string | null | undefined) {
   return /\b\d{1,6}\s+[a-z0-9]/i.test(String(value ?? ""));
 }
 
+function stripCountrySuffix(value: string) {
+  return collapseWhitespace(
+    value
+      .replace(/,\s*(?:united states|usa|u\.?s\.?a?\.?)$/i, "")
+      .replace(COUNTRY_SUFFIX_PATTERN, ""),
+  );
+}
+
+function stripTrailingAddressContext(value: string) {
+  const trimmed = collapseWhitespace(value);
+  if (!trimmed) return "";
+  const parts = trimmed.split(/\s+(?:\||\/|–|-)\s+/).map((part) => collapseWhitespace(part)).filter(Boolean);
+  if (parts.length <= 1) return trimmed;
+
+  for (let index = 1; index < parts.length; index += 1) {
+    const left = parts.slice(0, index).join(", ");
+    if (!looksLikeStreetAddress(left)) continue;
+    const parsed = parseCityStateFromAddressText(left);
+    if (parsed.city && parsed.state) {
+      return left;
+    }
+  }
+
+  return trimmed;
+}
+
 function parseCityStateFromAddressText(addressText: string) {
-  const segments = addressText.split(",").map((segment) => collapseWhitespace(segment)).filter(Boolean);
-  if (segments.length < 2) return { city: null as string | null, state: null as string | null, baseText: addressText };
+  const withoutCountry = stripCountrySuffix(stripTrailingAddressContext(addressText));
+
+  const combinedCityStateMatch = withoutCountry.match(/^(.*)(?:\s+|,\s*)([A-Za-z][A-Za-z\s.'-]+?),\s*([A-Za-z]{2})$/);
+  if (combinedCityStateMatch) {
+    const normalizedState = normalizeStateToken(combinedCityStateMatch[3]);
+    if (normalizedState) {
+      return {
+        city: collapseWhitespace(combinedCityStateMatch[2] ?? "") || null,
+        state: normalizedState,
+        baseText: collapseWhitespace(combinedCityStateMatch[1] ?? "") || withoutCountry,
+      };
+    }
+  }
+
+  const compactCityStateMatch = withoutCountry.match(/^(.*)(?:\s+|,\s*)([A-Za-z][A-Za-z\s.'-]+?)\s+([A-Za-z]{2})$/);
+  if (compactCityStateMatch) {
+    const normalizedState = normalizeStateToken(compactCityStateMatch[3]);
+    if (normalizedState) {
+      return {
+        city: collapseWhitespace(compactCityStateMatch[2] ?? "") || null,
+        state: normalizedState,
+        baseText: collapseWhitespace(compactCityStateMatch[1] ?? "") || withoutCountry,
+      };
+    }
+  }
+
+  const segments = withoutCountry.split(",").map((segment) => collapseWhitespace(segment)).filter(Boolean);
+  if (segments.length < 2) return { city: null as string | null, state: null as string | null, baseText: withoutCountry };
 
   const last = segments[segments.length - 1] ?? "";
   const prev = segments[segments.length - 2] ?? "";
@@ -106,7 +160,7 @@ function parseCityStateFromAddressText(addressText: string) {
     return {
       city: prev || null,
       state: normalizedState,
-      baseText: segments.slice(0, -2).join(", ") || segments[0] || addressText,
+      baseText: segments.slice(0, -2).join(", ") || segments[0] || withoutCountry,
     };
   }
 
@@ -116,11 +170,11 @@ function parseCityStateFromAddressText(addressText: string) {
     return {
       city: collapseWhitespace(combinedMatch?.[1] ?? "") || prev || null,
       state: combinedState,
-      baseText: segments.slice(0, -1).join(", ") || addressText,
+      baseText: segments.slice(0, -1).join(", ") || withoutCountry,
     };
   }
 
-  return { city: null, state: null, baseText: addressText };
+  return { city: null, state: null, baseText: withoutCountry };
 }
 
 type ParsedLocationContext = {
@@ -129,11 +183,25 @@ type ParsedLocationContext = {
   cityText: string | null;
   stateText: string | null;
   normalizedBase: string;
+  normalizedNameCandidate: string;
   normalizedCity: string | null;
   normalizedState: string | null;
   hasStreetAddress: boolean;
   mapEligible: boolean;
 };
+
+function inferVenueNameCandidate(baseText: string) {
+  const withoutCountry = stripCountrySuffix(baseText);
+  if (!withoutCountry) return "";
+
+  const combinedCityStateMatch = withoutCountry.match(/^(.*)(?:\s+|,\s*)([A-Za-z][A-Za-z\s.'-]+?),\s*([A-Za-z]{2})$/);
+  if (combinedCityStateMatch) return collapseWhitespace(combinedCityStateMatch[1] ?? "");
+
+  const compactCityStateMatch = withoutCountry.match(/^(.*)(?:\s+|,\s*)([A-Za-z][A-Za-z\s.'-]+?)\s+([A-Za-z]{2})$/);
+  if (compactCityStateMatch) return collapseWhitespace(compactCityStateMatch[1] ?? "");
+
+  return withoutCountry;
+}
 
 function parseLocationContext(params: { address_text: string | null; city: string | null; state: string | null }): ParsedLocationContext | null {
   const addressText = collapseWhitespace(String(params.address_text ?? ""));
@@ -151,6 +219,7 @@ function parseLocationContext(params: { address_text: string | null; city: strin
   const normalizedCity = city ? normalizeComparableText(city) : null;
   const normalizedState = state ? normalizeStateToken(state) : null;
   const normalizedBase = normalizeComparableText(baseText);
+  const normalizedNameCandidate = normalizeComparableText(inferVenueNameCandidate(baseText));
   const mapEligible = hasStreetAddress || (!!normalizedCity && !!normalizedState && !!normalizedBase && !isFieldOnlyLabel(baseText));
 
   return {
@@ -159,6 +228,7 @@ function parseLocationContext(params: { address_text: string | null; city: strin
     cityText: city || null,
     stateText: state || null,
     normalizedBase,
+    normalizedNameCandidate,
     normalizedCity,
     normalizedState,
     hasStreetAddress,
@@ -216,13 +286,14 @@ export async function resolvePlannerVenueMatches(
 ): Promise<Map<string, string>> {
   const contexts = events
     .map((event) => ({ event, context: parseLocationContext(event) }))
-    .filter((row): row is { event: PlannerVenueMatchTarget; context: ParsedLocationContext } => Boolean(row.context))
-    .filter((row) => Boolean(row.context.normalizedCity && row.context.normalizedState && row.context.normalizedBase));
+    .filter((row): row is { event: PlannerVenueMatchTarget; context: ParsedLocationContext } => Boolean(row.context));
 
   if (!contexts.length) return new Map<string, string>();
 
+  const cityStateContexts = contexts.filter((row) => Boolean(row.context.normalizedCity && row.context.normalizedState && row.context.normalizedBase));
+
   const groupKeyToEvents = new Map<string, Array<{ event: PlannerVenueMatchTarget; context: ParsedLocationContext }>>();
-  for (const row of contexts) {
+  for (const row of cityStateContexts) {
     const key = `${row.context.normalizedState}|${row.context.normalizedCity}`;
     const bucket = groupKeyToEvents.get(key) ?? [];
     bucket.push(row);
@@ -281,9 +352,47 @@ export async function resolvePlannerVenueMatches(
 
       if (row.context.hasStreetAddress) continue;
 
-      const exactNameMatches = candidates.filter((candidate) => candidate.normalizedName && candidate.normalizedName === row.context.normalizedBase);
+      const exactNameMatches = candidates.filter(
+        (candidate) =>
+          candidate.normalizedName &&
+          (candidate.normalizedName === row.context.normalizedBase || candidate.normalizedName === row.context.normalizedNameCandidate),
+      );
       if (exactNameMatches.length === 1) {
         matches.set(row.event.id, exactNameMatches[0]!.id);
+      }
+    }
+  }
+
+  const unresolvedGlobalNameRows = contexts.filter(
+    (row) => !matches.has(row.event.id) && !row.context.hasStreetAddress && row.context.normalizedNameCandidate,
+  );
+
+  if (unresolvedGlobalNameRows.length) {
+    const { data, error } = await (supabase.from("venues_public" as any) as any)
+      .select("id,name,address,city,state")
+      .limit(5000);
+
+    if (!error) {
+      const globalCandidates = ((data ?? []) as any[])
+        .map((venue: any) =>
+          normalizeVenueCandidate({
+            id: String(venue?.id ?? ""),
+            name: venue?.name ?? null,
+            address: venue?.address ?? null,
+            city: venue?.city ?? null,
+            state: venue?.state ?? null,
+            seo_slug: null,
+          }),
+        )
+        .filter((venue: NormalizedVenueCandidate) => venue.id && venue.normalizedName);
+
+      for (const row of unresolvedGlobalNameRows) {
+        const exactNameMatches = globalCandidates.filter(
+          (candidate) => candidate.normalizedName && candidate.normalizedName === row.context.normalizedNameCandidate,
+        );
+        if (exactNameMatches.length === 1) {
+          matches.set(row.event.id, exactNameMatches[0]!.id);
+        }
       }
     }
   }

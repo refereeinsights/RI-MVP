@@ -515,6 +515,7 @@ export default function PlannerClient(props: Props) {
   const [savingSourceAssignmentId, setSavingSourceAssignmentId] = useState<string | null>(null);
   const [sourceAssignmentErrorById, setSourceAssignmentErrorById] = useState<Record<string, string>>({});
   const [disconnectingSourceId, setDisconnectingSourceId] = useState<string | null>(null);
+  const [expandedEventActions, setExpandedEventActions] = useState<Set<string>>(new Set());
 
   const [scheduleView, setScheduleView] = useState<ScheduleView>("upcoming");
   const [seasonRange, setSeasonRange] = useState<SeasonRangePreset>("6mo");
@@ -567,6 +568,15 @@ export default function PlannerClient(props: Props) {
     } catch {
       // ignore
     }
+  }
+
+  function toggleEventActions(eventId: string) {
+    setExpandedEventActions((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
   }
 
   function openMergeModal(args: { anchorEventId: string; candidateEventId: string }) {
@@ -729,24 +739,16 @@ export default function PlannerClient(props: Props) {
     return getVenueHref({ id: venueId, seo_slug: venue?.seo_slug ?? null });
   };
   const venueContextRowsForEvent = (e: PlannerEventRow) => {
-    const fieldLabel = String(e.field_label ?? "").trim();
     const linked = linkedVenueLabelForEvent(e);
     const source = sourceLocationForEvent(e);
     const linkedHref = venueHrefForEvent(e);
     const rows: Array<{
-      key: "fieldLabel" | "linkedVenue" | "sourceLocation";
-      label: "Field label" | "Linked venue" | "Source location";
+      key: "linkedVenue" | "sourceLocation";
+      label: "Linked venue" | "Source location";
       text: string;
       href?: string | null;
     }> = [];
 
-    if (fieldLabel) {
-      rows.push({
-        key: "fieldLabel",
-        label: "Field label",
-        text: fieldLabel,
-      });
-    }
     if (linked) {
       rows.push({
         key: "linkedVenue",
@@ -783,6 +785,15 @@ export default function PlannerClient(props: Props) {
     const loc = mapLocationForEvent(e);
     if (!loc) return null;
     return mapsSearchUrl(loc);
+  };
+  const inlineFieldLabelForEvent = (e: PlannerEventRow) => {
+    const explicitFieldLabel = String(e.field_label ?? "").trim();
+    if (explicitFieldLabel) return explicitFieldLabel;
+    const notes = String(e.notes ?? "").trim();
+    if (!notes) return "";
+    if (!/^(field|court|gym)\b/i.test(notes)) return "";
+    if (notes.includes("\n")) return "";
+    return notes;
   };
 
   function openMapForEvent(e: PlannerEventRow) {
@@ -3253,6 +3264,16 @@ export default function PlannerClient(props: Props) {
                     const sourceLabelBadgeFallback = sourceLabelOwnershipFallback(e);
                     const venueRows = venueContextRowsForEvent(e);
                     const mapUrl = mapsUrlForEvent(e);
+                    const fieldLabel = inlineFieldLabelForEvent(e);
+                    const isActionsExpanded = expandedEventActions.has(e.id);
+                    const eventMetaLine = [
+                      timeRangeLabel,
+                      fieldLabel || null,
+                      e.venue_id ? "Venue selected" : null,
+                      e.tournament_id ? "Tournament selected" : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
                     const nextUpSummaryParts = [timeRangeLabel];
                     const venueLine = venueDisplayLineForEvent(e);
                     if (venueLine) nextUpSummaryParts.push(venueLine);
@@ -3272,12 +3293,6 @@ export default function PlannerClient(props: Props) {
                         <div className={styles.eventHeaderRow}>
                           <div className={styles.eventTitleBlock}>
                             <div className={styles.eventTitle}>{e.title}</div>
-                            <div className={styles.eventLabelRow}>
-                              <span className={styles.eventPill}>{String(e.event_type || "game")}</span>
-                              {(String(e.source_type || "") === "ics" || String((e as any)?.source_event_uid ?? "").trim()) && !sourceLabelBadgeFallback ? (
-                                <span className={styles.eventPill}>{labelForImportedEvent(e)}</span>
-                              ) : null}
-                            </div>
                           </div>
                           <div className={styles.eventHeaderMeta}>
                             {familyAssignmentLabel ? (
@@ -3306,11 +3321,7 @@ export default function PlannerClient(props: Props) {
                             {conflictCount ? <span className={styles.eventConflictBadge}>Schedule conflict</span> : null}
                           </div>
                         </div>
-                        <div className={styles.eventMeta}>
-                          {timeRangeLabel}
-                          {e.venue_id ? " · Venue selected" : ""}
-                          {e.tournament_id ? " · Tournament selected" : ""}
-                        </div>
+                        <div className={styles.eventMeta}>{eventMetaLine}</div>
                         {conflictCount ? (
                           <div className={styles.eventConflictNote}>
                             Overlaps with {conflictCount} loaded {conflictCount === 1 ? "event" : "events"}.
@@ -3346,7 +3357,7 @@ export default function PlannerClient(props: Props) {
                             <span className={styles.muted}>No location added yet.</span>
                           </div>
                         )}
-                        {e.notes ? <div className={styles.eventMeta}>{e.notes}</div> : null}
+                        {e.notes && String(e.notes).trim() !== fieldLabel ? <div className={styles.eventMeta}>{e.notes}</div> : null}
 
                         {dupesByEventId.get(e.id)?.length ? (
                           <div className={styles.eventMeta} style={{ marginTop: 8 }}>
@@ -3395,50 +3406,57 @@ export default function PlannerClient(props: Props) {
                           </div>
                         ) : null}
 
-                        <div className={styles.eventActions}>
-                          {!isEditing ? (
-                            <>
-                              {mapUrl && isNextUpcomingLoadedEvent ? (
+                        {!isEditing ? (
+                          <>
+                            <div className={styles.eventActionSummaryRow}>
+                              {mapUrl ? (
                                 <button className={styles.secondaryBtn} type="button" onClick={() => openMapForEvent(e)} disabled={busy}>
                                   Map
                                 </button>
                               ) : null}
                               <button
                                 className={styles.secondaryBtn}
-                                onClick={() => beginEdit(e)}
-                                disabled={busy}
-                                title="Optional: match this event to a known venue"
+                                type="button"
+                                onClick={() => toggleEventActions(e.id)}
+                                aria-expanded={isActionsExpanded}
                               >
-                                {e.venue_id ? "Change venue" : "Find venue"}
+                                {isActionsExpanded ? "Hide actions ▴" : "Actions ▾"}
                               </button>
-                              {mapUrl && !isNextUpcomingLoadedEvent ? (
-                                <button className={styles.secondaryBtn} type="button" onClick={() => openMapForEvent(e)} disabled={busy}>
-                                  Map
+                            </div>
+                            {isActionsExpanded ? (
+                              <div className={styles.eventActions}>
+                                <button
+                                  className={styles.secondaryBtn}
+                                  onClick={() => beginEdit(e)}
+                                  disabled={busy}
+                                  title="Optional: match this event to a known venue"
+                                >
+                                  {e.venue_id ? "Change venue" : "Find venue"}
                                 </button>
-                              ) : null}
-                              <button className={styles.secondaryBtn} onClick={() => beginEdit(e)} disabled={busy}>
-                                Edit
-                              </button>
-                              {eventAllowsAssignment ? (
-                                <button className={styles.secondaryBtn} onClick={() => void onDuplicate(e)} disabled={busy}>
-                                  Duplicate
+                                <button className={styles.secondaryBtn} onClick={() => beginEdit(e)} disabled={busy}>
+                                  Edit
                                 </button>
-                              ) : null}
-                              <button className={styles.dangerBtn} onClick={() => onDelete(e)} disabled={busy}>
-                                Delete
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button className={styles.primaryBtn} onClick={onSaveEdit} disabled={busy}>
-                                Save
-                              </button>
-                              <button className={styles.secondaryBtn} onClick={cancelEdit} disabled={busy}>
-                                Cancel
-                              </button>
-                            </>
-                          )}
-                        </div>
+                                {eventAllowsAssignment ? (
+                                  <button className={styles.secondaryBtn} onClick={() => void onDuplicate(e)} disabled={busy}>
+                                    Duplicate
+                                  </button>
+                                ) : null}
+                                <button className={styles.dangerBtn} onClick={() => onDelete(e)} disabled={busy}>
+                                  Delete
+                                </button>
+                              </div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <div className={styles.eventActions}>
+                            <button className={styles.primaryBtn} onClick={onSaveEdit} disabled={busy}>
+                              Save
+                            </button>
+                            <button className={styles.secondaryBtn} onClick={cancelEdit} disabled={busy}>
+                              Cancel
+                            </button>
+                          </div>
+                        )}
 
                         {isEditing ? (
                           <div style={{ marginTop: 8, display: "grid", gap: 10 }}>

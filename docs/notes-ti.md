@@ -20,6 +20,7 @@ Maintenance rules:
   - Wired the custom date range into the existing planner fetch path only for `Season`, preserving current family filters, calendar/list consistency, and the existing `seasonRange` presets as the default when no custom range is active.
   - Added mobile-safe planner styling so the date popover stays contained beside the family filter row rather than expanding the page layout.
   - Followed up so `Dates` remains visible in all planner views and applying a custom range automatically moves the planner into `Season`, which matches the intended mental model better than hiding the control behind the Season lens.
+  - Cleaned up planner list cards by removing the always-visible event-type/source chips, moving field labels inline with the time row, and collapsing maintenance actions under an `Actions` disclosure while preserving `Map` as the main visible quick action.
 - TI Weekend Planner Stage `3.3C-5` conservative venue matching + venue/map click paths:
   - Added conservative batch venue matching for imported/refreshing ICS events using internal TI venue data only, with no backfill and no overwrite of any existing non-null `venue_id`.
   - Updated planner list/calendar event location behavior so linked venues open TI venue pages in new tabs, meaningful unmatched source locations open maps, field-only labels stay informational, and month-view event chips more clearly signal clickability.
@@ -30,6 +31,7 @@ Maintenance rules:
   - Added `supabase/migrations/20260605_ti_fix_venue_slug_generator.sql` to fix the venue SEO slug generator/backfill path after observing broken slugs like `ast-esa-ports-omplex-as-ruces` from uppercase-character stripping.
   - Added shared planner assignment inference in `apps/ti-web/lib/planner/inferAssignmentFromSourceLabel.ts` and applied it to both list and calendar rendering so source-linked Casey-style events no longer show a badge in list view but unassigned state in calendar view when explicit source assignment is absent.
   - Moved planner source/profile lookup memos earlier in `apps/ti-web/app/_components/planner/PlannerClient.tsx` to fix a local `sourcesById` initialization-order crash triggered by list filtering/sorting after the Casey assignment follow-up.
+  - Expanded conservative planner venue matching to cover venue names embedded in source-location text and full street-address strings with trailing sub-venue suffixes, then applied local planner-event backfills that linked the remaining Dwight Merkel, Warehouse, and Hub rows once they resolved uniquely.
 
 ## 2026-06-04
 
