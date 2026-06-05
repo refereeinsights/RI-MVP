@@ -21,6 +21,8 @@ Maintenance rules:
   - Tightened imported-event badge consistency so child-prefixed source labels like `Casey Owls 15U - TC` move into the same upper-right badge location already used by `Avery Sports · TI Owls 12U`, rather than rendering inline beside the event-type chip.
   - Hardened linked-venue hydration in `apps/ti-web/lib/planner/enrichVenueMetadata.ts` so planner cards fall back to the canonical `venues` table when a matched `venue_id` is missing from `venues_public`, restoring the TI venue-name link on matched event cards while preserving the separate map/directions path.
   - Fixed the final localhost hydration mismatch by removing planner-side assumptions that `venues_public` already exposes `seo_slug`, adding `supabase/migrations/20260605_ti_venues_public_add_seo_slug.sql` for long-term schema parity, and adding tests that cover both public-view hydration and fallback-to-`venues` behavior.
+  - Localhost follow-up UAT now passes the matched-venue click-path blocker, so `Stage 3.3C-5` is ready; the remaining field-label coexistence check is still fixture-limited and the `375px` check remains tooling-limited.
+  - Added `supabase/migrations/20260605_ti_fix_venue_slug_generator.sql` to fix the venue SEO slug generator/backfill path after observing broken slugs like `ast-esa-ports-omplex-as-ruces` from uppercase-character stripping.
 
 ## 2026-06-04
 

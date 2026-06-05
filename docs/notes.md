@@ -20,6 +20,8 @@ Maintenance rules:
   - Followed up on planner badge consistency in `apps/ti-web/app/_components/planner/PlannerClient.tsx` so child-prefixed imported source labels like `Casey Owls 15U - TC` render in the same upper-right ownership badge slot as `Avery Sports · TI Owls 12U` instead of falling back to the inline chip row.
   - Followed up on localhost UAT by hardening `apps/ti-web/lib/planner/enrichVenueMetadata.ts` to fall back from `venues_public` to `venues` when a selected `venue_id` is not present in the public projection, so matched event cards can consistently surface the TI venue-name link instead of collapsing to address/maps-only behavior.
   - Closed the remaining hydration gap by removing the planner's hard dependency on `seo_slug` being present on `venues_public`, adding `supabase/migrations/20260605_ti_venues_public_add_seo_slug.sql` for schema alignment, and covering both public-view hydration and `venues` fallback in `apps/ti-web/lib/planner/enrichVenueMetadata.test.ts`.
+  - Re-run localhost UAT now passes the `Section 4` matched-venue click-path blocker, so `Stage 3.3C-5` is ready; the remaining `field label + real location` check is fixture-limited and mobile `375px` verification is tooling-limited rather than a known regression.
+  - Added `supabase/migrations/20260605_ti_fix_venue_slug_generator.sql` to correct the venue SEO slug generator so uppercase letters are normalized instead of dropped, and to backfill any already-broken venue slugs before production.
 
 ## 2026-06-04
 
