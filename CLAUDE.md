@@ -1488,11 +1488,12 @@ Checks:
 - Venue Details:
   - [ ] From the venue card, click **View venue**.
   - [ ] If the page supports selecting a tournament context via `?tournament=...`, choose one so a tournament slug exists.
-  - [ ] Confirm a primary CTA **Plan around this venue** appears.
-  - [ ] Click **Plan around this venue** → opens `/tournaments/[slug]/map?venue=...&source=venue_details` in the SAME TAB.
-  - [ ] Click the map preview itself → should also open the internal planning map (not Google/Apple directly).
+  - [ ] Confirm the static venue map shows an internal overlay cue near the bottom center:
+    - desktop/tablet: `Click map to see hotels, food & coffee nearby →`
+    - mobile/narrow: `Tap to plan nearby →`
+  - [ ] Click the map preview itself → opens `/tournaments/[slug]/map?venue=...&source=venue_details` in the SAME TAB (not Google/Apple directly).
   - [ ] Confirm **Get directions** remains available as a secondary action and works.
-  - [ ] If no tournament context is present, confirm the map preview does NOT act as an external maps link; directions should require the explicit “Get directions” action.
+  - [ ] If no tournament context is present, confirm the map preview does NOT show the planning overlay and does NOT act as an external maps link; directions should require the explicit `Get directions` action.
 
 ### TI Subscription & Conversion Sprint UAT (v1.4)
 

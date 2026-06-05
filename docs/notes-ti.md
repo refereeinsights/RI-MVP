@@ -23,6 +23,9 @@ Maintenance rules:
   - Tightened the month-view selected-event summary card so its title/time content is centered within the compact Schedule-X agenda surface, while deliberately not adding raw source-location text there because venue/location details already live in the richer planner card and detail surfaces.
   - Cleaned up planner list cards by removing the always-visible event-type/source chips, moving field labels inline with the time row, and collapsing maintenance actions under an `Actions` disclosure while preserving `Map` as the main visible quick action.
   - Followed up so linked-venue cards suppress the redundant `SOURCE LOCATION` row in the main list UI while keeping source location data available in edit for audit/debugging.
+- TI venue detail map-click clarity:
+  - Added a bottom-center overlay inside the static venue map preview that advertises the TI nearby-planning surface only when the existing map preview is already clickable through valid tournament context.
+  - Kept the overlay as a non-interactive child of the existing planning-map link, preserved the external directions buttons, and left plain static-map / fallback venue-link states unchanged so the UI does not overpromise a planning destination where none exists.
 - TI Weekend Planner Stage `3.3C-5` conservative venue matching + venue/map click paths:
   - Added conservative batch venue matching for imported/refreshing ICS events using internal TI venue data only, with no backfill and no overwrite of any existing non-null `venue_id`.
   - Updated planner list/calendar event location behavior so linked venues open TI venue pages in new tabs, meaningful unmatched source locations open maps, field-only labels stay informational, and month-view event chips more clearly signal clickability.

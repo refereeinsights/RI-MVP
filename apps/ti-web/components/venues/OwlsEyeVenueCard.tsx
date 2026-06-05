@@ -194,36 +194,23 @@ export default function OwlsEyeVenueCard({
               </div>
               <div className="detailLinksRow detailVenueUrlRow">
                 {staticMapUrl ? (
-                  <div
-                    style={{
-                      position: "relative",
-                      width: "min(720px, 100%)",
-                      marginTop: 10,
-                      borderRadius: 14,
-                      overflow: "hidden",
-                      border: "1px solid rgba(0,0,0,0.10)",
-                      background: "#fff",
-                      height: "clamp(190px, 28vw, 260px)",
-                    }}
-                  >
+                  <div className="detailVenueStaticMap">
                     <img
                       src={staticMapUrl}
                       alt={venue.name ? `Map showing the location of ${venue.name}` : "Map showing the venue location"}
                       loading="lazy"
                       decoding="async"
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      className="detailVenueStaticMap__image"
                     />
                     {mapPreviewHref ? (
                       <VenuePlanningMapLinkClient
                         href={mapPreviewHref}
-                        ariaLabel={venue.name ? `Open planning map for ${venue.name}` : "Open planning map"}
-                        className=""
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          display: "block",
-                        }}
-                        // Full overlay.
+                        ariaLabel={
+                          venue.name
+                            ? `Plan around this venue: see hotels, food, coffee, rentals, and directions nearby for ${venue.name}`
+                            : "Plan around this venue: see hotels, food, coffee, rentals, and directions nearby"
+                        }
+                        className="detailVenueStaticMap__overlayLink"
                         event={{
                           name: "venue_details_plan_map_click",
                           properties: {
@@ -234,7 +221,10 @@ export default function OwlsEyeVenueCard({
                           },
                         }}
                       >
-                        <span style={{ display: "block", width: "100%", height: "100%" }} />
+                        <span className="detailVenueStaticMap__overlayCta" aria-hidden="true">
+                          <span className="detailVenueStaticMap__overlayDesktop">Click map to see hotels, food &amp; coffee nearby →</span>
+                          <span className="detailVenueStaticMap__overlayMobile">Tap to plan nearby →</span>
+                        </span>
                       </VenuePlanningMapLinkClient>
                     ) : null}
                   </div>
