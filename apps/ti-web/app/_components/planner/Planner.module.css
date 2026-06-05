@@ -560,6 +560,27 @@
   cursor: pointer;
 }
 
+.sxWrapper :global(.sx__month-agenda-event) {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.sxWrapper :global(.sx__month-agenda-event__title) {
+  text-align: center;
+}
+
+.sxWrapper :global(.sx__month-agenda-event__time),
+.sxWrapper :global(.sx__month-agenda-event__has-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  text-align: center;
+}
+
 .calendarFrame {
   display: flex;
   flex-direction: column;

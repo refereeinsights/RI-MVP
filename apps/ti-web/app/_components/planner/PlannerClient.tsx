@@ -3411,7 +3411,7 @@ export default function PlannerClient(props: Props) {
                             <div className={styles.eventActionSummaryRow}>
                               {mapUrl ? (
                                 <button className={styles.secondaryBtn} type="button" onClick={() => openMapForEvent(e)} disabled={busy}>
-                                  Map
+                                  Directions
                                 </button>
                               ) : null}
                               <button

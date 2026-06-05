@@ -623,6 +623,7 @@ Use this after Stage `3.3C-5` is stable. Keep scope on the compact `Dates` contr
   - [ ] Child/team family filtering still works with a custom date range.
   - [ ] List view and calendar view show the same in-range events.
   - [ ] Empty-state copy is understandable when no Season events match the selected date range.
+  - [ ] In month view, the selected-day summary card centers its text cleanly and does not append raw `Source location` text into that compact surface.
 - [ ] Mobile safety (`375px` if possible):
   - [ ] The filter row remains usable without horizontal page overflow.
   - [ ] The date popover stays readable/tappable on narrow screens.

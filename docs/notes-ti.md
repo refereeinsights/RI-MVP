@@ -20,6 +20,7 @@ Maintenance rules:
   - Wired the custom date range into the existing planner fetch path only for `Season`, preserving current family filters, calendar/list consistency, and the existing `seasonRange` presets as the default when no custom range is active.
   - Added mobile-safe planner styling so the date popover stays contained beside the family filter row rather than expanding the page layout.
   - Followed up so `Dates` remains visible in all planner views and applying a custom range automatically moves the planner into `Season`, which matches the intended mental model better than hiding the control behind the Season lens.
+  - Tightened the month-view selected-event summary card so its title/time content is centered within the compact Schedule-X agenda surface, while deliberately not adding raw source-location text there because venue/location details already live in the richer planner card and detail surfaces.
   - Cleaned up planner list cards by removing the always-visible event-type/source chips, moving field labels inline with the time row, and collapsing maintenance actions under an `Actions` disclosure while preserving `Map` as the main visible quick action.
   - Followed up so linked-venue cards suppress the redundant `SOURCE LOCATION` row in the main list UI while keeping source location data available in edit for audit/debugging.
 - TI Weekend Planner Stage `3.3C-5` conservative venue matching + venue/map click paths:

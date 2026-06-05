@@ -248,23 +248,6 @@ export default function OwlsEyeVenueCard({
           </div>
           {mapLinks && mapQuery ? (
             <div className="detailLinksRow">
-              {mapPreviewHref ? (
-                <VenuePlanningMapLinkClient
-                  href={mapPreviewHref}
-                  className="primaryLink hotelBookingCta"
-                  event={{
-                    name: "venue_details_plan_map_click",
-                    properties: {
-                      venue_id: venue.id,
-                      venue_name: venue.name ?? "Venue",
-                      tournament_slug: selectedTournamentSlug ?? null,
-                      source: "venue_details",
-                    },
-                  }}
-                >
-                  Plan around this venue
-                </VenuePlanningMapLinkClient>
-              ) : null}
               <MobileMapLink
                 provider="google"
                 query={mapQuery}
