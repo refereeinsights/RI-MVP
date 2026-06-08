@@ -20,6 +20,7 @@ Maintenance rules:
   - Updated `apps/ti-web/app/tournaments/page.tsx` so search, ZIP, state, radius, month, sport chips, `Include past events`, and `AYSO only` now all wait for a single explicit `Apply filters` submit, while `Reset` performs a clean GET navigation back to `/tournaments`.
   - Extended `apps/ti-web/app/tournaments/StateMultiSelect.tsx` with an optional controlled mode so the custom state popover can reflect pending selections immediately without auto-submitting, while preserving the existing auto-submit behavior for other pages that still depend on it.
   - Kept tournament directory analytics tied to actual form submit events and updated the shared tournament filter CSS so staged controls keep large tap targets, clearer selected states, a truly disabled Apply button, and mobile-safe chip wrapping.
+  - Fixed a follow-up runtime crash in `apps/ti-web/app/tournaments/TournamentDirectoryFiltersClient.tsx` by capturing `event.currentTarget` values before entering functional `setPendingState(...)` updaters, instead of reading synthetic event properties inside the updater callback after React releases the event object.
 
 ## 2026-06-05
 

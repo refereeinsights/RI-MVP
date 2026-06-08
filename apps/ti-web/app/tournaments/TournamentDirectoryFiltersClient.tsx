@@ -131,7 +131,10 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
           className="input"
           placeholder="Search tournaments..."
           value={pendingState.q}
-          onChange={(event) => setPendingState((current) => ({ ...current, q: event.currentTarget.value }))}
+          onChange={(event) => {
+            const value = event.currentTarget.value;
+            setPendingState((current) => ({ ...current, q: value }));
+          }}
         />
       </div>
 
@@ -170,7 +173,10 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
             pattern="\\d{5}"
             maxLength={5}
             value={pendingState.zip}
-            onChange={(event) => setPendingState((current) => ({ ...current, zip: event.currentTarget.value }))}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              setPendingState((current) => ({ ...current, zip: value }));
+            }}
             style={{ flex: 1, minWidth: 0 }}
           />
           <select
@@ -178,7 +184,10 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
             name="radius"
             className="select"
             value={pendingState.radius}
-            onChange={(event) => setPendingState((current) => ({ ...current, radius: event.currentTarget.value }))}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              setPendingState((current) => ({ ...current, radius: value }));
+            }}
             style={{ width: 120 }}
           >
             {[10, 25, 50, 75, 100, 150, 200, 300].map((miles) => (
@@ -199,7 +208,10 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
           name="month"
           className="select"
           value={pendingState.month}
-          onChange={(event) => setPendingState((current) => ({ ...current, month: event.currentTarget.value }))}
+          onChange={(event) => {
+            const value = event.currentTarget.value;
+            setPendingState((current) => ({ ...current, month: value }));
+          }}
         >
           <option value="">Any</option>
           {props.months.map((month) => (
@@ -232,14 +244,15 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
                 name="sports"
                 value={sport}
                 checked={checked}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const isChecked = event.currentTarget.checked;
                   setPendingState((current) => ({
                     ...current,
-                    sports: event.currentTarget.checked
+                    sports: isChecked
                       ? uniqueSorted([...current.sports, sport])
                       : current.sports.filter((value) => value !== sport),
-                  }))
-                }
+                  }));
+                }}
               />
               <span>
                 {props.sportLabels[sport] || sport} ({count})
@@ -253,7 +266,10 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
             name="includePast"
             value="true"
             checked={pendingState.includePast}
-            onChange={(event) => setPendingState((current) => ({ ...current, includePast: event.currentTarget.checked }))}
+            onChange={(event) => {
+              const checked = event.currentTarget.checked;
+              setPendingState((current) => ({ ...current, includePast: checked }));
+            }}
           />
           <span>Include past events</span>
         </label>
@@ -263,7 +279,10 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
             name="aysoOnly"
             value="true"
             checked={pendingState.aysoOnly}
-            onChange={(event) => setPendingState((current) => ({ ...current, aysoOnly: event.currentTarget.checked }))}
+            onChange={(event) => {
+              const checked = event.currentTarget.checked;
+              setPendingState((current) => ({ ...current, aysoOnly: checked }));
+            }}
           />
           <span>AYSO only</span>
         </label>
