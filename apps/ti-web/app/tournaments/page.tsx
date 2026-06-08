@@ -3,13 +3,10 @@ import type { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { TI_SPORT_LABELS } from "@/lib/tiSports";
 import { lookupZipLatLng } from "@/lib/lookupZipLatLng";
-import StateMultiSelect from "./StateMultiSelect";
 import MetroMarketChips from "./_components/MetroMarketChips";
 import PlanWeekendCtaClient from "./PlanWeekendCtaClient";
 import TournamentDirectoryAnalyticsClient from "./TournamentDirectoryAnalyticsClient";
-import TournamentDirectoryFilterActionsClient from "./TournamentDirectoryFilterActionsClient";
-import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
-import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
+import TournamentDirectoryFiltersClient from "./TournamentDirectoryFiltersClient";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import UsTournamentHeatmap from "@/app/_components/UsTournamentHeatmap";
 import VenueMapPreviewStrip from "@/app/tournaments/_components/VenueMapPreviewStrip";
@@ -241,12 +238,6 @@ export default async function TournamentsPage({
           title: "Explore by area",
         })
       : null;
-  const stateSummaryLabel = isAllStates
-    ? "All states"
-    : stateSelections.length <= 3
-    ? stateSelections.join(", ")
-    : `${stateSelections.length} states`;
-
   const today = new Date().toISOString().slice(0, 10);
   const zip = /^\d{5}$/.test(zipParam) ? zipParam : "";
   const radiusMilesRaw = Number.parseInt(radiusParam || "50", 10);
@@ -526,101 +517,27 @@ export default async function TournamentsPage({
         ) : null}
 
         <TournamentDirectoryAnalyticsClient formId="tournament-directory-filters" resultCount={tournamentsSorted.length} />
-        <form id="tournament-directory-filters" className="filters" method="GET" action="/tournaments">
-          <div>
-            <label className="label" htmlFor="q">
-              Search
-            </label>
-            <input id="q" name="q" className="input" placeholder="Search tournaments..." defaultValue={q} />
-          </div>
-
-          <div>
-            <span className="label">State</span>
-            <StateMultiSelect
-              availableStates={availableStates}
-              stateSelections={stateSelections}
-              isAllStates={isAllStates}
-              allStatesValue={ALL_STATES_VALUE}
-              summaryLabel={stateSummaryLabel}
-              stateCounts={stateCounts}
-              totalCount={tournamentsBySport.length}
-              autoSubmit
-            />
-          </div>
-
-          <div>
-            <label className="label" htmlFor="zip">
-              ZIP + radius
-            </label>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                id="zip"
-                name="zip"
-                className="input"
-                placeholder="ZIP (e.g. 02139)"
-                inputMode="numeric"
-                pattern="\\d{5}"
-                maxLength={5}
-                defaultValue={zipParam}
-                style={{ flex: 1, minWidth: 0 }}
-              />
-              <AutoSubmitSelect
-                id="radius"
-                name="radius"
-                className="select"
-                defaultValue={String(radiusMiles)}
-                style={{ width: 120 }}
-              >
-                {[10, 25, 50, 75, 100, 150, 200, 300].map((miles) => (
-                  <option key={miles} value={String(miles)}>
-                    {miles} mi
-                  </option>
-                ))}
-              </AutoSubmitSelect>
-            </div>
-          </div>
-
-          <div>
-            <label className="label" htmlFor="month">
-              Month
-            </label>
-            <AutoSubmitSelect id="month" name="month" className="select" defaultValue={month}>
-              <option value="">Any</option>
-              {months.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </AutoSubmitSelect>
-          </div>
-
-          <TournamentDirectoryFilterActionsClient
-            formId="tournament-directory-filters"
-            resetHref="/tournaments"
-            resultCount={tournamentsSorted.length}
-          />
-
-          <div className="sportsRow" aria-label="Sports filters">
-            {sportsSorted.map(({ sport, count }) => (
-              <label key={sport} className="sportToggle">
-                <AutoSubmitCheckbox type="checkbox" name="sports" value={sport} defaultChecked={sportsSelected.includes(sport)} />
-                <span>
-                  {SPORTS_LABELS[sport] || sport} ({count})
-                </span>
-              </label>
-            ))}
-            <label className="sportToggle">
-              <input type="hidden" name="includePast" value="false" />
-              <input type="checkbox" name="includePast" value="true" defaultChecked={includePast} />
-              <span>Include past events</span>
-            </label>
-            <label className="sportToggle">
-              <input type="hidden" name="aysoOnly" value="false" />
-              <input type="checkbox" name="aysoOnly" value="true" defaultChecked={aysoOnly} />
-              <span>AYSO only</span>
-            </label>
-          </div>
-        </form>
+        <TournamentDirectoryFiltersClient
+          formId="tournament-directory-filters"
+          resultCount={tournamentsSorted.length}
+          availableStates={availableStates}
+          stateCounts={stateCounts}
+          totalCount={tournamentsBySport.length}
+          months={months}
+          sports={sportsSorted}
+          sportLabels={SPORTS_LABELS}
+          resetHref="/tournaments"
+          initialState={{
+            q,
+            zip: zipParam,
+            radius: String(radiusMiles),
+            month,
+            sports: sportsSelected,
+            states: stateSelections,
+            includePast,
+            aysoOnly,
+          }}
+        />
 
         {metroMarketChips}
 

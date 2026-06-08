@@ -15,9 +15,10 @@ Maintenance rules:
 ## 2026-06-08
 
 - TI tournament directory filter dead-click cleanup:
-  - Audited `apps/ti-web/app/tournaments/page.tsx` and confirmed the `/tournaments` page already uses a semantic GET filter form that is scoped to filter controls only, so the Clarity `SubmitForm` dead-click cluster was addressed as a filter affordance/tap-target problem rather than a results-wrapped form-boundary bug.
-  - Added `apps/ti-web/app/tournaments/TournamentDirectoryFilterActionsClient.tsx` so the existing Apply/Reset row now reports pending staged changes (`Unsaved filter changes`) versus the settled no-change state (`No changes to apply · Showing N tournaments`) without adding a fake async spinner to the GET-navigation flow.
-  - Updated `apps/ti-web/app/tournaments/tournaments.css` so tournament sport chips, include-past/AYSO toggles, the state summary control, and the Apply/Reset buttons all meet larger tap-target expectations, show a clearer selected state, and wrap cleanly on narrow mobile widths instead of relying on tiny hit areas or horizontal-only chip scrolling.
+  - Audited `apps/ti-web/app/tournaments/page.tsx` and confirmed the `/tournaments` page already uses a semantic GET filter form scoped to the filter controls, then replaced the remaining mixed staged/immediate behavior with a single staged filter model built around controlled pending state in `apps/ti-web/app/tournaments/TournamentDirectoryFiltersClient.tsx`.
+  - Updated the tournament directory so search, ZIP, state, radius, month, sport chips, `Include past events`, and `AYSO only` all wait for one explicit `Apply filters` submit, while `Reset` now performs a base `/tournaments` GET navigation instead of merely clearing local state.
+  - Extended `apps/ti-web/app/tournaments/StateMultiSelect.tsx` with an optional controlled mode for pending selections, while preserving the existing auto-submit behavior for the other TI pages that still use the shared state filter component.
+  - Kept analytics tied to actual form submit on the directory, removed this page's dependence on the auto-submit filter helpers, and updated `apps/ti-web/app/tournaments/tournaments.css` so the staged controls still have strong selected states, larger tap targets, a truly disabled Apply button, and mobile-safe wrapping.
 
 ## 2026-06-05
 

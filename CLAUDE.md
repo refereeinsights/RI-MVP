@@ -1531,20 +1531,21 @@ Checks:
 ### Tournament Insights — Tournament Directory Filter UAT
 - Open `/tournaments` on desktop, then repeat on a narrow/mobile viewport.
 - Confirm the filter form still behaves as a semantic GET filter surface:
-  - [ ] Sport chips, `Include past events`, and `AYSO only` remain filter controls inside the same `/tournaments` flow
-  - [ ] Changing search / ZIP still requires explicit **Apply filters**
-  - [ ] Auto-submit controls that already submitted before this pass still update results without a new client-only filtering model
+  - [ ] Search, ZIP, state, radius, month, sport chips, `Include past events`, and `AYSO only` all remain inside the same `/tournaments` GET form
+  - [ ] None of those controls auto-submit individually on this page anymore
+  - [ ] Results refresh only when the user explicitly clicks **Apply filters** or presses Enter to submit the form
 - Apply/Reset row:
   - [ ] Default settled state reads `No changes to apply · Showing N tournament(s)`
-  - [ ] Editing staged controls (for example search or ZIP) flips helper text to `Unsaved filter changes`
-  - [ ] **Apply filters** becomes enabled only when staged changes exist
+  - [ ] Editing any control (search, ZIP, state, radius, month, sports, Include past, AYSO) flips helper text to `Unsaved filter changes`
+  - [ ] **Apply filters** becomes enabled only when pending state differs from the currently applied URL params
+  - [ ] **Apply filters** uses a real disabled HTML button when no changes exist
   - [ ] Submitting the GET form still performs normal navigation; there is no fake async spinner
-  - [ ] **Reset** returns to the base `/tournaments` listing
+  - [ ] **Reset** navigates to base `/tournaments` with no query params
 - Tap targets / mobile dead-click coverage:
   - [ ] Sport chips are fully tappable, not just the checkbox glyph
   - [ ] Selected sport chips show a visibly stronger selected state
   - [ ] `Include past events` and `AYSO only` rows are easy to tap on mobile
-  - [ ] State summary control remains easy to tap and still opens the state menu correctly
+  - [ ] State summary control remains easy to tap, opens the state menu correctly, and pending state selections appear immediately without submitting
   - [ ] No obvious blank tappable-looking dead zones appear around the filter controls
 - Narrow/mobile layout:
   - [ ] Filter chips wrap cleanly instead of forcing horizontal-only chip scrolling

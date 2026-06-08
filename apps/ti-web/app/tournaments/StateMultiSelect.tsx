@@ -11,6 +11,9 @@ type Props = {
   stateCounts?: Record<string, number>;
   totalCount?: number;
   autoSubmit?: boolean;
+  selectedStates?: string[];
+  allStatesSelected?: boolean;
+  onSelectionChange?: (states: string[]) => void;
 };
 
 export default function StateMultiSelect({
@@ -22,7 +25,11 @@ export default function StateMultiSelect({
   stateCounts = {},
   totalCount,
   autoSubmit = false,
+  selectedStates,
+  allStatesSelected,
+  onSelectionChange,
 }: Props) {
+  const controlled = typeof onSelectionChange === "function";
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const allStatesRef = useRef<HTMLInputElement | null>(null);
@@ -50,6 +57,10 @@ export default function StateMultiSelect({
 
   const handleAllStatesChange = (checked: boolean) => {
     if (!checked) return;
+    if (onSelectionChange) {
+      onSelectionChange([]);
+      return;
+    }
     for (const st of availableStates) {
       const input = stateRefs.current[st];
       if (input) input.checked = false;
@@ -60,6 +71,13 @@ export default function StateMultiSelect({
   };
 
   const handleSingleStateChange = (input: HTMLInputElement | null) => {
+    if (onSelectionChange && input) {
+      const current = new Set(selectedStates ?? []);
+      if (input.checked) current.add(input.value);
+      else current.delete(input.value);
+      onSelectionChange(Array.from(current));
+      return;
+    }
     if (allStatesRef.current) {
       allStatesRef.current.checked = false;
     }
@@ -82,9 +100,10 @@ export default function StateMultiSelect({
         <label className="sportToggle">
           <input
             type="checkbox"
-            name="state"
+            name={onSelectionChange ? undefined : "state"}
             value={allStatesValue}
-            defaultChecked={isAllStates}
+            defaultChecked={controlled ? undefined : isAllStates}
+            checked={controlled ? Boolean(allStatesSelected) : undefined}
             ref={(node) => {
               allStatesRef.current = node;
             }}
@@ -98,7 +117,8 @@ export default function StateMultiSelect({
               type="checkbox"
               name="state"
               value={st}
-              defaultChecked={stateSelections.includes(st)}
+              defaultChecked={controlled ? undefined : stateSelections.includes(st)}
+              checked={controlled ? selectedStates?.includes(st) : undefined}
               ref={(node) => {
                 stateRefs.current[st] = node;
               }}

@@ -16,9 +16,10 @@ Maintenance rules:
 ## 2026-06-08
 
 - TI tournament directory filter dead-click cleanup:
-  - Confirmed the `/tournaments` directory still uses a semantic GET filter form scoped to the filter controls themselves, so the Clarity `SubmitForm` dead-click cleanup stayed focused on filter affordances instead of rewriting results/layout semantics.
-  - Added `apps/ti-web/app/tournaments/TournamentDirectoryFilterActionsClient.tsx` so the Apply/Reset row now distinguishes pending staged edits (`Unsaved filter changes`) from settled results (`No changes to apply · Showing N tournaments`) without inventing a client-side spinner for normal GET navigation.
-  - Updated `apps/ti-web/app/tournaments/tournaments.css` to give sport chips, include-past / AYSO toggles, state summary, and Apply/Reset controls larger touch targets, stronger selected-state feedback, and cleaner narrow-screen wrapping for mobile filter use.
+  - Confirmed the `/tournaments` directory filter form was already scoped to actual filter controls, then replaced the mixed staged/immediate interaction model with one staged GET-driven model using controlled client state in `apps/ti-web/app/tournaments/TournamentDirectoryFiltersClient.tsx`.
+  - Updated `apps/ti-web/app/tournaments/page.tsx` so search, ZIP, state, radius, month, sport chips, `Include past events`, and `AYSO only` now all wait for a single explicit `Apply filters` submit, while `Reset` performs a clean GET navigation back to `/tournaments`.
+  - Extended `apps/ti-web/app/tournaments/StateMultiSelect.tsx` with an optional controlled mode so the custom state popover can reflect pending selections immediately without auto-submitting, while preserving the existing auto-submit behavior for other pages that still depend on it.
+  - Kept tournament directory analytics tied to actual form submit events and updated the shared tournament filter CSS so staged controls keep large tap targets, clearer selected states, a truly disabled Apply button, and mobile-safe chip wrapping.
 
 ## 2026-06-05
 
