@@ -20,6 +20,7 @@ Maintenance rules:
   - Extended `apps/ti-web/app/tournaments/StateMultiSelect.tsx` with an optional controlled mode for pending selections, while preserving the existing auto-submit behavior for the other TI pages that still use the shared state filter component.
   - Kept analytics tied to actual form submit on the directory, removed this page's dependence on the auto-submit filter helpers, and updated `apps/ti-web/app/tournaments/tournaments.css` so the staged controls still have strong selected states, larger tap targets, a truly disabled Apply button, and mobile-safe wrapping.
   - Fixed a follow-up runtime crash in `apps/ti-web/app/tournaments/TournamentDirectoryFiltersClient.tsx` by capturing `event.currentTarget` values before entering functional `setPendingState(...)` updaters, instead of reading synthetic event properties from inside the updater callback after React has released the event object.
+  - Fixed the tournament directory state-summary follow-up (`F-2`) in `apps/ti-web/app/tournaments/TournamentDirectoryFiltersClient.tsx` so a real applied single-state filter no longer renders as `All states` just because the currently available filtered state list also contains one entry.
 
 ## 2026-06-05
 

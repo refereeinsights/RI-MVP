@@ -82,8 +82,8 @@ function filterStatesEqual(left: PendingFilterState, right: PendingFilterState) 
   );
 }
 
-function summaryLabelForStates(states: string[], availableStates: string[]) {
-  if (states.length === 0 || states.length === availableStates.length) return "All states";
+function summaryLabelForStates(states: string[]) {
+  if (states.length === 0) return "All states";
   if (states.length <= 3) return states.join(", ");
   return `${states.length} states`;
 }
@@ -115,8 +115,8 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
   }, [hasPendingChanges, props.resultCount]);
 
   const stateSummaryLabel = useMemo(
-    () => summaryLabelForStates(pendingState.states, props.availableStates),
-    [pendingState.states, props.availableStates]
+    () => summaryLabelForStates(pendingState.states),
+    [pendingState.states]
   );
 
   return (
