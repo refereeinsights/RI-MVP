@@ -1528,6 +1528,33 @@ Checks:
   - [ ] Confirm **Get directions** remains available as a secondary action and works.
   - [ ] If no tournament context is present, confirm the map preview does NOT show the planning overlay and does NOT act as an external maps link; directions should require the explicit `Get directions` action.
 
+### Tournament Insights — Tournament Directory Filter UAT
+- Open `/tournaments` on desktop, then repeat on a narrow/mobile viewport.
+- Confirm the filter form still behaves as a semantic GET filter surface:
+  - [ ] Sport chips, `Include past events`, and `AYSO only` remain filter controls inside the same `/tournaments` flow
+  - [ ] Changing search / ZIP still requires explicit **Apply filters**
+  - [ ] Auto-submit controls that already submitted before this pass still update results without a new client-only filtering model
+- Apply/Reset row:
+  - [ ] Default settled state reads `No changes to apply · Showing N tournament(s)`
+  - [ ] Editing staged controls (for example search or ZIP) flips helper text to `Unsaved filter changes`
+  - [ ] **Apply filters** becomes enabled only when staged changes exist
+  - [ ] Submitting the GET form still performs normal navigation; there is no fake async spinner
+  - [ ] **Reset** returns to the base `/tournaments` listing
+- Tap targets / mobile dead-click coverage:
+  - [ ] Sport chips are fully tappable, not just the checkbox glyph
+  - [ ] Selected sport chips show a visibly stronger selected state
+  - [ ] `Include past events` and `AYSO only` rows are easy to tap on mobile
+  - [ ] State summary control remains easy to tap and still opens the state menu correctly
+  - [ ] No obvious blank tappable-looking dead zones appear around the filter controls
+- Narrow/mobile layout:
+  - [ ] Filter chips wrap cleanly instead of forcing horizontal-only chip scrolling
+  - [ ] Apply and Reset buttons remain readable and tappable at mobile width
+  - [ ] No horizontal page overflow is introduced by the filter row
+- Result behavior:
+  - [ ] After filter changes, the refreshed results still match the visible active filters
+  - [ ] URL/query params still update correctly for shareable filtered views
+  - [ ] Opening a tournament card after filtering still works normally
+
 ### TI Subscription & Conversion Sprint UAT (v1.4)
 
 Implementation update (2026-06-02):

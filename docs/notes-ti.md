@@ -13,6 +13,13 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-06-08
+
+- TI tournament directory filter dead-click cleanup:
+  - Confirmed the `/tournaments` directory still uses a semantic GET filter form scoped to the filter controls themselves, so the Clarity `SubmitForm` dead-click cleanup stayed focused on filter affordances instead of rewriting results/layout semantics.
+  - Added `apps/ti-web/app/tournaments/TournamentDirectoryFilterActionsClient.tsx` so the Apply/Reset row now distinguishes pending staged edits (`Unsaved filter changes`) from settled results (`No changes to apply · Showing N tournaments`) without inventing a client-side spinner for normal GET navigation.
+  - Updated `apps/ti-web/app/tournaments/tournaments.css` to give sport chips, include-past / AYSO toggles, state summary, and Apply/Reset controls larger touch targets, stronger selected-state feedback, and cleaner narrow-screen wrapping for mobile filter use.
+
 ## 2026-06-05
 
 - TI Weekend Planner Stage `3.3C-7` parent-friendly ICS normalization + TeamSnap One cleanup:

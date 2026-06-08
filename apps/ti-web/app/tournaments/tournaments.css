@@ -215,6 +215,7 @@
 .tournamentsField .stateSummary {
   list-style: none;
   padding: 0.7rem 0.8rem;
+  min-height: 44px;
   border-radius: 12px;
   border: 1px solid rgba(16,34,19,0.2);
   background: #fff;
@@ -334,6 +335,13 @@
   color: #0d1a10;
 }
 
+.tournamentsField .sportToggle:has(input:checked) {
+  border-color: rgba(13,26,16,0.9);
+  background: rgba(29,110,56,0.14);
+  color: #0d1a10;
+  box-shadow: inset 0 0 0 1px rgba(13,26,16,0.12);
+}
+
 .tournamentsField .sportToggle input {
   accent-color: #0d1a10;
 }
@@ -343,6 +351,7 @@
   color: #0d1a10;
   background: #fff;
   padding: 0.55rem 0.75rem;
+  min-height: 44px;
 }
 
 .actionsRow {
@@ -350,12 +359,25 @@
   gap: 0.5rem;
   align-items: center;
   justify-content: flex-start;
-  white-space: nowrap;
+  flex-wrap: wrap;
+}
+
+.filtersStatus {
+  flex: 1 1 220px;
+  min-width: 0;
+  color: rgba(13,26,16,0.76);
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 @media (max-width: 640px) {
   .actionsRow {
     grid-column: 1 / -1;
     justify-content: flex-start;
+  }
+
+  .filtersStatus {
+    flex-basis: 100%;
+    font-size: 0.82rem;
   }
 }
 
@@ -378,18 +400,43 @@
   flex: 0 0 6px;
 }
 
+@media (max-width: 640px) {
+  .sportsRow {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 0;
+  }
+
+  .sportsRow::after {
+    display: none;
+  }
+
+  .sportToggle {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+
+  .smallBtn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
 
 .sportToggle {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.35rem 0.9rem;
+  min-height: 44px;
+  padding: 0.5rem 0.9rem;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.65);
   background: rgba(0,0,0,0.25);
   color: #fff;
   font-weight: 700;
   font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .sportToggle input {
@@ -414,6 +461,21 @@
 .smallBtn:hover {
   background: rgba(255,255,255,0.12);
   border-color: rgba(255,255,255,1);
+}
+
+.smallBtn[disabled],
+.smallBtn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.58;
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(13,26,16,0.32);
+  color: rgba(13,26,16,0.58);
+}
+
+.smallBtn[disabled]:hover,
+.smallBtn[aria-disabled="true"]:hover {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(13,26,16,0.32);
 }
 
 /* ===== Cards ===== */

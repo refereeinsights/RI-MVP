@@ -7,6 +7,7 @@ import StateMultiSelect from "./StateMultiSelect";
 import MetroMarketChips from "./_components/MetroMarketChips";
 import PlanWeekendCtaClient from "./PlanWeekendCtaClient";
 import TournamentDirectoryAnalyticsClient from "./TournamentDirectoryAnalyticsClient";
+import TournamentDirectoryFilterActionsClient from "./TournamentDirectoryFilterActionsClient";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
@@ -593,14 +594,11 @@ export default async function TournamentsPage({
             </AutoSubmitSelect>
           </div>
 
-          <div className="actionsRow">
-            <button type="submit" className="smallBtn">
-              Apply
-            </button>
-            <a className="smallBtn" href="/tournaments">
-              Reset
-            </a>
-          </div>
+          <TournamentDirectoryFilterActionsClient
+            formId="tournament-directory-filters"
+            resetHref="/tournaments"
+            resultCount={tournamentsSorted.length}
+          />
 
           <div className="sportsRow" aria-label="Sports filters">
             {sportsSorted.map(({ sport, count }) => (
