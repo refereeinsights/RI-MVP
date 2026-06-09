@@ -2,6 +2,7 @@ import Link from "next/link";
 import "../tournaments/tournaments.css";
 import PlannerClient from "../_components/planner/PlannerClient";
 import WeekendPlannerClient from "./WeekendPlannerClient";
+import PlannerGuestSharePanel from "./PlannerGuestSharePanel";
 import styles from "./WeekendPlanner.module.css";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
@@ -198,8 +199,9 @@ export default async function WeekendPlannerPage() {
 	          <p className="subtitle">Plan the weekend. Manage the season.</p>
 	          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
 	            {isAuthed ? (
-	              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
+	              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto", display: "grid", gap: 12 }}>
 	                <PlannerClient initialEvents={plannerEvents} isPaid={isPaid} isUnverified={isUnverified} hideHeader />
+                  <PlannerGuestSharePanel />
 	              </div>
 	            ) : (
 	              <article className={styles.panelCard}>

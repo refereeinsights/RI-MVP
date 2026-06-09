@@ -12,6 +12,16 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-06-09
+
+- TI Weekend Planner Stage `3.5-1` Weekend Pro guest family schedule sharing:
+  - Added `supabase/migrations/20260609_ti_planner_stage_3_5_1_guest_family_shares.sql` to introduce `planner_guest_shares` with owner-scoped RLS, `ON DELETE CASCADE`, `token_hash` uniqueness, active-family-share enforcement, polymorphic future scope comments, and throttled-access bookkeeping fields.
+  - Added `apps/ti-web/lib/planner/guestShares.ts` to centralize guest-token generation/hashing, owner share-panel state, Weekend Pro eligibility handling, family-scoped guest loading, source/assignment projection, linked-venue enrichment reuse, and throttled `last_accessed_at` updates.
+  - Added owner-side share management at `apps/ti-web/app/weekend-planner/PlannerGuestSharePanel.tsx` and `apps/ti-web/app/weekend-planner/PlannerGuestSharePanelClient.tsx`, wiring create / reveal-copy / regenerate / revoke actions through `apps/ti-web/app/api/weekend-planner/guest-share/route.ts` without persisting raw tokens.
+  - Updated `apps/ti-web/app/weekend-planner/page.tsx` and `apps/ti-web/app/weekend-planner/WeekendPlanner.module.css` so authenticated planners now show a contained family-sharing panel below the main planner while keeping `/weekend-planner` itself ungated.
+  - Added the private read-only guest route at `apps/ti-web/app/weekend-planner/shared/[token]/page.tsx` with generic noindex metadata, empty-state handling, venue/directions actions, note suppression, and guest-safe family schedule rendering via `SharedGuestPlanner.module.css`.
+  - Added defense-in-depth `robots.ts` disallow coverage for `/weekend-planner/shared/` and unit coverage in `apps/ti-web/lib/planner/guestShares.test.ts` for token hashing, regeneration/version changes, and URL-safe token helpers.
+
 ## 2026-06-08
 
 - TI tournament directory filter dead-click cleanup:

@@ -172,6 +172,55 @@ If Smoke UAT fails, stop and report the first failure precisely (page + action +
 
 ---
 
+### Stage 3.5-1 UAT (Weekend Pro guest family schedule sharing)
+
+Use this after Smoke UAT passes. Run it with:
+- **UAT Planner A** as the owner
+- a signed-out browser or incognito window as the guest
+
+Scope:
+- private guest family schedule link
+- Weekend Pro-only creation
+- no notes in guest view
+- bounded family schedule rendering
+- revoke / regenerate / paused-sharing behavior
+
+- [ ] Owner-side share panel:
+  - [ ] Logged-in Weekend Pro owner sees a contained `Share family sports schedule` panel on `/weekend-planner`.
+  - [ ] Panel copy explains that private notes, account details, calendar source details, and editing controls are hidden.
+  - [ ] Guest-token URLs are not auto-opened or auto-prefetched from the owner UI.
+- [ ] Weekend Pro-only creation:
+  - [ ] Weekend Pro owner can create a guest link.
+  - [ ] The UI can reveal/copy the active guest link.
+  - [ ] Regenerate replaces the old link with a new one.
+  - [ ] Revoke disables the active link immediately.
+- [ ] Signed-out guest open:
+  - [ ] Guest link opens while signed out.
+  - [ ] Guest route is read-only and does not show planner edit / delete / refresh / connect / duplicate / merge / sharing controls.
+  - [ ] Child/team labels and colors render safely when available.
+  - [ ] Linked venue and `Directions` actions work.
+- [ ] Family scope correctness:
+  - [ ] Guest view includes guest-safe assigned and unassigned planner events that would normally appear in the owner’s consolidated planner schedule within the bounded window.
+  - [ ] Guest view does not incorrectly collapse to child/team-assigned events only.
+  - [ ] Guest view does not expose unbounded historical events.
+- [ ] Privacy guardrails:
+  - [ ] No guest-visible notes are shown.
+  - [ ] No raw UUIDs, source URLs, `source_event_uid`, source IDs, feed metadata, or debug data appear in normal guest UI.
+  - [ ] Guest route metadata is generic + noindex.
+  - [ ] `/weekend-planner/shared/` is disallowed in `robots.txt`.
+- [ ] Failure behavior:
+  - [ ] Invalid random token returns HTTP 404.
+  - [ ] Revoked token returns the same generic HTTP 404 behavior.
+  - [ ] After regeneration, old token returns HTTP 404 and new token works.
+- [ ] Owner loses Weekend Pro:
+  - [ ] If the owner is downgraded from Weekend Pro, the existing guest link no longer renders and returns generic HTTP 404.
+  - [ ] Existing share row is treated as paused, not silently deleted.
+  - [ ] If implemented, non-Pro owner can still revoke as a privacy control.
+- [ ] Empty-state behavior:
+  - [ ] If the bounded guest window has no events, the guest sees a clear read-only no-events message instead of a blank page.
+
+---
+
 ### Stage 3.0 UAT (responsive layout foundation)
 
 Use this after Smoke UAT passes. Verify both desktop/tablet and a narrow mobile viewport (375px wide if possible).

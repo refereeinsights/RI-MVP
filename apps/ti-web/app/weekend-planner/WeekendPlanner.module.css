@@ -217,3 +217,61 @@
   text-decoration: none;
   font-size: 12px;
 }
+
+.sharePanelStack {
+  display: grid;
+  gap: 12px;
+}
+
+.shareStatusRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.shareStatusTitle {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.shareRevealWrap {
+  display: grid;
+  gap: 6px;
+}
+
+.shareButtonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.shareDangerBtn {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 900;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(127, 29, 29, 0.84);
+  color: #fff;
+}
+
+.shareError {
+  font-size: 13px;
+  color: #fecaca;
+}
+
+.shareSuccess {
+  font-size: 12px;
+  font-weight: 900;
+  color: #bbf7d0;
+}
+
+@media (max-width: 640px) {
+  .shareStatusRow {
+    flex-direction: column;
+  }
+}

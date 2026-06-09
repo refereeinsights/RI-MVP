@@ -13,6 +13,16 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-06-09
+
+- TI Weekend Planner Stage `3.5-1` Weekend Pro guest family schedule sharing:
+  - Added `supabase/migrations/20260609_ti_planner_stage_3_5_1_guest_family_shares.sql` for owner-scoped planner guest shares, including polymorphic future-scope comments, `token_hash` uniqueness, active-family-share enforcement, `ON DELETE CASCADE`, and owner-only RLS policies.
+  - Added `apps/ti-web/lib/planner/guestShares.ts` to centralize guest-token generation/hashing, Weekend Pro share eligibility, owner panel state, family-scoped guest loading with bounded event windows, source/assignment projection, and throttled `last_accessed_at` updates.
+  - Added the owner share-management flow through `apps/ti-web/app/api/weekend-planner/guest-share/route.ts`, `apps/ti-web/app/weekend-planner/PlannerGuestSharePanel.tsx`, and `apps/ti-web/app/weekend-planner/PlannerGuestSharePanelClient.tsx`, allowing Weekend Pro owners to create, reveal-copy, regenerate, and revoke family guest links without storing raw tokens.
+  - Updated `apps/ti-web/app/weekend-planner/page.tsx` and `apps/ti-web/app/weekend-planner/WeekendPlanner.module.css` so the authenticated planner now surfaces a contained family-sharing card below the existing planner UI while leaving `/weekend-planner` itself accessible and unchanged for non-share flows.
+  - Added the private guest route `apps/ti-web/app/weekend-planner/shared/[token]/page.tsx` with noindex metadata, guest-safe family schedule rendering, venue/directions actions, a clear zero-events empty state, and complete note/source metadata suppression.
+  - Added defense-in-depth `robots.ts` coverage for `/weekend-planner/shared/` and unit coverage in `apps/ti-web/lib/planner/guestShares.test.ts` for token hashing, regeneration/version changes, and URL-safe helper behavior.
+
 ## 2026-06-08
 
 - TI tournament directory filter dead-click cleanup:
