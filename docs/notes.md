@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-06-09
 
+- TI tournament directory dead-click cleanup on staged filters:
+  - Updated `apps/ti-web/app/tournaments/TournamentDirectoryFiltersClient.tsx` so `/tournaments` now keeps `Apply filters` and `Reset` as visually distinct semantic buttons, separates live status text from the action group, adds explicit no-change feedback (`Filters already applied` / `Filters already cleared`), and prevents repeated apply submissions while native GET navigation is in flight.
+  - Updated `apps/ti-web/app/tournaments/StateMultiSelect.tsx` and `apps/ti-web/app/tournaments/tournaments.css` so the state trigger has a clearer hitbox/focus state, the closed control no longer exposes hidden menu text that can concatenate into Clarity labels like `SearchStateVAAll states`, and action/toggle rows now use clearer spacing, 44px+ targets, and non-overlapping mobile layout.
+  - Preserved the staged filter interaction model, existing GET/query-param behavior, and analytics flow while improving accessibility with `aria-live` status messaging and stronger focus treatment on touched controls.
+
 - TI Weekend Planner Stage `3.5-1` Weekend Pro guest family schedule sharing:
   - Added `supabase/migrations/20260609_ti_planner_stage_3_5_1_guest_family_shares.sql` to introduce `planner_guest_shares` with owner-scoped RLS, `ON DELETE CASCADE`, `token_hash` uniqueness, active-family-share enforcement, polymorphic future scope comments, and throttled-access bookkeeping fields.
   - Added `apps/ti-web/lib/planner/guestShares.ts` to centralize guest-token generation/hashing, owner share-panel state, Weekend Pro eligibility handling, family-scoped guest loading, source/assignment projection, linked-venue enrichment reuse, and throttled `last_accessed_at` updates.

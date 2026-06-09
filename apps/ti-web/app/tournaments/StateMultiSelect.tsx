@@ -13,6 +13,7 @@ type Props = {
   autoSubmit?: boolean;
   selectedStates?: string[];
   allStatesSelected?: boolean;
+  triggerLabelId?: string;
   onSelectionChange?: (states: string[]) => void;
 };
 
@@ -27,6 +28,7 @@ export default function StateMultiSelect({
   autoSubmit = false,
   selectedStates,
   allStatesSelected,
+  triggerLabelId,
   onSelectionChange,
 }: Props) {
   const controlled = typeof onSelectionChange === "function";
@@ -92,11 +94,14 @@ export default function StateMultiSelect({
         type="button"
         className="stateSummary"
         aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-labelledby={triggerLabelId}
+        aria-label={`State filter: ${summaryLabel}`}
         onClick={() => setOpen((prev) => !prev)}
       >
         {summaryLabel}
       </button>
-      <div className={`stateMenu ${open ? "stateMenu--open" : ""}`}>
+      <div className={`stateMenu ${open ? "stateMenu--open" : ""}`} hidden={!open} aria-hidden={!open}>
         <label className="sportToggle">
           <input
             type="checkbox"

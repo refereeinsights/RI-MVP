@@ -214,8 +214,8 @@
 
 .tournamentsField .stateSummary {
   list-style: none;
-  padding: 0.7rem 0.8rem;
-  min-height: 44px;
+  padding: 0.78rem 0.9rem;
+  min-height: 48px;
   border-radius: 12px;
   border: 1px solid rgba(16,34,19,0.2);
   background: #fff;
@@ -229,10 +229,18 @@
   font: inherit;
 }
 
+.tournamentsField .stateSummary:focus-visible,
+.tournamentsField .smallBtn:focus-visible,
+.tournamentsField .sportToggle:focus-within {
+  outline: 3px solid rgba(29,110,56,0.24);
+  outline-offset: 2px;
+}
+
 .tournamentsField .stateSummary::after {
   content: "▾";
   font-size: 0.85rem;
   opacity: 0.7;
+  pointer-events: none;
 }
 
 .tournamentsField .stateMenu {
@@ -254,6 +262,10 @@
   pointer-events: none;
   transform: translateY(4px);
   transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.tournamentsField .stateMenu[hidden] {
+  display: none;
 }
 
 .tournamentsField .stateMenu.stateMenu--open {
@@ -356,27 +368,42 @@
 
 .actionsRow {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
   justify-content: flex-start;
+  grid-column: 4 / -1;
+}
+
+.filterActions {
+  display: flex;
   flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
 }
 
 .filtersStatus {
-  flex: 1 1 220px;
+  grid-column: 4 / -1;
   min-width: 0;
   color: rgba(13,26,16,0.76);
   font-size: 0.88rem;
   line-height: 1.35;
+  padding: 0.15rem 0.1rem 0 0.1rem;
+}
+
+.filtersStatus--info {
+  color: #244d2d;
+}
+@media (max-width: 900px) {
+  .actionsRow,
+  .filtersStatus {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 640px) {
   .actionsRow {
     grid-column: 1 / -1;
-    justify-content: flex-start;
   }
 
   .filtersStatus {
-    flex-basis: 100%;
+    grid-column: 1 / -1;
     font-size: 0.82rem;
   }
 }
@@ -420,6 +447,12 @@
     width: 100%;
     text-align: center;
   }
+
+  .filterActions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
 }
 
 
@@ -458,9 +491,42 @@
   cursor: pointer;
 }
 
+.smallBtn--primary {
+  background: #0d1a10;
+  border-color: #0d1a10;
+  color: #fff;
+}
+
+.smallBtn--secondary {
+  background: #fff;
+  color: #0d1a10;
+  border-color: rgba(13,26,16,0.75);
+}
+
+.smallBtn--muted {
+  border-color: rgba(13,26,16,0.2);
+  color: rgba(13,26,16,0.72);
+  background: #f3f6ef;
+}
+
 .smallBtn:hover {
   background: rgba(255,255,255,0.12);
   border-color: rgba(255,255,255,1);
+}
+
+.smallBtn--primary:hover {
+  background: #17301d;
+  border-color: #17301d;
+}
+
+.smallBtn--secondary:hover {
+  background: #f4f7f1;
+  border-color: #0d1a10;
+}
+
+.smallBtn--muted:hover {
+  background: #edf2e8;
+  border-color: rgba(13,26,16,0.24);
 }
 
 .smallBtn[disabled],

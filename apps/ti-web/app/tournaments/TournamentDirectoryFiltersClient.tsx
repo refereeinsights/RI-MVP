@@ -91,16 +91,36 @@ function summaryLabelForStates(states: string[]) {
 export default function TournamentDirectoryFiltersClient(props: TournamentDirectoryFiltersClientProps) {
   const searchParams = useSearchParams();
   const searchParamsKey = searchParams?.toString() ?? "";
+  const stateLabelId = `${props.formId}-state-label`;
+  const liveRegionId = `${props.formId}-status`;
 
   const appliedState = useMemo(
     () => parseAppliedFilterState(new URLSearchParams(searchParamsKey), props.initialState),
     [props.initialState, searchParamsKey]
   );
 
+  const defaultState = useMemo<PendingFilterState>(
+    () => ({
+      q: "",
+      zip: "",
+      radius: "50",
+      month: "",
+      sports: [],
+      states: [],
+      includePast: false,
+      aysoOnly: false,
+    }),
+    []
+  );
+
   const [pendingState, setPendingState] = useState<PendingFilterState>(appliedState);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackTone, setFeedbackTone] = useState<"neutral" | "info">("neutral");
 
   useEffect(() => {
     setPendingState(appliedState);
+    setIsSubmitting(false);
   }, [appliedState]);
 
   const hasPendingChanges = useMemo(
@@ -108,19 +128,58 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
     [appliedState, pendingState]
   );
 
+  const canReset = useMemo(
+    () => !filterStatesEqual(pendingState, defaultState),
+    [defaultState, pendingState]
+  );
+
+  useEffect(() => {
+    if (hasPendingChanges || isSubmitting) return;
+    setFeedbackMessage("");
+    setFeedbackTone("neutral");
+  }, [hasPendingChanges, isSubmitting]);
+
   const helperText = useMemo(() => {
+    if (isSubmitting) return "Applying filters…";
+    if (feedbackMessage) return feedbackMessage;
     if (hasPendingChanges) return "Unsaved filter changes";
     const resultLabel = props.resultCount === 1 ? "tournament" : "tournaments";
-    return `No changes to apply · Showing ${props.resultCount} ${resultLabel}`;
-  }, [hasPendingChanges, props.resultCount]);
+    return `Showing ${props.resultCount} ${resultLabel}`;
+  }, [feedbackMessage, hasPendingChanges, isSubmitting, props.resultCount]);
 
   const stateSummaryLabel = useMemo(
     () => summaryLabelForStates(pendingState.states),
     [pendingState.states]
   );
 
+  function handleApplySubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (isSubmitting) {
+      event.preventDefault();
+      return;
+    }
+    if (!hasPendingChanges) {
+      event.preventDefault();
+      setFeedbackTone("info");
+      setFeedbackMessage("Filters already applied.");
+      return;
+    }
+    setIsSubmitting(true);
+    setFeedbackTone("neutral");
+    setFeedbackMessage("Applying filters…");
+  }
+
+  function handleResetClick() {
+    if (!canReset) {
+      setFeedbackTone("info");
+      setFeedbackMessage("Filters already cleared.");
+      return;
+    }
+    setIsSubmitting(true);
+    window.location.assign(props.resetHref);
+  }
+
   return (
-    <form id={props.formId} className="filters" method="GET" action="/tournaments">
+    <form id={props.formId} className="filters" method="GET" action="/tournaments" onSubmit={handleApplySubmit}>
       <div>
         <label className="label" htmlFor="q">
           Search
@@ -139,7 +198,9 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
       </div>
 
       <div>
-        <span className="label">State</span>
+        <span className="label" id={stateLabelId}>
+          State
+        </span>
         <StateMultiSelect
           availableStates={props.availableStates}
           stateSelections={pendingState.states}
@@ -150,6 +211,7 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
           totalCount={props.totalCount}
           selectedStates={pendingState.states}
           allStatesSelected={pendingState.states.length === 0}
+          triggerLabelId={stateLabelId}
           onSelectionChange={(nextStates) =>
             setPendingState((current) => ({
               ...current,
@@ -223,15 +285,33 @@ export default function TournamentDirectoryFiltersClient(props: TournamentDirect
       </div>
 
       <div className="actionsRow">
-        <button type="submit" className="smallBtn" disabled={!hasPendingChanges}>
-          Apply filters
-        </button>
-        <a className="smallBtn" href={props.resetHref}>
-          Reset
-        </a>
-        <div className="filtersStatus" aria-live="polite">
-          {helperText}
+        <div className="filterActions" role="group" aria-label="Tournament filter actions">
+          <button
+            type="submit"
+            className="smallBtn smallBtn--primary"
+            disabled={isSubmitting}
+            aria-describedby={liveRegionId}
+          >
+            {isSubmitting ? "Applying…" : "Apply filters"}
+          </button>
+          <button
+            type="button"
+            className={`smallBtn smallBtn--secondary${!canReset ? " smallBtn--muted" : ""}`}
+            onClick={handleResetClick}
+            disabled={isSubmitting}
+            aria-describedby={liveRegionId}
+          >
+            Reset
+          </button>
         </div>
+      </div>
+      <div
+        id={liveRegionId}
+        className={`filtersStatus${feedbackTone === "info" ? " filtersStatus--info" : ""}`}
+        aria-live="polite"
+        role="status"
+      >
+        {helperText}
       </div>
 
       <div className="sportsRow" aria-label="Sports filters">
