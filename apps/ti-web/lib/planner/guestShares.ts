@@ -20,6 +20,7 @@ export type PlannerGuestShareRow = {
   scope_type: PlannerGuestShareScopeType;
   scope_target_id: string | null;
   token_nonce: string;
+  token_version_nonce: string;
   token_hash: string;
   active: boolean;
   revoked_at: string | null;
@@ -118,8 +119,12 @@ function familyColorStyle(colorToken: string | null | undefined) {
   }
 }
 
-function tokenVersionForRow(row: Pick<PlannerGuestShareRow, "rotated_at" | "created_at">) {
-  return collapseWhitespace(row.rotated_at ?? row.created_at);
+function generatePlannerGuestShareTokenVersionNonce() {
+  return randomBytes(16).toString("base64url");
+}
+
+function tokenVersionForRow(row: Pick<PlannerGuestShareRow, "token_version_nonce">) {
+  return collapseWhitespace(row.token_version_nonce);
 }
 
 export function generatePlannerGuestShareTokenNonce() {
@@ -346,7 +351,7 @@ export async function getPlannerGuestSharePanelStateForOwner(params: {
   unverified: boolean;
 }) {
   const { data } = await (params.supabase.from("planner_guest_shares" as any) as any)
-    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
+    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_version_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
     .eq("owner_user_id", params.userId)
     .eq("scope_type", PLANNER_GUEST_SHARE_SCOPE_FAMILY)
     .order("updated_at", { ascending: false })
@@ -366,7 +371,7 @@ export async function upsertOwnerPlannerGuestShare(params: {
   action: "create" | "regenerate";
 }) {
   const existingRes = await (params.supabase.from("planner_guest_shares" as any) as any)
-    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
+    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_version_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
     .eq("owner_user_id", params.ownerUserId)
     .eq("scope_type", PLANNER_GUEST_SHARE_SCOPE_FAMILY)
     .order("updated_at", { ascending: false })
@@ -375,16 +380,14 @@ export async function upsertOwnerPlannerGuestShare(params: {
 
   const nowIso = new Date().toISOString();
   const tokenNonce = generatePlannerGuestShareTokenNonce();
-  const currentVersion = params.action === "create" && !(existingRes.data as any)?.id
-    ? new Date().toISOString()
-    : nowIso;
+  const tokenVersionNonce = generatePlannerGuestShareTokenVersionNonce();
 
   const rawToken = buildPlannerGuestShareToken({
     ownerUserId: params.ownerUserId,
     scopeType: PLANNER_GUEST_SHARE_SCOPE_FAMILY,
     scopeTargetId: null,
     tokenNonce,
-    tokenVersion: currentVersion,
+    tokenVersion: tokenVersionNonce,
   });
   const tokenHash = hashPlannerGuestShareToken(rawToken);
 
@@ -392,6 +395,7 @@ export async function upsertOwnerPlannerGuestShare(params: {
     const { data, error } = await (params.supabase.from("planner_guest_shares" as any) as any)
       .update({
         token_nonce: tokenNonce,
+        token_version_nonce: tokenVersionNonce,
         token_hash: tokenHash,
         active: true,
         revoked_at: null,
@@ -399,7 +403,7 @@ export async function upsertOwnerPlannerGuestShare(params: {
       })
       .eq("id", (existingRes.data as any).id)
       .eq("owner_user_id", params.ownerUserId)
-      .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
+      .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_version_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
       .single();
 
     if (error) throw error;
@@ -412,11 +416,12 @@ export async function upsertOwnerPlannerGuestShare(params: {
       scope_type: PLANNER_GUEST_SHARE_SCOPE_FAMILY,
       scope_target_id: null,
       token_nonce: tokenNonce,
+      token_version_nonce: tokenVersionNonce,
       token_hash: tokenHash,
       active: true,
       rotated_at: nowIso,
     })
-    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
+    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_version_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
     .single();
 
   if (error) throw error;
@@ -435,7 +440,7 @@ export async function revokeOwnerPlannerGuestShare(params: {
     .eq("owner_user_id", params.ownerUserId)
     .eq("scope_type", PLANNER_GUEST_SHARE_SCOPE_FAMILY)
     .eq("active", true)
-    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
+    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_version_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
     .maybeSingle();
 
   if (error) throw error;
@@ -447,7 +452,7 @@ export async function revealOwnerPlannerGuestShare(params: {
   ownerUserId: string;
 }) {
   const { data, error } = await (params.supabase.from("planner_guest_shares" as any) as any)
-    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
+    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_version_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
     .eq("owner_user_id", params.ownerUserId)
     .eq("scope_type", PLANNER_GUEST_SHARE_SCOPE_FAMILY)
     .eq("active", true)
@@ -464,10 +469,37 @@ export async function revealOwnerPlannerGuestShare(params: {
     tokenNonce: row.token_nonce,
     tokenVersion: tokenVersionForRow(row),
   });
-  if (hashPlannerGuestShareToken(rawToken) !== row.token_hash) {
-    throw new Error("Guest share token hash mismatch.");
+  if (hashPlannerGuestShareToken(rawToken) === row.token_hash) {
+    return { row, rawToken };
   }
-  return { row, rawToken };
+
+  const nowIso = new Date().toISOString();
+  const repairedTokenNonce = generatePlannerGuestShareTokenNonce();
+  const repairedTokenVersionNonce = generatePlannerGuestShareTokenVersionNonce();
+  const repairedRawToken = buildPlannerGuestShareToken({
+    ownerUserId: row.owner_user_id,
+    scopeType: row.scope_type,
+    scopeTargetId: row.scope_target_id,
+    tokenNonce: repairedTokenNonce,
+    tokenVersion: repairedTokenVersionNonce,
+  });
+  const repairedTokenHash = hashPlannerGuestShareToken(repairedRawToken);
+  const { data: repairedRow, error: repairedError } = await (params.supabase.from("planner_guest_shares" as any) as any)
+    .update({
+      token_nonce: repairedTokenNonce,
+      token_version_nonce: repairedTokenVersionNonce,
+      token_hash: repairedTokenHash,
+      active: true,
+      revoked_at: null,
+      rotated_at: nowIso,
+    })
+    .eq("id", row.id)
+    .eq("owner_user_id", params.ownerUserId)
+    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_version_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
+    .single();
+
+  if (repairedError) throw repairedError;
+  return { row: repairedRow as PlannerGuestShareRow, rawToken: repairedRawToken };
 }
 
 export async function resolvePlannerGuestShareByToken(rawToken: string) {
@@ -475,7 +507,7 @@ export async function resolvePlannerGuestShareByToken(rawToken: string) {
   if (!token) return null;
   const tokenHash = hashPlannerGuestShareToken(token);
   const { data, error } = await (supabaseAdmin.from("planner_guest_shares" as any) as any)
-    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
+    .select("id,owner_user_id,scope_type,scope_target_id,token_nonce,token_version_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
     .eq("token_hash", tokenHash)
     .maybeSingle();
 
