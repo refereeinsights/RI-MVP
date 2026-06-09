@@ -4,6 +4,22 @@
 -- - `token_nonce` + `token_version_nonce` allow deterministic server-side reconstruction
 --   without persisting raw bearer tokens.
 -- - `last_accessed_at` is optional operational metadata and should be throttled in app code.
+-- - A legacy prototype `planner_calendar_feeds` table may already exist with columns like
+--   `user_id`, `feed_token`, `feed_name`, and `is_active`; that shape stored raw tokens and
+--   is intentionally dropped/recreated here before the secure schema is created.
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'planner_calendar_feeds'
+      and column_name = 'feed_token'
+  ) then
+    drop table public.planner_calendar_feeds cascade;
+  end if;
+end $$;
 
 create table if not exists public.planner_calendar_feeds (
   id uuid primary key default gen_random_uuid(),

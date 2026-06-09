@@ -24,7 +24,7 @@ export async function GET(
   return new NextResponse(body, {
     headers: {
       "content-type": "text/calendar; charset=utf-8",
-      "cache-control": "private, max-age=3600",
+      "cache-control": "private, no-store",
       "content-disposition": 'inline; filename="tournamentinsights-family-schedule.ics"',
       "x-robots-tag": "noindex, nofollow, noarchive",
     },
