@@ -4204,6 +4204,13 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - PASS: no raw IDs/URLs/source UIDs observed in normal UI; privacy-safe rendering confirmed.
   - Not fully covered: Weekend Pro calendar detail path (`Season` calendar view) and source-color marker visibility were not validated due entitlement and implementation scope.
 
+- 2026-06-09: Foursquare free tier limit correction.
+  - Corrected Foursquare free tier from 100K/mo (legacy assumption) to 500 free calls/mo (actual current free tier).
+  - Updated `FREE_TIER_LIMITS` in `apps/referee/app/admin/api-usage/page.tsx`: `cap: 500, label: "500 free/mo", sublabel: "Free tier — limit set to 499"`.
+  - Updated `FOURSQUARE_MONTHLY_CALL_LIMIT` default in `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts` from 35000 to 499.
+  - Updated Hangouts backfill reference card budget scenario from 500 to 499 (marked as current limit).
+  - At 5–11 FSQ calls per full Owl's Eye venue run and 499/mo limit, this allows roughly 45–99 full venue runs per month before the budget is exhausted. Override via `FOURSQUARE_MONTHLY_CALL_LIMIT` env var for backfill runs.
+
 - 2026-06-02: Stage 2.9A docs-only execution + test scaffold alignment.
   - Prepared repo-validated prompt at `docs/prompts/ti-planner-stage-2.9a-ics-source-identity-audit-sports-family-uat-prep.md`.
   - Synced Stage 2.9A UAT references across `CLAUDE.md`, `docs/weekend-planner-uat.md`, `docs/weekend-planner-current-state.md`, and `docs/qa/ti-planner-ics-uat.md`.

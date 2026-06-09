@@ -651,6 +651,14 @@ Implemented in `apps/referee/app/admin/api-usage/page.tsx`:
   - per-(api,operation,surface) rows (calls/errors/avg latency)
   - vendor totals (calls/errors/avg latency aggregated client-side from RPC result)
   - free-tier gauges/limits and range filter helpers
+- Free tier caps (`FREE_TIER_LIMITS` constant in `page.tsx`):
+  - Foursquare: **500 free calls/mo** (free tier); operational limit set to **499** (`FOURSQUARE_MONTHLY_CALL_LIMIT` default in `upsertNearbyForRun.ts`)
+  - Mapbox: 100K/mo
+  - Resend: 3K emails/mo
+  - Brave: 2K/mo
+  - Bing: 1K/mo
+  - SerpAPI: 100/mo
+  - Google Places / Overpass / Open Meteo / TimezoneDB: free/credit-based, no hard cap in gauge
 
 ### Alarms: `public.api_usage_alarms` + admin endpoints
 - Table: `public.api_usage_alarms` (see `supabase/migrations/20260505_api_usage_alarms.sql`)

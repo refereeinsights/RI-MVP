@@ -353,7 +353,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   const fsqEnabled = (process.env.FOURSQUARE_ENABLED ?? "true").toLowerCase() === "true";
   const fsqVersion = process.env.FOURSQUARE_API_VERSION || "2025-06-17";
   const fsqDailyLimit = Math.max(0, Number(process.env.FOURSQUARE_DAILY_CALL_LIMIT ?? 500));
-  const fsqMonthlyLimit = Math.max(0, Number(process.env.FOURSQUARE_MONTHLY_CALL_LIMIT ?? 35000));
+  const fsqMonthlyLimit = Math.max(0, Number(process.env.FOURSQUARE_MONTHLY_CALL_LIMIT ?? 499));
 
   const googleFallbackEnabled = (process.env.GOOGLE_FALLBACK_FOR_OWLS_EYE_ENABLED ?? "true").toLowerCase() === "true";
   const googleDailyLimit = Math.max(0, Number(process.env.GOOGLE_FALLBACK_DAILY_CALL_LIMIT ?? 100));

@@ -186,7 +186,7 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
   type FreeTierEntry = { cap: number | null; label: string; sublabel?: string };
   const FREE_TIER_LIMITS: Record<string, FreeTierEntry> = {
     google_places: { cap: null, label: "~$200 credit/mo", sublabel: "≈6,250 calls at $32/1K" },
-    foursquare:    { cap: 100_000, label: "100K/mo" },
+    foursquare:    { cap: 500, label: "500 free/mo", sublabel: "Free tier — limit set to 499" },
     mapbox:        { cap: 100_000, label: "100K/mo" },
     resend:        { cap: 3_000, label: "3K emails/mo" },
     open_meteo:    { cap: null, label: "Free (non-commercial)" },
@@ -296,13 +296,14 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
             </table>
             <div style={{ padding: "5px 8px", borderTop: "1px solid #f3f4f6" }}>
               {[
-                { budget: 500,   lo: 166,  hi: 500  },
-                { budget: 2000,  lo: 666,  hi: 2000 },
-                { budget: 10000, lo: 3333, hi: 10000 },
+                { budget: 499,   lo: 166,  hi: 499,  note: "← current" },
+                { budget: 2000,  lo: 666,  hi: 2000,  note: undefined },
+                { budget: 10000, lo: 3333, hi: 10000, note: undefined },
               ].map((r) => (
                 <div key={r.budget} style={{ fontSize: 10, color: "#6b7280", lineHeight: 1.6 }}>
                   <span style={{ fontWeight: 600, color: "#374151" }}>{r.budget.toLocaleString()} mo limit</span>
                   {" → "}{r.lo.toLocaleString()}–{r.hi.toLocaleString()} venues
+                  {r.note && <span style={{ marginLeft: 4, color: "#f59e0b", fontWeight: 700 }}>{r.note}</span>}
                 </div>
               ))}
             </div>
