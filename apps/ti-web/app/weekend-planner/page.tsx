@@ -3,6 +3,7 @@ import "../tournaments/tournaments.css";
 import PlannerClient from "../_components/planner/PlannerClient";
 import WeekendPlannerClient from "./WeekendPlannerClient";
 import PlannerGuestSharePanel from "./PlannerGuestSharePanel";
+import PlannerCalendarFeedPanel from "./PlannerCalendarFeedPanel";
 import styles from "./WeekendPlanner.module.css";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
@@ -201,6 +202,7 @@ export default async function WeekendPlannerPage() {
 	            {isAuthed ? (
 	              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto", display: "grid", gap: 12 }}>
 	                <PlannerClient initialEvents={plannerEvents} isPaid={isPaid} isUnverified={isUnverified} hideHeader />
+                  <PlannerCalendarFeedPanel />
                   <PlannerGuestSharePanel />
 	              </div>
 	            ) : (

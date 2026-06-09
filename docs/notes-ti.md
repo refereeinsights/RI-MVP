@@ -15,6 +15,14 @@ Maintenance rules:
 
 ## 2026-06-09
 
+- TI Weekend Planner Stage `3.5-1B` private family iCal subscription feed:
+  - Added `supabase/migrations/20260609_ti_planner_stage_3_5_1b_calendar_feeds.sql` for owner-scoped planner calendar feeds, keeping iCal tokens separate from HTML guest-share tokens while enforcing one active family feed per owner, hash-only bearer token storage, `ON DELETE CASCADE`, and owner-only RLS.
+  - Added `apps/ti-web/lib/planner/calendarFeeds.ts` to centralize feed-token generation/hashing, deterministic reveal without raw-token persistence, bounded guest-safe family-event loading, stable HMAC-based UID generation, throttled `last_accessed_at`, and RFC 5545-safe iCal serialization with CRLF line endings and 75-octet folding.
+  - Added the owner calendar-feed flow through `apps/ti-web/app/api/weekend-planner/calendar-feed/route.ts`, `apps/ti-web/app/weekend-planner/PlannerCalendarFeedPanel.tsx`, and `apps/ti-web/app/weekend-planner/PlannerCalendarFeedPanelClient.tsx`, allowing Weekend Pro owners to create, reveal-copy, regenerate, and revoke private subscription URLs while clearly warning that external calendar apps may retain previously fetched events until refresh or subscription removal.
+  - Added the private calendar route `apps/ti-web/app/weekend-planner/calendar/[token]/route.ts` returning `text/calendar` with private caching, inline `.ics` filename headers, and empty valid calendars for unknown, revoked, inactive, or non-Pro feed states.
+  - Updated `apps/ti-web/app/weekend-planner/page.tsx` and `apps/ti-web/app/robots.ts` so the planner now surfaces the subscription panel for authenticated owners and disallows `/weekend-planner/calendar/` from robots coverage.
+  - Added focused tests in `apps/ti-web/lib/planner/calendarFeeds.test.ts` for token hashing, URL-safe helpers, iCal escaping, folding, CRLF output, and stable UID serialization.
+
 - TI tournament directory dead-click cleanup on staged filters:
   - Updated `apps/ti-web/app/tournaments/TournamentDirectoryFiltersClient.tsx` so `/tournaments` now renders `Apply filters` and `Reset` as clearly separated semantic buttons, moves live helper/status text out of the shared action row, adds explicit no-change feedback, and prevents double-submit behavior while Apply is navigating.
   - Updated `apps/ti-web/app/tournaments/StateMultiSelect.tsx` and `apps/ti-web/app/tournaments/tournaments.css` so the state trigger has a stronger hitbox/focus treatment, the closed combobox no longer leaks hidden `All states` menu text into Clarity-style concatenated labels, and the action/toggle rows keep 44px+ tap targets with non-overlapping mobile spacing.

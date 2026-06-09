@@ -259,6 +259,69 @@
   color: #fff;
 }
 
+.shareSuccess {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.16);
+  color: #d1fae5;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.shareError {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(127, 29, 29, 0.2);
+  border: 1px solid rgba(252, 165, 165, 0.28);
+  color: #fee2e2;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.calendarFeedCaveat,
+.calendarFeedWarning,
+.calendarFeedHowTo {
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.calendarFeedCaveat {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.calendarFeedWarning {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #fef3c7;
+}
+
+.calendarFeedHowTo {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.calendarFeedHowToTitle {
+  font-size: 12px;
+  font-weight: 900;
+  color: #fff;
+}
+
+.calendarFeedHowToList {
+  margin: 8px 0 0 18px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
 .shareError {
   font-size: 13px;
   color: #fecaca;

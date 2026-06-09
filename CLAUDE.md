@@ -221,6 +221,55 @@ Scope:
 
 ---
 
+### Stage 3.5-1B UAT (Weekend Pro private family iCal subscription feed)
+
+Use this after Stage 3.5-1 passes. Run it with:
+- **UAT Planner A** as the owner
+- Apple Calendar / Google Calendar / Outlook only if practical
+
+Scope:
+- private family iCal subscription feed
+- Weekend Pro-only creation
+- read-only calendar export
+- no notes or raw source metadata
+- regenerate / revoke / paused-feed behavior
+
+- [ ] Owner-side subscription panel:
+  - [ ] Logged-in Weekend Pro owner sees a contained `Subscribe in your calendar` panel on `/weekend-planner`.
+  - [ ] Panel copy explains that this is a read-only subscription feed and edits still happen in Weekend Planner.
+  - [ ] Panel warns that calendar apps control refresh timing.
+  - [ ] Revoke / regenerate UI clearly warns that external calendar apps may retain previously fetched events until they refresh or the subscription is removed.
+  - [ ] Feed-token URLs are not auto-opened or auto-prefetched from the owner UI.
+- [ ] Weekend Pro-only management:
+  - [ ] Weekend Pro owner can create a calendar URL.
+  - [ ] The UI can reveal/copy the active calendar URL.
+  - [ ] Regenerate replaces the old calendar URL with a new one.
+  - [ ] Revoke disables the active calendar URL immediately for future refreshes.
+- [ ] Feed route behavior:
+  - [ ] Feed URL returns `HTTP 200` with `Content-Type: text/calendar`.
+  - [ ] Response uses a valid `VCALENDAR` payload with no HTML wrapper.
+  - [ ] `Content-Disposition` uses an inline `.ics` filename.
+  - [ ] Unknown / revoked / inactive / non-Pro feed states all return the same empty valid calendar and no schedule data.
+  - [ ] Only malformed token paths return `HTTP 404`.
+- [ ] Calendar content correctness:
+  - [ ] Feed includes guest-safe assigned and unassigned family planner events within the bounded window.
+  - [ ] Feed does not expose unbounded historical events.
+  - [ ] Suppressed events do not appear.
+  - [ ] Event titles, times, and safe locations look reasonable in the raw `.ics` output or subscribed calendar client.
+  - [ ] Stable event UIDs prevent obvious duplicate re-import behavior after regeneration.
+- [ ] Privacy guardrails:
+  - [ ] No notes, imported notes, source URLs, source IDs, `source_event_uid`, raw UUIDs, billing data, or debug metadata appear in the calendar output.
+  - [ ] Calendar route is not included in sitemap output.
+  - [ ] `/weekend-planner/calendar/` is disallowed in `robots.txt`.
+- [ ] Owner loses Weekend Pro:
+  - [ ] If the owner is downgraded from Weekend Pro, the existing feed no longer returns schedule data and instead returns the same empty valid calendar behavior.
+  - [ ] Existing feed row is treated as paused, not silently deleted.
+  - [ ] If implemented, non-Pro owner can still revoke as a privacy control.
+- [ ] Empty-state behavior:
+  - [ ] If the bounded feed window has no events, the route still returns a valid empty calendar instead of an error.
+
+---
+
 ### Stage 3.0 UAT (responsive layout foundation)
 
 Use this after Smoke UAT passes. Verify both desktop/tablet and a narrow mobile viewport (375px wide if possible).
