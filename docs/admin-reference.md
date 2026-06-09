@@ -653,7 +653,10 @@ Implemented in `apps/referee/app/admin/api-usage/page.tsx`:
   - free-tier gauges/limits and range filter helpers
 - Free tier caps (`FREE_TIER_LIMITS` constant in `page.tsx`):
   - Foursquare: **500 free calls/mo** (free tier); operational limit set to **499** (`FOURSQUARE_MONTHLY_CALL_LIMIT` default in `upsertNearbyForRun.ts`)
-  - Mapbox: 100K/mo
+  - Mapbox: two separate free tiers, both tracked under the single `mapbox` vendor key:
+    - Static Images API: **50K free/mo** — $1.00/1K after; used by static map cron (1 call per new/changed tournament map)
+    - Geocoding API: **100K free/mo** — $0.75/1K after; used for venue geocoding (0–1 calls per new venue, only when coords missing)
+    - Dashboard gauge uses the lower 50K cap as the primary display limit
   - Resend: 3K emails/mo
   - Brave: 2K/mo
   - Bing: 1K/mo

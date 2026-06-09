@@ -187,7 +187,7 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
   const FREE_TIER_LIMITS: Record<string, FreeTierEntry> = {
     google_places: { cap: null, label: "~$200 credit/mo", sublabel: "≈6,250 calls at $32/1K" },
     foursquare:    { cap: 500, label: "500 free/mo", sublabel: "Free tier — limit set to 499" },
-    mapbox:        { cap: 100_000, label: "100K/mo" },
+    mapbox:        { cap: 50_000, label: "50K/mo (static maps)", sublabel: "Static maps: 50K free · Geocoding: 100K free (tracked together)" },
     resend:        { cap: 3_000, label: "3K emails/mo" },
     open_meteo:    { cap: null, label: "Free (non-commercial)" },
     brave_search:  { cap: 2_000, label: "2K/mo" },

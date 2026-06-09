@@ -16,6 +16,7 @@ Maintenance rules:
 
 - TI Weekend Planner Stage `3.5-1B` private family iCal subscription feed:
   - Added `supabase/migrations/20260609_ti_planner_stage_3_5_1b_calendar_feeds.sql` to introduce owner-scoped `planner_calendar_feeds` with separate iCal token purpose, `ON DELETE CASCADE`, active-family-feed enforcement, hash-only bearer token storage, and owner-only RLS policies.
+  - Hardened the Stage `3.5-1B` migration to detect and drop the older prototype `planner_calendar_feeds` table shape (`user_id`, `feed_token`, `feed_name`, `is_active`) before creating the secure schema, preventing Vercel/Supabase deploy failures caused by legacy raw-token storage drift.
   - Added `apps/ti-web/lib/planner/calendarFeeds.ts` to centralize feed-token generation/hashing, deterministic reveal without raw-token persistence, bounded guest-safe family-event loading, empty-calendar failure behavior, stable privacy-safe UID generation, throttled `last_accessed_at` updates, and RFC 5545-safe calendar serialization.
   - Added the owner-side calendar-subscription flow through `apps/ti-web/app/api/weekend-planner/calendar-feed/route.ts`, `apps/ti-web/app/weekend-planner/PlannerCalendarFeedPanel.tsx`, and `apps/ti-web/app/weekend-planner/PlannerCalendarFeedPanelClient.tsx`, allowing Weekend Pro owners to create, reveal-copy, regenerate, and revoke private calendar URLs while warning that external calendar apps may retain previously fetched events until refresh or subscription removal.
   - Added the private feed route `apps/ti-web/app/weekend-planner/calendar/[token]/route.ts` returning `text/calendar` with CRLF line endings, 75-octet folding, private caching, inline `.ics` filename headers, and empty valid calendars for unknown/revoked/inactive/non-Pro feeds.
@@ -4211,6 +4212,14 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - PASS: label editing (single-field), persistence after reload, list-card visibility, manual-event fallback (no inherited feed label), and refresh retention.
   - PASS: no raw IDs/URLs/source UIDs observed in normal UI; privacy-safe rendering confirmed.
   - Not fully covered: Weekend Pro calendar detail path (`Season` calendar view) and source-color marker visibility were not validated due entitlement and implementation scope.
+
+- 2026-06-09: Mapbox free tier correction — two APIs, different limits.
+  - We use two Mapbox APIs, both tracked under the single `mapbox` vendor key in the dashboard:
+    - **Static Images API**: 50K free/mo, then $1.00/1K — used by `/api/cron/static-map-generator` (1 call per tournament needing a new/changed map, up to 50 per cron run; hash-deduped so steady-state is near-zero)
+    - **Geocoding API**: 100K free/mo, then $0.75/1K — used for venue geocoding in Owl's Eye runs and venue admin routes (0–1 calls per venue, only fires when lat/lng is missing)
+  - Updated dashboard `FREE_TIER_LIMITS` mapbox entry: `cap: 50_000` (the lower/binding static maps limit); sublabel notes the geocoding 100K tier separately.
+  - Both APIs are well inside free tiers at current scale. No server-enforced monthly limit exists for Mapbox (unlike Foursquare).
+  - Files: `apps/referee/app/admin/api-usage/page.tsx`, `docs/admin-reference.md`.
 
 - 2026-06-09: Foursquare free tier limit correction.
   - Corrected Foursquare free tier from 100K/mo (legacy assumption) to 500 free calls/mo (actual current free tier).
