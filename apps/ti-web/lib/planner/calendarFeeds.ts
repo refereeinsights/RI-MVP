@@ -552,13 +552,22 @@ export async function resolvePlannerCalendarFeedByToken(rawToken: string) {
   const token = collapseWhitespace(rawToken);
   if (!token) return null;
   const tokenHash = hashPlannerCalendarFeedToken(token);
-  const { data, error } = await (supabaseAdmin.from("planner_calendar_feeds" as any) as any)
+  const rpc = await (supabaseAdmin.rpc("resolve_planner_calendar_feed_by_token_hash" as any, {
+    p_token_hash: tokenHash,
+  }) as any);
+
+  if (!rpc.error) {
+    const row = Array.isArray(rpc.data) ? (rpc.data[0] ?? null) : (rpc.data ?? null);
+    return (row as PlannerCalendarFeedRow | null) ?? null;
+  }
+
+  const fallback = await (supabaseAdmin.from("planner_calendar_feeds" as any) as any)
     .select("id,owner_user_id,feed_type,scope_type,scope_target_id,token_nonce,token_version_nonce,token_hash,active,revoked_at,rotated_at,last_accessed_at,created_at,updated_at")
     .eq("token_hash", tokenHash)
     .maybeSingle();
 
-  if (error || !data) return null;
-  return data as PlannerCalendarFeedRow;
+  if (fallback.error || !fallback.data) return null;
+  return fallback.data as PlannerCalendarFeedRow;
 }
 
 export async function markPlannerCalendarFeedAccessed(row: PlannerCalendarFeedRow) {

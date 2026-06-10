@@ -9,8 +9,10 @@ import {
   generatePlannerCalendarFeedTokenNonce,
   hashPlannerCalendarFeedToken,
   isPlausiblePlannerCalendarFeedToken,
+  resolvePlannerCalendarFeedByToken,
   serializePlannerCalendarFeed,
 } from "./calendarFeeds";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 test("planner calendar feed tokens hash to stable 64-char sha256 hex", () => {
   const originalSecret = process.env.TI_CALENDAR_FEED_SECRET;
@@ -135,5 +137,79 @@ test("planner calendar feed serializer emits stable VEVENT basics", () => {
     assert.ok(serialized.includes("tournamentinsights.com"));
   } finally {
     process.env.TI_CALENDAR_FEED_SECRET = originalSecret;
+  }
+});
+
+test("planner calendar feed token resolution prefers RPC result", async () => {
+  const originalRpc = (supabaseAdmin as any).rpc;
+  const originalFrom = (supabaseAdmin as any).from;
+  const row = {
+    id: "feed-1",
+    owner_user_id: "owner-1",
+    feed_type: "ical",
+    scope_type: "family",
+    scope_target_id: null,
+    token_nonce: "nonce",
+    token_version_nonce: "version",
+    token_hash: "a".repeat(64),
+    active: true,
+    revoked_at: null,
+    rotated_at: null,
+    last_accessed_at: null,
+    created_at: "2026-06-10T00:00:00.000Z",
+    updated_at: "2026-06-10T00:00:00.000Z",
+  };
+
+  (supabaseAdmin as any).rpc = async () => ({ data: [row], error: null });
+  (supabaseAdmin as any).from = () => {
+    throw new Error("from() should not be used when RPC succeeds");
+  };
+
+  try {
+    const result = await resolvePlannerCalendarFeedByToken("token.value");
+    assert.deepEqual(result, row);
+  } finally {
+    (supabaseAdmin as any).rpc = originalRpc;
+    (supabaseAdmin as any).from = originalFrom;
+  }
+});
+
+test("planner calendar feed token resolution falls back when RPC is unavailable", async () => {
+  const originalRpc = (supabaseAdmin as any).rpc;
+  const originalFrom = (supabaseAdmin as any).from;
+  const row = {
+    id: "feed-2",
+    owner_user_id: "owner-2",
+    feed_type: "ical",
+    scope_type: "family",
+    scope_target_id: null,
+    token_nonce: "nonce-2",
+    token_version_nonce: "version-2",
+    token_hash: "b".repeat(64),
+    active: true,
+    revoked_at: null,
+    rotated_at: null,
+    last_accessed_at: null,
+    created_at: "2026-06-10T00:00:00.000Z",
+    updated_at: "2026-06-10T00:00:00.000Z",
+  };
+
+  (supabaseAdmin as any).rpc = async () => ({ data: null, error: { message: "function not found" } });
+  (supabaseAdmin as any).from = () => ({
+    select() {
+      return this;
+    },
+    eq() {
+      return this;
+    },
+    maybeSingle: async () => ({ data: row, error: null }),
+  });
+
+  try {
+    const result = await resolvePlannerCalendarFeedByToken("other.token");
+    assert.deepEqual(result, row);
+  } finally {
+    (supabaseAdmin as any).rpc = originalRpc;
+    (supabaseAdmin as any).from = originalFrom;
   }
 });
