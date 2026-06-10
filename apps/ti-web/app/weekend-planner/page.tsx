@@ -192,6 +192,9 @@ export default async function WeekendPlannerPage() {
     })
     .slice(0, 25);
 
+  const plannerCalendarFeedPanel = user ? await PlannerCalendarFeedPanel() : null;
+  const plannerGuestSharePanel = user ? await PlannerGuestSharePanel() : null;
+
 	  return (
 	    <div className={`pitchWrap tournamentsWrap ${styles.standaloneShell}`} data-weekend-planner-root="true">
 	      <section className="field tournamentsField">
@@ -202,8 +205,8 @@ export default async function WeekendPlannerPage() {
 	            {isAuthed ? (
 	              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto", display: "grid", gap: 12 }}>
 	                <PlannerClient initialEvents={plannerEvents} isPaid={isPaid} isUnverified={isUnverified} hideHeader />
-                  <PlannerCalendarFeedPanel />
-                  <PlannerGuestSharePanel />
+                  {plannerCalendarFeedPanel}
+                  {plannerGuestSharePanel}
 	              </div>
 	            ) : (
 	              <article className={styles.panelCard}>
