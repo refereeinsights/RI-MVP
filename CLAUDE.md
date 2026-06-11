@@ -1734,6 +1734,10 @@ Test at **375px** (iPhone SE), **390px** (iPhone 14/15 Pro), and **768px** (iPad
 - [ ] Auth redirect after login (`returnTo`) works correctly on mobile browsers
 - [ ] On sport/state hub pages such as `/baseball/california` or `/soccer/texas`, tapping a state in `Explore by State` triggers the same navigation as desktop click
 - [ ] On the same sport/state hub pages, scrolling across the `Explore by State` SVG does not accidentally trigger state navigation
+- [ ] On `/tournaments` and one `/{sport}/{state}` page, tapping the main tournament card body navigates to the tournament detail page on mobile
+- [ ] If a tournament card shows a venue map strip, tapping that strip performs its intended navigation and is not a dead tap
+- [ ] In the tournament card footer/CTA region, tapping `Tournament Details` works and taps in visible footer gaps do not die before hydration
+- [ ] After refresh, an early tap on the intended tournament card navigation target still works before hydration completes
 
 ---
 
