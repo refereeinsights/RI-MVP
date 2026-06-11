@@ -15,6 +15,11 @@ Maintenance rules:
 
 ## 2026-06-11
 
+- TI tournament card pre-hydration dead-tap fix on directory/state hub pages:
+  - Verified the main tournament card body on `/tournaments` and `/{sport}/{state}` already used a real `cardOverlayLink` anchor, so the dead-tap issue was not a missing-link problem.
+  - Updated `apps/ti-web/app/tournaments/tournaments.css` so the non-link `.cardFooter` wrapper no longer sits above the full-card overlay; only real CTA links and the venue map strip remain elevated.
+  - This lets pre-hydration taps in empty footer gap regions fall through to the tournament detail overlay link instead of dying on a non-interactive wrapper.
+
 - TI mobile state-map tap fix on sport/state hub pages:
   - Updated `apps/ti-web/app/_components/UsMapInteractions.tsx` so the delegated US map interaction layer now supports `touchstart` / `touchend` on the parent SVG in addition to the existing delegated desktop click behavior.
   - Preserved the existing `data-*` target lookup and analytics/navigation flow while routing both click and touch through the same shared state-activation handler.
