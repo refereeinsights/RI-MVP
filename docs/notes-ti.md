@@ -13,8 +13,16 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
-## 2026-06-09
+## 2026-06-11
 
+- TI mobile state-map tap fix on sport/state hub pages:
+  - Updated `apps/ti-web/app/_components/UsMapInteractions.tsx` so the delegated US map interaction layer now supports `touchstart` / `touchend` on the parent SVG in addition to the existing delegated desktop click behavior.
+  - Preserved the existing `data-*` target lookup and analytics/navigation flow while routing both click and touch through the same shared state-activation handler.
+  - Added a minimal `10px` touch-displacement guard so scrolling across the `Explore by State` map on iOS Safari does not accidentally trigger navigation.
+  - Registered `touchend` with `{ passive: false }` so tap-qualified interactions can `preventDefault()` and avoid double-firing the synthetic follow-up click.
+  - Updated `CLAUDE.md` mobile UAT guidance to verify that `Explore by State` map taps work on mobile Safari and that scrolling across the SVG does not navigate.
+
+## 2026-06-09
 - TI Weekend Planner Stage `3.5-1B` private family iCal subscription feed:
   - Added `supabase/migrations/20260609_ti_planner_stage_3_5_1b_calendar_feeds.sql` for owner-scoped planner calendar feeds, keeping iCal tokens separate from HTML guest-share tokens while enforcing one active family feed per owner, hash-only bearer token storage, `ON DELETE CASCADE`, and owner-only RLS.
   - Hardened the Stage `3.5-1B` migration so environments with the old prototype `planner_calendar_feeds` shape (`user_id`, `feed_token`, `feed_name`, `is_active`) automatically drop that legacy raw-token table before creating the secure schema, avoiding deploy failures from schema drift.

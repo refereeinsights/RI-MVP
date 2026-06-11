@@ -1732,6 +1732,8 @@ Test at **375px** (iPhone SE), **390px** (iPhone 14/15 Pro), and **768px** (iPad
 - [ ] All touch targets meet minimum 44×44px (buttons, nav links, card CTAs)
 - [ ] No tap targets overlap or are obscured by other elements
 - [ ] Auth redirect after login (`returnTo`) works correctly on mobile browsers
+- [ ] On sport/state hub pages such as `/baseball/california` or `/soccer/texas`, tapping a state in `Explore by State` triggers the same navigation as desktop click
+- [ ] On the same sport/state hub pages, scrolling across the `Explore by State` SVG does not accidentally trigger state navigation
 
 ---
 

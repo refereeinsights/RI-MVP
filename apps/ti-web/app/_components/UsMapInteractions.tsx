@@ -49,6 +49,8 @@ export default function UsMapInteractions({
 
     tip.textContent = defaultTip;
     send("map_viewed", { page_type: pageType, sport });
+    const tapMoveThresholdPx = 10;
+    let touchStartPoint: { x: number; y: number } | null = null;
 
     const onMove = (e: MouseEvent) => {
       const t = getSvgPathTarget(e);
@@ -66,7 +68,7 @@ export default function UsMapInteractions({
       tip.textContent = defaultTip;
     };
 
-    const onClick = (e: MouseEvent) => {
+    const activateState = (e: Event) => {
       const t = getSvgPathTarget(e);
       if (!t) return;
       const href = t.getAttribute("data-href");
@@ -76,14 +78,54 @@ export default function UsMapInteractions({
       window.location.href = href;
     };
 
+    const onClick = (e: MouseEvent) => {
+      activateState(e);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.changedTouches[0] ?? e.touches[0];
+      if (!touch) {
+        touchStartPoint = null;
+        return;
+      }
+      touchStartPoint = {
+        x: touch.clientX,
+        y: touch.clientY,
+      };
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      const touch = e.changedTouches[0];
+      const startPoint = touchStartPoint;
+      touchStartPoint = null;
+      if (!touch || !startPoint) return;
+
+      const movedX = Math.abs(touch.clientX - startPoint.x);
+      const movedY = Math.abs(touch.clientY - startPoint.y);
+      if (movedX > tapMoveThresholdPx || movedY > tapMoveThresholdPx) return;
+
+      e.preventDefault();
+      activateState(e);
+    };
+
+    const onTouchCancel = () => {
+      touchStartPoint = null;
+    };
+
     svg.addEventListener("mousemove", onMove);
     svg.addEventListener("mouseleave", onLeave);
     svg.addEventListener("click", onClick);
+    svg.addEventListener("touchstart", onTouchStart);
+    svg.addEventListener("touchend", onTouchEnd, { passive: false });
+    svg.addEventListener("touchcancel", onTouchCancel);
 
     return () => {
       svg.removeEventListener("mousemove", onMove);
       svg.removeEventListener("mouseleave", onLeave);
       svg.removeEventListener("click", onClick);
+      svg.removeEventListener("touchstart", onTouchStart);
+      svg.removeEventListener("touchend", onTouchEnd);
+      svg.removeEventListener("touchcancel", onTouchCancel);
     };
   }, [defaultTip, pageType, sport, tipId]);
 
