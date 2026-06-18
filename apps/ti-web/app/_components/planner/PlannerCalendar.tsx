@@ -66,7 +66,11 @@ function sanitizeIcsNotesForDisplay(notes: string | null | undefined, sourceType
   const withoutUrls = normalizedNotes.replace(/\b(?:https?:\/\/|www\.)[^\s"'<>]+/gi, " ");
   const withoutUuid = withoutUrls.replace(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, " ");
   const withoutHexDigest = withoutUuid.replace(/\b[0-9a-f]{32}\b/gi, " ");
-  return String(withoutHexDigest).replace(/\s+/g, " ").trim();
+  const withoutStructuredArtifacts = withoutHexDigest.replace(
+    /\b(?:Game|Practice|Location|Duration|Link)\s*:\s*.*?(?=\s+\b(?:Game|Practice|Location|Duration|Arrival|Uniform|Link)\s*:|$)/gi,
+    " ",
+  );
+  return String(withoutStructuredArtifacts).replace(/\s+/g, " ").trim();
 }
 
 type DetailState = { open: boolean; eventId: string | null };
@@ -437,8 +441,8 @@ export default function PlannerCalendar(props: Props) {
         (date.getFullYear() === limitYear && date.getMonth() + 1 >= limitMonth)
       ) return true;
     }
-    return calendarMode === "month" && weeksToShow >= 6;
-  }, [calendarMode, props.scheduleView, displayedDate, weeksToShow]);
+    return false;
+  }, [calendarMode, props.scheduleView, displayedDate]);
 
   function goToAdjacentRange(delta: 1 | -1) {
     try {

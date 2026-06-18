@@ -109,6 +109,13 @@ test("sanitizeImportedNotes: removes URLs and UUID-like tokens", () => {
   assert.equal(cleaned, "Bring jersey and uuid=.");
 });
 
+test("sanitizeImportedNotes: removes ICS field labels when URLs are stripped", () => {
+  const raw =
+    "Practice: 2627 90+ B09-10 Lewis Summer Training Location: Dwight Merkel Sports Complex 5701 N Assembly St, Spokane, WA 99205, USA Duration: 1 hour 30 minutes Link:";
+  const cleaned = sanitizeImportedNotes(raw);
+  assert.equal(cleaned, "");
+});
+
 test("normalizeIcsEvents: strips raw URLs from unstructured description", () => {
   const now = new Date();
   const start = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
