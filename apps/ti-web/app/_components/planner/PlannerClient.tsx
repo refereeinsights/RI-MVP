@@ -802,7 +802,7 @@ export default function PlannerClient(props: Props) {
   const inlineFieldLabelForEvent = (e: PlannerEventRow) => {
     const explicitFieldLabel = String(e.field_label ?? "").trim();
     if (explicitFieldLabel) return explicitFieldLabel;
-    const notes = sanitizeIcsNotesForDisplay(e.notes, e.source_type);
+    const notes = sanitizeIcsNotesForDisplay(e.notes, isIcsLikeEvent(e) ? "ics" : e.source_type);
     if (!notes) return "";
     if (!/^(field|court|gym)\b/i.test(notes)) return "";
     if (notes.includes("\n")) return "";
@@ -824,10 +824,15 @@ export default function PlannerClient(props: Props) {
     return collapseWhitespace(withoutStructuredArtifacts);
   }
 
+  function isIcsLikeEvent(e: PlannerEventRow) {
+    const sourceType = String(e.source_type ?? "").trim().toLowerCase();
+    const sourceId = String(e.source_id ?? "").trim();
+    const sourceEventUid = String(e.source_event_uid ?? "").trim();
+    return sourceType === "ics" || (Boolean(sourceId) && Boolean(sourceEventUid));
+  }
+
   function editableNotesForEvent(e: PlannerEventRow) {
-    const sourceType = String(e.source_type ?? "").toLowerCase();
-    if (sourceType !== "ics") return e.notes ?? "";
-    return sanitizeIcsNotesForDisplay(e.notes, e.source_type);
+    return isIcsLikeEvent(e) ? sanitizeIcsNotesForDisplay(e.notes, "ics") : e.notes ?? "";
   }
 
   function openMapForEvent(e: PlannerEventRow) {
@@ -3485,7 +3490,7 @@ export default function PlannerClient(props: Props) {
                           </div>
                         )}
                         {e.notes && String(e.notes).trim() !== fieldLabel ? (
-                          <div className={styles.eventMeta}>{sanitizeIcsNotesForDisplay(e.notes, e.source_type)}</div>
+                          <div className={styles.eventMeta}>{sanitizeIcsNotesForDisplay(e.notes, isIcsLikeEvent(e) ? "ics" : e.source_type)}</div>
                         ) : null}
 
                         {dupesByEventId.get(e.id)?.length ? (

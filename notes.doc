@@ -79,6 +79,17 @@ Date: 2026-06-18
   - calendar detail modal
 - [ ] Calendar month nav in month mode moves to the correct next/previous month consistently (no skipped/partial month behavior at boundaries).
 
+### Additional UAT retest focus (post-fix follow-up)
+- [ ] ICS edit modal privacy is clean:
+  - open a TeamSnap event edit modal and verify:
+    - no `Link:` label
+    - no raw `https://...` URLs
+    - no visible UUID-like fragments
+- [ ] Calendar month/week navigation now advances:
+  - Month view: starting from June 2026, `‹` goes to May 2026 and `›` to July 2026
+  - Week view: `‹`/`›` shift full 7-day windows and labels update accordingly
+  - no runtime errors on date-navigation clicks
+
 ### UAT Re-test Feedback — 2026-06-18 (local `/weekend-planner`)
 
 - **Environment:** `http://localhost:3001` (tab `1758705939`, Weekend Pro session)
@@ -100,4 +111,6 @@ Date: 2026-06-18
 - `apps/ti-web/app/_components/planner/PlannerClient.tsx`
   - Added ICS edit note prefill sanitation so modal uses `sanitizeIcsNotesForDisplay` output for ICS events.
 - `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`
-  - Added robust Schedule-X date parsing for `controls.getDate()` (string/object), and navigation now sets dates using canonical `YYYY-MM-DD` strings.
+  - Added robust Schedule-X date normalization for `controls.getDate()` and ensures `controls.setDate()` always receives a `Temporal.PlainDate`.
+- `apps/ti-web/app/api/planner/events/route.ts`
+  - Added API response sanitization for ICS-like events so `notes` no longer return raw URLs/UUID-like text.

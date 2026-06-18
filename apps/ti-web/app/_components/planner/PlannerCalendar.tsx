@@ -83,47 +83,47 @@ type ScheduleXDateShape = {
   day?: string | number | null;
 };
 
-function toPlainDate(value: string | ScheduleXDateShape | unknown): Temporal.PlainDate | null {
+function toPlainDate(value: string | ScheduleXDateShape | Temporal.PlainDate | unknown): Temporal.PlainDate | null {
   if (!value) return null;
-  if (typeof value === "string") {
-    const dateMatch = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (dateMatch) {
-      const year = Number(dateMatch[1]);
-      const month = Number(dateMatch[2]);
-      const day = Number(dateMatch[3]);
-      if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
-        try {
-          return Temporal.PlainDate.from({ year, month, day });
-        } catch {
-          return null;
-        }
-      }
+  if (typeof value === "object") {
+    if (value instanceof Temporal.PlainDate) return value;
+    const dateLike = value as { toPlainDate?: () => unknown };
+    if (typeof dateLike.toPlainDate === "function") {
+      const plain = dateLike.toPlainDate();
+      if (plain) return toPlainDate(plain);
     }
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) {
-      return Temporal.PlainDate.from({
-        year: parsed.getFullYear(),
-        month: parsed.getMonth() + 1,
-        day: parsed.getDate(),
-      });
+    const candidate = value as ScheduleXDateShape & { dayOfMonth?: string | number | null; monthCode?: string | null };
+    const year = Number(candidate.year);
+    const rawMonth = candidate.monthCode ? Number(String(candidate.monthCode).replace(/^M/i, "")) : Number(candidate.month);
+    const day = Number(candidate.day ?? candidate.dayOfMonth);
+    const month = Number(rawMonth);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+    try {
+      return Temporal.PlainDate.from({ year, month, day });
+    } catch {
+      return null;
     }
-    return null;
   }
-  if (typeof value !== "object") return null;
-  const candidate = value as ScheduleXDateShape;
-  const year = Number(candidate.year);
-  const month = Number(candidate.month);
-  const day = Number(candidate.day);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  if (typeof value !== "string") return null;
   try {
-    return Temporal.PlainDate.from({ year, month, day });
+    return Temporal.PlainDate.from(value.trim());
   } catch {
-    return null;
+    const fallback = new Date(value.trim());
+    if (Number.isNaN(fallback.getTime())) return null;
+    try {
+      return Temporal.PlainDate.from({
+        year: fallback.getFullYear(),
+        month: fallback.getMonth() + 1,
+        day: fallback.getDate(),
+      });
+    } catch {
+      return null;
+    }
   }
 }
 
 function formatPlainDate(date: Temporal.PlainDate) {
-  return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+  return date.toString();
 }
 
 export default function PlannerCalendar(props: Props) {
@@ -349,8 +349,19 @@ export default function PlannerCalendar(props: Props) {
   const syncDisplayedDateFromControls = useCallback(() => {
     try {
       const d = toPlainDate(controls.getDate());
-      if (!d) return;
-      setDisplayedDate(formatPlainDate(d));
+      if (d) {
+        setDisplayedDate(formatPlainDate(d));
+        return;
+      }
+
+      const fallback = toPlainDate(Temporal.Now.plainDateISO(calendarTz));
+      if (!fallback) return;
+      try {
+        controls.setDate(fallback);
+      } catch {
+        // ignore
+      }
+      setDisplayedDate(formatPlainDate(fallback));
     } catch {
       // ignore
     }
@@ -380,7 +391,12 @@ export default function PlannerCalendar(props: Props) {
     calendars: sxCalendars as any,
     plugins: [eventsService as any, controls as any],
     callbacks: {
-      onRangeUpdate: (_range: any) => {
+      onRangeUpdate: (range: any) => {
+        const rangeStart = range?.start;
+        const rangeStartPlain = toPlainDate(rangeStart?.toPlainDate ? rangeStart.toPlainDate() : rangeStart);
+        if (rangeStartPlain) {
+          setDisplayedDate(formatPlainDate(rangeStartPlain));
+        }
         syncDisplayedDateFromControls();
       },
       onRender: () => {
@@ -495,17 +511,21 @@ export default function PlannerCalendar(props: Props) {
 
   function goToAdjacentRange(delta: 1 | -1) {
     try {
-      const cur = toPlainDate(controls.getDate());
+      const cur = toPlainDate(controls.getDate()) ?? toPlainDate(displayedDate) ?? toPlainDate(Temporal.Now.plainDateISO(calendarTz));
       if (!cur) return;
       if (calendarMode === "week") {
         const target = cur.add({ days: 7 * delta });
-        controls.setDate(formatPlainDate(target) as any);
+        const normalizedTarget = toPlainDate(target);
+        if (!normalizedTarget) return;
+        controls.setDate(normalizedTarget);
         return;
       }
 
       const monthAnchor = Temporal.PlainDate.from({ year: cur.year, month: cur.month, day: 1 });
       const target = monthAnchor.add({ months: delta });
-      controls.setDate(formatPlainDate(target) as any);
+      const normalizedTarget = toPlainDate(target);
+      if (!normalizedTarget) return;
+      controls.setDate(normalizedTarget);
     } catch {
       // ignore
     }

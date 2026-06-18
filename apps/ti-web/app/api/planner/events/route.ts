@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { isUuid } from "@/lib/venues/isUuid";
 import type { PlannerEventCreateBody } from "@/lib/planner/types";
 import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
+import { sanitizeImportedNotes } from "@/lib/planner/ics-import";
 import { parseOptionalPlannerProfileId, validatePlannerAssignment } from "@/lib/planner/assignmentServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 
@@ -272,6 +273,15 @@ export async function GET(req: Request) {
     return e;
   }
 
+  function sanitizeIcsEventNotes(e: any) {
+    const sourceType = String(e?.source_type ?? "").trim().toLowerCase();
+    const sourceId = String(e?.source_id ?? "").trim();
+    const sourceEventUid = String(e?.source_event_uid ?? "").trim();
+    const isIcsLike = sourceType === "ics" || (Boolean(sourceId) && Boolean(sourceEventUid));
+    if (!isIcsLike) return e;
+    return { ...e, notes: sanitizeImportedNotes(e?.notes ?? null) };
+  }
+
   async function filterSuppressed(events: any[]) {
     if (!events.length) return events;
 
@@ -379,7 +389,10 @@ export async function GET(req: Request) {
     scanCapHit = true;
   }
 
-  const out = visible.slice(0, limit).map(normalizeSourceType);
+  const out = visible
+    .slice(0, limit)
+    .map(normalizeSourceType)
+    .map(sanitizeIcsEventNotes);
   const enriched = await enrichPlannerEventsWithLinkedVenue(supabase, out as any[]);
   const hasMore = visible.length > limit || scanCapHit ? true : !rawExhausted ? true : false;
   const nextCursor = hasMore && out.length ? { starts_at: String(out[out.length - 1].starts_at), id: String(out[out.length - 1].id) } : null;

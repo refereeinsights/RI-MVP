@@ -309,11 +309,24 @@ Scope:
   - Copy reads exact `Upgrade to Insider to unlock planner actions.`
   - No `POST /api/planner/events` observed.
 - [ ] Test B — ICS notes privacy in edit modal:
-  - The Notes field is now expected to hide structured TeamSnap artifacts (`Location`, `Duration`, `Link`) and strip URLs.
-  - Failure observed in prior run (clean list/card view but raw note artifacts in modal); this code path has now been fixed.
+  - Open a TeamSnap-sourced event in List view and enter Edit.
+  - Event `Notes` field should suppress `Link:`, raw URL strings, and UUID-like tokens.
+  - Confirm the event payload still saves and displays safely in Card/List views.
 - [ ] Test C — Calendar month/week navigation:
-  - Month previous/next and week previous/next were previously stuck at June 2026 in local repro.
-  - Prior run reported no date movement in both directions; code path has been adjusted for Date parsing and explicit `YYYY-MM-DD` date updates.
+  - Start in Month view with label `June 2026`; click ‹ then ›.
+  - Confirm label progression becomes `May 2026` then `June 2026`.
+  - In Week view, confirm at least one 7-day label shift per click (`Jun 15 – Jun 21, 2026` -> `Jun 22 – Jun 28, 2026`).
+  - Confirm no runtime errors are logged for `to.subtract` or `toZonedDateTime`.
+
+Retest prompt (Claude/Desktop):
+1. Navigate directly to `http://localhost:3001/weekend-planner` while logged in as a Weekend Pro fixture.
+2. Open List view, locate a known imported TeamSnap event, open Edit, and validate Notes are sanitized.
+3. Return to Calendar view, capture month label, click month ‹ and ›, then switch to Week view and click week ‹ and ›.
+4. Log any failures with:
+   - viewport size
+   - action taken
+   - exact label/state before/after each click
+   - first thrown runtime error (if any) with full stack.
 
 ---
 
