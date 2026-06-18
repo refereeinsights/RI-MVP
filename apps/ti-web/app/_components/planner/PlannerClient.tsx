@@ -21,12 +21,13 @@ import type {
   PlannerSourceRow,
   PlannerEventUpdateBody,
 } from "@/lib/planner/types";
+import type { TiTier } from "@/lib/entitlements";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import styles from "./Planner.module.css";
 
 type Props = {
   initialEvents: PlannerEventRow[];
-  isPaid: boolean;
+  plannerEntitlement: TiTier;
   isUnverified?: boolean;
   hideHeader?: boolean;
 };
@@ -436,12 +437,16 @@ async function jsonFetch<T>(url: string, init: RequestInit) {
 export default function PlannerClient(props: Props) {
   const tz = useMemo(() => browserTimeZone(), []);
   const isUnverified = Boolean(props.isUnverified);
+  const plannerEntitlement = props.plannerEntitlement;
+  const isExplorer = plannerEntitlement === "explorer";
+  const isInsider = plannerEntitlement === "insider";
+  const isWeekendPro = plannerEntitlement === "weekend_pro";
+  const isExplorerOrUnverified = isUnverified || isExplorer;
+  const canWritePlanner = !isExplorerOrUnverified;
 
   const entitlementForAnalytics = useMemo(() => {
-    if (props.isPaid) return "weekend_pro" as const;
-    if (isUnverified) return "explorer" as const;
-    return "insider" as const;
-  }, [isUnverified, props.isPaid]);
+    return plannerEntitlement;
+  }, [plannerEntitlement]);
 
   function bucketFeedCount(count: number) {
     if (!Number.isFinite(count) || count <= 0) return "0" as const;
@@ -477,6 +482,10 @@ export default function PlannerClient(props: Props) {
     } catch {
       // analytics must fail open
     }
+  }
+
+  function plannerWriteBlockedCopy() {
+    return isUnverified ? "Verify your email to unlock planner actions." : "Upgrade to Insider to unlock planner actions.";
   }
 
   function scrollToSection(sectionId: string) {
@@ -531,7 +540,7 @@ export default function PlannerClient(props: Props) {
   const [displayMode, setDisplayMode] = useState<DisplayMode>("list");
   const [displayModeTouched, setDisplayModeTouched] = useState(false);
   const [seasonCalendarTimeZone, setSeasonCalendarTimeZone] = useState(() => browserTimeZone() || "UTC");
-  const canUseCalendar = props.isPaid;
+  const canUseCalendar = isWeekendPro;
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -541,7 +550,7 @@ export default function PlannerClient(props: Props) {
   const [importTeamProfileId, setImportTeamProfileId] = useState("");
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const [importGate, setImportGate] = useState<"limit" | "unverified" | null>(null);
+  const [importGate, setImportGate] = useState<"limit" | "unverified" | "explorer" | null>(null);
   const [familyFilter, setFamilyFilter] = useState<FamilyFilterValue>("all");
 
   const [mergeOpen, setMergeOpen] = useState(false);
@@ -1204,6 +1213,10 @@ export default function PlannerClient(props: Props) {
   }, [canUseCalendar, dismissSeasonCalendarGateForSession, entitlementForAnalytics, scheduleView]);
 
   function openManualEventFromTop() {
+    if (!canWritePlanner) {
+      setError(plannerWriteBlockedCopy());
+      return;
+    }
     if (busy) return;
     setCreateOpen(true);
     setTimeout(() => {
@@ -1404,9 +1417,10 @@ export default function PlannerClient(props: Props) {
   const canConnectAnotherCalendar = useMemo(() => {
     if (busy) return false;
     if (isUnverified) return false;
-    if (props.isPaid) return true;
-    return sources.length < 1;
-  }, [busy, isUnverified, props.isPaid, sources.length]);
+    if (isExplorer) return false;
+    if (isInsider) return sources.length < 2;
+    return true;
+  }, [busy, isUnverified, isExplorer, isInsider, sources.length]);
 
   const scheduleSummaryLabel = useMemo(() => {
     if (scheduleView === "weekend") return "This Weekend";
@@ -1454,7 +1468,7 @@ export default function PlannerClient(props: Props) {
   }, [sources.length, sourcesBusy]);
 
   useEffect(() => {
-    const multiCalendarGateVisible = !canConnectAnotherCalendar && !isUnverified && !props.isPaid && sources.length >= 1;
+    const multiCalendarGateVisible = !canConnectAnotherCalendar && !isUnverified && isInsider && sources.length >= 2;
     if (!multiCalendarGateVisible) return;
     if (gateViewedRef.current.has("multi_calendar")) return;
     gateViewedRef.current.add("multi_calendar");
@@ -1463,7 +1477,7 @@ export default function PlannerClient(props: Props) {
       entitlement: entitlementForAnalytics,
       gate_name: "multi_calendar",
     });
-  }, [canConnectAnotherCalendar, entitlementForAnalytics, isUnverified, props.isPaid, sources.length]);
+  }, [canConnectAnotherCalendar, entitlementForAnalytics, isUnverified, isInsider, sources.length]);
 
   const duplicateCandidates = useMemo(() => {
     return computeDuplicateCandidates({
@@ -1527,6 +1541,10 @@ export default function PlannerClient(props: Props) {
 
   async function onSaveSourceLabel(sourceId: string) {
     if (busy || savingSourceLabel) return;
+    if (!canWritePlanner) {
+      setSourceLabelError(plannerWriteBlockedCopy());
+      return;
+    }
     setSourceLabelError(null);
     setSavingSourceLabel(true);
     try {
@@ -1586,6 +1604,10 @@ export default function PlannerClient(props: Props) {
 
   async function onSaveSourceAssignment(sourceId: string) {
     if (busy || savingSourceAssignmentId) return;
+    if (!canWritePlanner) {
+      setError(plannerWriteBlockedCopy());
+      return;
+    }
     const draft = sourceAssignmentDrafts[sourceId] ?? { childProfileId: "", teamProfileId: "" };
 
     setSavingSourceAssignmentId(sourceId);
@@ -1625,6 +1647,10 @@ export default function PlannerClient(props: Props) {
 
   async function onDisconnectSource(sourceId: string) {
     if (busy || disconnectingSourceId) return;
+    if (!canWritePlanner) {
+      setError(plannerWriteBlockedCopy());
+      return;
+    }
     const displayName = displayLabelForSource(sources.find((s) => String(s.id) === String(sourceId)) || null);
     const confirmMessage =
       `Disconnect this calendar?\n\nThis stops future refreshes from this calendar. Imported events from this feed will remain in your planner.\n\n${displayName}`;
@@ -1658,6 +1684,10 @@ export default function PlannerClient(props: Props) {
   }
 
   async function onKeepSeparate(eventId: string, candidateEventId: string) {
+    if (!canWritePlanner) {
+      setError(plannerWriteBlockedCopy());
+      return;
+    }
     trackPlannerEvent("planner_duplicate_keep_separate_clicked", {
       surface: "weekend_planner",
       entitlement: entitlementForAnalytics,
@@ -1814,14 +1844,21 @@ export default function PlannerClient(props: Props) {
       return;
     }
 
-    if (!props.isPaid) {
+    if (isExplorer) {
+      resetImportForm();
+      setImportGate("explorer");
+      setImportOpen(true);
+      return;
+    }
+
+    if (isInsider) {
       const latestSources = await loadSourcesForGate();
       if (!latestSources) {
         setError("Could not verify your calendar limit. Please try again.");
         return;
       }
 
-      if (latestSources.length >= 1) {
+      if (latestSources.length >= 2) {
         resetImportForm();
         setImportGate("limit");
         setImportOpen(true);
@@ -1840,6 +1877,10 @@ export default function PlannerClient(props: Props) {
   }
 
   function beginEdit(e: PlannerEventRow) {
+    if (!canWritePlanner) {
+      setError(plannerWriteBlockedCopy());
+      return;
+    }
     const tzForEdit = effectiveTimeZoneForEvent(e);
     const startParts = utcIsoToZonedParts(e.starts_at, tzForEdit);
     const endParts = utcIsoToZonedParts(e.ends_at, tzForEdit);
@@ -1885,6 +1926,10 @@ export default function PlannerClient(props: Props) {
   }
 
   async function onCreate() {
+    if (!canWritePlanner) {
+      setError(plannerWriteBlockedCopy());
+      return;
+    }
     setError(null);
     setNotice(null);
     if (!createTitle.trim()) {
@@ -1951,6 +1996,10 @@ export default function PlannerClient(props: Props) {
 	  }
 
   async function onSaveEdit() {
+    if (!canWritePlanner) {
+      setError(plannerWriteBlockedCopy());
+      return;
+    }
     if (!editingEvent) return;
     setError(null);
     setNotice(null);
@@ -2025,6 +2074,10 @@ export default function PlannerClient(props: Props) {
   }
 
   async function onDelete(e: PlannerEventRow) {
+    if (!canWritePlanner) {
+      setError(plannerWriteBlockedCopy());
+      return;
+    }
     if (!confirm(`Delete "${e.title}"?`)) return;
     setError(null);
     setNotice(null);
@@ -2054,14 +2107,20 @@ export default function PlannerClient(props: Props) {
       return;
     }
 
-    if (!props.isPaid) {
+    if (isExplorer) {
+      resetImportForm();
+      setImportGate("explorer");
+      return;
+    }
+
+    if (isInsider) {
       const latestSources = await loadSourcesForGate();
       if (!latestSources) {
         setImportError("Could not verify your calendar limit. Please try again.");
         return;
       }
 
-      if (latestSources.length >= 1) {
+      if (latestSources.length >= 2) {
         trackPlannerEvent("planner_weekend_pro_gate_clicked", {
           surface: "weekend_planner",
           entitlement: entitlementForAnalytics,
@@ -2133,6 +2192,10 @@ export default function PlannerClient(props: Props) {
   }
 
   async function onRefreshSource(sourceId: string) {
+    if (!canWritePlanner) {
+      setError(plannerWriteBlockedCopy());
+      return;
+    }
     setError(null);
     setNotice(null);
     trackPlannerEvent("planner_calendar_feed_refresh_clicked", {
@@ -2174,6 +2237,10 @@ export default function PlannerClient(props: Props) {
   }
 
   async function onDuplicate(e: PlannerEventRow) {
+    if (!canWritePlanner) {
+      setError(plannerWriteBlockedCopy());
+      return;
+    }
     setError(null);
     setNotice(null);
     setBusy(true);
@@ -2621,11 +2688,46 @@ export default function PlannerClient(props: Props) {
                   </button>
                 </div>
               </div>
+            ) : importGate === "explorer" ? (
+              <div className={styles.card} style={{ marginTop: 0, marginBottom: 12, textAlign: "center" }}>
+                <div className={styles.cardTitle}>Upgrade to unlock planner actions</div>
+                <div className={styles.muted} style={{ marginBottom: 10 }}>
+                  Insider allows manual events, up to 2 connected calendars, and calendar assignment tools.
+                </div>
+                <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
+                  <Link
+                    href="/premium"
+                    className={styles.primaryBtn}
+                    style={{ display: "inline-flex", justifyContent: "center" }}
+                    onClick={() =>
+                      trackPlannerEvent("planner_weekend_pro_gate_clicked", {
+                        surface: "weekend_planner",
+                        entitlement: entitlementForAnalytics,
+                        gate_name: "multi_calendar",
+                      })
+                    }
+                  >
+                    Upgrade to Insider
+                  </Link>
+                  <button
+                    className={styles.secondaryBtn}
+                    type="button"
+                    onClick={() => {
+                      if (busy) return;
+                      resetImportForm();
+                      setImportOpen(false);
+                    }}
+                    disabled={busy}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             ) : importGate === "limit" ? (
               <div className={styles.card} style={{ marginTop: 0, marginBottom: 12, textAlign: "center" }}>
-                <div className={styles.cardTitle}>Insider includes 1 connected calendar</div>
+                <div className={styles.cardTitle}>Insider allows 2 connected calendars</div>
                 <div className={styles.muted} style={{ marginBottom: 10 }}>
-                  Upgrade to Weekend Pro to connect multiple calendars and see the visual season calendar.
+                  Upgrade to Weekend Pro to connect more than two calendars and see the visual season calendar.
                 </div>
                 <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
                   <Link
@@ -2828,10 +2930,10 @@ export default function PlannerClient(props: Props) {
                         if (busy) return;
 			                openConnectCalendarFlow();
 				              }}
-				              disabled={busy || sourcesBusy}
-			            >
-				              Connect calendar
-				            </button>
+			        disabled={busy || sourcesBusy}
+			      >
+			            Connect calendar
+			          </button>
 				            <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen(true)} disabled={busy}>
 				              Manage calendars
 				            </button>
@@ -4111,23 +4213,43 @@ export default function PlannerClient(props: Props) {
 			                  Verify email
 			                </Link>
 			              </>
-			            ) : props.isPaid ? null : sources.length >= 1 ? (
-			              <>
-			                You can connect 1 calendar on Insider.{" "}
+			            ) : isInsider ? (
+			              canConnectAnotherCalendar || sources.length === 0 ? null : (
+			                <>
+			                  Insider allows 2 connected calendars.{" "}
+			                  <Link
+			                    href="/premium"
+			                    className="secondaryLink"
+			                    onClick={() =>
+			                      trackPlannerEvent("planner_weekend_pro_gate_clicked", {
+			                        surface: "weekend_planner",
+			                        entitlement: entitlementForAnalytics,
+			                        gate_name: "multi_calendar",
+			                      })
+			                    }
+			                  >
+			                    Upgrade to Weekend Pro
+			                  </Link>{" "}
+			                  to add more.
+			                </>
+			              )
+			              ) : isExplorer ? (
+			                <>
+			                  Upgrade to Insider to unlock planner actions including calendar connections and manual events.{" "}
 			                <Link
-                        href="/premium"
-                        className="secondaryLink"
-                        onClick={() =>
-                          trackPlannerEvent("planner_weekend_pro_gate_clicked", {
-                            surface: "weekend_planner",
-                            entitlement: entitlementForAnalytics,
-                            gate_name: "multi_calendar",
-                          })
-                        }
-                      >
-			                  Unlock Weekend Pro
-			                </Link>{" "}
-			                to add more.
+			                  href="/premium"
+			                  className="secondaryLink"
+			                  onClick={() =>
+			                    trackPlannerEvent("planner_weekend_pro_gate_clicked", {
+			                      surface: "weekend_planner",
+			                      entitlement: entitlementForAnalytics,
+			                      gate_name: "multi_calendar",
+			                    })
+			                  }
+			                  >
+			                  Upgrade now
+			                  </Link>
+			                .
 			              </>
 			            ) : null}
 			          </div>
@@ -4346,6 +4468,7 @@ export default function PlannerClient(props: Props) {
           <ChildTeamManager
             initialChildren={familyProfiles}
             initialLoading={familyProfilesBusy}
+            canWriteProfiles={canWritePlanner}
             onProfilesChanged={() => void loadFamilyProfiles().catch(() => {})}
           />
         </div>

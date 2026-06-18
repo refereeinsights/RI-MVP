@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
     }
 
-    if (count >= 1) {
+    if (count >= 2) {
       return NextResponse.json({ ok: false, error: "calendar_feed_limit_reached" }, { status: 403 });
     }
   }

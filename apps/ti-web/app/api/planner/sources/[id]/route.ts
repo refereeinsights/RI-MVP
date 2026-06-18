@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { parseOptionalPlannerProfileId, validatePlannerAssignment } from "@/lib/planner/assignmentServer";
+import { getTiTierServer } from "@/lib/entitlementsServer";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   } = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const tierInfo = await getTiTierServer(user);
+  if (tierInfo.unverified || tierInfo.tier === "explorer") {
+    if (tierInfo.unverified) {
+      return NextResponse.json({ ok: false, error: "email_verification_required" }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 403 });
+  }
 
   const { id } = await ctx.params;
   const sourceId = String(id ?? "").trim();
@@ -134,6 +142,13 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   } = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const tierInfo = await getTiTierServer(user);
+  if (tierInfo.unverified || tierInfo.tier === "explorer") {
+    if (tierInfo.unverified) {
+      return NextResponse.json({ ok: false, error: "email_verification_required" }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 403 });
+  }
 
   const { id } = await ctx.params;
   const sourceId = String(id ?? "").trim();

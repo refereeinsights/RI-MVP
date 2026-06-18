@@ -77,7 +77,7 @@ export default async function WeekendPlannerPage() {
   const tierInfo = await getTiTierServer(user ?? null);
   const isUnverified = Boolean(isAuthed && tierInfo.unverified);
   const canUseSavedPlanning = tierInfo.tier === "insider" || tierInfo.tier === "weekend_pro";
-  const isPaid = tierInfo.tier === "weekend_pro";
+  const plannerEntitlement = tierInfo.tier;
 
   let plannerEvents: PlannerEventRow[] = [];
   if (user) {
@@ -204,7 +204,7 @@ export default async function WeekendPlannerPage() {
 	          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
 	            {isAuthed ? (
 	              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto", display: "grid", gap: 12 }}>
-	                <PlannerClient initialEvents={plannerEvents} isPaid={isPaid} isUnverified={isUnverified} hideHeader />
+                  <PlannerClient initialEvents={plannerEvents} plannerEntitlement={plannerEntitlement} isUnverified={isUnverified} hideHeader />
                   {plannerCalendarFeedPanel}
                   {plannerGuestSharePanel}
 	              </div>

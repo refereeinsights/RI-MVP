@@ -4,6 +4,7 @@ import { isUuid } from "@/lib/venues/isUuid";
 import type { PlannerEventCreateBody } from "@/lib/planner/types";
 import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
 import { parseOptionalPlannerProfileId, validatePlannerAssignment } from "@/lib/planner/assignmentServer";
+import { getTiTierServer } from "@/lib/entitlementsServer";
 
 export const runtime = "nodejs";
 
@@ -97,6 +98,13 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const tierInfo = await getTiTierServer(user);
+  if (tierInfo.unverified || tierInfo.tier === "explorer") {
+    if (tierInfo.unverified) {
+      return NextResponse.json({ ok: false, error: "email_verification_required" }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as PlannerEventCreateBody | null;
   if (!body) return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });

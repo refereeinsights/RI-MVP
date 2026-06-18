@@ -40,10 +40,13 @@ function titleCaseSport(value: string | null) {
 type Props = {
   initialChildren?: PlannerChildWithTeamsRow[];
   initialLoading?: boolean;
+  canWriteProfiles: boolean;
   onProfilesChanged?: () => void;
 };
 
 export default function ChildTeamManager(props: Props) {
+  const isReadOnlyProfiles = !props.canWriteProfiles;
+
   const [open, setOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(Boolean(props.initialLoading));
@@ -111,7 +114,7 @@ export default function ChildTeamManager(props: Props) {
   }
 
   async function onCreateChild() {
-    if (saving) return;
+    if (saving || isReadOnlyProfiles) return;
     setError(null);
     setNotice(null);
     if (!newChildName.trim()) {
@@ -136,7 +139,7 @@ export default function ChildTeamManager(props: Props) {
   }
 
   async function onSaveChild(childId: string) {
-    if (saving) return;
+    if (saving || isReadOnlyProfiles) return;
     setError(null);
     setNotice(null);
     if (!editingChildName.trim()) {
@@ -163,7 +166,7 @@ export default function ChildTeamManager(props: Props) {
   }
 
   async function onToggleChildArchive(child: PlannerChildWithTeamsRow, archived: boolean) {
-    if (saving) return;
+    if (saving || isReadOnlyProfiles) return;
     setError(null);
     setNotice(null);
     setSaving(true);
@@ -184,7 +187,7 @@ export default function ChildTeamManager(props: Props) {
   }
 
   async function onCreateTeam(childId: string) {
-    if (saving) return;
+    if (saving || isReadOnlyProfiles) return;
     setError(null);
     setNotice(null);
     const payload: PlannerTeamCreateBody = {
@@ -222,7 +225,7 @@ export default function ChildTeamManager(props: Props) {
   }
 
   async function onSaveTeam(teamId: string) {
-    if (saving) return;
+    if (saving || isReadOnlyProfiles) return;
     setError(null);
     setNotice(null);
     if (!editingTeamName.trim()) {
@@ -258,7 +261,7 @@ export default function ChildTeamManager(props: Props) {
   }
 
   async function onToggleTeamArchive(team: PlannerTeamRow, archived: boolean) {
-    if (saving) return;
+    if (saving || isReadOnlyProfiles) return;
     setError(null);
     setNotice(null);
     setSaving(true);
@@ -284,12 +287,12 @@ export default function ChildTeamManager(props: Props) {
         {activeChildCount} child profile{activeChildCount === 1 ? "" : "s"} · {activeTeamCount} active team{activeTeamCount === 1 ? "" : "s"}
       </div>
       <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
-        <button className={styles.secondaryBtn} type="button" onClick={() => setOpen((v) => !v)} disabled={saving}>
+        <button className={styles.secondaryBtn} type="button" onClick={() => setOpen((v) => !v)} disabled={saving || isReadOnlyProfiles}>
           {open ? "Hide profiles" : "Manage child/team profiles"}
         </button>
       </div>
       <div className={styles.muted} style={{ marginTop: 10, textAlign: "center" }}>
-        Use child and team profiles to organize connected calendars and manual events.
+        {isReadOnlyProfiles ? "Upgrade to Insider to add, edit, or archive child/team profiles." : "Use child and team profiles to organize connected calendars and manual events."}
       </div>
 
       {open ? (
@@ -306,16 +309,16 @@ export default function ChildTeamManager(props: Props) {
                 onChange={(e) => setNewChildName(e.target.value)}
                 placeholder="Avery Davis"
                 maxLength={80}
-                disabled={saving}
+                disabled={saving || isReadOnlyProfiles}
               />
-              <button className={styles.primaryBtn} type="button" onClick={() => void onCreateChild()} disabled={saving}>
+              <button className={styles.primaryBtn} type="button" onClick={() => void onCreateChild()} disabled={saving || isReadOnlyProfiles}>
                 Save child
               </button>
             </div>
           </div>
 
           <label className={styles.profileToggle}>
-            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} disabled={saving || loading} />
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} disabled={saving || isReadOnlyProfiles || loading} />
             <span>Show archived profiles</span>
           </label>
 
@@ -355,7 +358,7 @@ export default function ChildTeamManager(props: Props) {
                       <div className={styles.eventActions}>
                         {editingChildId === child.id ? (
                           <>
-                            <button className={styles.primaryBtn} type="button" onClick={() => void onSaveChild(child.id)} disabled={saving}>
+                            <button className={styles.primaryBtn} type="button" onClick={() => void onSaveChild(child.id)} disabled={saving || isReadOnlyProfiles}>
                               Save
                             </button>
                             <button
@@ -366,7 +369,7 @@ export default function ChildTeamManager(props: Props) {
                                 setEditingChildName("");
                                 setEditingChildColorToken(null);
                               }}
-                              disabled={saving}
+                              disabled={saving || isReadOnlyProfiles}
                             >
                               Cancel
                             </button>
@@ -380,12 +383,12 @@ export default function ChildTeamManager(props: Props) {
                               setEditingChildName(child.display_name);
                               setEditingChildColorToken(child.color_token ?? null);
                             }}
-                            disabled={saving}
+                            disabled={saving || isReadOnlyProfiles}
                           >
                             Edit child
                           </button>
                         )}
-                        <button className={styles.dangerBtn} type="button" onClick={() => void onToggleChildArchive(child, true)} disabled={saving}>
+                        <button className={styles.dangerBtn} type="button" onClick={() => void onToggleChildArchive(child, true)} disabled={saving || isReadOnlyProfiles}>
                           Archive child
                         </button>
                       </div>
@@ -400,7 +403,7 @@ export default function ChildTeamManager(props: Props) {
                           onChange={(e) => setEditingChildName(e.target.value)}
                           placeholder="Child name"
                           maxLength={80}
-                          disabled={saving}
+                          disabled={saving || isReadOnlyProfiles}
                         />
                       </div>
                       <div className={styles.profileSection}>
@@ -414,7 +417,7 @@ export default function ChildTeamManager(props: Props) {
                                 type="button"
                                 className={`${styles.colorSwatchButton}${isSelected ? ` ${styles.colorSwatchButtonSelected}` : ""}`}
                                 onClick={() => setEditingChildColorToken(option.key)}
-                                disabled={saving}
+                                disabled={saving || isReadOnlyProfiles}
                                 aria-pressed={isSelected}
                                 title={option.label}
                               >
@@ -427,7 +430,7 @@ export default function ChildTeamManager(props: Props) {
                             type="button"
                             className={`${styles.colorSwatchButton}${!editingChildColorToken ? ` ${styles.colorSwatchButtonSelected}` : ""}`}
                             onClick={() => setEditingChildColorToken(null)}
-                            disabled={saving}
+                            disabled={saving || isReadOnlyProfiles}
                             aria-pressed={!editingChildColorToken}
                           >
                             <span
@@ -459,7 +462,7 @@ export default function ChildTeamManager(props: Props) {
                                       onChange={(e) => setEditingTeamName(e.target.value)}
                                       placeholder="Spokane 12U Owls"
                                       maxLength={100}
-                                      disabled={saving}
+                                      disabled={saving || isReadOnlyProfiles}
                                     />
                                     <input
                                       className={styles.input}
@@ -467,7 +470,7 @@ export default function ChildTeamManager(props: Props) {
                                       onChange={(e) => setEditingTeamSport(e.target.value)}
                                       placeholder="soccer"
                                       maxLength={40}
-                                      disabled={saving}
+                                      disabled={saving || isReadOnlyProfiles}
                                     />
                                     <input
                                       className={styles.input}
@@ -475,11 +478,11 @@ export default function ChildTeamManager(props: Props) {
                                       onChange={(e) => setEditingTeamSeason(e.target.value)}
                                       placeholder="Spring 2027"
                                       maxLength={40}
-                                      disabled={saving}
+                                      disabled={saving || isReadOnlyProfiles}
                                     />
                                   </div>
                                   <div className={styles.eventActions}>
-                                    <button className={styles.primaryBtn} type="button" onClick={() => void onSaveTeam(team.id)} disabled={saving}>
+                                    <button className={styles.primaryBtn} type="button" onClick={() => void onSaveTeam(team.id)} disabled={saving || isReadOnlyProfiles}>
                                       Save team
                                     </button>
                                     <button
@@ -491,7 +494,7 @@ export default function ChildTeamManager(props: Props) {
                                         setEditingTeamSport("");
                                         setEditingTeamSeason("");
                                       }}
-                                      disabled={saving}
+                                      disabled={saving || isReadOnlyProfiles}
                                     >
                                       Cancel
                                     </button>
@@ -516,11 +519,11 @@ export default function ChildTeamManager(props: Props) {
                                         setEditingTeamSport(team.sport);
                                         setEditingTeamSeason(team.season_label ?? "");
                                       }}
-                                      disabled={saving}
+                                      disabled={saving || isReadOnlyProfiles}
                                     >
                                       Edit team
                                     </button>
-                                    <button className={styles.dangerBtn} type="button" onClick={() => void onToggleTeamArchive(team, true)} disabled={saving}>
+                                    <button className={styles.dangerBtn} type="button" onClick={() => void onToggleTeamArchive(team, true)} disabled={saving || isReadOnlyProfiles}>
                                       Archive team
                                     </button>
                                   </div>
@@ -549,7 +552,7 @@ export default function ChildTeamManager(props: Props) {
                                   </div>
                                 </div>
                                 <div className={styles.eventActions}>
-                                  <button className={styles.secondaryBtn} type="button" onClick={() => void onToggleTeamArchive(team, false)} disabled={saving}>
+                                  <button className={styles.secondaryBtn} type="button" onClick={() => void onToggleTeamArchive(team, false)} disabled={saving || isReadOnlyProfiles}>
                                     Restore team
                                   </button>
                                 </div>
@@ -568,7 +571,7 @@ export default function ChildTeamManager(props: Props) {
                           onChange={(e) => setNewTeamName(e.target.value)}
                           placeholder="Spokane 12U Owls"
                           maxLength={100}
-                          disabled={saving}
+                          disabled={saving || isReadOnlyProfiles}
                         />
                         <input
                           className={styles.input}
@@ -576,7 +579,7 @@ export default function ChildTeamManager(props: Props) {
                           onChange={(e) => setNewTeamSport(e.target.value)}
                           placeholder="soccer"
                           maxLength={40}
-                          disabled={saving}
+                          disabled={saving || isReadOnlyProfiles}
                         />
                         <input
                           className={styles.input}
@@ -584,10 +587,10 @@ export default function ChildTeamManager(props: Props) {
                           onChange={(e) => setNewTeamSeason(e.target.value)}
                           placeholder="Spring 2027"
                           maxLength={40}
-                          disabled={saving}
+                          disabled={saving || isReadOnlyProfiles}
                         />
                         <div className={styles.eventActions}>
-                          <button className={styles.primaryBtn} type="button" onClick={() => void onCreateTeam(child.id)} disabled={saving}>
+                          <button className={styles.primaryBtn} type="button" onClick={() => void onCreateTeam(child.id)} disabled={saving || isReadOnlyProfiles}>
                             Save team
                           </button>
                           <button
@@ -599,7 +602,7 @@ export default function ChildTeamManager(props: Props) {
                               setNewTeamSport("");
                               setNewTeamSeason("");
                             }}
-                            disabled={saving}
+                            disabled={saving || isReadOnlyProfiles}
                           >
                             Cancel
                           </button>
@@ -616,7 +619,7 @@ export default function ChildTeamManager(props: Props) {
                             setNewTeamSport("");
                             setNewTeamSeason("");
                           }}
-                          disabled={saving}
+                          disabled={saving || isReadOnlyProfiles}
                         >
                           Add team
                         </button>
@@ -641,7 +644,7 @@ export default function ChildTeamManager(props: Props) {
                         <div className={styles.eventMeta}>Archived child profile</div>
                       </div>
                       <div className={styles.eventActions}>
-                        <button className={styles.secondaryBtn} type="button" onClick={() => void onToggleChildArchive(child, false)} disabled={saving}>
+                        <button className={styles.secondaryBtn} type="button" onClick={() => void onToggleChildArchive(child, false)} disabled={saving || isReadOnlyProfiles}>
                           Restore child
                         </button>
                       </div>
@@ -659,7 +662,7 @@ export default function ChildTeamManager(props: Props) {
                                   {team.season_label ? ` · ${team.season_label}` : ""}
                                 </div>
                               </div>
-                              <button className={styles.secondaryBtn} type="button" onClick={() => void onToggleTeamArchive(team, false)} disabled={saving}>
+                              <button className={styles.secondaryBtn} type="button" onClick={() => void onToggleTeamArchive(team, false)} disabled={saving || isReadOnlyProfiles}>
                                 Restore team
                               </button>
                             </div>

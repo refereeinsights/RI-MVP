@@ -1,0 +1,58 @@
+# Weekend Planner Entitlement Update Notes
+
+Date: 2026-06-18
+
+## Scope implemented
+- Enforced 3-tier planner entitlement model in server routes and client UI:
+  - `weekend_pro`: full planner with season calendar toggle + unlimited calendar feeds.
+  - `insider`: full planner actions with active calendar feed cap at 2.
+  - `explorer` / unverified: read-only planner mode with gated actions and upgrade CTA.
+
+## Code updates
+- `apps/ti-web/app/_components/planner/PlannerClient.tsx`
+  - Swapped `isPaid` prop for `plannerEntitlement: TiTier`.
+  - Added canonical entitlements: `isExplorer`, `isInsider`, `isWeekendPro`.
+  - Updated `canWritePlanner` and action gates for create/edit/delete/refresh/import/duplicate/assign workflows.
+  - Updated calendar gate logic to cap Insider at 2 feeds and keep Weekend Pro unlimited.
+  - Updated gate messaging for Explorer vs Insider copy paths.
+- `apps/ti-web/app/weekend-planner/page.tsx`
+  - Passes `plannerEntitlement` from `tierInfo.tier` into `PlannerClient`.
+  - Kept `canUseSavedPlanning` as server-side planner feature gate.
+- `apps/ti-web/app/_components/planner/ChildTeamManager.tsx`
+  - Added `canWriteProfiles` prop.
+  - Explorer/unverified get read-only behavior with blocked action text.
+- API routes under `apps/ti-web/app/api/planner/*` now enforce entitlement checks server-side:
+  - `children` and `children/[id]`
+  - `teams` and `teams/[id]`
+  - `events` and `events/[id]`
+  - `sources` (`[id]`, `[id]/refresh`, `import-ics`)
+  - `events/duplicates/dismiss`, `events/merge`
+  - Cap checks updated where applicable (team cap at 2 across user’s planner team rows).
+
+## UAT notes to run
+- [ ] Open `/weekend-planner` as explorer, insider, weekend_pro test accounts.
+- [ ] Explorer path:
+  - [ ] Planner renders as read-only and shows explorer-specific CTA copy.
+  - [ ] Manual event create/edit/delete are blocked with read-only messaging.
+  - [ ] Source import/refresh/disconnect are blocked with read-only entitlement messaging.
+  - [ ] Child and team profile actions (`Add`, `Edit`, `Archive`, `Restore`) are disabled.
+  - [ ] API routes return explicit entitlement errors (`not_paid` / 403-style responses) for mutation attempts.
+- [ ] Insider path:
+  - [ ] Manual event create/edit/delete work.
+  - [ ] Can add first and second calendar sources successfully.
+  - [ ] Third active calendar source is blocked at the two-calendar limit.
+  - [ ] Insider receives copy referencing the 2-calendar active limit.
+- [ ] Weekend Pro path:
+  - [ ] Manual event create/edit/delete work.
+  - [ ] Season calendar mode is available.
+  - [ ] Calendar source connection is not limited to two.
+- [ ] Family/profile behavior:
+  - [ ] Child and team profile lists are visible in explorer mode.
+  - [ ] Explorer cannot edit/modify/archive/restore in profile manager.
+  - [ ] Archived profiles remain visible but read-only.
+- [ ] Analytics:
+  - [ ] `planner_entitlement` in action tracking payloads resolves to:
+    - `explorer`
+    - `insider`
+    - `weekend_pro`
+  - [ ] Verified sessions are not mislabeled as insider.

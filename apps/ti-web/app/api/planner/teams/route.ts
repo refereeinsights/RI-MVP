@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { PlannerTeamCreateBody } from "@/lib/planner/types";
+import { getTiTierServer } from "@/lib/entitlementsServer";
 
 export const runtime = "nodejs";
 
@@ -78,6 +79,13 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const tierInfo = await getTiTierServer(user);
+  if (tierInfo.unverified || tierInfo.tier === "explorer") {
+    if (tierInfo.unverified) {
+      return NextResponse.json({ ok: false, error: "email_verification_required" }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as PlannerTeamCreateBody | null;
   if (!body) return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
@@ -102,6 +110,15 @@ export async function POST(req: Request) {
   if (childError) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
   if (!child) return NextResponse.json({ ok: false, error: "child_not_found" }, { status: 404 });
   if (child.is_archived) return NextResponse.json({ ok: false, error: "child_is_archived" }, { status: 409 });
+
+  const { count: activeTeamCount, error: teamCountError } = await (supabase.from("planner_teams" as any) as any)
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("is_archived", false);
+  if (teamCountError) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+  if (typeof activeTeamCount === "number" && activeTeamCount >= 2) {
+    return NextResponse.json({ ok: false, error: "team_cap_reached" }, { status: 409 });
+  }
 
   const sortOrder = parsedSortOrder ?? (await nextTeamSortOrder(supabase, user.id, childId));
 

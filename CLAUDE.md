@@ -268,6 +268,28 @@ Scope:
 - [ ] Empty-state behavior:
   - [ ] If the bounded feed window has no events, the route still returns a valid empty calendar instead of an error.
 
+### Stage 3.5-1C UAT (Planner entitlement behavior)
+
+- [ ] Entitlement matrix acceptance:
+  - [ ] Explorer users are in read-only mode for planner mutations and see Explorer-specific copy (`Upgrade to Insider…`), not Insider cap copy.
+  - [ ] Insider users can create/edit/delete manual events and can connect up to 2 calendars; they remain blocked at 2.
+  - [ ] Weekend Pro users can still access calendar mode (list/season toggle) and connect beyond 2.
+- [ ] Explorer write/refresh guards:
+  - [ ] `Create`, `Edit`, `Delete`, `Refresh`, `Disconnect`, `Duplicate`, `Keep separate`, `Source assignment`, and `calendar import` actions all show gated messaging and do not perform changes.
+  - [ ] Explorer cannot modify child/team profile manager actions (`Add`, `Edit`, `Archive`, `Restore`).
+- [ ] Calendar limits:
+  - [ ] Insider can connect second calendar without blocking.
+  - [ ] Insider cannot add third active calendar without upgrading to Weekend Pro.
+  - [ ] The copy at two-calendar cap references "2 connected calendars".
+- [ ] API enforcement:
+  - [ ] Planner child/team/events/sources duplicate and merge endpoints reject explorer and unverified sessions with entitlement errors.
+  - [ ] Team create/update/restore enforces active team cap across the account at 2 for Insider.
+- [ ] Profile and family behavior:
+  - [ ] Archived teams/children remain available in read-only mode but do not allow state changes.
+  - [ ] Team restore/archive attempts follow cap or permission constraints consistently.
+- [ ] Analytics sanity:
+  - [ ] Explorer/Insider/Weekend Pro values appear correctly in planner action tracking payloads and are not downgraded to hardcoded "insider".
+
 ---
 
 ### Stage 3.0 UAT (responsive layout foundation)

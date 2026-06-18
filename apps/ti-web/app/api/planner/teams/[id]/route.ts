@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { PlannerTeamUpdateBody } from "@/lib/planner/types";
+import { getTiTierServer } from "@/lib/entitlementsServer";
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   } = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const tierInfo = await getTiTierServer(user);
+  if (tierInfo.unverified || tierInfo.tier === "explorer") {
+    if (tierInfo.unverified) {
+      return NextResponse.json({ ok: false, error: "email_verification_required" }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 403 });
+  }
 
   const { id } = await ctx.params;
   const teamId = String(id ?? "").trim();
@@ -75,6 +83,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const archived = parseArchived((body as any).is_archived);
     if (archived === null) return NextResponse.json({ ok: false, error: "invalid_is_archived" }, { status: 400 });
     patch.is_archived = archived;
+    if (archived === false) {
+      const { count, error: teamCountError } = await (supabase.from("planner_teams" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("is_archived", false)
+        .neq("id", teamId);
+      if (teamCountError) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+      if (typeof count === "number" && count >= 2) {
+        return NextResponse.json({ ok: false, error: "team_cap_reached" }, { status: 409 });
+      }
+    }
   }
   if ("child_id" in (body as any)) {
     const childId = asString((body as any).child_id);
@@ -108,6 +127,13 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
   } = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const tierInfo = await getTiTierServer(user);
+  if (tierInfo.unverified || tierInfo.tier === "explorer") {
+    if (tierInfo.unverified) {
+      return NextResponse.json({ ok: false, error: "email_verification_required" }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 403 });
+  }
 
   const { id } = await ctx.params;
   const teamId = String(id ?? "").trim();
