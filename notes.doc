@@ -56,3 +56,25 @@ Date: 2026-06-18
     - `insider`
     - `weekend_pro`
   - [ ] Verified sessions are not mislabeled as insider.
+
+## Latest implementation pass (2026-06-18)
+- Applied remaining Weekend Planner hardening:
+  - `apps/ti-web/app/_components/planner/PlannerClient.tsx`
+    - Routed all manual event “Add event” entrypoints through `openManualEventFromTop()` so explorer/unverified cannot bypass gating via duplicate CTA.
+    - Added `sanitizeIcsNotesForDisplay()` and applied sanitized ICS notes rendering for list cards.
+    - Added inline whitespace-normalization helper used by notes rendering/path.
+  - `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`
+    - Reworked month navigation in `goToAdjacentRange()` to jump to explicit month starts to avoid edge-date drift in Schedule-X.
+    - Added ICS note display sanitizer in calendar event detail.
+  - `apps/ti-web/lib/planner/ics-import.ts`
+    - Added `sanitizeImportedNotes()` export.
+    - Applied note sanitization inside `normalizeIcsEvents()` so imported ICS notes strip URLs and UUID-like tokens at ingestion time.
+  - `apps/ti-web/lib/planner/ics-import.test.ts`
+    - Added unit tests for sanitizer and unstructured ICS description privacy filtering.
+
+### UAT to add for this pass
+- [ ] Explorer/unverified cannot open the manual-event form from any add-event entrypoint (`Header`, `Add manual event`, or future direct path).
+- [ ] Imported ICS notes no longer show raw URLs or UUID-like tokens in:
+  - card list view
+  - calendar detail modal
+- [ ] Calendar month nav in month mode moves to the correct next/previous month consistently (no skipped/partial month behavior at boundaries).

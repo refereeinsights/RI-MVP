@@ -58,6 +58,17 @@ function formatEventTimeRange(args: { startIso: string; endIso: string; timeZone
   return `${fmt.format(start)} – ${fmt.format(end)}`;
 }
 
+function sanitizeIcsNotesForDisplay(notes: string | null | undefined, sourceType?: string | null) {
+  const normalizedSourceType = String(sourceType ?? "").trim().toLowerCase();
+  const normalizedNotes = String(notes ?? "").replace(/\s+/g, " ").trim();
+  if (!normalizedNotes) return "";
+  if (normalizedSourceType !== "ics") return normalizedNotes;
+  const withoutUrls = normalizedNotes.replace(/\b(?:https?:\/\/|www\.)[^\s"'<>]+/gi, " ");
+  const withoutUuid = withoutUrls.replace(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, " ");
+  const withoutHexDigest = withoutUuid.replace(/\b[0-9a-f]{32}\b/gi, " ");
+  return String(withoutHexDigest).replace(/\s+/g, " ").trim();
+}
+
 type DetailState = { open: boolean; eventId: string | null };
 type CalendarMode = "month" | "week" | "agenda";
 const WEEK_GRID_HEIGHT = 1200;
@@ -432,7 +443,24 @@ export default function PlannerCalendar(props: Props) {
   function goToAdjacentRange(delta: 1 | -1) {
     try {
       const cur = controls.getDate();
-      controls.setDate(cur.add(calendarMode === "week" ? { weeks: delta } : { months: delta }) as any);
+      if (calendarMode === "week") {
+        controls.setDate(cur.add({ weeks: delta }) as any);
+        return;
+      }
+
+      const year = Number(cur?.year);
+      const month = Number(cur?.month);
+      const monthOffset = Number.isFinite(month) && Number.isFinite(year) ? month - 1 + delta : null;
+      if (monthOffset === null) return;
+
+      const targetMonthIndex = ((monthOffset % 12) + 12) % 12;
+      const yearShift = Math.floor((monthOffset - targetMonthIndex) / 12);
+      const targetDate = Temporal.PlainDate.from({
+        year: year + yearShift,
+        month: targetMonthIndex + 1,
+        day: 1,
+      });
+      controls.setDate(targetDate as any);
     } catch {
       // ignore
     }
@@ -698,7 +726,11 @@ export default function PlannerCalendar(props: Props) {
                 );
               })()}
 
-              {detailEvent.notes ? <div className={styles.eventDetailNotes}>{detailEvent.notes}</div> : null}
+              {detailEvent.notes ? (
+                <div className={styles.eventDetailNotes}>
+                  {sanitizeIcsNotesForDisplay(detailEvent.notes, detailEvent.source_type)}
+                </div>
+              ) : null}
             </div>
 
             <div className={styles.eventDetailSource}>

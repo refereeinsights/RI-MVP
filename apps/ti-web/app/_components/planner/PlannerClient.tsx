@@ -386,6 +386,10 @@ function isLikelyMobile() {
   return ua.includes("iphone") || ua.includes("ipad") || ua.includes("ipod") || ua.includes("android");
 }
 
+function collapseWhitespace(value: string) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
 function startOfDayLocal(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
 }
@@ -798,12 +802,23 @@ export default function PlannerClient(props: Props) {
   const inlineFieldLabelForEvent = (e: PlannerEventRow) => {
     const explicitFieldLabel = String(e.field_label ?? "").trim();
     if (explicitFieldLabel) return explicitFieldLabel;
-    const notes = String(e.notes ?? "").trim();
+    const notes = sanitizeIcsNotesForDisplay(e.notes, e.source_type);
     if (!notes) return "";
     if (!/^(field|court|gym)\b/i.test(notes)) return "";
     if (notes.includes("\n")) return "";
     return notes;
   };
+
+  function sanitizeIcsNotesForDisplay(notes: string | null | undefined, sourceType?: string | null) {
+    const normalizedSourceType = String(sourceType ?? "").trim().toLowerCase();
+    const notesTrimmed = collapseWhitespace(String(notes ?? "").trim());
+    if (!notesTrimmed) return "";
+    if (normalizedSourceType !== "ics") return notesTrimmed;
+    const withoutUrls = notesTrimmed.replace(/\b(?:https?:\/\/|www\.)[^\s"'<>]+/gi, " ");
+    const withoutUuid = withoutUrls.replace(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, " ");
+    const withoutHexDigest = withoutUuid.replace(/\b[0-9a-f]{32}\b/gi, " ");
+    return collapseWhitespace(withoutHexDigest);
+  }
 
   function openMapForEvent(e: PlannerEventRow) {
     const loc = mapLocationForEvent(e);
@@ -2920,9 +2935,9 @@ export default function PlannerClient(props: Props) {
 			            <p className={styles.subtitle}>Your family’s sports schedule, calendar feeds, and tournament weekends in one place.</p>
 			          </div>
 				          <div className={styles.headerActions}>
-				            <button className={styles.primaryBtn} type="button" onClick={() => setCreateOpen(true)} disabled={busy}>
-				              Add event
-				            </button>
+            <button className={styles.primaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
+              Add event
+            </button>
 				            <button
 				              className={styles.secondaryBtn}
 				              type="button"
@@ -3459,7 +3474,9 @@ export default function PlannerClient(props: Props) {
                             <span className={styles.muted}>No location added yet.</span>
                           </div>
                         )}
-                        {e.notes && String(e.notes).trim() !== fieldLabel ? <div className={styles.eventMeta}>{e.notes}</div> : null}
+                        {e.notes && String(e.notes).trim() !== fieldLabel ? (
+                          <div className={styles.eventMeta}>{sanitizeIcsNotesForDisplay(e.notes, e.source_type)}</div>
+                        ) : null}
 
                         {dupesByEventId.get(e.id)?.length ? (
                           <div className={styles.eventMeta} style={{ marginTop: 8 }}>
@@ -3880,7 +3897,7 @@ export default function PlannerClient(props: Props) {
 		              Add games, travel, hotels, or reminders not in your connected calendars.
 		            </div>
 		            <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
-		              <button className={styles.primaryBtn} type="button" onClick={() => setCreateOpen(true)} disabled={busy}>
+		              <button className={styles.primaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
 		                Add event
 		              </button>
 		            </div>

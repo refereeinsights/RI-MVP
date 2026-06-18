@@ -290,6 +290,18 @@ Scope:
 - [ ] Analytics sanity:
   - [ ] Explorer/Insider/Weekend Pro values appear correctly in planner action tracking payloads and are not downgraded to hardcoded "insider".
 
+### Stage 3.5-1C UAT (Planner entitlement hardening follow-up)
+
+- [ ] Manual-event add-entrypoint control:
+  - [ ] Logged-in explorer cannot open the manual-event form via **Header Add event**, **Schedule → Add manual event card button**, or any other add-event CTA.
+  - [ ] Explorer receives the `Upgrade to Insider to unlock planner actions.` blocking message when attempting manual-event entry.
+- [ ] ICS notes privacy filtering:
+  - [ ] Imported ICS notes in list cards never include raw URLs.
+  - [ ] Imported ICS notes in calendar detail modal never include raw URLs or UUID-like tokens.
+- [ ] Calendar month navigation:
+  - [ ] In month mode, “Previous month” and “Next month” consistently jump exactly one month at a time from current month view.
+  - [ ] Week mode behavior for previous/next week remains unchanged.
+
 ---
 
 ### Stage 3.0 UAT (responsive layout foundation)

@@ -246,6 +246,16 @@ function stripHtml(value: string) {
   return value.replace(/<[^>]*>/g, "");
 }
 
+export function sanitizeImportedNotes(rawNotes: string | null | undefined) {
+  const raw = collapseWhitespace(String(rawNotes ?? "").trim());
+  if (!raw) return null;
+  const withoutUrls = raw.replace(/\b(?:https?:\/\/|www\.)[^\s"'<>]+/gi, " ");
+  const withoutUuid = withoutUrls.replace(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, " ");
+  const withoutHexDigest = withoutUuid.replace(/\b[0-9a-f]{32}\b/gi, " ");
+  const sanitized = collapseWhitespace(withoutHexDigest);
+  return sanitized || null;
+}
+
 type ParsedStructuredDescription = {
   cleanedNotes: string | null;
   locationText: string | null;
@@ -430,7 +440,7 @@ export function normalizeIcsEvents(params: {
     const canonicalLocationText = collapseWhitespace(stripHtml(locationRaw || parsedDescription.locationText || ""));
     const normalizedLocation = extractFieldLabelFromLocationText(canonicalLocationText);
     const title = clamp(collapseWhitespace(stripHtml(summaryRaw)), 140) || "Imported calendar event";
-    const notes = clamp(parsedDescription.cleanedNotes, 2000);
+    const notes = clamp(sanitizeImportedNotes(parsedDescription.cleanedNotes), 2000);
     const addressText = clamp(normalizedLocation.cleanedLocation, 200);
     const fieldLabel = clamp(normalizedLocation.fieldLabel, 80);
 

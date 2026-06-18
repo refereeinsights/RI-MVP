@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { normalizeIcsEvents, userSafeError } from "./ics-import";
+import { normalizeIcsEvents, sanitizeImportedNotes, userSafeError } from "./ics-import";
 
 function isoUtc(date: Date) {
   return date.toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -101,6 +101,31 @@ test("normalizeIcsEvents: extracts trailing field markers from location text", (
   assert.equal(res.events.length, 1);
   assert.equal(res.events[0]?.address_text, "Fort Missoula Regional Park 3401-3499 South Ave W, Missoula, MT 59804, USA");
   assert.equal(res.events[0]?.field_label, "Field 6");
+});
+
+test("sanitizeImportedNotes: removes URLs and UUID-like tokens", () => {
+  const raw = "Bring jersey https://teamsnap.com/event/abc?token=abcde and uuid=deadbeef-aaaa-4bbb-8ccc-1234567890ab.";
+  const cleaned = sanitizeImportedNotes(raw);
+  assert.equal(cleaned, "Bring jersey and uuid=.");
+});
+
+test("normalizeIcsEvents: strips raw URLs from unstructured description", () => {
+  const now = new Date();
+  const start = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+  const ics = buildSimpleCalendar([
+    {
+      uid: "sensitive-notes-1",
+      summary: "Practice",
+      description: "Arrival note: https://example.com/event abcdef0123456789abcdef0123456789",
+      location: "Gym",
+      start,
+      end: new Date(start.getTime() + 60 * 60 * 1000),
+    },
+  ]);
+
+  const res = normalizeIcsEvents({ icsText: ics, sourceUrl: "https://example.com/a.ics", teamName: null });
+  assert.equal(res.events.length, 1);
+  assert.equal(res.events[0]?.notes, "Arrival note:");
 });
 
 test("normalizeIcsEvents: cleans TeamSnap-style descriptions into useful parent notes", () => {
