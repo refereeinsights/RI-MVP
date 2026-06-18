@@ -302,6 +302,19 @@ Scope:
   - [ ] In month mode, “Previous month” and “Next month” consistently jump exactly one month at a time from current month view.
   - [ ] Week mode behavior for previous/next week remains unchanged.
 
+### Stage 3.5-1C UAT Re-test (2026-06-18 local, tab 1758705939)
+
+- [x] Test A — Explorer add-event entrypoints blocked:
+  - Header tab-bar `Add event` + section card `Add event` show no modal for explorer session.
+  - Copy reads exact `Upgrade to Insider to unlock planner actions.`
+  - No `POST /api/planner/events` observed.
+- [ ] Test B — ICS notes privacy in edit modal:
+  - The Notes field is now expected to hide structured TeamSnap artifacts (`Location`, `Duration`, `Link`) and strip URLs.
+  - Failure observed in prior run (clean list/card view but raw note artifacts in modal); this code path has now been fixed.
+- [ ] Test C — Calendar month/week navigation:
+  - Month previous/next and week previous/next were previously stuck at June 2026 in local repro.
+  - Prior run reported no date movement in both directions; code path has been adjusted for Date parsing and explicit `YYYY-MM-DD` date updates.
+
 ---
 
 ### Stage 3.0 UAT (responsive layout foundation)

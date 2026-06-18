@@ -824,6 +824,12 @@ export default function PlannerClient(props: Props) {
     return collapseWhitespace(withoutStructuredArtifacts);
   }
 
+  function editableNotesForEvent(e: PlannerEventRow) {
+    const sourceType = String(e.source_type ?? "").toLowerCase();
+    if (sourceType !== "ics") return e.notes ?? "";
+    return sanitizeIcsNotesForDisplay(e.notes, e.source_type);
+  }
+
   function openMapForEvent(e: PlannerEventRow) {
     const loc = mapLocationForEvent(e);
     if (!loc) return;
@@ -1937,7 +1943,7 @@ export default function PlannerClient(props: Props) {
     setEditAddress(e.address_text ?? "");
     setEditCity(e.city ?? "");
     setEditState(e.state ?? "");
-    setEditNotes(e.notes ?? "");
+    setEditNotes(editableNotesForEvent(e));
   }
 
   function cancelEdit() {

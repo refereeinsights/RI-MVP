@@ -78,3 +78,26 @@ Date: 2026-06-18
   - card list view
   - calendar detail modal
 - [ ] Calendar month nav in month mode moves to the correct next/previous month consistently (no skipped/partial month behavior at boundaries).
+
+### UAT Re-test Feedback — 2026-06-18 (local `/weekend-planner`)
+
+- **Environment:** `http://localhost:3001` (tab `1758705939`, Weekend Pro session)
+- **Outcome summary:** Test A passed, Tests B and C failed before this follow-up fix.
+
+- **Test A — Explorer add-event entrypoints:** PASS
+  - Header tab-bar `Add event` and section card `Add event` both blocked with no mutation attempt.
+  - Copy verified as exact: `Upgrade to Insider to unlock planner actions.`
+  - Note: `explorer_test@example.com` currently shows `Plan: Insider` in `/account` and is likely a fixture configuration issue.
+
+- **Test B — ICS note sanitization in edit modal:** FAIL (pre-fix)
+  - Raw `Link:` label and `https://...` URL remained in Edit modal Notes despite list/cards being clean.
+  - Root cause: edit form prefill used raw `e.notes`.
+
+- **Test C — Calendar month/week nav:** FAIL (pre-fix)
+  - Month mode `‹`/`›` and week mode `›` did not advance date.
+
+### Follow-up code fixes completed
+- `apps/ti-web/app/_components/planner/PlannerClient.tsx`
+  - Added ICS edit note prefill sanitation so modal uses `sanitizeIcsNotesForDisplay` output for ICS events.
+- `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`
+  - Added robust Schedule-X date parsing for `controls.getDate()` (string/object), and navigation now sets dates using canonical `YYYY-MM-DD` strings.
