@@ -2,6 +2,17 @@
 
 Date: 2026-06-18
 
+## Handoff Snapshot (2026-06-19)
+- Commit head: `90bc4acb` (`Fix planner calendar nav date shape and ICS notes sanitization`).
+- Scope completed: Planner entitlement hardening, explorer write read-only enforcement, 2-feed Insider cap, ICS notes privacy sanitization (list/card, calendar modal, and API response), and calendar date-shape fix for Schedule-X month/week navigation.
+- Last known UAT status:
+  - `Add event` entrypoint gating: **PASS** on local test (`Upgrade to Insider to unlock planner actions.` copy observed).
+  - ICS edit modal URL/UUID filtering and Calendar prev/next date navigation: **code fixes completed**, but fresh runtime pass still recommended before handoff.
+- Return plan (do these in order):
+  - [ ] Re-run Stage 3.5-1C UAT (local): Test A/B/C checks for explorer gating, ICS edit modal privacy, month/week nav.
+  - [ ] Re-run API hardening spot checks: explorer mutation endpoints (`children`, `teams`, `events`, `sources`, duplicate/merge), and team cap response at 2 active teams.
+  - [ ] Validate analytics payload `planner_entitlement` resolves exactly to `explorer|insider|weekend_pro` in action events.
+
 ## Scope implemented
 - Enforced 3-tier planner entitlement model in server routes and client UI:
   - `weekend_pro`: full planner with season calendar toggle + unlimited calendar feeds.

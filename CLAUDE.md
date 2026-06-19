@@ -142,6 +142,22 @@ Nav note:
 Dev note (repo structure):
 - Shared planner UI is implemented in `apps/ti-web/app/_components/planner/PlannerClient.tsx` and rendered by `/weekend-planner`.
 
+### Weekend Planner Handoff (2026-06-19)
+- Last hardening commit: `90bc4acb` (`Fix planner calendar nav date shape and ICS notes sanitization`).
+- Current expectation:
+  - Explorer: read-only planner behavior with explicit `Upgrade to Insider to unlock planner actions.` copy.
+  - Insider: full planner actions, capped at 2 connected calendars.
+  - Weekend Pro: full planner actions + calendar mode + unlimited calendars.
+- What was fixed since last pass:
+  - `plannerEntitlement` is passed from server tier into client entitlements.
+  - Planner action-entry gating now centralized for manual-event entrypoints and ICS editing.
+  - ICS notes are sanitized in list cards, calendar modal, and API fetch responses.
+  - Schedule-X date controls now normalize date-shape correctly for month/week navigation.
+- Priority revalidation before continuing:
+  - [ ] Stage 3.5-1C UAT Re-test (tests A/B/C): explorer gating, ICS edit modal privacy, month/week navigation runtime stability.
+  - [ ] Planner API entitlement enforcement smoke checks on `children`, `teams`, `events`, and `sources` mutation routes.
+  - [ ] `planner_entitlement` analytics payload values for action tracking.
+
 ### Copy/paste prompt (Weekend Planner UAT)
 Use this when running Claude Desktop / Chrome UAT and the nav link is hidden:
 
