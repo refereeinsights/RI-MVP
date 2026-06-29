@@ -228,6 +228,19 @@ Date: 2026-06-29
   - Added support for HotelPlanner destination-cue fields: `city`, `source`, `sc`, `CheckIn`/`CheckOut`.
   - Added support for tracking fields on handoff: `kw`, `jobCode`, `Custom1`…`Custom8`.
   - Preserved backward compatibility for lowercase `checkin` / `checkout` params.
-  - Added destination fallback to venue search context over raw coordinates to reduce generic landing pages.
+  - Added destination fallback to venue search context and coordinate passthrough (`lat/lng` + `latitude`/`longitude`) so destination can be locked to coordinates when available.
 - UAT result:
-  - PASS (local): manual browser visit to tournament venue handoff URL now lands on venue-specific HotelPlanner search with `city`, date, and tracking parameters applied.
+  - PASS (local): `GET /go/hotels?provider=hotelplanner&venueId=ecd43a1e-d24a-4f0d-807b-2084ac24131e&checkin=2026-07-01&checkout=2026-07-03` redirects to `https://tournamentinsights.hotelplanner.com/Search/?destination=47.69741%2C-117.23642&latitude=47.69741&longitude=-117.23642&CheckIn=07/01/2026&CheckOut=07/03/2026&rooms=1&adults=2...` and lands on a venue-local HotelPlanner page.
+
+### Step 4 /go/hotels handoff command (UAT artifact)
+
+- Verified command:
+  - `http://localhost:3001/go/hotels?provider=hotelplanner&venueId=ecd43a1e-d24a-4f0d-807b-2084ac24131e&checkin=2026-07-01&checkout=2026-07-03&source=tournament_detail`
+- Expected redirect fields:
+  - `destination=47.69741%2C-117.23642`
+  - `latitude=47.69741`
+  - `longitude=-117.23642`
+  - `CheckIn=07/01/2026`
+  - `CheckOut=07/03/2026`
+  - `source=tournamentinsights`
+  - `sc=tournamentinsights`
