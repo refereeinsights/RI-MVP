@@ -56,6 +56,7 @@ const RATE_LIMIT_WINDOWS: RateLimitWindow[] = [
   { max: 30, seconds: 60 },
 ];
 const REQUEST_QUERY_COLUMNS = "id";
+const IS_LODGING_DEBUG = process.env.TI_LODGING_DEBUG === "1" || process.env.TI_LODGING_DEBUG === "true";
 
 function toText(value: unknown) {
   if (typeof value !== "string") return null;
@@ -142,6 +143,26 @@ function limitExceeded(count: number, max: number) {
 
 function asRequestError(message: string) {
   return NextResponse.json({ ok: false, error: message }, { status: 400 });
+}
+
+function buildProviderFailureDebug(error: unknown) {
+  if (!IS_LODGING_DEBUG) return undefined;
+  if (error instanceof HotelPlannerApiError) {
+    return {
+      providerStatus: error.status,
+      providerCode: error.code,
+      providerName: error.name,
+      providerMessage: error.message,
+      details: typeof error.details === "string" && error.details.length > 4000 ? `${error.details.slice(0, 4000)}...` : error.details,
+    };
+  }
+  if (error instanceof Error) {
+    return {
+      providerName: error.name,
+      providerMessage: error.message,
+    };
+  }
+  return { providerMessage: typeof error === "string" ? error : "Unknown provider failure" };
 }
 
 function fallbackPayload(reason: FallbackReason) {
@@ -586,6 +607,9 @@ export async function POST(request: Request) {
           code: errorCode,
           resolvedCheckIn: resolvedWindow.window.checkIn,
           resolvedCheckOut: resolvedWindow.window.checkOut,
+          ...(IS_LODGING_DEBUG
+            ? { providerFailure: buildProviderFailureDebug(error) }
+            : {}),
         },
         { status: 502 }
       );
@@ -598,6 +622,9 @@ export async function POST(request: Request) {
         error: providerError,
         resolvedCheckIn: resolvedWindow.window.checkIn,
         resolvedCheckOut: resolvedWindow.window.checkOut,
+        ...(IS_LODGING_DEBUG
+          ? { providerFailure: buildProviderFailureDebug(error) }
+          : {}),
       },
       { status: statusCode }
     );
