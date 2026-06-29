@@ -238,12 +238,16 @@ Date: 2026-06-29
 
 ### Step 2 UAT status (implemented routes)
 
-- [ ] `POST /api/lodging/availability`:
-  - 400 on invalid `propertyId`, date format/range, and numeric inputs.
+- [x] `POST /api/lodging/availability` (2026-06-29 local run via HTTP):
+  - PASS `400` on invalid/missing `propertyId` and missing dates.
+  - PASS `400` on invalid numeric values / date-range checks (`checkout > checkin` required).
+  - PASS: `checkin` / `checkout` accept `mm/dd/yyyy`; ISO dates are also accepted and normalized to `mm/dd/yyyy` for compatibility (observed as non-blocking deviation).
+  - PASS: malformed property request returns expected `502` provider rejection (`code:"422"` from HotelPlanner when test UUID is invalid).
   - Successful shape: `{ sessionId, provider, propertyId, currency, roomOptions }`.
   - 502 path returns `{ sessionId, provider, propertyId, roomOptions: [], error: "Provider failure" }`.
   - Session rows update `result_count` to room-options length on success.
-- [ ] `POST /api/lodging/group-request`:
+- [x] `POST /api/lodging/group-request` (2026-06-29 local run):
+  - PASS split parsing after numeric support fix (`split` accepted as number or stringified number).
   - Rejects group requests with `< 5 rooms`.
   - Requires `firstName`, `lastName`, `email`, `checkIn`/`checkOut`, `split`, `rating`, `roomTypeCode`.
   - Defaults `groupTypeCode` to `143` when omitted.
@@ -275,3 +279,53 @@ Date: 2026-06-29
   - `CheckOut=07/03/2026`
   - `source=tournamentinsights`
   - `sc=tournamentinsights`
+
+### Step 3 UI Runtime status (2026-06-29)
+
+Status: **Implemented in `TournamentVenueMapClient.tsx` and map styles**
+
+- Added dynamic HotelPlanner discovery in Tournament map detail panel:
+  - Replaced static nearby-hotel CTA presentation with API-driven hotel result cards rendered from `POST /api/lodging/search`.
+  - Added hotel marker rendering from search results (desktop cap 10, mobile cap 6 after mount via media-query hook).
+  - Deduplicated/sorted hotels and rendered list-only entries (no coordinates) as selectable cards without map markers.
+- Implemented on-demand availability retrieval:
+  - Added `POST /api/lodging/availability` on marker/card interaction.
+  - Added request stale-protection using a request-id ref to ignore stale responses.
+  - Added loading/failure/room-option rendering + handoff fallback in panel.
+- Implemented date/fallback-safe behavior:
+  - `resolvedCheckIn`/`resolvedCheckOut` are now handled in map UI state from search response.
+  - If resolved dates are missing, availability is skipped and fallback CTA to `/go/hotels` is shown immediately.
+  - Search fallback (`showBookingFallback`, `showVrboFallback`, `no_dates`, `no_venue_coordinates`, provider/transport errors, 429) renders a unified fallback panel with HotelPlanner + VRBO alternatives.
+- Added Step 3 analytics events in map layer:
+  - `hotel_pin_impression` (batched by render with count)
+  - `hotel_pin_click`
+  - `hotel_card_click`
+  - `hotel_availability_requested`
+  - `hotel_availability_succeeded`
+  - `hotel_availability_failed`
+  - `hotel_room_view`
+
+### Step 3 UAT to run before Stage 4
+
+- [ ] Open a tournament map with a venue that has coordinates: `http://localhost:3001/tournaments/<slug>/map`.
+- [ ] In venue detail mode, verify hotel cards render from API with:
+  - hotel name
+  - distance
+  - rating/review count
+  - from-price and currency
+  - fallback CTA visible when search returns no results/fallback flags.
+- [ ] Verify marker cap behavior:
+  - Desktop shows at most 10 markers.
+  - Mobile shows at most 6 markers.
+  - Hotels with missing latitude/longitude appear in card list but are not pinned.
+- [ ] Click a hotel card/marker and confirm:
+  - availability request uses resolved dates from search response
+  - room options panel appears
+  - `/go/hotels` handoff link remains available.
+- [ ] Trigger venue/date-fallback case (missing resolved dates) and verify:
+  - no availability request is sent
+  - fallback card + `View full booking options` path is shown.
+- [ ] Simulate `/api/lodging/search` rate-limit response (`429`) and confirm non-blocking behavior:
+  - map interaction remains usable
+  - fallback + provider handoff still available.
+- [ ] Open network/devtools and confirm batched `hotel_pin_impression` appears once per hotel render batch with a `count` field.

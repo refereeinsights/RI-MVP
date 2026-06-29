@@ -380,7 +380,46 @@ Optional targeted UAT for handoff compatibility:
    - `Custom1=...`
    - Tracking params should not be dropped for lowercase variants (`custom1`, `jobcode`) passed in from URL query.
 
+### Step 3 TI Lodging Map UI UAT (local)
+
+Run after Step 3 implementation is deployed to local server.
+
+1) Open a tournament map page on local:
+   - `http://localhost:3001/tournaments/<slug>/map`
+   - choose a venue with coordinates and a linked tournament date context if available.
+2) In venue detail panel, confirm hotel section now uses HotelPlanner search API:
+   - cards are populated from live search results (not old static placeholders),
+   - each card shows name + distance + rating/review count + from-price.
+3) Verify marker behavior:
+   - desktop map shows at most 10 hotel markers (list may show more cards),
+   - mobile map shows at most 6 markers,
+   - hotels without latitude/longitude appear in list but are not pinned.
+4) Verify fallback paths:
+   - no hotel / `showBookingFallback` / `showVrboFallback` shows fallback panel with HotelPlanner + VRBO CTAs,
+   - `no_venue_coordinates` or `no_dates` includes handoff fallback CTA,
+   - `/api/lodging/search` `429` does not block venue switching/map interaction.
+5) Click one hotel card or marker:
+   - availability request fires once for selected card/marker,
+   - room/rate options render when available,
+   - `hotel_room_view` appears only when options render,
+   - stale/rapid clicks do not render stale room results.
+6) Verify no-date behavior:
+   - if `resolvedCheckIn` / `resolvedCheckOut` is null, no availability fetch should be made,
+   - immediate fallback CTA is shown.
+7) Check events in Network/analytics:
+   - confirm single batched `hotel_pin_impression` event per map render batch with `count`,
+   - confirm `hotel_pin_click`, `hotel_card_click`, `hotel_availability_requested/succeeded/failed`, and `hotel_room_view` payloads include venue/tournament context.
+
+8) Validate handoff:
+   - hotel room handoff action opens `/go/hotels` redirect path in a new tab,
+   - no TI payment route is used for booking in this step.
+
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 2)
+
+Latest Step 2 API run (local `localhost:3001`) result:
+- `POST /api/lodging/group-request` split parsing fix is in place (`split` accepted as number and converted with int bounds).
+- Route accepts `mm/dd/yyyy` and also normalizes ISO `YYYY-MM-DD` inputs to `mm/dd/yyyy`.
+- Property-level provider errors still return `502` with `code:"422"` for unknown HotelPlanner property IDs (expected API rejection path).
 
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 1 - Search Endpoint)
 
@@ -443,12 +482,15 @@ Optional targeted UAT for handoff compatibility:
 ### Stage 3 TI Lodging Provider Integration UAT Checklist
 
 - [ ] Step 2 route checks:
-  - [ ] `POST /api/lodging/availability` 400s on invalid `propertyId`, malformed dates, and invalid numeric values.
+  - [ ] `POST /api/lodging/availability` 400s on invalid `propertyId`, malformed dates/range, and invalid numeric values.
   - [ ] `POST /api/lodging/availability` returns `{ sessionId, provider, propertyId, currency, roomOptions }` with `roomOptions` containing raw data for each option.
   - [ ] `/api/lodging/availability` writes/updates `lodging_search_session` rows (`endpoint='/api/lodging/availability'`, status transitions, latency, `result_count`).
   - [ ] `POST /api/lodging/group-request` enforces `rooms >= 5` and requires name/email/check-in/out + room details.
   - [ ] `/api/lodging/group-request` returns `{ sessionId, provider, propertyId, success, requestId? }` with `requestId` omitted when absent.
   - [ ] `/api/lodging/group-request` writes/updates `lodging_search_session` rows (`endpoint='/api/lodging/group-request'`, result_count `1` success / `0` fail).
+- [ ] Re-run command examples:
+  - `cd /Users/roddavis/RI_MVP/RI-MVP && curl -s -X POST http://localhost:3001/api/lodging/availability -H 'content-type: application/json' -d '{"propertyId":"ecd43a1e-d24a-4f0d-807b-2084ac24131e","checkin":"2026-07-01","checkout":"2026-07-03"}'`
+  - `cd /Users/roddavis/RI_MVP/RI-MVP && curl -s -X POST http://localhost:3001/api/lodging/group-request -H 'content-type: application/json' -d '{"propertyId":"ecd43a1e-d24a-4f0d-807b-2084ac24131e","checkin":"2026-07-01","checkout":"2026-07-03","rooms":5,"split":2,"firstName":"QA","lastName":"Tester","email":"qa@example.com","roomTypeCode":"A"}'`
 - [ ] Search input integrity:
   - [ ] `checkIn` / `checkOut` are sent as `mm/dd/yyyy` with `tournament_start_date` and `tournament_end_date` as source of truth.
   - [ ] Missing/invalid tournament dates are surfaced as safe fallback instead of broken search errors.

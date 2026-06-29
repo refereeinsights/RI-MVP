@@ -714,6 +714,138 @@
   margin-top: -2px;
 }
 
+.lodgingNotice,
+.lodgingError,
+.lodgingFallbackReason,
+.hotelAvailabilitySummary {
+  font-size: 12px;
+  opacity: 0.9;
+  line-height: 1.25;
+}
+
+.lodgingError {
+  color: #fecaca;
+}
+
+.lodgingMeta {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
+}
+
+.lodgingFallback,
+.hotelAvailabilityPanel {
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  padding: 9px;
+  background: rgba(255,255,255,0.06);
+  display: grid;
+  gap: 8px;
+}
+
+.lodgingFallbackActions,
+.hotelRoomList {
+  display: grid;
+  gap: 8px;
+}
+
+.hotelPanelSection {
+  display: grid;
+  gap: 8px;
+}
+
+.hotelList {
+  display: grid;
+  gap: 8px;
+}
+
+.hotelCard {
+  width: 100%;
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  text-align: left;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.hotelCardSelected {
+  border-color: rgba(96,165,250,0.85);
+  background: rgba(96,165,250,0.16);
+}
+
+.hotelCard:hover,
+.hotelCard:focus-visible,
+.hotelCardSelected:hover,
+.hotelCardSelected:focus-visible {
+  outline: none;
+  background: rgba(255,255,255,0.12);
+}
+
+.hotelCardTitle {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.hotelCardMeta {
+  font-size: 12px;
+  opacity: 0.88;
+  line-height: 1.25;
+}
+
+.hotelAvailabilityHeader {
+  display: grid;
+  gap: 4px;
+  font-weight: 900;
+}
+
+.hotelAvailabilitySummary {
+  font-weight: 600;
+  opacity: 0.86;
+}
+
+.hotelRoomListTitle {
+  font-size: 12px;
+  font-weight: 900;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.hotelRoomRow {
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 9px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hotelRoomName {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.hotelRoomType,
+.hotelRoomPolicy {
+  font-size: 12px;
+  opacity: 0.86;
+}
+
+.hotelRoomRate {
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.hotelHandoffCta {
+  justify-self: start;
+}
+
 @media (max-width: 520px) {
   .panel {
     padding: 10px;
