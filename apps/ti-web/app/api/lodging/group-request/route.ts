@@ -313,8 +313,7 @@ export async function POST(request: Request) {
   let split: number;
   let ratingText: string;
 
-  const splitFromBody = toText(body.split);
-  if (!splitFromBody) {
+  if (body.split === undefined || body.split === null || body.split === "") {
     return asRequestError("Missing split");
   }
 
@@ -333,10 +332,7 @@ export async function POST(request: Request) {
       LODGING_SEARCH_DEFAULTS.defaultAdultsPerRoom
     );
     childrenPerRoom = parseNonNegativeInteger(body.children ?? body.childrenPerRoom ?? body.childCount);
-    split = Number(splitFromBody);
-    if (!Number.isInteger(split) || split < 1) {
-      throw new Error(`Invalid integer value: ${splitFromBody}`);
-    }
+    split = parseInteger(body.split, 1, Number.MAX_SAFE_INTEGER, undefined, true);
   } catch (error: unknown) {
     return asRequestError((error as Error).message);
   }

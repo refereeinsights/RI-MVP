@@ -4,7 +4,7 @@
 - [ ] Search returns normalized results using HotelPlanner when flag enabled.
 - [ ] Map page/server data includes tournament `start_date` and `end_date` and passes through to lodging search triggers.
 - [ ] Destination mapping works with both lat/lon and venue address.
-- [ ] Dates are sent and displayed as `mm/dd/yyyy`.
+- [ ] Dates are sent and displayed as `mm/dd/yyyy` (current implementation also accepts ISO `YYYY-MM-DD` and normalizes to `mm/dd/yyyy`).
 - [ ] Defaults are safe for missing/invalid dates and missing venue coordinates.
 - [ ] Search response includes fallback block with `showBookingFallback`, `showVrboFallback`, and reason when applicable.
 - [ ] Provider failure/no usable hotels surfaces Booking.com and VRBO fallback CTAs with current link format intact.

@@ -469,6 +469,8 @@ export async function POST(request: Request) {
         provider: providerName,
         hotels: [],
         fallback: fallbackPayload("no_venue_coordinates"),
+        resolvedCheckIn: null,
+        resolvedCheckOut: null,
       },
       { status: 200 }
     );
@@ -482,6 +484,8 @@ export async function POST(request: Request) {
         provider: providerName,
         hotels: [],
         fallback: fallbackPayload(resolvedWindow.reason),
+        resolvedCheckIn: null,
+        resolvedCheckOut: null,
       },
       { status: 200 }
     );
@@ -550,6 +554,8 @@ export async function POST(request: Request) {
       provider: result.provider,
       hotels: result.hotels,
       fallback,
+      resolvedCheckIn: resolvedWindow.window.checkIn,
+      resolvedCheckOut: resolvedWindow.window.checkOut,
     });
   } catch (error: unknown) {
     const { statusCode, errorCode, errorMessage } = classifyProviderFailure(error);
@@ -578,11 +584,22 @@ export async function POST(request: Request) {
           fallback,
           error: "Provider failure",
           code: errorCode,
+          resolvedCheckIn: resolvedWindow.window.checkIn,
+          resolvedCheckOut: resolvedWindow.window.checkOut,
         },
         { status: 502 }
       );
     }
 
-    return NextResponse.json({ sessionId, provider: providerName, error: providerError }, { status: statusCode });
+    return NextResponse.json(
+      {
+        sessionId,
+        provider: providerName,
+        error: providerError,
+        resolvedCheckIn: resolvedWindow.window.checkIn,
+        resolvedCheckOut: resolvedWindow.window.checkOut,
+      },
+      { status: statusCode }
+    );
   }
 }
