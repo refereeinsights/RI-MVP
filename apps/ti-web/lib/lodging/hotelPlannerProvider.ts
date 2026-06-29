@@ -332,11 +332,13 @@ function parseHotelPlannerSuccess(payload: HotelPlannerEnvelope<unknown>): boole
   const payloadAsRecord = payload as Record<string, unknown>;
   const payloadData = payloadAsRecord.data as Record<string, unknown> | null;
   const payloadResult = payloadAsRecord.result as Record<string, unknown> | null;
+  const code = Number(payload.code ?? payloadAsRecord?.code);
+  const hasSuccessCode = Number.isFinite(code) && code >= 200 && code < 300;
 
   if (payload.success === true) return true;
   if (payload.code === 0 || payload.code === "0") return true;
+  if (hasSuccessCode) return true;
   if (payload.success === false) return false;
-  if (payload.message || payload.text) return false;
 
   const source = payloadData ?? payloadResult ?? payloadAsRecord;
   const hasHotels =
@@ -345,6 +347,7 @@ function parseHotelPlannerSuccess(payload: HotelPlannerEnvelope<unknown>): boole
   const hasAvailabilities = Array.isArray(source.availabilities);
   const hasGroupRequest = typeof source.groupRequest === "object" || source.groupRequest !== undefined;
   if (hasHotels || hasAvailabilities || hasGroupRequest) return true;
+  if (payload.message || payload.text) return false;
 
   if (payload.code === undefined || payload.code === null) {
     return false;

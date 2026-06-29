@@ -247,6 +247,49 @@ test("searchHotels accepts HotelPlanner payload without success/code when hotels
   }
 });
 
+test("searchHotels accepts provider payload with code 200 and message", async () => {
+  const config = testConfig();
+  const provider = createHotelPlannerProvider(config);
+
+  const originalFetch = global.fetch;
+  (global as { fetch: typeof global.fetch }).fetch = async () =>
+    new Response(
+      JSON.stringify({
+        code: "200",
+        message: "Hotel search completed",
+        hotels: {
+          "0_11111": {
+            hotelID: 11111,
+            hotelName: "Test Hotel with Message",
+            city: "Spokane Valley",
+            state: "WA",
+            fromRate: 159,
+            currency: "USD",
+          },
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+
+  try {
+    const result = await provider.searchHotels({
+      checkIn: "07/01/2026",
+      checkOut: "07/03/2026",
+      roomCount: 1,
+      adultCount: 2,
+      destination: "Spokane Valley, WA",
+      customerIPAddress: "198.51.100.4",
+      customerUserAgent: "agent/1.2",
+    });
+
+    assert.equal(result.hotels.length, 1);
+    assert.equal(result.hotels[0].id, "11111");
+    assert.equal(result.hotels[0].name, "Test Hotel with Message");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("getHotelAvailability normalizes roomRates payloads", async () => {
   const config = testConfig();
   const provider = createHotelPlannerProvider(config);
