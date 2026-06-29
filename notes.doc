@@ -174,3 +174,21 @@ Date: 2026-06-29
   - Credentials remain server-side.
   - `reserve` is never surfaced or invoked.
   - Existing `/go/hotels` + `/go/vrbo` redirect/CTA behavior remains intact.
+
+### Step 1 Foundation status (now complete)
+
+Date: 2026-06-29
+
+- Implemented foundation scaffolding:
+  - Added `apps/ti-web/lib/lodging/lodging-provider.ts` with:
+    - provider contract types (`searchHotels`, `getHotelAvailability`, `createGroupRequest`, `ping`)
+    - provider enum + defaults + env resolver (`TI_LODGING_PROVIDER`)
+    - fallback-required event taxonomy constants
+    - HotelPlanner env validation helpers
+    - provider factory guard scaffold
+  - Added `apps/ti-web/lib/lodging/lodging-dates.ts` with:
+    - `inferLodgingStayWindow()` (day-before-start check-in, end/start fallback +1 behavior)
+    - `formatDateToMmDdYyyy()` (`mm/dd/yyyy` formatter)
+    - invalid-date fallback helper for Step-1 boundary handling
+- Step 1 next-step checklist:
+  - [ ] Wire step-1 outputs into Step 2 provider implementation and map route consumers.
