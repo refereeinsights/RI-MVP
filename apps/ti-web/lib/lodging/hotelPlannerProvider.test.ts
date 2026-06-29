@@ -182,6 +182,71 @@ test("searchHotels normalizes object-mapped hotel payloads", async () => {
   }
 });
 
+test("searchHotels accepts HotelPlanner payload without success/code when hotels are present", async () => {
+  const config = testConfig();
+  const provider = createHotelPlannerProvider(config);
+
+  const originalFetch = global.fetch;
+  (global as { fetch: typeof global.fetch }).fetch = async () =>
+    new Response(
+      JSON.stringify({
+        unpubLevel: "25",
+        token: "9D8C6DD0-705A-44E1-BB4A-402293733A5A",
+        paymentType: "DirectPay",
+        sourceCode: "tournamentinsights",
+        hotels: {
+          "0_6248821": {
+            hotelID: "6248821",
+            hotelName: "Tru by Hilton Spokane Valley WA",
+            city: "Spokane Valley",
+            state: "WA",
+            review: "4.6",
+            reviewCount: 533,
+            address1: "13509 East Mansfield Ave.",
+            position: {
+              longitude: -117.22277,
+              latitude: 47.67737,
+              distanceFromSearch: "2.45",
+            },
+          },
+          "0_56796": {
+            hotelID: 56796,
+            hotelName: "Comfort Inn & Suites Spokane Valley Central",
+            city: "Spokane Valley",
+            state: "WA",
+            review: "4.5",
+            reviewCount: 869,
+            address1: "12415 East Mission Ave",
+            position: {
+              longitude: -117.23732,
+              latitude: 47.672646,
+              distanceFromSearch: "2.75",
+            },
+          },
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+
+  try {
+    const result = await provider.searchHotels({
+      checkIn: "07/01/2026",
+      checkOut: "07/03/2026",
+      roomCount: 1,
+      adultCount: 2,
+      destination: "Spokane Valley, WA",
+      customerIPAddress: "198.51.100.4",
+      customerUserAgent: "agent/1.2",
+    });
+
+    assert.equal(result.hotels.length, 2);
+    assert.equal(result.hotels[0].id, "6248821");
+    assert.equal(result.hotels[0].name, "Tru by Hilton Spokane Valley WA");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("getHotelAvailability normalizes roomRates payloads", async () => {
   const config = testConfig();
   const provider = createHotelPlannerProvider(config);

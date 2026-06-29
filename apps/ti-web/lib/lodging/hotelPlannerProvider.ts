@@ -329,8 +329,26 @@ function normalizeGroupRequest(payload: unknown): GroupRequestResult {
 }
 
 function parseHotelPlannerSuccess(payload: HotelPlannerEnvelope<unknown>): boolean {
+  const payloadAsRecord = payload as Record<string, unknown>;
+  const payloadData = payloadAsRecord.data as Record<string, unknown> | null;
+  const payloadResult = payloadAsRecord.result as Record<string, unknown> | null;
+
   if (payload.success === true) return true;
   if (payload.code === 0 || payload.code === "0") return true;
+  if (payload.success === false) return false;
+  if (payload.message || payload.text) return false;
+
+  const source = payloadData ?? payloadResult ?? payloadAsRecord;
+  const hasHotels =
+    Array.isArray(source.hotels) ||
+    (source.hotels && typeof source.hotels === "object");
+  const hasAvailabilities = Array.isArray(source.availabilities);
+  const hasGroupRequest = typeof source.groupRequest === "object" || source.groupRequest !== undefined;
+  if (hasHotels || hasAvailabilities || hasGroupRequest) return true;
+
+  if (payload.code === undefined || payload.code === null) {
+    return false;
+  }
   return false;
 }
 
