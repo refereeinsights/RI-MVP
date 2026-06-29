@@ -1,3 +1,5 @@
+import { createFallbackProvider, createHotelPlannerProvider } from "./hotelPlannerProvider";
+
 export type TiLodgingProvider = "hotelplanner" | "fallback";
 
 export const LODGING_PROVIDERS = ["hotelplanner", "fallback"] as const satisfies readonly TiLodgingProvider[];
@@ -69,6 +71,8 @@ export type SearchHotelsInput = {
   currency?: string;
   source?: string;
   correlationId?: string;
+  customerIPAddress?: string | null;
+  customerUserAgent?: string | null;
 } & TrackingFields;
 
 export type HotelAvailabilityInput = {
@@ -82,6 +86,8 @@ export type HotelAvailabilityInput = {
   currency?: string;
   source?: string;
   correlationId?: string;
+  customerIPAddress?: string | null;
+  customerUserAgent?: string | null;
 } & TrackingFields;
 
 export type GroupRequestInput = {
@@ -116,7 +122,9 @@ export type GroupRequestInput = {
   jobCode?: string | null;
   sc?: string | null;
   groupTypeCode?: string | null;
-};
+  customerIPAddress?: string | null;
+  customerUserAgent?: string | null;
+} & TrackingFields;
 
 export type SearchHotelProperty = {
   id: string;
@@ -189,6 +197,13 @@ export type HotelPlannerProviderConfig = {
 
 export type LodgingProviderFactory = (name: TiLodgingProvider) => LodgingProvider;
 
+function createDefaultLodgingProvider(providerName: TiLodgingProvider): LodgingProvider {
+  if (providerName === "hotelplanner") {
+    return createHotelPlannerProvider(getHotelPlannerEnv());
+  }
+  return createFallbackProvider();
+}
+
 export function getLodgingProviderName(): TiLodgingProvider {
   const raw = String(process.env.TI_LODGING_PROVIDER || DEFAULT_LODGING_PROVIDER).trim().toLowerCase();
   if (raw === "fallback") return "fallback";
@@ -240,22 +255,6 @@ export function getHotelPlannerEnv(): HotelPlannerProviderConfig {
 
 export function createLodgingProvider(providerName?: TiLodgingProvider, factory?: LodgingProviderFactory): LodgingProvider {
   const name = providerName ?? getLodgingProviderName();
-  if (!factory) {
-    return {
-      name,
-      ping: async () => {
-        throw new Error(`Lodging provider implementation pending for ${name}`);
-      },
-      searchHotels: async () => {
-        throw new Error(`Lodging provider implementation pending for ${name}`);
-      },
-      getHotelAvailability: async () => {
-        throw new Error(`Lodging provider implementation pending for ${name}`);
-      },
-      createGroupRequest: async () => {
-        throw new Error(`Lodging provider implementation pending for ${name}`);
-      },
-    };
-  }
-  return factory(name);
+  const builder = factory ?? createDefaultLodgingProvider;
+  return builder(name);
 }

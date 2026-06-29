@@ -149,7 +149,7 @@ Date: 2026-06-29
   - Execute the docs as one build run and run the lodging QA checklist end-to-end.
 
 ### Implementation worklist (ordered)
-- [ ] Add provider abstraction and HotelPlanner client under `apps/ti-web/lib/lodging`.
+- [x] Add provider abstraction and HotelPlanner client under `apps/ti-web/lib/lodging`.
 - [ ] Implement `/api/lodging/search`, `/api/lodging/availability`, `/api/lodging/group-request`, `/api/lodging/checkout-handoff`, `/api/lodging/report-sync`.
 - [ ] Wire map page props (`tournament_start_date` / `tournament_end_date`) into lodging search input.
 - [ ] Add `lodging_search_session` / `lodging_partner_events` persistence and write helpers.
@@ -184,11 +184,32 @@ Date: 2026-06-29
     - provider contract types (`searchHotels`, `getHotelAvailability`, `createGroupRequest`, `ping`)
     - provider enum + defaults + env resolver (`TI_LODGING_PROVIDER`)
     - fallback-required event taxonomy constants
-    - HotelPlanner env validation helpers
-    - provider factory guard scaffold
+  - HotelPlanner env validation helpers
+  - provider factory guard scaffold
   - Added `apps/ti-web/lib/lodging/lodging-dates.ts` with:
     - `inferLodgingStayWindow()` (day-before-start check-in, end/start fallback +1 behavior)
     - `formatDateToMmDdYyyy()` (`mm/dd/yyyy` formatter)
     - invalid-date fallback helper for Step-1 boundary handling
 - Step 1 next-step checklist:
-  - [ ] Wire step-1 outputs into Step 2 provider implementation and map route consumers.
+  - [x] Wire step-1 outputs into Step 2 provider implementation and map route consumers.
+
+### Step 2 Foundation status (now complete)
+
+Date: 2026-06-29
+
+- Implemented HotelPlanner provider client in `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`:
+  - Added auth helpers:
+    - `buildHotelPlannerAuthorizationToken` (base64url API key/signature pair),
+    - `buildHotelPlannerAuthHeaders` with `Authorization` + `x-hp-api-siteid`,
+    - `buildHotelPlannerQuery` with required `customerIPAddress` and `customerUserAgent`.
+  - Added POST helpers and method mappings:
+    - `multiPropertySearch`,
+    - `propertyAvailability`,
+    - `createGroupRequest`,
+    - `pingHotelPlanner`.
+  - Added response normalization for search results, availability room lists, and group request result parsing.
+  - Added provider defaults for `createHotelPlannerProvider` and wired default provider selection in `createLodgingProvider` via `TI_LODGING_PROVIDER`.
+  - Added `apps/ti-web/lib/lodging/hotelPlannerProvider.test.ts` covering:
+    - query string + epoch/cust IP+UA propagation,
+    - base64url auth token format,
+    - header + request forwarding through provider search path.

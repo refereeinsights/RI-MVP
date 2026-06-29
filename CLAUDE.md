@@ -365,6 +365,16 @@ Copy/paste prompt:
 5. Validate “Need 5+ rooms?” CTA opens group-request flow and requires required fields.
 6. Check Network for `/api/lodging/search`, `/api/lodging/availability`, `/api/lodging/checkout-handoff`, `/api/lodging/group-request`, `/api/analytics`.
 
+### Stage 3.5 HotelPlanner Provider-Only UAT (Step 2)
+
+- [ ] Run pre-implementation code verification:
+  - `cd /Users/roddavis/RI_MVP/RI-MVP && npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+  - `cd /Users/roddavis/RI-MVP/RI-MVP && node --import tsx apps/ti-web/lib/lodging/hotelPlannerProvider.test.ts`
+- [ ] Confirm unit signals:
+  - `buildHotelPlannerAuthorizationToken` returns token with two dot-separated base64url segments.
+  - `buildHotelPlannerQuery` includes `method`, `epoch`, `customerIPAddress`, `customerUserAgent`, and optional tracking params.
+  - `createHotelPlannerProvider.searchHotels` submits POST to `https://api.hotelplanner.com/hpapi/v2.3/` and includes required auth headers.
+
 ### Stage 3 TI Lodging Provider Integration UAT Checklist
 
 - [ ] Search input integrity:
