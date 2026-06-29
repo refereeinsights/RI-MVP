@@ -442,6 +442,13 @@ Optional targeted UAT for handoff compatibility:
 
 ### Stage 3 TI Lodging Provider Integration UAT Checklist
 
+- [ ] Step 2 route checks:
+  - [ ] `POST /api/lodging/availability` 400s on invalid `propertyId`, malformed dates, and invalid numeric values.
+  - [ ] `POST /api/lodging/availability` returns `{ sessionId, provider, propertyId, currency, roomOptions }` with `roomOptions` containing raw data for each option.
+  - [ ] `/api/lodging/availability` writes/updates `lodging_search_session` rows (`endpoint='/api/lodging/availability'`, status transitions, latency, `result_count`).
+  - [ ] `POST /api/lodging/group-request` enforces `rooms >= 5` and requires name/email/check-in/out + room details.
+  - [ ] `/api/lodging/group-request` returns `{ sessionId, provider, propertyId, success, requestId? }` with `requestId` omitted when absent.
+  - [ ] `/api/lodging/group-request` writes/updates `lodging_search_session` rows (`endpoint='/api/lodging/group-request'`, result_count `1` success / `0` fail).
 - [ ] Search input integrity:
   - [ ] `checkIn` / `checkOut` are sent as `mm/dd/yyyy` with `tournament_start_date` and `tournament_end_date` as source of truth.
   - [ ] Missing/invalid tournament dates are surfaced as safe fallback instead of broken search errors.

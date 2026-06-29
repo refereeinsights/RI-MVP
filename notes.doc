@@ -152,7 +152,9 @@ Date: 2026-06-29
 - [x] Add provider abstraction and HotelPlanner client under `apps/ti-web/lib/lodging`.
 - [x] Implement `POST /api/lodging/search` with request validation, date/venue fallbacks, rate limit, provider call, and `fallback` response.
 - [x] Add `supabase/migrations/20260629_lodging_search_session.sql` with endpoint+IP+UA rate-limit indexing.
-- [ ] Implement `/api/lodging/availability`, `/api/lodging/group-request`, `/api/lodging/checkout-handoff`, `/api/lodging/report-sync`.
+- [x] Implement `/api/lodging/availability`.
+- [x] Implement `/api/lodging/group-request`.
+- [ ] Implement `/api/lodging/checkout-handoff`, `/api/lodging/report-sync`.
 - [ ] Wire map page props (`tournament_start_date` / `tournament_end_date`) into lodging search input.
 - [ ] Add `lodging_search_session` / `lodging_partner_events` persistence and write helpers.
 - [ ] Implement event taxonomy tracking and analytics allowlist updates.
@@ -219,22 +221,35 @@ Date: 2026-06-29
 
 Date: 2026-06-29
 
-- Implemented HotelPlanner provider client in `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`:
-  - Added auth helpers:
-    - `buildHotelPlannerAuthorizationToken` (base64url API key/signature pair),
-    - `buildHotelPlannerAuthHeaders` with `Authorization` + `x-hp-api-siteid`,
-    - `buildHotelPlannerQuery` with required `customerIPAddress` and `customerUserAgent`.
-  - Added POST helpers and method mappings:
-    - `multiPropertySearch`,
-    - `propertyAvailability`,
-    - `createGroupRequest`,
-    - `pingHotelPlanner`.
-  - Added response normalization for search results, availability room lists, and group request result parsing.
-  - Added provider defaults for `createHotelPlannerProvider` and wired default provider selection in `createLodgingProvider` via `TI_LODGING_PROVIDER`.
-  - Added `apps/ti-web/lib/lodging/hotelPlannerProvider.test.ts` covering:
-    - query string + epoch/cust IP+UA propagation,
-    - base64url auth token format,
-    - header + request forwarding through provider search path.
+- Implemented `/api/lodging/availability` in `apps/ti-web/app/api/lodging/availability/route.ts`:
+  - Property and date validation with `checkin`/`checkout` handling (`mm/dd/yyyy` primary + ISO fallback).
+  - `rooms` and `adults` defaults/bounds from `LODGING_SEARCH_DEFAULTS`.
+  - Server-side provider selection via `getLodgingProviderName()`.
+  - Tracking alias normalization (`kw`, `jobcode`, `custom1`..`custom8` -> canonical fields).
+  - IP/UA passed as `customerIPAddress` / `customerUserAgent`.
+  - Best-effort session lifecycle telemetry (`started` → `succeeded` / `failed`) to `lodging_search_session` with `endpoint='/api/lodging/availability'`.
+- Implemented `/api/lodging/group-request` in `apps/ti-web/app/api/lodging/group-request/route.ts`:
+  - Hard rule `rooms >= 5`.
+  - Required group fields (`firstName`, `lastName`, `email`, `checkin`/`checkout`, `roomTypeCode`, `split`, `rating`) validated.
+  - `checkin`/`checkout` mapped to `checkIn`/`checkOut`.
+  - `groupTypeCode` defaults to `143`.
+  - Tracking alias normalization and optional alias fields included.
+  - Best-effort session lifecycle telemetry with `endpoint='/api/lodging/group-request'`.
+
+### Step 2 UAT status (implemented routes)
+
+- [ ] `POST /api/lodging/availability`:
+  - 400 on invalid `propertyId`, date format/range, and numeric inputs.
+  - Successful shape: `{ sessionId, provider, propertyId, currency, roomOptions }`.
+  - 502 path returns `{ sessionId, provider, propertyId, roomOptions: [], error: "Provider failure" }`.
+  - Session rows update `result_count` to room-options length on success.
+- [ ] `POST /api/lodging/group-request`:
+  - Rejects group requests with `< 5 rooms`.
+  - Requires `firstName`, `lastName`, `email`, `checkIn`/`checkOut`, `split`, `rating`, `roomTypeCode`.
+  - Defaults `groupTypeCode` to `143` when omitted.
+  - Successful shape: `{ sessionId, provider, propertyId, success, requestId? }`.
+  - `requestId` is omitted when empty/null.
+  - Session rows update `result_count` as `1` (success) / `0` (failure).
 
 ### Step 3 Handoff URL compatibility status (now complete)
 
