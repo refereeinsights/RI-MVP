@@ -4,10 +4,40 @@
 - [ ] Search returns normalized results using HotelPlanner when flag enabled.
 - [ ] Destination mapping works with both lat/lon and venue address.
 - [ ] Dates are sent and displayed as `mm/dd/yyyy`.
+- [ ] Defaults are safe for missing/invalid dates and missing venue coordinates.
+- [ ] Search response includes fallback block with `showBookingFallback`, `showVrboFallback`, and reason when applicable.
+- [ ] Provider failure/no usable hotels surfaces Booking.com and VRBO fallback CTAs.
 - [ ] Hotel card renders name, distance, rating, reviewCount, thumbnail, from-price.
 - [ ] Clicking card fetches availability and renders room options.
 - [ ] Checkout flow uses HotelPlanner white-label handoff URL.
-- [ ] "Need 5+ rooms?" opens group request and submits successfully.
+- [ ] Group request path enforces 5+ rooms and defaults `groupTypeCode = 143`.
+- [ ] "Need 5+ rooms?" / "Request a team hotel block" CTA opens and submits flow.
+
+## Event taxonomy acceptance
+- [ ] Events are emitted with exact names:
+  - `lodging_api_search_started`
+  - `lodging_api_search_succeeded`
+  - `lodging_api_search_failed`
+  - `lodging_low_inventory`
+  - `lodging_map_impression`
+  - `hotel_pin_impression`
+  - `hotel_card_view`
+  - `hotel_pin_click`
+  - `hotel_card_click`
+  - `hotel_availability_requested`
+  - `hotel_availability_succeeded`
+  - `hotel_availability_failed`
+  - `hotel_room_view`
+  - `hotel_checkout_handoff`
+  - `team_block_cta_click`
+  - `team_block_rfp_start`
+  - `team_block_rfp_submit`
+  - `partner_booking_reported`
+  - `partner_booking_cancelled`
+  - `lodging_commission_reported`
+- [ ] `hotel_checkout_handoff` includes session/hotel context and uses provider handoff URL.
+- [ ] `lodging_api_search_failed` logs normalized error code/cause.
+- [ ] `lodging_low_inventory` triggers when usable hotels < 3 or unusable payload.
 
 ## Guardrail checks
 - [ ] No HotelPlanner API credentials are present in client bundles/network payloads.
@@ -15,22 +45,33 @@
 - [ ] No `reserve`/payment API calls from TI UI or API routes in MVP.
 - [ ] VRBO remains independent CTA path.
 - [ ] Booking.com fallback still reachable on HotelPlanner fallback conditions.
+- [ ] Checkout handoff never collects or stores payment details.
 
 ## Reliability checks
 - [ ] `ping` succeeds in deployment readiness checks.
+- [ ] `authorization` token, epoch, `x-hp-api-siteid`, IP/user-agent headers are validated via tests.
 - [ ] 30-second auth window handled (fresh epoch per request).
 - [ ] Retry/backoff policy is scoped to transient transport failures only.
+- [ ] Missing HotelPlanner environment variables fail closed with clear server error.
 - [ ] Provider timeout/failures do not break map rendering.
+- [ ] Low inventory and timeout cases set fallback reasons.
+
+## Reporting sync and security checks
+- [ ] `POST /api/lodging/report-sync` is admin-only or cron-restricted.
+- [ ] Reporting endpoint contains explicit TODO/placeholder for future `getReport` sync.
+- [ ] Schema support for booking and commission sync is scaffolded safely.
 
 ## Analytics checks
-- [ ] Required events are emitted with session correlation:
-  - `lodging_search_started`
-  - `lodging_search_completed` and `lodging_search_failed`
-  - `lodging_impression`
-  - `lodging_click`
-  - `lodging_availability_requested`
-  - `lodging_checkout_handoff`
-  - `lodging_group_request_submitted`
+- [ ] Required events are emitted with search/session correlation:
+  - `lodging_api_search_started`
+  - `lodging_api_search_succeeded` and `lodging_api_search_failed`
+  - `lodging_low_inventory`
+  - `hotel_pin_impression`
+  - `hotel_card_click`
+  - `hotel_availability_requested`
+  - `hotel_availability_succeeded`
+  - `hotel_checkout_handoff`
+  - `team_block_rfp_submit`
 - [ ] Fallback event logs when provider fails/no results.
 
 ## Notes
