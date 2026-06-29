@@ -2,7 +2,11 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createHotelPlannerProvider, buildHotelPlannerQuery } from "./hotelPlannerProvider";
+import {
+  buildHotelPlannerAuthorizationToken,
+  buildHotelPlannerQuery,
+  createHotelPlannerProvider,
+} from "./hotelPlannerProvider";
 
 function testConfig(overrides: Partial<{
   apiKey: string;
@@ -45,10 +49,12 @@ test("buildHotelPlannerQuery includes required auth params and optional fields",
 test("buildHotelPlannerAuthorization token style is base64url no '=' padding", () => {
   const epoch = 1710000000;
   const config = testConfig();
+  const actual = buildHotelPlannerAuthorizationToken(config, epoch);
   const encodedApiKey = Buffer.from(config.apiKey).toString("base64url");
   const signatureInput = `${encodedApiKey}|${config.accountId}|${epoch}`;
   const signature = createHmac("sha256", config.secretKey).update(signatureInput).digest("base64url");
   const expected = `${encodedApiKey}.${signature}`;
+  assert.equal(actual, expected);
   assert.equal(expected.includes("="), false, "expected token should not include '=' padding");
   assert.equal(expected.split(".").length, 2);
   assert.equal(typeof expected, "string");
@@ -108,6 +114,120 @@ test("createHotelPlannerProvider sends method, auth headers, and request context
     assert.ok(headers.get("authorization"), "expected authorization header");
     assert.equal(headers.get("x-hp-api-siteid"), "S1");
     assert.equal(headers.get("content-type"), "application/json; charset=UTF-8");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("searchHotels normalizes object-mapped hotel payloads", async () => {
+  const config = testConfig();
+  const provider = createHotelPlannerProvider(config);
+
+  const originalFetch = global.fetch;
+  (global as { fetch: typeof global.fetch }).fetch = async () =>
+    new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          hotels: {
+            "0_67747": {
+              hotelID: "67747",
+              hotelname: "Blue Star Hotel",
+              city: "Denver",
+              state: "CO",
+              fromRate: 199,
+              currency: "USD",
+            },
+            "0_67748": {
+              hotelID: "67748",
+              hotelname: "Hotel Two",
+              city: "Denver",
+              state: "CO",
+              fromRate: 200,
+              currency: "USD",
+            },
+          },
+          availabilities: [
+            {
+              hotelID: "67747",
+              fromRate: 199,
+            },
+            {
+              hotelID: "67748",
+              fromRate: 200,
+            },
+          ],
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+
+  try {
+    const result = await provider.searchHotels({
+      checkIn: "08/01/2026",
+      checkOut: "08/03/2026",
+      roomCount: 1,
+      adultCount: 2,
+      destination: "Denver, CO",
+      customerIPAddress: "198.51.100.4",
+      customerUserAgent: "agent/1.2",
+    });
+
+    assert.equal(result.hotels.length, 2);
+    assert.equal(result.hotels[0].id, "67747");
+    assert.equal(result.hotels[0].fromPrice, 199);
+    assert.equal(result.fallback?.showBookingFallback, true);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("getHotelAvailability normalizes roomRates payloads", async () => {
+  const config = testConfig();
+  const provider = createHotelPlannerProvider(config);
+
+  const originalFetch = global.fetch;
+  (global as { fetch: typeof global.fetch }).fetch = async () =>
+    new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          hotelID: "67747",
+          availabilities: [
+            {
+              roomRates: [
+                {
+                  roomTypeCode: "DLX",
+                  roomType: "Deluxe",
+                  rate: 275,
+                  currency: "USD",
+                  taxesAndFees: 12,
+                  totalWithTaxes: 287,
+                  cancelPolicy: "No refund",
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+
+  try {
+    const result = await provider.getHotelAvailability({
+      propertyId: "67747",
+      checkIn: "08/01/2026",
+      checkOut: "08/03/2026",
+      roomCount: 1,
+      adultCount: 2,
+      customerIPAddress: "198.51.100.4",
+      customerUserAgent: "agent/1.2",
+    });
+
+    assert.equal(result.roomOptions.length, 1);
+    assert.equal(result.roomOptions[0].roomTypeCode, "DLX");
+    assert.equal(result.roomOptions[0].roomName, "Deluxe");
+    assert.equal(result.roomOptions[0].rate, 275);
   } finally {
     global.fetch = originalFetch;
   }

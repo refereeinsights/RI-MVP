@@ -144,7 +144,7 @@ function mapFallback(hotelCount: number, reason?: FallbackReason): {
   showVrboFallback: boolean;
   reason?: FallbackReason;
 } {
-  const isFallback = hotelCount <= 0;
+  const isFallback = hotelCount < 3;
   return {
     showBookingFallback: isFallback,
     showVrboFallback: isFallback,
@@ -216,7 +216,12 @@ function buildGroupRequestBody(input: GroupRequestInput): Record<string, unknown
 
 function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
   const root = (payload ?? {}) as Record<string, unknown>;
-  const hotelsRaw = Array.isArray(root.hotels) ? root.hotels : [];
+  const rawHotels = root.hotels;
+  const hotelsRaw = Array.isArray(rawHotels)
+    ? rawHotels
+    : rawHotels && typeof rawHotels === "object"
+      ? Object.values(rawHotels as Record<string, unknown>)
+      : [];
   const availabilitiesRaw = Array.isArray(root.availabilities) ? root.availabilities : [];
   const minRatesByHotel = new Map<string, number>();
 
@@ -272,11 +277,16 @@ function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
 
 function normalizeHotelAvailability(payload: unknown, propertyId: string): HotelAvailabilityResult {
   const root = (payload ?? {}) as Record<string, unknown>;
-  const roomRows = Array.isArray(root.rooms)
-    ? root.rooms
-    : Array.isArray(root.roomOptions)
-      ? root.roomOptions
-      : [];
+  const availabilityRows = Array.isArray(root.availabilities) ? (root.availabilities as unknown[]) : [];
+  const roomRows = availabilityRows.flatMap((row) => {
+    if (!row || typeof row !== "object") return [];
+    const typedRow = row as Record<string, unknown>;
+    const roomRates = typedRow.roomRates;
+    if (Array.isArray(roomRates)) return roomRates;
+    const rooms = typedRow.rooms;
+    if (Array.isArray(rooms)) return rooms;
+    return [];
+  });
 
   const roomOptions = roomRows.reduce((acc: HotelRateOption[], row) => {
       const item = (row ?? {}) as Record<string, unknown>;
