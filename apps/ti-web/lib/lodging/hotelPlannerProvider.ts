@@ -161,6 +161,7 @@ function buildSearchBody(input: SearchHotelsInput): Record<string, unknown> {
     roomCount: clampInt(input.roomCount, 1),
     adultCount: clampInt(input.adultCount, 1),
     childCount: clampOptionalNonNegative(input.childCount),
+    IndividualMultipropFormatRoomTypes: true,
   };
   Object.assign(body, toPayloadTextMap(input));
   return body;
