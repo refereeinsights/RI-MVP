@@ -367,6 +367,15 @@ Copy/paste prompt:
 
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 2)
 
+- [ ] Set required environment variables for local/CI/dev:
+  - `TI_LODGING_PROVIDER=hotelplanner`
+  - `HOTELPLANNER_API_KEY=...`
+  - `HOTELPLANNER_SECRET_KEY=...`
+  - `HOTELPLANNER_ACCOUNT_ID=...`
+  - `HOTELPLANNER_SITE_ID=...`
+  - `HOTELPLANNER_BASE_URL=https://api.hotelplanner.com/hpapi/v2.3/`
+  - `HOTELPLANNER_WHITE_LABEL_BASE_URL=...`
+
 - [ ] Run pre-implementation code verification:
   - `cd /Users/roddavis/RI_MVP/RI-MVP && npx tsc -p apps/ti-web/tsconfig.json --noEmit`
   - `cd /Users/roddavis/RI-MVP/RI-MVP && node --import tsx apps/ti-web/lib/lodging/hotelPlannerProvider.test.ts`
@@ -374,6 +383,18 @@ Copy/paste prompt:
   - `buildHotelPlannerAuthorizationToken` returns token with two dot-separated base64url segments.
   - `buildHotelPlannerQuery` includes `method`, `epoch`, `customerIPAddress`, `customerUserAgent`, and optional tracking params.
   - `createHotelPlannerProvider.searchHotels` submits POST to `https://api.hotelplanner.com/hpapi/v2.3/` and includes required auth headers.
+
+### Vercel env vars (server runtime only)
+
+- Add in Vercel Project Settings → Environment Variables:
+  - `TI_LODGING_PROVIDER=hotelplanner`
+  - `HOTELPLANNER_API_KEY`
+  - `HOTELPLANNER_SECRET_KEY`
+  - `HOTELPLANNER_ACCOUNT_ID`
+  - `HOTELPLANNER_SITE_ID`
+  - `HOTELPLANNER_BASE_URL` (optional default: `https://api.hotelplanner.com/hpapi/v2.3/`)
+  - `HOTELPLANNER_WHITE_LABEL_BASE_URL`
+- These should be server-only env vars (no `NEXT_PUBLIC_*` variants).
 
 ### Stage 3 TI Lodging Provider Integration UAT Checklist
 
