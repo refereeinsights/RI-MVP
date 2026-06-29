@@ -240,8 +240,9 @@ function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
       const item = (row ?? {}) as Record<string, unknown>;
       const propertyId = pickText(item.hotelID ?? item.hotelId ?? item.id);
       if (!propertyId) return acc;
-      const coordinatesLatitude = item.latitude ?? item.lat;
-      const coordinatesLongitude = item.longitude ?? item.lng;
+      const position = typeof item.position === "object" && item.position !== null ? (item.position as Record<string, unknown>) : null;
+      const coordinatesLatitude = item.latitude ?? item.lat ?? (position ? position.latitude ?? position.lat : null);
+      const coordinatesLongitude = item.longitude ?? item.lng ?? (position ? position.longitude ?? position.lng : null);
       const ratingValue = pickNumber(item.starrating ?? item.stars ?? item.rating);
       const reviewRaw = item.reviewratings;
       const reviewCountFromPayload = typeof reviewRaw === "object" && reviewRaw !== null
@@ -277,6 +278,9 @@ function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
 
 function normalizeHotelAvailability(payload: unknown, propertyId: string): HotelAvailabilityResult {
   const root = (payload ?? {}) as Record<string, unknown>;
+  const roomTypes = typeof root.roomTypes === "object" && root.roomTypes !== null && !Array.isArray(root.roomTypes)
+    ? (root.roomTypes as Record<string, unknown>)
+    : null;
   const availabilityRows = Array.isArray(root.availabilities) ? (root.availabilities as unknown[]) : [];
   const roomRows = availabilityRows.flatMap((row) => {
     if (!row || typeof row !== "object") return [];
@@ -291,18 +295,65 @@ function normalizeHotelAvailability(payload: unknown, propertyId: string): Hotel
   const roomOptions = roomRows.reduce((acc: HotelRateOption[], row) => {
       const item = (row ?? {}) as Record<string, unknown>;
       const roomTypeCode = pickText(item.roomTypeCode ?? item.roomCode ?? item.code);
-      const roomName = pickText(item.roomType ?? item.roomName ?? item.name ?? item.description);
-      const rate = pickNumber(item.rate ?? item.totalRate ?? item.price);
-      const rawRate = pickNumber(item.rateAfterTax ?? item.totalWithTaxes);
+      const roomTypeNameFallback = pickText(item.roomType ?? item.name ?? item.description);
+      const roomName = (() => {
+        if (roomTypeNameFallback) return roomTypeNameFallback;
+        if (roomTypeCode && roomTypes) {
+          const roomTypeRecord = roomTypes[roomTypeCode];
+          if (roomTypeRecord && typeof roomTypeRecord === "object") {
+            const named = pickText((roomTypeRecord as Record<string, unknown>).name);
+            if (named) return named;
+          }
+          const roomTypeRecordByCode = roomTypes[String(Number(roomTypeCode))];
+          if (roomTypeRecordByCode && typeof roomTypeRecordByCode === "object") {
+            const named = pickText((roomTypeRecordByCode as Record<string, unknown>).name);
+            if (named) return named;
+          }
+        }
+        return roomTypeCode ? `Room ${roomTypeCode}` : null;
+      })();
+      const rate = pickNumber(item.rate ?? item.totalRate ?? item.price)
+        ?? pickNumber(item.totalAfterTax ?? item.totalBeforeTax ?? item.averageAfterTax ?? item.averageBeforeTax)
+        ?? (() => {
+          const rates = Array.isArray(item.rates) ? item.rates : null;
+          if (!rates || rates.length === 0) return null;
+          const firstRate = rates[0] as Record<string, unknown>;
+          return pickNumber(firstRate.amountAfterTax) ?? pickNumber(firstRate.totalAfterTax) ?? pickNumber(firstRate.amountBeforeTax) ?? pickNumber(firstRate.totalBeforeTax);
+        })();
+      const rawRate = pickNumber(item.rateAfterTax ?? item.totalWithTaxes ?? item.totalAfterTax)
+        ?? (() => {
+          const rates = Array.isArray(item.rates) ? item.rates : null;
+          if (!rates || rates.length === 0) return null;
+          const firstRate = rates[0] as Record<string, unknown>;
+          return pickNumber(firstRate.amountAfterTax) ?? null;
+        })();
+      const cancelPolicyRaw = item.cancelPolicy;
+      const cancelPolicy = typeof cancelPolicyRaw === "string"
+        ? cancelPolicyRaw
+        : cancelPolicyRaw && typeof cancelPolicyRaw === "object"
+          ? pickText((cancelPolicyRaw as Record<string, unknown>).text)
+            || pickText((cancelPolicyRaw as Record<string, unknown>).description)
+            || (pickText((cancelPolicyRaw as Record<string, unknown>).freeCancellation) ? "Free cancellation" : null)
+          : null;
+      const taxesAndFees = pickNumber(item.taxes ?? item.taxesAndFees ?? item.taxesAndFeesTotal)
+        ?? (() => {
+          const rates = Array.isArray(item.rates) ? item.rates : null;
+          if (!rates || rates.length === 0) return null;
+          const firstRate = rates[0] as Record<string, unknown>;
+          const totalBefore = pickNumber(firstRate.totalBeforeTax);
+          const totalAfter = pickNumber(firstRate.amountAfterTax) ?? pickNumber(firstRate.totalAfterTax);
+          if (totalBefore === null || totalAfter === null) return null;
+          return totalAfter - totalBefore;
+        })();
       if (!roomTypeCode || !roomName || rate === null) return acc;
       acc.push({
         roomTypeCode,
         roomName,
         rate,
         currency: pickText(item.currency) ?? "USD",
-        taxesAndFees: pickNumber(item.taxes ?? item.taxesAndFees) ?? null,
+        taxesAndFees,
         totalWithTaxes: rawRate,
-        cancelPolicy: pickText(item.cancelPolicy ?? item.cancellation),
+        cancelPolicy,
         raw: item,
       });
       return acc;
@@ -310,7 +361,7 @@ function normalizeHotelAvailability(payload: unknown, propertyId: string): Hotel
 
   return {
     propertyId,
-    currency: pickText(root.currency) ?? "USD",
+    currency: pickText(root.currency) ?? pickText(root.currencyCode) ?? "USD",
     roomOptions,
   };
 }

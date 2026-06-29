@@ -295,27 +295,43 @@ test("getHotelAvailability normalizes roomRates payloads", async () => {
   const provider = createHotelPlannerProvider(config);
 
   const originalFetch = global.fetch;
-  (global as { fetch: typeof global.fetch }).fetch = async () =>
-    new Response(
-      JSON.stringify({
-        success: true,
-        data: {
-          hotelID: "67747",
-          availabilities: [
-            {
-              roomRates: [
-                {
-                  roomTypeCode: "DLX",
-                  roomType: "Deluxe",
-                  rate: 275,
-                  currency: "USD",
-                  taxesAndFees: 12,
-                  totalWithTaxes: 287,
-                  cancelPolicy: "No refund",
-                },
-              ],
+    (global as { fetch: typeof global.fetch }).fetch = async () =>
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            hotelID: "67747",
+            currencyCode: "USD",
+            roomTypes: {
+              "2144165": { name: "1 Queen Bed, Smoking Room" },
             },
-          ],
+            availabilities: [
+              {
+                roomRates: [
+                  {
+                    roomTypeCode: 2144165,
+                    totalAfterTax: 214.41,
+                    averageAfterTax: 71.47,
+                    cancelPolicy: {
+                      freeCancellation: true,
+                      text: "Cancel before 09/16/2026 free",
+                    },
+                    rates: [
+                      { amountAfterTax: 71.47, amountBeforeTax: 61.46, totalAfterTax: 71.47 },
+                    ],
+                  },
+                  {
+                    roomTypeCode: "DLX",
+                    roomType: "Deluxe",
+                    rate: 275,
+                    currency: "USD",
+                    taxesAndFees: 12,
+                    totalWithTaxes: 287,
+                    cancelPolicy: "No refund",
+                  },
+                ],
+              },
+            ],
         },
       }),
       { status: 200, headers: { "content-type": "application/json" } }
@@ -332,10 +348,72 @@ test("getHotelAvailability normalizes roomRates payloads", async () => {
       customerUserAgent: "agent/1.2",
     });
 
+    assert.equal(result.roomOptions.length, 2);
+    const legacy = result.roomOptions.find((option) => option.roomTypeCode === "DLX");
+    assert.ok(legacy);
+    assert.equal(legacy?.roomName, "Deluxe");
+    assert.equal(legacy?.rate, 275);
+
+    const modern = result.roomOptions.find((option) => option.roomTypeCode === "2144165");
+    assert.ok(modern);
+    assert.equal(modern?.roomName, "1 Queen Bed, Smoking Room");
+    assert.equal(modern?.rate, 214.41);
+    assert.equal(modern?.totalWithTaxes, 71.47);
+    assert.equal(modern?.cancelPolicy, "Cancel before 09/16/2026 free");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("getHotelAvailability falls back to room code when room name is unavailable", async () => {
+  const config = testConfig();
+  const provider = createHotelPlannerProvider(config);
+
+  const originalFetch = global.fetch;
+  (global as { fetch: typeof global.fetch }).fetch = async () =>
+    new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          hotelID: "888",
+          roomTypes: {},
+          availabilities: [
+            {
+              roomRates: [
+                {
+                  roomTypeCode: 12345,
+                  totalAfterTax: 321.0,
+                  totalBeforeTax: 300.0,
+                  cancelPolicy: "Non refundable",
+                  rates: [
+                    {
+                      amountAfterTax: 321.0,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+
+  try {
+    const result = await provider.getHotelAvailability({
+      propertyId: "888",
+      checkIn: "07/02/2026",
+      checkOut: "07/06/2026",
+      roomCount: 1,
+      adultCount: 2,
+      customerIPAddress: "198.51.100.4",
+      customerUserAgent: "agent/1.2",
+    });
+
     assert.equal(result.roomOptions.length, 1);
-    assert.equal(result.roomOptions[0].roomTypeCode, "DLX");
-    assert.equal(result.roomOptions[0].roomName, "Deluxe");
-    assert.equal(result.roomOptions[0].rate, 275);
+    assert.equal(result.roomOptions[0].roomTypeCode, "12345");
+    assert.equal(result.roomOptions[0].roomName, "Room 12345");
+    assert.equal(result.roomOptions[0].rate, 321);
   } finally {
     global.fetch = originalFetch;
   }

@@ -1135,6 +1135,7 @@ export default function TournamentVenueMapClient({
     setHotelAvailabilityCurrency(null);
     setHotelAvailabilityPropertyId(pin.propertyId);
     setHotelAvailabilitySessionId(null);
+    setHotelAvailabilityLoading(true);
 
     if (!pin.resolvedCheckIn || !pin.resolvedCheckOut) {
       setHotelAvailabilityError("Dates were not resolved for this venue; open the HotelPlanner search page.");
@@ -1148,7 +1149,6 @@ export default function TournamentVenueMapClient({
       return;
     }
 
-    setHotelAvailabilityLoading(true);
     trackLodgingEvent("hotel_availability_requested", {
       page_type: "venue_map",
       tournament_id: tournament.id,
@@ -1168,6 +1168,8 @@ export default function TournamentVenueMapClient({
           checkout: pin.resolvedCheckOut,
           rooms: 1,
           adults: 1,
+          roomCount: 1,
+          adultCount: 1,
           sc: "venue_map",
         }),
       });
@@ -1175,7 +1177,11 @@ export default function TournamentVenueMapClient({
       if (requestId !== hotelAvailabilityRequestIdRef.current) return;
 
       if (!response.ok) {
-        const message = raw?.error ? String(raw.error) : "Unable to fetch hotel room options.";
+        const message = raw?.error
+          ? String(raw.error)
+          : raw && "providerMessage" in raw
+            ? String(raw.providerMessage)
+            : "Unable to fetch hotel room options.";
         setHotelAvailabilityError(message);
         trackLodgingEvent("hotel_availability_failed", {
           page_type: "venue_map",

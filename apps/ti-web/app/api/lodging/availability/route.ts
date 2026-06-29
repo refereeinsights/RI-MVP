@@ -58,13 +58,10 @@ function toText(value: unknown): string | null {
   return trimmed || null;
 }
 
-function parseUuid(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed)
-    ? trimmed
-    : null;
+function parsePropertyId(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" && Number.isFinite(value)) return String(Math.trunc(value));
+  return toText(value);
 }
 
 function parseInteger(
@@ -292,7 +289,7 @@ export async function POST(request: Request) {
   }
 
   const providerName = getLodgingProviderName();
-  const propertyId = parseUuid(body.propertyId);
+  const propertyId = parsePropertyId(body.propertyId);
   if (!propertyId) {
     return asRequestError("Invalid propertyId");
   }
@@ -412,15 +409,21 @@ export async function POST(request: Request) {
     });
 
     if (statusCode === 502) {
+      const payload: Record<string, unknown> = {
+        sessionId,
+        provider: providerName,
+        propertyId,
+        roomOptions: [],
+        error: "Provider failure",
+        code: errorCode,
+      };
+
+      if (process.env.NODE_ENV === "development") {
+        payload.providerMessage = errorMessage;
+      }
+
       return NextResponse.json(
-        {
-          sessionId,
-          provider: providerName,
-          propertyId,
-          roomOptions: [],
-          error: "Provider failure",
-          code: errorCode,
-        },
+        payload,
         { status: 502 }
       );
     }

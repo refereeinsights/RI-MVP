@@ -69,13 +69,12 @@ function toText(value: unknown): string | null {
   return trimmed || null;
 }
 
-function parseUuid(value: unknown): string | null {
+function parsePropertyId(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" && Number.isFinite(value)) return String(Math.trunc(value));
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
-  if (!trimmed) return null;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed)
-    ? trimmed
-    : null;
+  return trimmed || null;
 }
 
 function parseInteger(
@@ -290,7 +289,7 @@ export async function POST(request: Request) {
   }
 
   const providerName = getLodgingProviderName();
-  const propertyId = parseUuid(body.propertyId);
+  const propertyId = parsePropertyId(body.propertyId);
   if (!propertyId) {
     return asRequestError("Invalid propertyId");
   }
