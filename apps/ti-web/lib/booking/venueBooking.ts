@@ -83,8 +83,43 @@ export function buildBookingSearchString(args: {
   return null;
 }
 
-export function buildHotelsHref(args: { venueId: string; tournamentId?: string | null }): string {
+type HotelUrlValue = string | number | null | undefined;
+
+function addQueryNumber(qp: URLSearchParams, key: string, value: HotelUrlValue) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return;
+  qp.set(key, String(n));
+}
+
+function parseCoordinate(value: HotelUrlValue, maxAbs: number) {
+  const raw = String(value ?? "").trim();
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return null;
+  if (Math.abs(num) > maxAbs) return null;
+  return num;
+}
+
+export function buildHotelsHref(args: {
+  venueId: string;
+  tournamentId?: string | null;
+  source?: string | null;
+  provider?: string | null;
+  ss?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+}): string {
   const qp = new URLSearchParams({ venueId: args.venueId });
   if (args.tournamentId) qp.set("tournamentId", args.tournamentId);
+  if (args.source?.trim()) qp.set("source", args.source.trim());
+  if (args.provider?.trim()) qp.set("provider", args.provider.trim());
+  if (args.ss?.trim()) qp.set("ss", args.ss.trim());
+  const lat = parseCoordinate(args.latitude, 90);
+  const lng = parseCoordinate(args.longitude, 180);
+  if (lat !== null && lng !== null) {
+    addQueryNumber(qp, "lat", lat);
+    addQueryNumber(qp, "lng", lng);
+  }
   return `/go/hotels?${qp.toString()}`;
 }

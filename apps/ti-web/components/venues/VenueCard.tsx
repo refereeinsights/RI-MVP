@@ -36,6 +36,8 @@ type Props = {
   mapLinks: MapLinks;
   icon?: ReactNode;
   hasOwlsEye?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
   restroom_cleanliness_avg?: number | null;
   shade_score_avg?: number | null;
   vendor_score_avg?: number | null;
@@ -62,6 +64,8 @@ export default function VenueCard({
   mapLinks,
   icon,
   hasOwlsEye = false,
+  latitude = null,
+  longitude = null,
   restroom_cleanliness_avg,
   shade_score_avg,
   vendor_score_avg,
@@ -75,9 +79,21 @@ export default function VenueCard({
   const canReviewVenue = tier !== "explorer";
   const reviewHref = `/venues/reviews?venueId=${encodeURIComponent(venueId)}`;
   const detailsHref = `/venues/${venueSeoSlug || venueId}`;
-  const hotelsHref = buildHotelsHref({ venueId });
+  const hotelsHref = buildHotelsHref({
+    venueId,
+    source: "venue_directory",
+    provider: "hotelplanner",
+    latitude,
+    longitude,
+  });
   const showBooking = canShowBookingCta({ zip });
-  const hotelsHrefWithSource = `/go/hotels?${new URLSearchParams({ venueId, source: "venue_directory" }).toString()}`;
+  const hotelsHrefWithSource = buildHotelsHref({
+    venueId,
+    source: "venue_directory",
+    provider: "hotelplanner",
+    latitude,
+    longitude,
+  });
   const hasCity = Boolean((city ?? "").trim());
   const stateUpper = String(state ?? "")
     .trim()

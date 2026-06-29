@@ -706,6 +706,7 @@ async function TournamentVenueDetails({
   const bookingVenueRow = displayVenueRows.find((v) => canShowBookingCta({ zip: v.venue.zip })) ?? null;
   const hotelClickVenueId =
     bookingVenueRow?.venue.id ?? bestWeatherVenueRow?.venue.id ?? displayVenueRows[0]?.venue.id ?? null;
+  const hotelClickVenue = hotelClickVenueId ? displayVenueRows.find((r) => r.venue.id === hotelClickVenueId)?.venue ?? null : null;
 
   const fallbackCity = tournament.city ?? null;
   const fallbackState = tournament.state ?? null;
@@ -870,7 +871,15 @@ async function TournamentVenueDetails({
 
   const tournamentHotelsHref =
     hotelClickVenueId && tournamentHotelsSearchString
-      ? buildHotelsHrefWithSearch({ venueId: hotelClickVenueId, tournamentId: tournament.id, ss: tournamentHotelsSearchString })
+      ? buildHotelsHrefWithSearch({
+          venueId: hotelClickVenueId,
+          tournamentId: tournament.id,
+          ss: tournamentHotelsSearchString,
+          source: "tournament_detail",
+          provider: "hotelplanner",
+          latitude: hotelClickVenue?.latitude ?? null,
+          longitude: hotelClickVenue?.longitude ?? null,
+        })
       : null;
 
   const headerHotelsHref = tournamentHotelsHref
@@ -1163,15 +1172,22 @@ async function TournamentVenueDetails({
                     {countsLine ? <span style={{ fontSize: 12, opacity: 0.82 }}>{countsLine}</span> : null}
                     <span className="detailVenueTile__flag">{row.hasOwl ? `${BRAND_OWL} View venue` : "View venue"}</span>
                   </Link>
-                  <div className="detailLinksRow" style={{ marginTop: 8, justifyContent: "center", gap: 10 }}>
-                    <a
-                      className="secondaryLink"
-                      href={`/go/hotels?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`}
-                      target="_blank"
-                      rel="noopener noreferrer sponsored"
-                    >
-                      Hotels near this venue
-                    </a>
+                        <div className="detailLinksRow" style={{ marginTop: 8, justifyContent: "center", gap: 10 }}>
+                          <a
+                            className="secondaryLink"
+                            href={buildHotelsHref({
+                              venueId: venue.id,
+                              tournamentId: tournament.id,
+                              source: "tournament_detail",
+                              provider: "hotelplanner",
+                              latitude: venue.latitude,
+                              longitude: venue.longitude,
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer sponsored"
+                          >
+                            Hotels near this venue
+                          </a>
                     <a
                       className="secondaryLink"
                       href={`/go/vrbo?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`}
@@ -1221,14 +1237,21 @@ async function TournamentVenueDetails({
 	                          {countsLine ? <span style={{ fontSize: 12, opacity: 0.82 }}>{countsLine}</span> : null}
 	                          <span className="detailVenueTile__flag">{row.hasOwl ? `${BRAND_OWL} View venue` : "View venue"}</span>
 	                        </Link>
-	                        <div className="detailLinksRow" style={{ marginTop: 8, justifyContent: "center", gap: 10 }}>
-	                          <a
-	                            className="secondaryLink"
-	                            href={`/go/hotels?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`}
-	                            target="_blank"
-	                            rel="noopener noreferrer sponsored"
-	                          >
-	                            Hotels near this venue
+                          <div className="detailLinksRow" style={{ marginTop: 8, justifyContent: "center", gap: 10 }}>
+                            <a
+                              className="secondaryLink"
+                              href={buildHotelsHref({
+                                venueId: venue.id,
+                                tournamentId: tournament.id,
+                                source: "tournament_detail",
+                                provider: "hotelplanner",
+                                latitude: venue.latitude,
+                                longitude: venue.longitude,
+                              })}
+                              target="_blank"
+                              rel="noopener noreferrer sponsored"
+                            >
+                              Hotels near this venue
 	                          </a>
 	                          <a
 	                            className="secondaryLink"
@@ -1475,11 +1498,28 @@ function buildCanonicalUrl(slug: string) {
   return `${SITE_ORIGIN}/tournaments/${slug}`;
 }
 
-function buildHotelsHrefWithSearch(args: { venueId: string; tournamentId?: string | null; ss?: string | null }): string {
-  const qp = new URLSearchParams({ venueId: args.venueId });
-  if (args.tournamentId) qp.set("tournamentId", args.tournamentId);
-  const ss = String(args.ss ?? "").trim();
-  if (ss) qp.set("ss", ss);
+function buildHotelsHrefWithSearch(args: {
+  venueId: string;
+  tournamentId?: string | null;
+  ss?: string | null;
+  source?: string | null;
+  provider?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+}): string {
+  const { venueId, tournamentId, ss, source, provider, latitude, longitude } = args;
+  const qp = new URLSearchParams({ venueId });
+  if (tournamentId) qp.set("tournamentId", tournamentId);
+  if (source?.trim()) qp.set("source", source.trim());
+  if (provider?.trim()) qp.set("provider", provider.trim());
+  const parsedLat = Number(String(latitude ?? "").trim());
+  const parsedLng = Number(String(longitude ?? "").trim());
+  if (Number.isFinite(parsedLat) && Number.isFinite(parsedLng)) {
+    qp.set("lat", String(parsedLat));
+    qp.set("lng", String(parsedLng));
+  }
+  const searchDestination = String(ss ?? "").trim();
+  if (searchDestination) qp.set("ss", searchDestination);
   return `/go/hotels?${qp.toString()}`;
 }
 

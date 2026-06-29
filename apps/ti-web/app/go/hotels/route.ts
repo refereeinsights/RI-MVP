@@ -4,6 +4,8 @@ import { buildBookingSearchString, isValidZip5 } from "@/lib/booking/venueBookin
 
 export const runtime = "nodejs";
 
+type LodgingProvider = "booking" | "hotelplanner";
+
 function isLocalHost(host: string | null) {
   const value = String(host ?? "").trim().toLowerCase();
   if (!value) return false;
@@ -66,6 +68,52 @@ function compareIso(a: string, b: string) {
   return 0;
 }
 
+function parseProvider(raw: string | null): LodgingProvider {
+  const normalized = String(raw ?? "").trim().toLowerCase();
+  return normalized === "hotelplanner" ? "hotelplanner" : "booking";
+}
+
+function parseLatLng(raw: string | null, maxAbs: number) {
+  const v = String(raw ?? "").trim();
+  if (!v) return null;
+  const num = Number(v);
+  if (!Number.isFinite(num) || Math.abs(num) > maxAbs) return null;
+  return num;
+}
+
+function normalizeHotelPlannerBaseUrl(raw: string) {
+  return String(raw ?? "").trim().replace(/\/+$/, "");
+}
+
+function toMmDdYyyy(iso: string) {
+  const [y, m, d] = iso.split("-").map((n) => Number(n));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (!Number.isFinite(dt.getTime())) return null;
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${mm}/${dd}/${y}`;
+}
+
+function buildHotelPlannerSearchUrl(args: {
+  baseUrl: string;
+  destination: string;
+  dates: { checkin: string; checkout: string };
+}): string {
+  const baseUrl = normalizeHotelPlannerBaseUrl(args.baseUrl);
+  const destination = String(args.destination ?? "").trim();
+  if (!baseUrl || !destination) return "";
+
+  const searchUrl = new URL("/Search/", baseUrl);
+  searchUrl.searchParams.set("destination", destination);
+  if (args.dates.checkin) searchUrl.searchParams.set("checkin", args.dates.checkin);
+  if (args.dates.checkout) searchUrl.searchParams.set("checkout", args.dates.checkout);
+  searchUrl.searchParams.set("rooms", "1");
+  searchUrl.searchParams.set("adults", "2");
+  searchUrl.searchParams.set("source", "tournamentinsights");
+  return searchUrl.toString();
+}
+
 function todayUtcIso() {
   const now = new Date();
   const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -113,6 +161,11 @@ export async function GET(request: Request) {
   const ssOverride = String(reqUrl.searchParams.get("ss") ?? "").trim();
   const checkinRaw = String(reqUrl.searchParams.get("checkin") ?? "").trim();
   const checkoutRaw = String(reqUrl.searchParams.get("checkout") ?? "").trim();
+  const provider = parseProvider(reqUrl.searchParams.get("provider"));
+  const latitude = parseLatLng(reqUrl.searchParams.get("lat"), 90);
+  const latitudeAlt = parseLatLng(reqUrl.searchParams.get("latitude"), 90);
+  const longitude = parseLatLng(reqUrl.searchParams.get("lng"), 180);
+  const longitudeAlt = parseLatLng(reqUrl.searchParams.get("longitude"), 180);
 
   const host = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "").trim();
   const localDev = isLocalDevelopment(host);
@@ -142,10 +195,18 @@ export async function GET(request: Request) {
   const { data: venue } = venueIdValid
     ? await supabaseAdmin
         .from("venues" as any)
-        .select("id,name,city,state,zip")
+        .select("id,name,city,state,zip,latitude,longitude")
         .eq("id", venueId)
-        .maybeSingle<{ id: string; name: string | null; city: string | null; state: string | null; zip: string | null }>()
-    : { data: null as { id: string; name: string | null; city: string | null; state: string | null; zip: string | null } | null };
+        .maybeSingle<{
+          id: string;
+          name: string | null;
+          city: string | null;
+          state: string | null;
+          zip: string | null;
+          latitude: number | null;
+          longitude: number | null;
+        }>()
+    : { data: null as { id: string; name: string | null; city: string | null; state: string | null; zip: string | null; latitude: number | null; longitude: number | null } | null };
 
   const requestedTournamentId = tournamentId && isUuid(tournamentId) ? tournamentId : null;
   const { data: tournament } = requestedTournamentId
@@ -175,8 +236,15 @@ export async function GET(request: Request) {
     if (isValidZip5(zip)) return zip;
     return "United States";
   })();
+  const bookingSearchString = ss || "United States";
 
-  if (!ss) {
+  const venueLat = venue?.latitude ?? null;
+  const venueLng = venue?.longitude ?? null;
+  const hotelPlannerLat = (latitude ?? latitudeAlt ?? venueLat) ?? null;
+  const hotelPlannerLng = (longitude ?? longitudeAlt ?? venueLng) ?? null;
+  const hasHotelPlannerLatLng = hotelPlannerLat !== null && hotelPlannerLng !== null;
+
+  if (!ss && !(provider === "hotelplanner" && hasHotelPlannerLatLng)) {
     return new NextResponse("Missing ss (destination). Use /weekend-planner to run a generic hotel search.", {
       status: 400,
     });
@@ -268,12 +336,37 @@ export async function GET(request: Request) {
   })();
 
   const bookingUrl = buildBookingSearchUrl({
-    ss,
+    ss: bookingSearchString,
     checkin: dates.checkin,
     checkout: dates.checkout,
   });
 
-  const wrapped = wrapAwin(bookingUrl);
+  const providerTarget: LodgingProvider =
+    provider === "hotelplanner" && hasHotelPlannerLatLng ? "hotelplanner" : "booking";
+  const hotelPlannerWhiteLabelUrl = process.env.HOTELPLANNER_WHITE_LABEL_BASE_URL || "";
+  const hotelPlannerCheckin = toMmDdYyyy(dates.checkin);
+  const hotelPlannerCheckout = toMmDdYyyy(dates.checkout);
+
+  const hotelPlannerTarget =
+    providerTarget === "hotelplanner" && hotelPlannerWhiteLabelUrl && hotelPlannerCheckin && hotelPlannerCheckout
+      ? buildHotelPlannerSearchUrl({
+          baseUrl: hotelPlannerWhiteLabelUrl,
+          destination: `${hotelPlannerLat},${hotelPlannerLng}`,
+          dates: { checkin: hotelPlannerCheckin, checkout: hotelPlannerCheckout },
+        })
+      : "";
+
+  const wrapped = providerTarget === "booking" ? wrapAwin(bookingUrl) : { ok: true as const, url: hotelPlannerTarget };
+  const localProviderTarget = providerTarget;
+  const effectiveProviderTarget: LodgingProvider =
+    localProviderTarget === "hotelplanner" && !hotelPlannerTarget
+      ? "booking"
+      : localProviderTarget;
+
+  if (providerTarget === "hotelplanner" && !hotelPlannerTarget && localDev) {
+    console.warn("[go/hotels] missing HOTELPLANNER_WHITE_LABEL_BASE_URL for provider=hotelplanner, using Booking fallback in local mode");
+  }
+
   if (!wrapped.ok) {
     if (!localDev) {
       console.error("[go/hotels] missing Awin config");
@@ -282,9 +375,19 @@ export async function GET(request: Request) {
     console.warn("[go/hotels] missing Awin config, using direct booking URL");
   }
 
+  if (providerTarget === "hotelplanner" && !hotelPlannerTarget && !localDev) {
+    return new NextResponse("HOTELPLANNER_WHITE_LABEL_BASE_URL is required for hotelplanner provider.", { status: 500 });
+  }
+
   const local = isLocalHost(host);
   const bot = looksLikeBot(userAgent);
-  const redirectTarget = wrapped.ok ? wrapped.url : bookingUrl;
+  const redirectTarget =
+    effectiveProviderTarget === "hotelplanner"
+      ? hotelPlannerTarget
+      : wrapped.ok
+        ? wrapped.url
+        : bookingUrl;
+  const targetUrl = effectiveProviderTarget === "hotelplanner" ? hotelPlannerTarget : bookingUrl;
 
   if (!local && !bot) {
     try {
@@ -298,12 +401,12 @@ export async function GET(request: Request) {
           : "weekend_planner";
       await supabaseAdmin.from("ti_outbound_clicks" as any).insert({
         destination_type: "hotels",
-        partner: "booking",
+        partner: effectiveProviderTarget,
         source_surface: sourceSurface,
         venue_id: venueIdValid ? venueId : null,
         tournament_id: tournament?.id ?? null,
         tournament_slug: tournament?.slug ?? null,
-        target_url: bookingUrl,
+        target_url: targetUrl,
         redirect_url: redirectTarget,
         source_path: sourcePath,
         referer,

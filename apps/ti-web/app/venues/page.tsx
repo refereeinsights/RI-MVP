@@ -594,6 +594,8 @@ export default async function VenuesPage({
                   parking_convenience_score_avg={venue.parking_convenience_score_avg}
                   review_count={venue.review_count}
                   reviews_last_updated_at={venue.reviews_last_updated_at}
+                  latitude={venue.latitude}
+                  longitude={venue.longitude}
                   showPlanningCtas
                 />
               );

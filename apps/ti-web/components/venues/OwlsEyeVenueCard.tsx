@@ -107,7 +107,14 @@ export default function OwlsEyeVenueCard({
 }: OwlsEyeVenueCardProps) {
   const locationLine = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
   const hotels = (publicHotels ?? []).filter(Boolean);
-  const bookingHref = buildHotelsHref({ venueId: venue.id, tournamentId: selectedTournamentId ?? null });
+  const bookingHref = buildHotelsHref({
+    venueId: venue.id,
+    tournamentId: selectedTournamentId ?? null,
+    source: "venue_directory",
+    provider: "hotelplanner",
+    latitude: venue.latitude,
+    longitude: venue.longitude,
+  });
   const showBooking = canShowBookingCta({ zip: venue.zip });
   const hasValidCoordinates = isValidLatLng(venue.latitude, venue.longitude);
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim();

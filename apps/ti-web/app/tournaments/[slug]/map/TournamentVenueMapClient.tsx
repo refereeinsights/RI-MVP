@@ -10,6 +10,7 @@ import { getTier } from "@/lib/entitlements";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { DEMO_STARFIRE_VENUE_ID } from "@/lib/owlsEyeScores";
 import { isPremiumPreviewTournamentSlug } from "@/lib/premiumPreview";
+import { buildHotelsHref } from "@/lib/booking/venueBooking";
 import NavigationChooser, { type NavProvider } from "./NavigationChooser";
 import styles from "./TournamentVenueMap.module.css";
 
@@ -57,6 +58,25 @@ export type MapVenue = {
   hasOwl: boolean;
   counts: VenueCounts | null;
 };
+
+function buildVenueHotelsHref(args: {
+  venue: MapVenue;
+  tournamentId: string;
+  ss?: string | null;
+  source?: "venue_map" | "venue_card" | "preview_card";
+}) {
+  const source = String(args.source ?? "venue_map").trim() || "venue_map";
+  const ss = String(args.ss ?? "").trim();
+  return buildHotelsHref({
+    venueId: args.venue.id,
+    tournamentId: args.tournamentId,
+    source,
+    provider: "hotelplanner",
+    latitude: args.venue.latitude,
+    longitude: args.venue.longitude,
+    ss: ss || null,
+  });
+}
 
 type NavSheetState = {
   open: boolean;
@@ -1270,14 +1290,13 @@ export default function TournamentVenueMapClient({
     const searchUrl =
       category === "hotels"
         ? (() => {
-            const baseHref = `/go/hotels?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}`;
             const raw = String(item.name ?? "").trim();
             const collapsed = raw.replace(/\s+/g, " ");
             const safeName = collapsed.length > 120 ? collapsed.slice(0, 120) : collapsed;
             const city = String(venue.city ?? "").trim();
             const state = String(venue.state ?? "").trim();
             const ss = [safeName, city, state].filter(Boolean).join(", ");
-            return ss ? `${baseHref}&ss=${encodeURIComponent(ss)}` : baseHref;
+            return buildVenueHotelsHref({ venue, tournamentId: tournament.id, ss });
           })()
         : buildGoogleSearchUrl({ item, venue });
     const searchHtml = searchUrl
@@ -1683,7 +1702,7 @@ export default function TournamentVenueMapClient({
                         </button>
                         <a
                           className={styles.venueActionBtn}
-                          href={`/go/hotels?venueId=${encodeURIComponent(v.id)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                          href={buildVenueHotelsHref({ venue: v, tournamentId: tournament.id, source: "venue_card" })}
                           target="_blank"
                           rel="noopener noreferrer sponsored"
                           onClick={(e) => {
@@ -1862,8 +1881,11 @@ export default function TournamentVenueMapClient({
                             typeof item.place_latitude === "number" && typeof item.place_longitude === "number";
                           const distance = formatDistance(item.distance_meters);
 
-                          const venueId = selectedVenue.id;
-                          const baseHotelsHref = `/go/hotels?venueId=${encodeURIComponent(venueId)}&tournamentId=${encodeURIComponent(tournament.id)}`;
+                          const baseHotelsHref = buildVenueHotelsHref({
+                            venue: selectedVenue,
+                            tournamentId: tournament.id,
+                            source: "preview_card",
+                          });
                           const raw = String(item.name ?? "").trim();
                           const collapsed = raw.replace(/\\s+/g, " ");
                           const safeName = collapsed.length > 120 ? collapsed.slice(0, 120) : collapsed;
@@ -1969,7 +1991,20 @@ export default function TournamentVenueMapClient({
                     </button>
                     <a
                       className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
-                      href={`/go/hotels?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                      href={buildVenueHotelsHref({
+                        venue: venuesByIdRef.current.get(hotelVenueId) ?? {
+                          id: hotelVenueId,
+                          seo_slug: null,
+                          name: null,
+                          city: null,
+                          state: null,
+                          latitude: null,
+                          longitude: null,
+                          hasOwl: false,
+                          counts: null,
+                        },
+                        tournamentId: tournament.id,
+                      })}
                       target="_blank"
                       rel="noopener noreferrer sponsored"
                       onClick={() => {
@@ -2233,15 +2268,18 @@ export default function TournamentVenueMapClient({
                                       </button>
                                       {(() => {
                                         if (cat === "hotels") {
-                                          const venueId = selectedVenue.id;
-                                          const baseHref = `/go/hotels?venueId=${encodeURIComponent(venueId)}&tournamentId=${encodeURIComponent(tournament.id)}`;
                                           const raw = String(item.name ?? "").trim();
                                           const collapsed = raw.replace(/\s+/g, " ");
                                           const safeName = collapsed.length > 120 ? collapsed.slice(0, 120) : collapsed;
                                           const city = String(selectedVenue.city ?? "").trim();
                                           const state = String(selectedVenue.state ?? "").trim();
                                           const ss = [safeName, city, state].filter(Boolean).join(", ");
-                                          const href = ss ? `${baseHref}&ss=${encodeURIComponent(ss)}` : baseHref;
+                                          const href = buildVenueHotelsHref({
+                                            venue: selectedVenue,
+                                            tournamentId: tournament.id,
+                                            source: "venue_map",
+                                            ss,
+                                          });
                                           return (
                                             <a
                                               className={styles.owlActionLink}
