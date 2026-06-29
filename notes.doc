@@ -150,7 +150,9 @@ Date: 2026-06-29
 
 ### Implementation worklist (ordered)
 - [x] Add provider abstraction and HotelPlanner client under `apps/ti-web/lib/lodging`.
-- [ ] Implement `/api/lodging/search`, `/api/lodging/availability`, `/api/lodging/group-request`, `/api/lodging/checkout-handoff`, `/api/lodging/report-sync`.
+- [x] Implement `POST /api/lodging/search` with request validation, date/venue fallbacks, rate limit, provider call, and `fallback` response.
+- [x] Add `supabase/migrations/20260629_lodging_search_session.sql` with endpoint+IP+UA rate-limit indexing.
+- [ ] Implement `/api/lodging/availability`, `/api/lodging/group-request`, `/api/lodging/checkout-handoff`, `/api/lodging/report-sync`.
 - [ ] Wire map page props (`tournament_start_date` / `tournament_end_date`) into lodging search input.
 - [ ] Add `lodging_search_session` / `lodging_partner_events` persistence and write helpers.
 - [ ] Implement event taxonomy tracking and analytics allowlist updates.
@@ -180,6 +182,20 @@ Date: 2026-06-29
   - Credentials remain server-side.
   - `reserve` is never surfaced or invoked.
   - Existing `/go/hotels` + `/go/vrbo` redirect/CTA behavior remains intact.
+
+### Step 1 UAT status
+
+- [x] `POST /api/lodging/search` route compiles and runs with provider wiring:
+  - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+  - `node --import tsx apps/ti-web/lib/lodging/hotelPlannerProvider.test.ts`
+- [x] HotelPlanner provider object-mapped hotel normalization and availability parsing are handled (no array-shape regression).
+- [x] Rate-limit columns/index in migration are present for request key `(client_ip, user_agent, endpoint, created_at desc)`.
+- [ ] Run end-to-end API smoke for `/api/lodging/search` including:
+  - missing checkin/checkout -> `fallback.reason = no_dates`
+  - venue missing coordinates -> `fallback.reason = no_venue_coordinates`
+  - venue not found -> HTTP 400 + explicit message
+  - high-frequency same-IP burst -> HTTP 429
+  - successful provider response -> `status = succeeded` + session row persisted.
 
 ### Step 1 Foundation status (now complete)
 

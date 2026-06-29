@@ -1,0 +1,588 @@
+import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import {
+  createLodgingProvider,
+  getLodgingProviderName,
+  LODGING_SEARCH_DEFAULTS,
+  type FallbackReason,
+  type SearchHotelsInput,
+} from "@/lib/lodging/lodging-provider";
+import { formatDateToMmDdYyyy } from "@/lib/lodging/lodging-dates";
+import { HotelPlannerApiError } from "@/lib/lodging/hotelPlannerProvider";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
+export const runtime = "nodejs";
+
+type SearchRequestBody = {
+  venueId?: unknown;
+  tournamentId?: unknown;
+  checkin?: unknown;
+  checkout?: unknown;
+  rooms?: unknown;
+  adults?: unknown;
+  sc?: unknown;
+  keyword?: unknown;
+  jobCode?: unknown;
+  source?: unknown;
+  kw?: unknown;
+  jobcode?: unknown;
+  custom1?: unknown;
+  custom2?: unknown;
+  custom3?: unknown;
+  custom4?: unknown;
+  custom5?: unknown;
+  custom6?: unknown;
+  custom7?: unknown;
+  custom8?: unknown;
+  customField1?: unknown;
+  customField2?: unknown;
+  customField3?: unknown;
+  customField4?: unknown;
+  customField5?: unknown;
+  customField6?: unknown;
+  customField7?: unknown;
+  customField8?: unknown;
+  groupTypeCode?: unknown;
+};
+
+type RateLimitWindow = {
+  max: number;
+  seconds: number;
+};
+
+const SEARCH_ENDPOINT = "/api/lodging/search";
+const RATE_LIMIT_WINDOWS: RateLimitWindow[] = [
+  { max: 5, seconds: 5 },
+  { max: 30, seconds: 60 },
+];
+const REQUEST_QUERY_COLUMNS = "id";
+
+function toText(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function parseUuid(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed)
+    ? trimmed
+    : null;
+}
+
+function parseInteger(value: unknown, min: number, max: number, fallback: number): number {
+  if (value === undefined || value === null || value === "") return fallback;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < min || n > max) throw new Error(`Invalid integer value: ${String(value)}`);
+  return n;
+}
+
+function parseMmDdYyyy(value: string): Date | null {
+  const v = value.trim();
+  const [m, d, y] = v.split("/");
+  if (!m || !d || !y) return null;
+  const month = Number(m);
+  const day = Number(d);
+  const year = Number(y);
+  if (
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    !Number.isInteger(year) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    year < 1900 ||
+    year > 3000
+  ) {
+    return null;
+  }
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(parsed.getTime())) return null;
+  const formatted = formatDateToMmDdYyyy(parsed);
+  return formatted === v ? parsed : null;
+}
+
+function parseIsoDate(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  const [y, m, d] = trimmed.split("-").map((part) => Number(part));
+  if (![y, m, d].every(Number.isInteger)) return null;
+  const parsed = new Date(Date.UTC(y, m - 1, d));
+  if (!Number.isFinite(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10) === trimmed ? parsed : null;
+}
+
+function addDays(value: Date, days: number) {
+  const date = new Date(value.getTime());
+  date.setUTCDate(date.getUTCDate() + days);
+  return date;
+}
+
+function asTrackingString(body: SearchRequestBody, keys: Array<keyof SearchRequestBody>): string | null {
+  for (const key of keys) {
+    const text = toText(body[key]);
+    if (text) return text;
+  }
+  return null;
+}
+
+function firstIpFromHeader(value: string | null) {
+  if (!value) return null;
+  const first = String(value).split(",")[0]?.trim();
+  return first || null;
+}
+
+function limitExceeded(count: number, max: number) {
+  return Number.isFinite(count) && count >= max;
+}
+
+function asRequestError(message: string) {
+  return NextResponse.json({ ok: false, error: message }, { status: 400 });
+}
+
+function fallbackPayload(reason: FallbackReason) {
+  return {
+    showBookingFallback: true,
+    showVrboFallback: true,
+    reason,
+  };
+}
+
+async function ensureRateLimitAllowed(input: { clientIp: string | null; userAgent: string | null }) {
+  const ip = input.clientIp || "unknown";
+  const ua = input.userAgent || "unknown";
+  for (const rule of RATE_LIMIT_WINDOWS) {
+    const cutoff = new Date(Date.now() - rule.seconds * 1000).toISOString();
+    const { count, error } = await (supabaseAdmin as any)
+      .from("lodging_search_session" as any)
+      .select(REQUEST_QUERY_COLUMNS, { count: "exact", head: true })
+      .eq("endpoint", SEARCH_ENDPOINT)
+      .eq("client_ip", ip)
+      .eq("user_agent", ua)
+      .gte("created_at", cutoff);
+
+    if (error) throw new Error(error.message);
+    if (limitExceeded(count ?? 0, rule.max)) {
+      return { limited: true as const };
+    }
+  }
+  return { limited: false as const };
+}
+
+async function insertStartedSession(input: {
+  sessionId: string;
+  provider: string;
+  searchQuery: Record<string, unknown>;
+  clientIp: string | null;
+  userAgent: string | null;
+}) {
+  try {
+    const payload = {
+      id: input.sessionId,
+      provider: input.provider,
+      correlation_id: input.sessionId,
+      session_id: input.sessionId,
+      search_query: input.searchQuery,
+      status: "started" as const,
+      endpoint: SEARCH_ENDPOINT,
+      client_ip: input.clientIp ?? "unknown",
+      user_agent: input.userAgent,
+      started_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    await (supabaseAdmin.from("lodging_search_session" as any) as any).insert(payload);
+  } catch {
+    // best-effort write; provider call must continue even if this fails.
+  }
+}
+
+async function updateSessionLifecycle(input: {
+  sessionId: string;
+  status: "succeeded" | "failed";
+  resultCount?: number;
+  latencyMs: number;
+  fallbackReason?: string | null;
+  errorCode?: string | null;
+  responseSnapshot?: unknown;
+}) {
+  if (!input.sessionId) return;
+  try {
+    const payload: Record<string, unknown> = {
+      status: input.status,
+      ended_at: new Date().toISOString(),
+      latency_ms: input.latencyMs,
+      updated_at: new Date().toISOString(),
+      result_count: input.resultCount ?? 0,
+      fallback_reason: input.fallbackReason ?? null,
+      error_code: input.errorCode ?? null,
+    };
+    if (input.responseSnapshot !== undefined) {
+      payload.response_snapshot = input.responseSnapshot;
+    }
+    await (supabaseAdmin.from("lodging_search_session" as any) as any).update(payload).eq("id", input.sessionId);
+  } catch {
+    // Non-blocking: never fail request on telemetry writes.
+  }
+}
+
+async function fetchVenueById(venueId: string) {
+  const { data: venue } = await supabaseAdmin
+    .from("venues" as any)
+    .select("id,name,city,state,latitude,longitude")
+    .eq("id", venueId)
+    .maybeSingle<{
+      id: string;
+      name: string | null;
+      city: string | null;
+      state: string | null;
+      latitude: number | null;
+      longitude: number | null;
+    }>();
+  return venue ?? null;
+}
+
+async function fetchTournamentDates(tournamentId: string) {
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments_search_public" as any)
+    .select("id,start_date,end_date")
+    .eq("id", tournamentId)
+    .maybeSingle<{ id: string; start_date: string | null; end_date: string | null }>();
+  return tournament ? { startDate: tournament.start_date, endDate: tournament.end_date } : null;
+}
+
+function resolveSearchWindow(body: SearchRequestBody, tournamentDates: { startDate: string | null; endDate: string | null } | null) {
+  const checkinText = toText(body.checkin);
+  const checkoutText = toText(body.checkout);
+  const explicitCheckin = checkinText
+    ? parseIsoDate(checkinText) ?? parseMmDdYyyy(checkinText)
+    : null;
+  const explicitCheckout = checkoutText
+    ? parseIsoDate(checkoutText) ?? parseMmDdYyyy(checkoutText)
+    : null;
+
+  if (explicitCheckin && explicitCheckout && explicitCheckout > explicitCheckin) {
+    return {
+      source: "explicit" as const,
+      window: {
+        checkIn: formatDateToMmDdYyyy(explicitCheckin),
+        checkOut: formatDateToMmDdYyyy(explicitCheckout),
+      },
+      reason: null as null | FallbackReason,
+    };
+  }
+
+  if (checkinText || checkoutText) {
+    return { source: "explicit" as const, window: null, reason: "no_dates" as FallbackReason };
+  }
+
+  if (tournamentDates?.startDate && tournamentDates?.endDate) {
+    const start = parseIsoDate(tournamentDates.startDate);
+    const end = parseIsoDate(tournamentDates.endDate);
+    if (start && end && end >= start) {
+      const checkin = start;
+      const checkOut = addDays(end, 1);
+      if (checkOut > checkin) {
+        return {
+          source: "tournament" as const,
+          window: {
+            checkIn: formatDateToMmDdYyyy(checkin),
+            checkOut: formatDateToMmDdYyyy(checkOut),
+          },
+          reason: null as null | FallbackReason,
+        };
+      }
+    }
+  }
+
+  return { source: "tournament" as const, window: null, reason: "no_dates" as FallbackReason };
+}
+
+function resolveDestination(venue: {
+  name: string | null;
+  city: string | null;
+  state: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}) {
+  if (Number.isFinite(venue.latitude) && Number.isFinite(venue.longitude)) {
+    return {
+      destination: null as string | null,
+      latitude: Number(venue.latitude),
+      longitude: Number(venue.longitude),
+    };
+  }
+
+  const city = toText(venue.city);
+  const state = toText(venue.state);
+  if (!city || !state) {
+    return { destination: null, latitude: null, longitude: null };
+  }
+
+  const normalizedName = toText(venue.name);
+  const destination = [normalizedName, city, state].filter(Boolean).join(", ");
+  return { destination, latitude: null, longitude: null };
+}
+
+function buildSearchInput(params: {
+  roomCount: number;
+  adultCount: number;
+  checkin: string;
+  checkout: string;
+  destination: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  body: SearchRequestBody;
+  correlationId: string;
+  clientIp: string | null;
+  userAgent: string | null;
+}): SearchHotelsInput {
+  const {
+    roomCount,
+    adultCount,
+    checkin,
+    checkout,
+    destination,
+    latitude,
+    longitude,
+    body,
+    correlationId,
+    clientIp,
+    userAgent,
+  } = params;
+
+  return {
+    destination,
+    latitude,
+    longitude,
+    checkIn: checkin,
+    checkOut: checkout,
+    roomCount,
+    adultCount,
+    sc: asTrackingString(body, ["sc", "source"]),
+    keyword: asTrackingString(body, ["keyword", "kw"]),
+    jobCode: asTrackingString(body, ["jobCode", "jobcode"]),
+    customField1: asTrackingString(body, ["customField1", "custom1"]),
+    customField2: asTrackingString(body, ["customField2", "custom2"]),
+    customField3: asTrackingString(body, ["customField3", "custom3"]),
+    customField4: asTrackingString(body, ["customField4", "custom4"]),
+    customField5: asTrackingString(body, ["customField5", "custom5"]),
+    customField6: asTrackingString(body, ["customField6", "custom6"]),
+    customField7: asTrackingString(body, ["customField7", "custom7"]),
+    customField8: asTrackingString(body, ["customField8", "custom8"]),
+    groupTypeCode: asTrackingString(body, ["groupTypeCode"]),
+    correlationId,
+    customerIPAddress: clientIp,
+    customerUserAgent: userAgent,
+  };
+}
+
+function classifyProviderFailure(error: unknown) {
+  if (error instanceof HotelPlannerApiError) {
+    return {
+      statusCode: 502,
+      errorCode: String(error.code ?? "provider_error"),
+      errorMessage: error.message,
+    };
+  }
+
+  if (error instanceof Error) {
+    if (error.message === "Fallback provider not implemented.") {
+      return {
+        statusCode: 502,
+        errorCode: "provider_not_configured",
+        errorMessage: error.message,
+      };
+    }
+    if (error.message.startsWith("Missing ")) {
+      return {
+        statusCode: 500,
+        errorCode: "server_configuration_error",
+        errorMessage: error.message,
+      };
+    }
+  }
+
+  return {
+    statusCode: 500,
+    errorCode: "server_error",
+    errorMessage: error instanceof Error ? error.message : "Unknown error",
+  };
+}
+
+export async function POST(request: Request) {
+  let body = (await request.json().catch(() => null)) as SearchRequestBody | null;
+  if (!body || typeof body !== "object") {
+    return asRequestError("Invalid JSON body");
+  }
+
+  const venueId = parseUuid(body.venueId);
+  if (!venueId) {
+    return asRequestError("Invalid venueId");
+  }
+
+  const providerName = getLodgingProviderName();
+  const venue = await fetchVenueById(venueId);
+  if (!venue) {
+    return NextResponse.json({ ok: false, error: "Venue not found" }, { status: 400 });
+  }
+
+  const tournamentId = toText(body.tournamentId) ? parseUuid(body.tournamentId) : null;
+  if (toText(body.tournamentId) && !tournamentId) {
+    return asRequestError("Invalid tournamentId");
+  }
+
+  const requestedRooms = body.rooms;
+  const requestedAdults = body.adults;
+  let roomCount: number;
+  let adultCount: number;
+  try {
+    roomCount = parseInteger(
+      requestedRooms,
+      LODGING_SEARCH_DEFAULTS.minRooms,
+      LODGING_SEARCH_DEFAULTS.maxRooms,
+      LODGING_SEARCH_DEFAULTS.defaultRooms
+    );
+    adultCount = parseInteger(
+      requestedAdults,
+      LODGING_SEARCH_DEFAULTS.minAdultCount,
+      LODGING_SEARCH_DEFAULTS.maxAdultCount,
+      LODGING_SEARCH_DEFAULTS.defaultAdultsPerRoom
+    );
+  } catch (error: unknown) {
+    return asRequestError((error as Error).message);
+  }
+
+  const clientIp = firstIpFromHeader(request.headers.get("x-forwarded-for")) || "unknown";
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  const tournament = tournamentId ? await fetchTournamentDates(tournamentId) : null;
+
+  const destination = resolveDestination(venue);
+  if (!destination.destination && (destination.latitude === null || destination.longitude === null)) {
+    return NextResponse.json(
+      {
+        sessionId: randomUUID(),
+        provider: providerName,
+        hotels: [],
+        fallback: fallbackPayload("no_venue_coordinates"),
+      },
+      { status: 200 }
+    );
+  }
+
+  const resolvedWindow = resolveSearchWindow(body, tournament ? { startDate: tournament.startDate, endDate: tournament.endDate } : null);
+  if (!resolvedWindow.window) {
+    return NextResponse.json(
+      {
+        sessionId: randomUUID(),
+        provider: providerName,
+        hotels: [],
+        fallback: fallbackPayload(resolvedWindow.reason),
+      },
+      { status: 200 }
+    );
+  }
+
+  const rateCheck = await ensureRateLimitAllowed({ clientIp, userAgent });
+  if (rateCheck.limited) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded" }, { status: 429 });
+  }
+
+  const provider = createLodgingProvider(providerName);
+  const sessionId = randomUUID();
+  const providerInput = buildSearchInput({
+    roomCount,
+    adultCount,
+    checkin: resolvedWindow.window.checkIn,
+    checkout: resolvedWindow.window.checkOut,
+    destination: destination.destination,
+    latitude: destination.latitude,
+    longitude: destination.longitude,
+    body,
+    correlationId: sessionId,
+    clientIp,
+    userAgent,
+  });
+
+  const searchQuery = {
+    venueId,
+    tournamentId: tournamentId || null,
+    requestedWindow: {
+      source: resolvedWindow.source,
+      checkin: resolvedWindow.window.checkIn,
+      checkout: resolvedWindow.window.checkOut,
+    },
+    rooms: roomCount,
+    adults: adultCount,
+    source: providerInput.sc,
+    destinationUsed:
+      destination.latitude !== null && destination.longitude !== null ? "coordinates" : "destination",
+  };
+
+  await insertStartedSession({
+    sessionId,
+    provider: providerName,
+    searchQuery,
+    clientIp,
+    userAgent,
+  });
+
+  const startedAt = Date.now();
+  try {
+    const result = await provider.searchHotels(providerInput);
+    const fallback = result.fallback ?? { showBookingFallback: false, showVrboFallback: false };
+    const count = Array.isArray(result.hotels) ? result.hotels.length : 0;
+    const latencyMs = Date.now() - startedAt;
+    const fallbackReason = fallback.showBookingFallback ? "low_inventory" : null;
+    await updateSessionLifecycle({
+      sessionId,
+      status: "succeeded",
+      resultCount: count,
+      latencyMs,
+      fallbackReason,
+    });
+    return NextResponse.json({
+      sessionId,
+      provider: result.provider,
+      hotels: result.hotels,
+      fallback,
+    });
+  } catch (error: unknown) {
+    const { statusCode, errorCode, errorMessage } = classifyProviderFailure(error);
+    const latencyMs = Date.now() - startedAt;
+    const providerError = errorMessage;
+    const fallback = fallbackPayload("provider_error");
+    await updateSessionLifecycle({
+      sessionId,
+      status: "failed",
+      resultCount: 0,
+      latencyMs,
+      fallbackReason: "provider_error",
+      errorCode,
+      responseSnapshot:
+        errorCode || statusCode === 502
+          ? { message: providerError, type: (error instanceof Error ? error.name : "Error") }
+          : null,
+    });
+
+    if (statusCode === 502) {
+      return NextResponse.json(
+        {
+          sessionId,
+          provider: providerName,
+          hotels: [],
+          fallback,
+          error: "Provider failure",
+          code: errorCode,
+        },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ sessionId, provider: providerName, error: providerError }, { status: statusCode });
+  }
+}

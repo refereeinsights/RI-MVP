@@ -382,6 +382,35 @@ Optional targeted UAT for handoff compatibility:
 
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 2)
 
+### Stage 3.5 HotelPlanner Provider-Only UAT (Step 1 - Search Endpoint)
+
+- [ ] Environment + compile checks
+  - `cd /Users/roddavis/RI_MVP/RI-MVP && npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+  - `cd /Users/roddavis/RI_MVP/RI-MVP && node --import tsx apps/ti-web/lib/lodging/hotelPlannerProvider.test.ts`
+  - Confirm required env vars are set for local server (no `NEXT_PUBLIC_` variants):
+    - `TI_LODGING_PROVIDER=hotelplanner`
+    - `HOTELPLANNER_API_KEY`
+    - `HOTELPLANNER_SECRET_KEY`
+    - `HOTELPLANNER_ACCOUNT_ID`
+    - `HOTELPLANNER_SITE_ID`
+    - `HOTELPLANNER_BASE_URL` (optional default)
+    - `HOTELPLANNER_WHITE_LABEL_BASE_URL`
+- [ ] `/api/lodging/search` behavioral checks via local API calls
+  - `venueId` invalid format => 400 `Invalid venueId`.
+  - `venueId` missing in DB => 400 `Venue not found`.
+  - Missing explicit dates + missing/invalid tournamentId fallback => 200 with `fallback.reason = no_dates` and empty `hotels`.
+  - Missing venue coords + no city/state => 200 with `fallback.reason = no_venue_coordinates` and empty `hotels`.
+  - Valid request => `sessionId`, `provider`, `fallback` present and `hotels` array (may be empty with low_inventory).
+  - Low inventory (`< 3`) returns fallback flags and keeps HTTP 200 when provider call succeeds.
+  - Trigger rate-limit conditions by 6+ rapid requests from same IP/UA => 429.
+- [ ] Session lifecycle sanity
+  - Confirm `lodging_search_session` rows are created and move from `started` to `succeeded` on success.
+  - Confirm failures write `failed` with `error_code` and optional `response_snapshot`.
+  - Confirm early-fallback paths (no_dates/no_venue_coordinates) do not persist `started` rows.
+- [ ] Data shape verification
+  - Confirm `sc`/`source`, `keyword/kw`, `jobCode`, and `Custom1-8` survive request-to-provider passthrough on provider query construction.
+  - Confirm `customerIPAddress` and `customerUserAgent` are populated in provider calls.
+
 - [ ] Set required environment variables for local/CI/dev:
   - `TI_LODGING_PROVIDER=hotelplanner`
   - `HOTELPLANNER_API_KEY=...`

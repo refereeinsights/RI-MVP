@@ -138,6 +138,8 @@ function buildHotelPlannerSearchUrl(args: {
   baseUrl: string;
   destination: string;
   dates: { checkin: string; checkout: string };
+  latitude?: number | null;
+  longitude?: number | null;
   city?: string | null;
   sc?: string | null;
   keyword?: string | null;
@@ -157,6 +159,8 @@ function buildHotelPlannerSearchUrl(args: {
 
   const searchUrl = new URL("/Search/", baseUrl);
   searchUrl.searchParams.set("destination", destination);
+  if (args.latitude !== null && args.latitude !== undefined) searchUrl.searchParams.set("latitude", String(args.latitude));
+  if (args.longitude !== null && args.longitude !== undefined) searchUrl.searchParams.set("longitude", String(args.longitude));
   const city = String(args.city ?? "").trim();
   if (city) searchUrl.searchParams.set("city", city);
   if (args.dates.checkin) {
@@ -437,15 +441,21 @@ export async function GET(request: Request) {
       ? buildHotelPlannerSearchUrl({
           baseUrl: hotelPlannerWhiteLabelUrl,
           destination:
-            String(ss || "").trim() ||
-            (hotelPlannerLat !== null && hotelPlannerLng !== null ? `${hotelPlannerLat},${hotelPlannerLng}` : ""),
+            hotelPlannerLat !== null && hotelPlannerLng !== null
+              ? `${hotelPlannerLat},${hotelPlannerLng}`
+              : String(ss || "").trim(),
+          latitude: hotelPlannerLat,
+          longitude: hotelPlannerLng,
           dates: { checkin: hotelPlannerCheckin, checkout: hotelPlannerCheckout },
-          city: buildHotelPlannerSearchCity({
-            destinationSearch: ss,
-            venueName: venue?.name ?? null,
-            city: venue?.city ?? null,
-            state: venue?.state ?? null,
-          }),
+          city:
+            hotelPlannerLat !== null && hotelPlannerLng !== null
+              ? null
+              : buildHotelPlannerSearchCity({
+                  destinationSearch: ss,
+                  venueName: venue?.name ?? null,
+                  city: venue?.city ?? null,
+                  state: venue?.state ?? null,
+                }),
           sc: querySc || "tournamentinsights",
           keyword: queryKeyword || queryKeywordLegacy || null,
           jobCode: queryJobCode,

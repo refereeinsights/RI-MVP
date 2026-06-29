@@ -120,6 +120,8 @@ export function buildHotelsHref(args: {
   if (lat !== null && lng !== null) {
     addQueryNumber(qp, "lat", lat);
     addQueryNumber(qp, "lng", lng);
+    addQueryNumber(qp, "latitude", lat);
+    addQueryNumber(qp, "longitude", lng);
   }
   return `/go/hotels?${qp.toString()}`;
 }

@@ -41,7 +41,8 @@
 - [ ] `hotel_checkout_handoff` includes session/hotel context and uses provider handoff URL.
 - [ ] `lodging_api_search_failed` logs normalized error code/cause.
 - [ ] `lodging_low_inventory` triggers when usable hotels < 3 or unusable payload.
-- [ ] Event ingestion for lodging names is enabled in analytics allowlist and persisted via `apps/ti-web/app/api/analytics/route.ts`.
+- [ ] Client-visible lodging events are in analytics allowlist and persisted via `apps/ti-web/app/api/analytics/route.ts`.
+- [ ] Step 1 server lifecycle events (`lodging_api_search_started|succeeded|failed`) are not routed through analytics endpoint; they are written directly to `lodging_search_session`.
 
 ## Guardrail checks
 - [ ] No HotelPlanner API credentials are present in client bundles/network payloads.
