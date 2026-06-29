@@ -73,6 +73,7 @@ type HotelPin = {
   currency?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  hotelIDTypeID?: number | null;
   resolvedCheckIn: string | null;
   resolvedCheckOut: string | null;
   raw?: unknown;
@@ -1146,6 +1147,7 @@ export default function TournamentVenueMapClient({
         property_id: pin.propertyId,
         reason: "missing_dates",
       });
+      setHotelAvailabilityLoading(false);
       return;
     }
 
@@ -1164,13 +1166,14 @@ export default function TournamentVenueMapClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           propertyId: pin.propertyId,
+          hotelIDTypeID: pin.hotelIDTypeID ?? undefined,
           checkin: pin.resolvedCheckIn,
           checkout: pin.resolvedCheckOut,
           rooms: 1,
           adults: 1,
           roomCount: 1,
           adultCount: 1,
-          sc: "venue_map",
+          sc: "tournamentinsights",
         }),
       });
       const raw = (await response.json().catch(() => null)) as HotelAvailabilityResponse | null;
@@ -1601,6 +1604,9 @@ export default function TournamentVenueMapClient({
       fromPrice: fromPrice != null ? fromPrice : null,
       latitude: Number.isFinite(lat) ? lat : null,
       longitude: Number.isFinite(lng) ? lng : null,
+      hotelIDTypeID: typeof property.hotelIDTypeID === "number" && Number.isFinite(property.hotelIDTypeID) && property.hotelIDTypeID >= 0
+        ? property.hotelIDTypeID
+        : null,
       resolvedCheckIn: fallback.checkIn,
       resolvedCheckOut: fallback.checkOut,
       raw: property.raw,
@@ -2556,6 +2562,28 @@ export default function TournamentVenueMapClient({
                               )}
 
                               {hotelAvailabilityError ? <div className={styles.lodgingError}>{hotelAvailabilityError}</div> : null}
+                              {hotelAvailabilityError ? (
+                                <a
+                                  className={styles.affiliateCta}
+                                  href={buildVenueHotelsHref({
+                                    venue: hotelVenueForRedirect,
+                                    tournamentId: tournament.id,
+                                  })}
+                                  target="_blank"
+                                  rel="noopener noreferrer sponsored"
+                                  onClick={() => {
+                                    void trackLodgingEvent("hotel_checkout_handoff", {
+                                      page_type: "venue_map",
+                                      tournament_id: tournament.id,
+                                      venue_id: selectedVenue?.id ?? null,
+                                      property_id: selectedHotelId,
+                                      reason: "availability_error_fallback",
+                                    });
+                                  }}
+                                >
+                                  Open full HotelPlanner hotel results
+                                </a>
+                              ) : null}
 
                               {!hotelAvailabilityLoading && !hotelAvailabilityError && hotelRoomOptions.length > 0 && (
                                 <div className={styles.hotelRoomList}>

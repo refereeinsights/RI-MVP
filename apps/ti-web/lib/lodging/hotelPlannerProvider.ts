@@ -118,6 +118,13 @@ function pickText(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function parseHotelIDTypeID(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
 function pickNumber(value: unknown): number | null {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -170,7 +177,7 @@ function buildSearchBody(input: SearchHotelsInput): Record<string, unknown> {
 function buildAvailabilityBody(input: HotelAvailabilityInput): Record<string, unknown> {
   return {
     hotelID: assertNonEmptyString(input.propertyId, "propertyId"),
-    hotelIDTypeID: 0,
+    hotelIDTypeID: Number.isInteger(input.hotelIDTypeID) ? input.hotelIDTypeID : 0,
     checkIn: assertNonEmptyString(input.checkIn, "checkIn"),
     checkOut: assertNonEmptyString(input.checkOut, "checkOut"),
     roomCount: clampInt(input.roomCount, 1),
@@ -265,6 +272,7 @@ function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
         thumbnailUrl: pickText(item.thumbnailUrl ?? item.image ?? item.img ?? item.photo),
         currency: pickText(item.currency) ?? "USD",
         fromPrice,
+        hotelIDTypeID: parseHotelIDTypeID(item.hotelIDTypeID ?? item.hotelIdTypeID),
         raw: item,
       });
       return acc;

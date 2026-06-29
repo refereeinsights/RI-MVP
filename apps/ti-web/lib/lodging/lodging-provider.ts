@@ -77,6 +77,7 @@ export type SearchHotelsInput = {
 
 export type HotelAvailabilityInput = {
   propertyId: string;
+  hotelIDTypeID?: number | null;
   checkIn: string;
   checkOut: string;
   roomCount: number;
@@ -141,6 +142,7 @@ export type SearchHotelProperty = {
   thumbnailUrl?: string | null;
   currency?: string | null;
   fromPrice?: number | null;
+  hotelIDTypeID?: number | null;
   raw?: unknown;
 };
 

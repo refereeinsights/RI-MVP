@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 
 type AvailabilityRequestBody = {
   propertyId?: unknown;
+  hotelIDTypeID?: unknown;
   checkin?: unknown;
   checkout?: unknown;
   checkIn?: unknown;
@@ -79,6 +80,13 @@ function parseInteger(
   if (!Number.isInteger(n) || n < min || n > max) {
     throw new Error(`Invalid integer value: ${String(value)}`);
   }
+  return n;
+}
+
+function parseOptionalNonNegativeInteger(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) return null;
   return n;
 }
 
@@ -333,6 +341,7 @@ export async function POST(request: Request) {
 
   const providerInput: HotelAvailabilityInput = {
     propertyId,
+    hotelIDTypeID: parseOptionalNonNegativeInteger(body.hotelIDTypeID),
     checkIn: checkin,
     checkOut: checkout,
     roomCount,
