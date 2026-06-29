@@ -28,6 +28,7 @@ Normalized interface:
 7. QA/smoke and hardening notes.
 
 ## Environment requirements
+- `TI_LODGING_PROVIDER`
 - `HOTELPLANNER_API_KEY`
 - `HOTELPLANNER_SECRET_KEY`
 - `HOTELPLANNER_ACCOUNT_ID`
@@ -38,6 +39,7 @@ Normalized interface:
 ## Input mapping to HotelPlanner fields
 - Destination: prefer `latitude,longitude` then fallback to venue address.
 - Date format: `mm/dd/yyyy` for `checkIn` and `checkOut`.
+- Date source (map integration): tournament or venue-context `start_date` + `end_date` must be passed to lodging search payload; if missing, return safe `fallback.reason = no_dates`.
 - `rooms` / `roomCount` → `roomCount`.
 - `adultsPerRoom` / `adultCount` → `adultCount`.
 - `childrenPerRoom` / `childCount` → `childCount`.
@@ -48,6 +50,15 @@ Normalized interface:
   - `keyword`
   - `jobCode`
   - `customField1` through `customField8`
+  - `groupTypeCode`
+
+Group-request provider fields (required by HotelPlanner createGroupRequest):
+- `firstName`, `lastName`, `email`
+- `split`, `rating`, `roomTypeCode`
+- `comments`, `targetRate`, `minRate`, `itinerary`
+
+Search response mapping note:
+- `multiPropertySearch` response returns `hotels` and `availabilities` keyed separately; map join by hotel key/id before normalizing.
 
 Date/geo safety:
 - Missing/invalid venue dates or coordinates must return a safe search fallback response, not throw.
@@ -65,6 +76,7 @@ HotelPlanner client must:
 - Request signing must be testable in unit/integration tests.
 - `reserve` is intentionally not implemented in MVP.
 - Support optional `locale`, `currency`, and `sc` fields.
+- Decide explicitly whether to call `verifyBundle` in handoff phase (`true` recommended if provider call is added).
 
 ## API layer expectations
 - `/api/lodging/search` accepts search input and returns normalized results.
@@ -74,7 +86,15 @@ HotelPlanner client must:
   - `POST /api/lodging/checkout-handoff` accepts selected property/session bundle,
   - validates provider/session context,
   - logs `hotel_checkout_handoff`,
-  - returns HotelPlanner hosted checkout handoff target and return/failure URLs.
+  - returns HotelPlanner hosted checkout handoff payload:
+    - `checkoutUrl`
+    - `bundleFormValue`
+    - optional `returnUrl` and/or `failureUrl`
+  - frontend must submit a form POST to `checkoutUrl` with `bundle` + return/failure fields.
+- Add an explicit `report-sync` auth pattern:
+  - require valid `x-cron-secret` and/or `x-vercel-cron: 1`; if absent, return 401/403.
+- Add explicit `search/availability` unauthenticated throttle policy:
+  - shared limiter keyed by IP+UA+endpoint, minimum 10-second spacing + burst control.
 
 ## Fallback behavior
 - On provider failure, timeout, no usable hotels, or fewer than 3 usable hotels:
@@ -123,6 +143,30 @@ Use explicit lodging/partner events:
 Track a per-search row and partner events:
 - `lodging_search_session`
 - `lodging_partner_events`
+
+Suggested minimum schema fields for `lodging_partner_events`:
+- `id uuid primary key`
+- `session_id uuid nullable`
+- `correlation_id text nullable`
+- `event_name text`
+- `partner text`
+- `hotel_id text nullable`
+- `hotel_name text nullable`
+- `outbound_url text nullable`
+- `price_before_tax numeric nullable`
+- `price_after_tax numeric nullable`
+- `currency text nullable`
+- `distance_miles numeric nullable`
+- `room_count int nullable`
+- `latency_ms int nullable`
+- `status text nullable`
+- `error_code text nullable`
+- `fallback_reason text nullable`
+- `metadata jsonb nullable`
+- `created_at timestamptz default now()`
+
+Canonical analytics persistence allowlist:
+- update `apps/ti-web/app/api/analytics/route.ts` to include all listed canonical lodging events in the allowlist set used for persistence.
 
 ## UI requirements
 Map views should show hotel cards/pins with:

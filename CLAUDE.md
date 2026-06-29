@@ -15,6 +15,7 @@ Report any visual regressions, broken flows, or unexpected behavior.
   - Smoke UAT (fast pass)
   - Deep UAT (full pass)
   - Dangerous / UAT-only (SQL + console)
+- TI Lodging Provider Integration UAT (HotelPlanner v2)
 - TI Subscription & Conversion Sprint UAT
 - Referee Insights UAT (RI)
 - Mobile Testing Checklist
@@ -343,6 +344,50 @@ Retest prompt (Claude/Desktop):
    - action taken
    - exact label/state before/after each click
    - first thrown runtime error (if any) with full stack.
+
+### TI Lodging Provider Integration UAT (HotelPlanner v2)
+
+Use this after the lodging implementation is in place and before any staging/public push.
+
+Implementation docs:
+- `docs/prompts/ti-lodging-provider-integration-v2.md`
+- `docs/prompts/ti-lodging-provider-integration-v2-spec.md`
+- `docs/prompts/ti-lodging-provider-integration-v2-engineering.md`
+- `docs/prompts/ti-lodging-provider-qa-checklist-v2.md`
+
+Copy/paste prompt:
+1. Open `http://localhost:3001/tournaments/[slug]/map` on a tournament with venue lat/lon and dates.
+2. Confirm lodging panel mounts in venue detail context and only after map/location context is available.
+3. Test both successful and fallback paths:
+   - Normal success: hotel cards show name, distance, rating/review count, thumbnail, and from-price.
+   - Missing coordinates or low inventory: Booking.com + VRBO fallback CTAs are still visible.
+4. Click one lodging card, verify availability loads, room options render, and HotelPlanner handoff form submits (not TI API for payment).
+5. Validate “Need 5+ rooms?” CTA opens group-request flow and requires required fields.
+6. Check Network for `/api/lodging/search`, `/api/lodging/availability`, `/api/lodging/checkout-handoff`, `/api/lodging/group-request`, `/api/analytics`.
+
+### Stage 3 TI Lodging Provider Integration UAT Checklist
+
+- [ ] Search input integrity:
+  - [ ] `checkIn` / `checkOut` are sent as `mm/dd/yyyy` with `tournament_start_date` and `tournament_end_date` as source of truth.
+  - [ ] Missing/invalid tournament dates are surfaced as safe fallback instead of broken search errors.
+- [ ] Destination mapping:
+  - [ ] Venue lat/lon is preferred and address fallback works if lat/lon is missing.
+- [ ] API behavior:
+  - [ ] `/api/lodging/search` returns `{ provider, hotels, fallback }` and `sessionId`.
+  - [ ] `/api/lodging/availability` triggers only on hotel selection/click.
+  - [ ] `/api/lodging/checkout-handoff` returns checkout payload and performs only hosted handoff.
+- [ ] Event tracking:
+  - [ ] Required events appear in analytics payloads with session/hotel context.
+- [ ] Group requests:
+  - [ ] Group request requires 5+ rooms and submits fields: `split`, `rating`, `roomTypeCode`, `comments`, `targetRate`, `minRate`, `itinerary`.
+  - [ ] `groupTypeCode` defaults to `143` for first-party flow unless intentionally overridden.
+- [ ] Guardrails:
+  - [ ] No HotelPlanner credentials visible in client bundles or requests.
+  - [ ] No `reserve` or payment collection endpoint is invoked by TI UI/routes.
+  - [ ] Existing Booking.com and VRBO CTAs remain unchanged as explicit alternatives.
+- [ ] Security:
+  - [ ] `/api/lodging/report-sync` returns unauthorized for non-admin/non-cron callers.
+  - [ ] `/api/lodging/checkout-handoff` does not expose session secrets.
 
 ---
 
