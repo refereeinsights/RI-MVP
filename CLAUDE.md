@@ -365,6 +365,18 @@ Copy/paste prompt:
 5. Validate “Need 5+ rooms?” CTA opens group-request flow and requires required fields.
 6. Check Network for `/api/lodging/search`, `/api/lodging/availability`, `/api/lodging/checkout-handoff`, `/api/lodging/group-request`, `/api/analytics`.
 
+Optional targeted UAT for handoff compatibility:
+1) Open `http://localhost:3001/go/hotels?provider=hotelplanner&venueId=ecd43a1e-d24a-4f0d-807b-2084ac24131e&lat=47.69741&lng=-117.23642&checkin=2026-07-01&checkout=2026-07-03&source=tournament_detail&kw=Plantes%20Ferry&jobcode=TI-DEV-TEST&custom1=ven%3Aecd43a1e-d24a-4f0d-807b-2084ac24131e&custom2=spokane-wa`
+2) Verify final redirected URL includes:
+   - `city=Spokane+Valley%2C+WA+99216`
+   - `CheckIn=07%2F01%2F2026`
+   - `CheckOut=07%2F03%2F2026`
+   - `source=tournamentinsights`
+   - `sc=tournamentinsights`
+   - `kw=Plantes+Ferry`
+   - `jobCode=TI-DEV-TEST`
+   - `Custom1=...`
+
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 2)
 
 - [ ] Set required environment variables for local/CI/dev:
@@ -403,6 +415,9 @@ Copy/paste prompt:
   - [ ] Missing/invalid tournament dates are surfaced as safe fallback instead of broken search errors.
 - [ ] Destination mapping:
   - [ ] Venue lat/lon is preferred and address fallback works if lat/lon is missing.
+- [ ] Redirect handoff integrity (`/go/hotels` fallback path):
+  - [ ] `city`, `sc`, `source`, `CheckIn`, `CheckOut`, `kw`, `jobCode`, `Custom1-8` (when provided) are present in redirect URL to hotelplanner white-label domain.
+  - [ ] Redirect URL remains functional and destination-aware (no generic landing page fallback) for real venue IDs.
 - [ ] API behavior:
   - [ ] `/api/lodging/search` returns `{ provider, hotels, fallback }` and `sessionId`.
   - [ ] `/api/lodging/availability` triggers only on hotel selection/click.

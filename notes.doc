@@ -161,6 +161,12 @@ Date: 2026-06-29
 - [ ] Search and map wiring:
   - Tournament map view can request lodging with mapped `start_date`/`end_date`.
   - Missing dates or missing venue coordinates returns `fallback` state (no blank map).
+- [ ] URL handoff integrity (provider fallback):
+  - `/go/hotels` builds a HotelPlanner redirect URL with:
+    - `destination` and `city` populated from venue context,
+    - `sc=`, `source=`, `kw=`, `jobCode=`, and `Custom1-8=` values when passed through.
+    - `CheckIn` / `CheckOut` in `mm/dd/yyyy` plus lowercase `checkin` / `checkout` compatibility fields.
+  - Confirm click lands on a destination-aware, non-generic white-label HotelPlanner page for a real venue URL.
 - [ ] Hotel card rendering:
   - Hotel card displays name, distance, rating/review count, thumbnail, and from-price.
   - Map markers/cards load only after successful API response.
@@ -213,3 +219,15 @@ Date: 2026-06-29
     - query string + epoch/cust IP+UA propagation,
     - base64url auth token format,
     - header + request forwarding through provider search path.
+
+### Step 3 Handoff URL compatibility status (now complete)
+
+Date: 2026-06-29
+
+- Implemented HotelPlanner white-label handoff query compatibility in `apps/ti-web/app/go/hotels/route.ts`:
+  - Added support for HotelPlanner destination-cue fields: `city`, `source`, `sc`, `CheckIn`/`CheckOut`.
+  - Added support for tracking fields on handoff: `kw`, `jobCode`, `Custom1`…`Custom8`.
+  - Preserved backward compatibility for lowercase `checkin` / `checkout` params.
+  - Added destination fallback to venue search context over raw coordinates to reduce generic landing pages.
+- UAT result:
+  - PASS (local): manual browser visit to tournament venue handoff URL now lands on venue-specific HotelPlanner search with `city`, date, and tracking parameters applied.

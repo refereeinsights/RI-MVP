@@ -95,10 +95,61 @@ function toMmDdYyyy(iso: string) {
   return `${mm}/${dd}/${y}`;
 }
 
+function isZipOnly(raw: string) {
+  return /^\d{5}$/.test(String(raw ?? "").trim());
+}
+
+function buildHotelPlannerSearchCity(args: {
+  destinationSearch: string | null;
+  venueName: string | null;
+  city: string | null;
+  state: string | null;
+}) {
+  const destinationSearch = String(args.destinationSearch ?? "").trim();
+  if (destinationSearch && !isZipOnly(destinationSearch)) return destinationSearch;
+
+  const pieces = [args.venueName, args.city, args.state]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+  return pieces.length ? pieces.join(", ") : null;
+}
+
+function pickTrackingParam(reqUrl: URL, key: string) {
+  const target = key.toLowerCase();
+  const direct = reqUrl.searchParams.get(key) ?? reqUrl.searchParams.get(target);
+  if (direct !== null) {
+    const directTrimmed = String(direct).trim();
+    return directTrimmed ? directTrimmed : null;
+  }
+
+  let fallback: string | null = null;
+  for (const [name, value] of reqUrl.searchParams.entries()) {
+    if (name.toLowerCase() === target) {
+      fallback = value;
+      break;
+    }
+  }
+
+  const trimmed = String(fallback ?? "").trim();
+  return trimmed ? trimmed : null;
+}
+
 function buildHotelPlannerSearchUrl(args: {
   baseUrl: string;
   destination: string;
   dates: { checkin: string; checkout: string };
+  city?: string | null;
+  sc?: string | null;
+  keyword?: string | null;
+  jobCode?: string | null;
+  custom1?: string | null;
+  custom2?: string | null;
+  custom3?: string | null;
+  custom4?: string | null;
+  custom5?: string | null;
+  custom6?: string | null;
+  custom7?: string | null;
+  custom8?: string | null;
 }): string {
   const baseUrl = normalizeHotelPlannerBaseUrl(args.baseUrl);
   const destination = String(args.destination ?? "").trim();
@@ -106,11 +157,33 @@ function buildHotelPlannerSearchUrl(args: {
 
   const searchUrl = new URL("/Search/", baseUrl);
   searchUrl.searchParams.set("destination", destination);
-  if (args.dates.checkin) searchUrl.searchParams.set("checkin", args.dates.checkin);
-  if (args.dates.checkout) searchUrl.searchParams.set("checkout", args.dates.checkout);
+  const city = String(args.city ?? "").trim();
+  if (city) searchUrl.searchParams.set("city", city);
+  if (args.dates.checkin) {
+    searchUrl.searchParams.set("CheckIn", args.dates.checkin);
+    searchUrl.searchParams.set("checkin", args.dates.checkin);
+  }
+  if (args.dates.checkout) {
+    searchUrl.searchParams.set("CheckOut", args.dates.checkout);
+    searchUrl.searchParams.set("checkout", args.dates.checkout);
+  }
   searchUrl.searchParams.set("rooms", "1");
   searchUrl.searchParams.set("adults", "2");
-  searchUrl.searchParams.set("source", "tournamentinsights");
+  searchUrl.searchParams.set("source", args.sc || "tournamentinsights");
+  searchUrl.searchParams.set("sc", args.sc || "tournamentinsights");
+
+  const keyword = String(args.keyword ?? "").trim();
+  if (keyword) searchUrl.searchParams.set("kw", keyword);
+  const jobCode = String(args.jobCode ?? "").trim();
+  if (jobCode) searchUrl.searchParams.set("jobCode", jobCode);
+  if (args.custom1) searchUrl.searchParams.set("Custom1", String(args.custom1).trim());
+  if (args.custom2) searchUrl.searchParams.set("Custom2", String(args.custom2).trim());
+  if (args.custom3) searchUrl.searchParams.set("Custom3", String(args.custom3).trim());
+  if (args.custom4) searchUrl.searchParams.set("Custom4", String(args.custom4).trim());
+  if (args.custom5) searchUrl.searchParams.set("Custom5", String(args.custom5).trim());
+  if (args.custom6) searchUrl.searchParams.set("Custom6", String(args.custom6).trim());
+  if (args.custom7) searchUrl.searchParams.set("Custom7", String(args.custom7).trim());
+  if (args.custom8) searchUrl.searchParams.set("Custom8", String(args.custom8).trim());
   return searchUrl.toString();
 }
 
@@ -162,6 +235,18 @@ export async function GET(request: Request) {
   const checkinRaw = String(reqUrl.searchParams.get("checkin") ?? "").trim();
   const checkoutRaw = String(reqUrl.searchParams.get("checkout") ?? "").trim();
   const provider = parseProvider(reqUrl.searchParams.get("provider"));
+  const querySc = pickTrackingParam(reqUrl, "sc");
+  const queryKeyword = pickTrackingParam(reqUrl, "kw");
+  const queryKeywordLegacy = pickTrackingParam(reqUrl, "keyword");
+  const queryJobCode = pickTrackingParam(reqUrl, "jobcode");
+  const queryCustom1 = pickTrackingParam(reqUrl, "custom1");
+  const queryCustom2 = pickTrackingParam(reqUrl, "custom2");
+  const queryCustom3 = pickTrackingParam(reqUrl, "custom3");
+  const queryCustom4 = pickTrackingParam(reqUrl, "custom4");
+  const queryCustom5 = pickTrackingParam(reqUrl, "custom5");
+  const queryCustom6 = pickTrackingParam(reqUrl, "custom6");
+  const queryCustom7 = pickTrackingParam(reqUrl, "custom7");
+  const queryCustom8 = pickTrackingParam(reqUrl, "custom8");
   const latitude = parseLatLng(reqUrl.searchParams.get("lat"), 90);
   const latitudeAlt = parseLatLng(reqUrl.searchParams.get("latitude"), 90);
   const longitude = parseLatLng(reqUrl.searchParams.get("lng"), 180);
@@ -351,8 +436,27 @@ export async function GET(request: Request) {
     providerTarget === "hotelplanner" && hotelPlannerWhiteLabelUrl && hotelPlannerCheckin && hotelPlannerCheckout
       ? buildHotelPlannerSearchUrl({
           baseUrl: hotelPlannerWhiteLabelUrl,
-          destination: `${hotelPlannerLat},${hotelPlannerLng}`,
+          destination:
+            String(ss || "").trim() ||
+            (hotelPlannerLat !== null && hotelPlannerLng !== null ? `${hotelPlannerLat},${hotelPlannerLng}` : ""),
           dates: { checkin: hotelPlannerCheckin, checkout: hotelPlannerCheckout },
+          city: buildHotelPlannerSearchCity({
+            destinationSearch: ss,
+            venueName: venue?.name ?? null,
+            city: venue?.city ?? null,
+            state: venue?.state ?? null,
+          }),
+          sc: querySc || "tournamentinsights",
+          keyword: queryKeyword || queryKeywordLegacy || null,
+          jobCode: queryJobCode,
+          custom1: queryCustom1,
+          custom2: queryCustom2,
+          custom3: queryCustom3,
+          custom4: queryCustom4,
+          custom5: queryCustom5,
+          custom6: queryCustom6,
+          custom7: queryCustom7,
+          custom8: queryCustom8,
         })
       : "";
 
