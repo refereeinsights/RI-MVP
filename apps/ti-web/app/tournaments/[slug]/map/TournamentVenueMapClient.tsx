@@ -1098,13 +1098,32 @@ export default function TournamentVenueMapClient({
       const key = `hotel:${venue.id}:${pin.propertyId}`;
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = styles.placeMarkerBtn;
-      btn.setAttribute("aria-label", `Hotel ${pin.name}`);
+      btn.className = `${styles.placeMarkerBtn} ${styles.hotelPlaceMarkerBtn}`;
+      const markerPrice = formatCurrency(pin.fromPrice, pin.currency || "USD") ?? "Price on request";
+      const markerLabel = `${pin.name} · ${markerPrice}`;
+      btn.setAttribute("aria-label", `Hotel ${pin.name}. ${markerPrice}`);
 
       const inner = document.createElement("div");
-      inner.className = `${styles.placeMarker}`;
-      inner.textContent = "🏨";
+      inner.className = `${styles.hotelPlaceMarker}`;
+
+      const emoji = document.createElement("span");
+      emoji.className = styles.hotelPlaceMarkerIcon;
+      emoji.textContent = "🏨";
+      inner.appendChild(emoji);
+
+      const name = document.createElement("span");
+      name.className = styles.hotelPlaceMarkerName;
+      name.title = pin.name;
+      name.textContent = pin.name;
+      inner.appendChild(name);
+
+      const price = document.createElement("span");
+      price.className = styles.hotelPlaceMarkerPrice;
+      price.textContent = markerPrice;
+      inner.appendChild(price);
+
       btn.appendChild(inner);
+      btn.title = markerLabel;
 
       btn.addEventListener("click", (ev) => {
         ev.preventDefault();
@@ -2590,8 +2609,11 @@ export default function TournamentVenueMapClient({
                                   <div className={styles.hotelRoomListTitle}>
                                     {hotelRoomOptions.length} room option{hotelRoomOptions.length === 1 ? "" : "s"}
                                   </div>
-                                  {hotelRoomOptions.map((room) => (
-                                    <div key={`${room.roomTypeCode}-${room.roomName}`} className={styles.hotelRoomRow}>
+                                  {hotelRoomOptions.map((room, roomIndex) => (
+                                    <div
+                                      key={`${room.roomTypeCode}-${room.roomName}-${room.rate ?? 0}-${roomIndex}`}
+                                      className={styles.hotelRoomRow}
+                                    >
                                       <div>
                                         <div className={styles.hotelRoomName}>{room.roomName}</div>
                                         <div className={styles.hotelRoomType}>Type {room.roomTypeCode}</div>

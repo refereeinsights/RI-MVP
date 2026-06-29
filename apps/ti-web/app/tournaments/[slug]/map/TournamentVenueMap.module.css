@@ -333,6 +333,13 @@
   cursor: pointer;
 }
 
+.hotelPlaceMarkerBtn {
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: transparent;
+}
+
 .navSheetBackdrop {
   position: fixed;
   inset: 0;
@@ -446,6 +453,46 @@
   transform: translateY(-5px);
   font-size: 14px;
   line-height: 1;
+}
+
+.hotelPlaceMarker {
+  max-width: 170px;
+  min-width: 130px;
+  padding: 3px 6px 4px;
+  border-radius: 12px;
+  background: rgba(5, 35, 22, 0.94);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  font-size: 10px;
+  line-height: 1.15;
+  white-space: nowrap;
+  transform: translateY(-6px);
+}
+
+.hotelPlaceMarkerIcon {
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.98;
+}
+
+.hotelPlaceMarkerName,
+.hotelPlaceMarkerPrice {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.hotelPlaceMarkerName {
+  font-weight: 900;
+}
+
+.hotelPlaceMarkerPrice {
+  opacity: 0.95;
+  letter-spacing: 0.01em;
 }
 
 .placeMarkerSelected {
