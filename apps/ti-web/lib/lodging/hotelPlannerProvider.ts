@@ -318,6 +318,15 @@ function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
         : null;
       const fallbackFromRate = pickNumber(item.fromRate ?? item.lowRate);
       const fromPrice = minRatesByHotel.get(propertyId) ?? fallbackFromRate;
+      const detailUrl = pickText(
+        item.detailUrl ??
+        item.hotelDetailUrl ??
+        item.hotelDetailLink ??
+        item.hotelDetailsLink ??
+        item.detailsUrl ??
+        item.hotelUrl ??
+        item.link
+      );
       acc.push({
         id: propertyId,
         name: pickText(item.hotelname ?? item.name ?? item.hotelName) ?? "Hotel",
@@ -333,7 +342,8 @@ function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
         thumbnailUrl: pickText(item.thumbnailUrl ?? item.image ?? item.img ?? item.photo),
         currency: pickText(item.currency) ?? "USD",
         fromPrice,
-        hotelIDTypeID: parseHotelIDTypeID(item.hotelIDTypeID ?? item.hotelIdTypeID),
+        hotelIDTypeID: parseHotelIDTypeID(item.hotelIDTypeID ?? item.hotelIdTypeID) ?? 0,
+        detailUrl,
         raw: item,
       });
       return acc;

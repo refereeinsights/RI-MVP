@@ -74,6 +74,7 @@ type HotelPin = {
   latitude?: number | null;
   longitude?: number | null;
   hotelIDTypeID?: number | null;
+  detailUrl?: string | null;
   resolvedCheckIn: string | null;
   resolvedCheckOut: string | null;
   raw?: unknown;
@@ -92,34 +93,6 @@ type HotelSearchResponse = {
   fallback?: HotelSearchFallback;
   resolvedCheckIn?: string | null;
   resolvedCheckOut?: string | null;
-  error?: string;
-  code?: string;
-};
-
-type HotelAvailabilityRoom = {
-  roomTypeCode: string;
-  roomName: string;
-  rate: number;
-  currency: string;
-  roomDescription?: string | null;
-  ratePlanName?: string | null;
-  mealPlanName?: string | null;
-  nightlyRate?: number | null;
-  isRefundable?: boolean | null;
-  bundle?: string | null;
-  ratePlanCode?: string | null;
-  payNow?: boolean | null;
-  taxesAndFees?: number | null;
-  totalWithTaxes?: number | null;
-  cancelPolicy?: string | null;
-};
-
-type HotelAvailabilityResponse = {
-  sessionId?: string;
-  provider?: string;
-  propertyId?: string | null;
-  currency?: string | null;
-  roomOptions: HotelAvailabilityRoom[];
   error?: string;
   code?: string;
 };
@@ -192,7 +165,6 @@ export default function TournamentVenueMapClient({
   const venuesByIdRef = useRef<Map<string, MapVenue>>(new Map());
   const openVenueNavChooserRef = useRef<((venue: MapVenue, source: "venue_marker") => void) | null>(null);
   const hotelPinMarkersRef = useRef<Map<string, { marker: any }>>(new Map());
-  const hotelAvailabilityRequestIdRef = useRef(0);
   const lodgingSearchInFlightRef = useRef(0);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState<boolean>(false);
@@ -236,19 +208,8 @@ export default function TournamentVenueMapClient({
   const [hotelSearchResolvedCheckIn, setHotelSearchResolvedCheckIn] = useState<string | null>(null);
   const [hotelSearchResolvedCheckOut, setHotelSearchResolvedCheckOut] = useState<string | null>(null);
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
-  const [hotelDateCheckIn, setHotelDateCheckIn] = useState<string>("");
-  const [hotelDateCheckOut, setHotelDateCheckOut] = useState<string>("");
-  const [hotelDateRangeError, setHotelDateRangeError] = useState<string | null>(null);
+  const [hotelHandoffError, setHotelHandoffError] = useState<string | null>(null);
   const [hotelRatingFilter, setHotelRatingFilter] = useState<number>(0);
-  const [hotelAvailabilityLoading, setHotelAvailabilityLoading] = useState(false);
-  const [hotelAvailabilityError, setHotelAvailabilityError] = useState<string | null>(null);
-  const [hotelRoomOptions, setHotelRoomOptions] = useState<HotelAvailabilityRoom[]>([]);
-  const [hotelAvailabilityCurrency, setHotelAvailabilityCurrency] = useState<string | null>(null);
-  const [hotelAvailabilityPropertyId, setHotelAvailabilityPropertyId] = useState<string | null>(null);
-  const [hotelAvailabilitySessionId, setHotelAvailabilitySessionId] = useState<string | null>(null);
-  const [hotelAvailabilityCheckIn, setHotelAvailabilityCheckIn] = useState<string | null>(null);
-  const [hotelAvailabilityCheckOut, setHotelAvailabilityCheckOut] = useState<string | null>(null);
-  const [isHotelAvailabilityCollapsed, setIsHotelAvailabilityCollapsed] = useState(false);
   const [isHotelResultsCollapsed, setIsHotelResultsCollapsed] = useState(true);
   const [hotelPinCap, setHotelPinCap] = useState<number>(10);
   const [mapHotelPinVisibleCount, setMapHotelPinVisibleCount] = useState<number>(0);
@@ -961,21 +922,11 @@ export default function TournamentVenueMapClient({
     setHotelPinsError(null);
     setHotelPinsFallback(null);
     setHotelPins([]);
-    setHotelRoomOptions([]);
-    setHotelAvailabilityError(null);
-    setHotelAvailabilityLoading(false);
+    setHotelHandoffError(null);
     setSelectedHotelId(null);
     setHotelSearchResolvedCheckIn(null);
     setHotelSearchResolvedCheckOut(null);
-    setHotelDateCheckIn("");
-    setHotelDateCheckOut("");
-    setHotelDateRangeError(null);
     setMapHotelPinVisibleCount(0);
-    setHotelAvailabilityPropertyId(null);
-    setHotelAvailabilityCurrency(null);
-    setHotelAvailabilitySessionId(null);
-    setHotelAvailabilityCheckIn(null);
-    setHotelAvailabilityCheckOut(null);
     clearHotelMarkers();
 
     try {
@@ -1038,9 +989,7 @@ export default function TournamentVenueMapClient({
       const checkOut = (res.data.resolvedCheckOut ?? null) as string | null;
       setHotelSearchResolvedCheckIn(checkIn);
       setHotelSearchResolvedCheckOut(checkOut);
-      setHotelDateCheckIn(mmddToDateInput(checkIn));
-      setHotelDateCheckOut(mmddToDateInput(checkOut));
-      setHotelDateRangeError(null);
+      setHotelHandoffError(null);
       setHotelPinsFallback(res.data.fallback ?? null);
 
       const normalized = normalizeHotelPins(res.data.hotels ?? [], checkIn, checkOut);
@@ -1152,6 +1101,11 @@ export default function TournamentVenueMapClient({
       name.textContent = pin.name;
       inner.appendChild(name);
 
+      const rating = document.createElement("span");
+      rating.className = styles.hotelPlaceMarkerPrice;
+      rating.textContent = pin.rating != null ? `${pin.rating.toFixed(1)}★` : "—";
+      inner.appendChild(rating);
+
       const price = document.createElement("span");
       price.className = styles.hotelPlaceMarkerPrice;
       price.textContent = markerPrice;
@@ -1163,7 +1117,7 @@ export default function TournamentVenueMapClient({
       btn.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        const currentDates = getCurrentAvailabilityDates(pin);
+        const currentDates = getCurrentPropertyHandoffDates(pin);
         void trackTiEvent("hotel_pin_click" as Parameters<typeof trackTiEvent>[0], {
           page_type: "venue_map",
           tournament_id: tournament.id,
@@ -1173,19 +1127,8 @@ export default function TournamentVenueMapClient({
           checkout: currentDates?.checkOut ?? null,
         } as never);
         setSelectedHotelId(pin.propertyId);
-        setIsHotelAvailabilityCollapsed(false);
-        if (!currentDates) {
-          setHotelAvailabilityError("Please set a valid check-in and checkout date first.");
-          trackLodgingEvent("hotel_availability_failed", {
-            page_type: "venue_map",
-            tournament_id: tournament.id,
-            venue_id: selectedVenue?.id ?? null,
-            property_id: pin.propertyId,
-            reason: "invalid_date_range",
-          });
-          return;
-        }
-        void fetchHotelAvailability(pin, currentDates);
+        setIsHotelResultsCollapsed(false);
+        openHotelPropertyHandoff(pin, venue.id, "hotel_pin_click");
       });
 
       const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" })
@@ -1207,139 +1150,81 @@ export default function TournamentVenueMapClient({
     }
   };
 
-  const getCurrentAvailabilityDates = (pin: HotelPin) => {
-    const range = parseDateInputToMmdd(hotelDateCheckIn, hotelDateCheckOut);
-    if (range) return range;
-    if (pin.resolvedCheckIn && pin.resolvedCheckOut) {
-      const parsed = parseDateInputToMmdd(mmddToDateInput(pin.resolvedCheckIn), mmddToDateInput(pin.resolvedCheckOut));
-      if (parsed) return parsed;
-    }
-    return null;
+  const getCurrentPropertyHandoffDates = (pin: HotelPin) => {
+    const checkIn = hotelSearchResolvedCheckIn ?? pin.resolvedCheckIn;
+    const checkOut = hotelSearchResolvedCheckOut ?? pin.resolvedCheckOut;
+    if (!checkIn || !checkOut) return null;
+    return { checkIn, checkOut };
   };
 
-  const onHotelDateInputChange = () => {
-    setHotelDateRangeError(null);
+  const formatHotelPlannerPropertyDate = (value: string) => {
+    const match = value.match(/^\s*(\d{2})\/(\d{2})\/(\d{4})\s*$/);
+    if (!match) return null;
+    const [, mm, dd, yyyy] = match;
+    return `${mm}/${dd}/${yyyy.slice(-2)}`;
   };
 
-  const handleApplyHotelDates = () => {
-    if (!selectedHotel) return;
-    const range = getCurrentAvailabilityDates(selectedHotel);
-    if (!range) {
-      setHotelDateRangeError("Please provide a valid check-in and checkout date before requesting room options.");
+  const extractHotelDetailUrl = (pin: HotelPin) => {
+    if (pin.detailUrl) return pin.detailUrl;
+    if (!pin.raw || typeof pin.raw !== "object") return null;
+    const raw = pin.raw as Record<string, unknown>;
+    const detailUrl = raw.detailUrl ?? raw.hotelDetailUrl ?? raw.hotelDetailLink ?? raw.hotelDetailsLink ?? raw.detailsUrl ?? raw.hotelUrl ?? raw.link;
+    return typeof detailUrl === "string" && detailUrl.trim() ? detailUrl.trim() : null;
+  };
+
+  const buildHotelPlannerPropertyUrl = (pin: HotelPin) => {
+    const baseUrl = String(process.env.NEXT_PUBLIC_HOTELPLANNER_WHITE_LABEL_URL ?? "").trim();
+    if (!baseUrl) return null;
+    const dateRange = getCurrentPropertyHandoffDates(pin);
+    if (!dateRange) return null;
+    const inDate = formatHotelPlannerPropertyDate(dateRange.checkIn);
+    const outDate = formatHotelPlannerPropertyDate(dateRange.checkOut);
+    if (!inDate || !outDate) return null;
+
+    const directUrl = extractHotelDetailUrl(pin);
+    const url = directUrl ? new URL(directUrl, baseUrl) : new URL("/Hotel/HotelRoomTypes.htm", baseUrl);
+    url.searchParams.set("hotelId", pin.propertyId);
+    url.searchParams.set("idTypeId", String(pin.hotelIDTypeID ?? 0));
+    url.searchParams.set("inDate", inDate);
+    url.searchParams.set("outDate", outDate);
+    url.searchParams.set("NumRooms", "1");
+    url.searchParams.set("sc", "tournamentinsights");
+    url.searchParams.set("source", "venue_map");
+    url.searchParams.set("kw", "Tournament weekend stay");
+    url.searchParams.set("jobCode", "TI-VENUE-MAP");
+    url.searchParams.set("Custom1", `ven:${selectedVenue?.id ?? hotelVenueId ?? ""}`);
+    url.searchParams.set("Custom2", tournament.slug);
+    url.hash = "content";
+    return {
+      url: url.toString(),
+      checkIn: dateRange.checkIn,
+      checkOut: dateRange.checkOut,
+    };
+  };
+
+  const openHotelPropertyHandoff = (
+    pin: HotelPin,
+    venueId: string | null,
+    sourceEvent: "hotel_pin_click" | "hotel_card_click"
+  ) => {
+    setHotelHandoffError(null);
+    const handoff = buildHotelPlannerPropertyUrl(pin);
+    if (!handoff) {
+      setHotelHandoffError("Hotel details require valid tournament dates before opening HotelPlanner.");
       return;
     }
-    setIsHotelAvailabilityCollapsed(false);
-    void fetchHotelAvailability(selectedHotel, range);
-  };
 
-  const fetchHotelAvailability = async (pin: HotelPin, range?: { checkIn: string; checkOut: string }) => {
-    const normalizedRange = range ?? getCurrentAvailabilityDates(pin);
-    const requestId = ++hotelAvailabilityRequestIdRef.current;
-    setSelectedHotelId(pin.propertyId);
-    setHotelAvailabilityError(null);
-    setHotelRoomOptions([]);
-    setHotelAvailabilityCurrency(null);
-    setHotelAvailabilityPropertyId(pin.propertyId);
-    setHotelAvailabilitySessionId(null);
-    setHotelAvailabilityCheckIn(null);
-    setHotelAvailabilityCheckOut(null);
-    setIsHotelAvailabilityCollapsed(false);
-    setHotelAvailabilityLoading(true);
-
-    if (!normalizedRange) {
-      setHotelAvailabilityError("Please set a valid check-in and checkout date first.");
-      setHotelAvailabilityLoading(false);
-      trackLodgingEvent("hotel_availability_failed", {
-        page_type: "venue_map",
-        tournament_id: tournament.id,
-        venue_id: selectedVenue?.id ?? null,
-        property_id: pin.propertyId,
-        reason: "invalid_date_range",
-      });
-      return;
-    }
-
-    trackLodgingEvent("hotel_availability_requested", {
+    trackLodgingEvent("hotel_checkout_handoff", {
       page_type: "venue_map",
       tournament_id: tournament.id,
-      venue_id: selectedVenue?.id ?? null,
+      venue_id: venueId,
       property_id: pin.propertyId,
-      checkin: normalizedRange.checkIn,
-      checkout: normalizedRange.checkOut,
+      source: sourceEvent,
+      checkin: handoff.checkIn,
+      checkout: handoff.checkOut,
     });
 
-    try {
-      const response = await fetch("/api/lodging/availability", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          propertyId: pin.propertyId,
-          hotelIDTypeID: pin.hotelIDTypeID ?? undefined,
-          checkin: normalizedRange.checkIn,
-          checkout: normalizedRange.checkOut,
-          rooms: 1,
-          adults: 1,
-          roomCount: 1,
-          adultCount: 1,
-          sc: "tournamentinsights",
-        }),
-      });
-      const raw = (await response.json().catch(() => null)) as HotelAvailabilityResponse | null;
-      if (requestId !== hotelAvailabilityRequestIdRef.current) return;
-
-      if (!response.ok) {
-        const message = raw?.error
-          ? String(raw.error)
-          : raw && "providerMessage" in raw
-            ? String(raw.providerMessage)
-            : "Unable to fetch hotel room options.";
-        setHotelAvailabilityError(message);
-        trackLodgingEvent("hotel_availability_failed", {
-          page_type: "venue_map",
-          tournament_id: tournament.id,
-          venue_id: selectedVenue?.id ?? null,
-          property_id: pin.propertyId,
-          code: raw?.code || null,
-          error: message,
-        });
-        return;
-      }
-
-      setHotelAvailabilitySessionId(raw?.sessionId ?? null);
-      setHotelAvailabilityCurrency(raw?.currency ?? null);
-      setHotelAvailabilityCheckIn(normalizedRange.checkIn);
-      setHotelAvailabilityCheckOut(normalizedRange.checkOut);
-      setHotelRoomOptions(raw?.roomOptions ?? []);
-      trackLodgingEvent("hotel_availability_succeeded", {
-        page_type: "venue_map",
-        tournament_id: tournament.id,
-        venue_id: selectedVenue?.id ?? null,
-        property_id: pin.propertyId,
-        room_option_count: raw?.roomOptions?.length ?? 0,
-      });
-      if ((raw?.roomOptions ?? []).length > 0) {
-        trackLodgingEvent("hotel_room_view", {
-          page_type: "venue_map",
-          tournament_id: tournament.id,
-          venue_id: selectedVenue?.id ?? null,
-          property_id: pin.propertyId,
-          room_option_count: raw?.roomOptions?.length ?? 0,
-        });
-      }
-    } catch {
-      if (requestId !== hotelAvailabilityRequestIdRef.current) return;
-      setHotelAvailabilityError("Unable to fetch hotel room options.");
-      trackLodgingEvent("hotel_availability_failed", {
-        page_type: "venue_map",
-        tournament_id: tournament.id,
-        venue_id: selectedVenue?.id ?? null,
-        property_id: pin.propertyId,
-      });
-    } finally {
-      if (requestId === hotelAvailabilityRequestIdRef.current) {
-        setHotelAvailabilityLoading(false);
-      }
-    }
+    window.open(handoff.url, "_blank", "noopener,noreferrer");
   };
 
   useEffect(() => {
@@ -1533,10 +1418,6 @@ export default function TournamentVenueMapClient({
 
   const primaryVenue = venues[0] ?? null;
   const hotelVenueId = selectedVenue?.id ?? primaryVenue?.id ?? null;
-  const selectedHotel = useMemo(
-    () => filteredHotelPins.find((pin) => pin.propertyId === selectedHotelId) ?? null,
-    [filteredHotelPins, selectedHotelId]
-  );
   const orderedHotelPins = useMemo(() => {
     if (!selectedHotelId) return filteredHotelPins;
     const selectedIndex = filteredHotelPins.findIndex((pin) => pin.propertyId === selectedHotelId);
@@ -1545,11 +1426,7 @@ export default function TournamentVenueMapClient({
     return [filteredHotelPins[selectedIndex], ...filteredHotelPins.slice(0, selectedIndex), ...filteredHotelPins.slice(selectedIndex + 1)];
   }, [filteredHotelPins, selectedHotelId]);
   useEffect(() => {
-    if (!selectedHotelId) {
-      setIsHotelAvailabilityCollapsed(false);
-      return;
-    }
-    setIsHotelAvailabilityCollapsed(false);
+    if (!selectedHotelId) return;
     setIsHotelResultsCollapsed(false);
   }, [selectedHotelId]);
   useEffect(() => {
@@ -1559,11 +1436,6 @@ export default function TournamentVenueMapClient({
     if (!selectedHotelId) return;
     if (filteredHotelPins.some((pin) => pin.propertyId === selectedHotelId)) return;
     setSelectedHotelId(null);
-    setHotelAvailabilityPropertyId(null);
-    setHotelAvailabilityCurrency(null);
-    setHotelAvailabilityCheckIn(null);
-    setHotelAvailabilityCheckOut(null);
-    setHotelRoomOptions([]);
   }, [filteredHotelPins, selectedHotelId]);
   const hotelVenueForRedirect =
     selectedVenue ??
@@ -1589,7 +1461,6 @@ export default function TournamentVenueMapClient({
       : hotelFallbackCardVisible
         ? "Limited hotel results available"
         : `Showing ${filteredHotelPins.length} hotel result${filteredHotelPins.length === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`;
-  const hotelSearchDateReady = Boolean(hotelDateCheckIn && hotelDateCheckOut && parseDateInputToMmdd(hotelDateCheckIn, hotelDateCheckOut));
 
   const buildNavProviderHrefsForLatLng = (lat: number, lng: number) => ({
     google: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lng}`)}`,
@@ -1714,132 +1585,10 @@ export default function TournamentVenueMapClient({
     return `${miles.toFixed(miles >= 10 ? 0 : 1)} mi`;
   };
 
-  function mmddToDateInput(value: string | null) {
-    if (typeof value !== "string") return "";
-    const match = value.match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/);
-    if (!match) return "";
-    const [, mm, dd, yyyy] = match;
-    const normalizedMm = mm.padStart(2, "0");
-    const normalizedDd = dd.padStart(2, "0");
-    const year = Number(yyyy);
-    const month = Number(normalizedMm);
-    const day = Number(normalizedDd);
-    if (!year || !Number.isFinite(year) || month < 1 || month > 12 || day < 1 || day > 31) return "";
-    const iso = `${yyyy}-${normalizedMm}-${normalizedDd}`;
-    const parsed = new Date(`${iso}T00:00:00`);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return iso;
-  }
-
-  function parseDateInputToMmdd(checkIn: string, checkOut: string): { checkIn: string; checkOut: string } | null {
-    const parseDate = (raw: string) => {
-      if (!raw) return null;
-      const normalized = raw.trim();
-      const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (!match) return null;
-      const [, yyyy, mm, dd] = match;
-      const month = Number(mm);
-      const day = Number(dd);
-      const year = Number(yyyy);
-      if (!year || !Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day) || month < 1 || month > 12 || day < 1 || day > 31) {
-        return null;
-      }
-      const asDate = new Date(`${normalized}T00:00:00`);
-      if (Number.isNaN(asDate.getTime())) return null;
-      if (asDate.getFullYear() !== year || asDate.getMonth() + 1 !== month || asDate.getDate() !== day) return null;
-      return `${mm.padStart(2, "0")}/${dd.padStart(2, "0")}/${yyyy}`;
-    };
-    const parsedCheckIn = parseDate(checkIn);
-    const parsedCheckOut = parseDate(checkOut);
-    if (!parsedCheckIn || !parsedCheckOut) return null;
-    const checkInDate = new Date(`${parsedCheckIn.slice(6, 10)}-${parsedCheckIn.slice(0, 2)}-${parsedCheckIn.slice(3, 5)}T00:00:00`);
-    const checkOutDate = new Date(`${parsedCheckOut.slice(6, 10)}-${parsedCheckOut.slice(0, 2)}-${parsedCheckOut.slice(3, 5)}T00:00:00`);
-    if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime())) return null;
-    if (checkOutDate.getTime() <= checkInDate.getTime()) return null;
-    return { checkIn: parsedCheckIn, checkOut: parsedCheckOut };
-  }
-
   const formatCurrency = (value: number | null | undefined, currency = "USD") => {
     if (typeof value !== "number" || !Number.isFinite(value)) return null;
     return `${currency} ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   };
-
-  const buildRoomSecondaryLabel = (room: HotelAvailabilityRoom) => {
-    const parts = [room.ratePlanName, room.mealPlanName].filter(Boolean);
-    if (parts.length > 0) return parts.join(" • ");
-    if (room.roomDescription) return room.roomDescription;
-    return null;
-  };
-
-  const displayedHotelRoomOptions = useMemo(() => {
-    if (hotelRoomOptions.length <= 2) return hotelRoomOptions;
-
-    const grouped = new Map<
-      string,
-      {
-        order: number;
-        cheapest: HotelAvailabilityRoom;
-        refundable: HotelAvailabilityRoom | null;
-      }
-    >();
-
-    hotelRoomOptions.forEach((room, index) => {
-      const key = room.roomTypeCode || room.roomName;
-      const existing = grouped.get(key);
-      if (!existing) {
-        grouped.set(key, {
-          order: index,
-          cheapest: room,
-          refundable: room.isRefundable ? room : null,
-        });
-        return;
-      }
-
-      const existingCheapestValue = existing.cheapest.totalWithTaxes ?? existing.cheapest.rate;
-      const candidateValue = room.totalWithTaxes ?? room.rate;
-      if (candidateValue < existingCheapestValue) {
-        existing.cheapest = room;
-      }
-
-      if (room.isRefundable) {
-        if (!existing.refundable) {
-          existing.refundable = room;
-        } else {
-          const existingRefundableValue = existing.refundable.totalWithTaxes ?? existing.refundable.rate;
-          if (candidateValue < existingRefundableValue) {
-            existing.refundable = room;
-          }
-        }
-      }
-    });
-
-    return Array.from(grouped.values())
-      .sort((a, b) => a.order - b.order)
-      .flatMap(({ cheapest, refundable }) => {
-        if (!refundable) return [cheapest];
-        const cheapestKey = `${cheapest.roomTypeCode}|${cheapest.ratePlanCode ?? ""}|${cheapest.totalWithTaxes ?? cheapest.rate}`;
-        const refundableKey = `${refundable.roomTypeCode}|${refundable.ratePlanCode ?? ""}|${refundable.totalWithTaxes ?? refundable.rate}`;
-        return cheapestKey === refundableKey ? [cheapest] : [cheapest, refundable];
-      });
-  }, [hotelRoomOptions]);
-
-  const displayedHotelRoomChoices = useMemo(
-    () =>
-      displayedHotelRoomOptions.map((room) => {
-        const groupedMatches = hotelRoomOptions.filter((option) => option.roomTypeCode === room.roomTypeCode);
-        if (groupedMatches.length <= 1) {
-          return { room, badge: null as string | null };
-        }
-
-        const cheapestValue = Math.min(...groupedMatches.map((option) => option.totalWithTaxes ?? option.rate));
-        const roomValue = room.totalWithTaxes ?? room.rate;
-        if (room.isRefundable && roomValue > cheapestValue) {
-          return { room, badge: "Refundable" };
-        }
-        return { room, badge: "Best price" };
-      }),
-    [displayedHotelRoomOptions, hotelRoomOptions]
-  );
 
   const getPinAddress = (pin: HotelPin) => {
     return [pin.addressLine1, pin.city, pin.state].filter(Boolean).join(", ") || null;
@@ -1874,7 +1623,8 @@ export default function TournamentVenueMapClient({
       longitude: Number.isFinite(lng) ? lng : null,
       hotelIDTypeID: typeof property.hotelIDTypeID === "number" && Number.isFinite(property.hotelIDTypeID) && property.hotelIDTypeID >= 0
         ? property.hotelIDTypeID
-        : null,
+        : 0,
+      detailUrl: property.detailUrl == null ? null : String(property.detailUrl),
       resolvedCheckIn: fallback.checkIn,
       resolvedCheckOut: fallback.checkOut,
       raw: property.raw,
@@ -2794,227 +2544,8 @@ export default function TournamentVenueMapClient({
                             <option value={5}>5 stars</option>
                           </select>
                         </div>
-
-                        <div className={styles.hotelDateRow}>
-                          <div className={styles.hotelDateField}>
-                            <label className={styles.hotelFilterLabel} htmlFor="hotel-search-checkin">
-                              Check-in
-                            </label>
-                            <input
-                              id="hotel-search-checkin"
-                              className={styles.hotelDateInput}
-                              type="date"
-                              value={hotelDateCheckIn}
-                              onChange={(event) => {
-                                setHotelDateCheckIn(event.target.value);
-                                onHotelDateInputChange();
-                              }}
-                            />
-                          </div>
-                          <div className={styles.hotelDateField}>
-                            <label className={styles.hotelFilterLabel} htmlFor="hotel-search-checkout">
-                              Check-out
-                            </label>
-                            <input
-                              id="hotel-search-checkout"
-                              className={styles.hotelDateInput}
-                              type="date"
-                              value={hotelDateCheckOut}
-                              onChange={(event) => {
-                                setHotelDateCheckOut(event.target.value);
-                                onHotelDateInputChange();
-                              }}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            className={styles.hotelDateApply}
-                            onClick={handleApplyHotelDates}
-                            disabled={!selectedHotel}
-                          >
-                            Update dates
-                          </button>
-                        </div>
-                        {hotelDateRangeError ? <div className={styles.lodgingError}>{hotelDateRangeError}</div> : null}
                         <div className={styles.lodgingMeta}>{hotelPanelSummary}</div>
-                        <div
-                          className={`${styles.hotelAvailabilityPanel} ${
-                            hotelAvailabilityLoading ? styles.hotelAvailabilityPanelLoading : ""
-                          }`}
-                        >
-                          {selectedHotel ? (
-                            <>
-                              <button
-                                type="button"
-                                className={`${styles.hotelAvailabilityHeaderButton} ${
-                                  hotelAvailabilityLoading ? styles.hotelAvailabilityHeaderButtonLoading : ""
-                                }`}
-                                onClick={() => {
-                                  setIsHotelAvailabilityCollapsed((collapsed) => !collapsed);
-                                }}
-                                aria-expanded={!isHotelAvailabilityCollapsed}
-                              >
-                                <div className={styles.hotelAvailabilityHeader}>
-                                  <div>{selectedHotel.name}</div>
-                                  <div className={styles.hotelAvailabilitySummary}>
-                                    {getPinAddress(selectedHotel) || "Address on file"} •{" "}
-                                    {formatCurrency(selectedHotel.fromPrice, selectedHotel.currency || "USD") || "Price on request"}
-                                  </div>
-                                </div>
-                                <span
-                                  className={`${styles.hotelAvailabilityToggleIcon} ${
-                                    isHotelAvailabilityCollapsed ? styles.hotelAvailabilityToggleIconCollapsed : ""
-                                  }`}
-                                  aria-hidden="true"
-                                >
-                                  ▾
-                                </span>
-                              </button>
-
-                              {!isHotelAvailabilityCollapsed ? (
-                                <div className={styles.hotelAvailabilityBody}>
-                                  {hotelAvailabilityLoading ? (
-                                    <div className={`${styles.lodgingNotice} ${styles.hotelAvailabilityLoadingNotice}`}>
-                                      Loading room options...
-                                    </div>
-                                  ) : null}
-                                  {hotelSearchDateReady ? null : (
-                                    <div className={styles.lodgingFallback}>
-                                      <div className={styles.lodgingFallbackReason}>
-                                        Enter check-in and check-out dates, then click Update dates.
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {hotelAvailabilityError ? <div className={styles.lodgingError}>{hotelAvailabilityError}</div> : null}
-                                  {hotelAvailabilityError ? (
-                                    <a
-                                      className={styles.affiliateCta}
-                                      href={buildVenueHotelsHref({
-                                        venue: hotelVenueForRedirect,
-                                        tournamentId: tournament.id,
-                                      })}
-                                      target="_blank"
-                                      rel="noopener noreferrer sponsored"
-                                      onClick={() => {
-                                        void trackLodgingEvent("hotel_checkout_handoff", {
-                                          page_type: "venue_map",
-                                          tournament_id: tournament.id,
-                                          venue_id: selectedVenue?.id ?? null,
-                                          property_id: selectedHotelId,
-                                          reason: "availability_error_fallback",
-                                        });
-                                      }}
-                                    >
-                                      Open full HotelPlanner hotel results
-                                    </a>
-                                  ) : null}
-
-                                  {!hotelAvailabilityLoading && !hotelAvailabilityError && hotelRoomOptions.length > 0 && (
-                                    <div className={styles.hotelRoomList}>
-                                      <div className={styles.hotelRoomListTitle}>
-                                        {displayedHotelRoomOptions.length} room choice{displayedHotelRoomOptions.length === 1 ? "" : "s"}
-                                      </div>
-                                      {displayedHotelRoomOptions.length !== hotelRoomOptions.length ? (
-                                        <div className={styles.hotelRoomListSummary}>
-                                          {`Showing best rates from ${hotelRoomOptions.length} returned options`}
-                                        </div>
-                                      ) : null}
-                                      {displayedHotelRoomChoices.map(({ room, badge }, roomIndex) => (
-                                        <div
-                                          key={`${room.roomTypeCode}-${room.roomName}-${room.rate ?? 0}-${roomIndex}`}
-                                          className={styles.hotelRoomRow}
-                                        >
-                                          <div className={styles.hotelRoomDetails}>
-                                            <div className={styles.hotelRoomNameRow}>
-                                              <div className={styles.hotelRoomName}>{room.roomName}</div>
-                                              {badge ? <div className={styles.hotelRoomBadge}>{badge}</div> : null}
-                                            </div>
-                                            {buildRoomSecondaryLabel(room) ? (
-                                              <div className={styles.hotelRoomType}>{buildRoomSecondaryLabel(room)}</div>
-                                            ) : null}
-                                            <div className={styles.hotelRoomPolicy}>{room.cancelPolicy || ""}</div>
-                                          </div>
-                                          {room.bundle && selectedVenue?.id && hotelAvailabilityCheckIn && hotelAvailabilityCheckOut ? (
-                                            <form
-                                              className={styles.hotelRoomCheckoutForm}
-                                              method="post"
-                                              action="/go/hotels/checkout"
-                                              target="_blank"
-                                              onSubmit={() => {
-                                                trackLodgingEvent("hotel_checkout_handoff", {
-                                                  page_type: "venue_map",
-                                                  tournament_id: tournament.id,
-                                                  venue_id: selectedVenue.id,
-                                                  property_id: hotelAvailabilityPropertyId ?? selectedHotelId,
-                                                  room_type_code: room.roomTypeCode,
-                                                  rate_plan_code: room.ratePlanCode ?? null,
-                                                  checkin: hotelAvailabilityCheckIn,
-                                                  checkout: hotelAvailabilityCheckOut,
-                                                });
-                                              }}
-                                            >
-                                              <input type="hidden" name="bundle" value={room.bundle} />
-                                              <input type="hidden" name="venueId" value={selectedVenue.id} />
-                                              <input type="hidden" name="tournamentId" value={tournament.id} />
-                                              <input
-                                                type="hidden"
-                                                name="propertyId"
-                                                value={hotelAvailabilityPropertyId ?? selectedHotelId ?? ""}
-                                              />
-                                              <input type="hidden" name="roomTypeCode" value={room.roomTypeCode} />
-                                              <input type="hidden" name="ratePlanCode" value={room.ratePlanCode ?? ""} />
-                                              <input type="hidden" name="checkin" value={hotelAvailabilityCheckIn} />
-                                              <input type="hidden" name="checkout" value={hotelAvailabilityCheckOut} />
-                                              <input type="hidden" name="source" value="venue_map" />
-                                              <button type="submit" className={styles.hotelRoomRateButton}>
-                                                <span>{formatCurrency(room.totalWithTaxes ?? room.rate, hotelAvailabilityCurrency || "USD")}</span>
-                                                {room.nightlyRate != null ? (
-                                                  <span className={styles.hotelRoomRateSub}>
-                                                    {`${formatCurrency(room.nightlyRate, room.currency || hotelAvailabilityCurrency || "USD")} / night`}
-                                                  </span>
-                                                ) : null}
-                                              </button>
-                                            </form>
-                                          ) : (
-                                            <div className={styles.hotelRoomRate}>
-                                              <span>{formatCurrency(room.totalWithTaxes ?? room.rate, hotelAvailabilityCurrency || "USD")}</span>
-                                              {room.nightlyRate != null ? (
-                                                <span className={styles.hotelRoomRateSub}>
-                                                  {`${formatCurrency(room.nightlyRate, room.currency || hotelAvailabilityCurrency || "USD")} / night`}
-                                                </span>
-                                              ) : null}
-                                            </div>
-                                          )}
-                                        </div>
-                                      ))}
-                                      <a
-                                        className={`${styles.affiliateCta} ${styles.hotelHandoffCta}`}
-                                        href={buildVenueHotelsHref({
-                                          venue: hotelVenueForRedirect,
-                                          tournamentId: tournament.id,
-                                        })}
-                                        target="_blank"
-                                        rel="noopener noreferrer sponsored"
-                                      >
-                                        View full booking options
-                                      </a>
-                                    </div>
-                                  )}
-
-                                  {hotelAvailabilitySessionId &&
-                                  !hotelAvailabilityLoading &&
-                                  hotelRoomOptions.length === 0 &&
-                                  !hotelAvailabilityError ? (
-                                    <div className={styles.lodgingNotice}>No room options were returned for this selection.</div>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                            </>
-                          ) : (
-                            <div className={styles.lodgingNotice}>Select a hotel card to load room availability.</div>
-                          )}
-                        </div>
+                        {hotelHandoffError ? <div className={styles.lodgingError}>{hotelHandoffError}</div> : null}
 
                         <div className={styles.hotelList}>
                           {orderedHotelPins.map((pin) => (
@@ -3023,22 +2554,18 @@ export default function TournamentVenueMapClient({
                               type="button"
                               className={`${styles.hotelCard} ${selectedHotelId === pin.propertyId ? styles.hotelCardSelected : ""}`}
                               onClick={() => {
-                                const currentDates = getCurrentAvailabilityDates(pin);
                                 setSelectedHotelId(pin.propertyId);
-                                setIsHotelAvailabilityCollapsed(false);
-                                if (!currentDates) {
-                                  setHotelAvailabilityError("Please set a valid check-in and checkout date first.");
-                                  return;
-                                }
+                                setIsHotelResultsCollapsed(false);
+                                const currentDates = getCurrentPropertyHandoffDates(pin);
                                 trackLodgingEvent("hotel_card_click", {
                                   page_type: "venue_map",
                                   tournament_id: tournament.id,
                                   venue_id: selectedVenue?.id ?? null,
                                   property_id: pin.propertyId,
-                                  checkin: currentDates.checkIn,
-                                  checkout: currentDates.checkOut,
+                                  checkin: currentDates?.checkIn ?? null,
+                                  checkout: currentDates?.checkOut ?? null,
                                 });
-                                void fetchHotelAvailability(pin, currentDates);
+                                openHotelPropertyHandoff(pin, selectedVenue?.id ?? null, "hotel_card_click");
                               }}
                             >
                               <div className={styles.hotelCardTitle}>{pin.name}</div>
@@ -3056,7 +2583,7 @@ export default function TournamentVenueMapClient({
                                 <span>{formatCurrency(pin.fromPrice, pin.currency || "USD") || "Price on request"}</span>
                               </div>
                               <div className={styles.hotelCardMeta}>
-                                {pin.latitude == null || pin.longitude == null ? "No map coordinates" : "Tap to view room options"}
+                                {pin.latitude == null || pin.longitude == null ? "No map coordinates" : "Open HotelPlanner property page"}
                               </div>
                             </button>
                           ))}

@@ -303,6 +303,7 @@ test("searchHotels accepts HotelPlanner payload without success/code when hotels
     assert.equal(result.hotels.length, 2);
     assert.equal(result.hotels[0].id, "6248821");
     assert.equal(result.hotels[0].name, "Tru by Hilton Spokane Valley WA");
+    assert.equal(result.hotels[0].hotelIDTypeID, 0);
   } finally {
     global.fetch = originalFetch;
   }

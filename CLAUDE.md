@@ -398,37 +398,28 @@ Run after Step 3 implementation is deployed to local server.
 3) Verify marker behavior:
    - desktop map shows at most 10 hotel markers (list may show more cards),
    - mobile map shows at most 6 markers,
-   - hotels without latitude/longitude appear in list but are not pinned.
+   - hotels without latitude/longitude appear in list but are not pinned,
+   - map marker label shows hotel name + rating + from-price.
 4) Verify selected marker and filters:
    - clicking a hotel marker highlights that marker and selected hotel card,
    - rating filter updates visible card list and pinned markers.
-5) Verify date controls:
-   - check-in/check-out populate from search result when available,
-   - date inputs allow overrides and clicking Update dates re-fires availability on the selected hotel,
-   - invalid ranges block availability and show a clear error.
+5) Verify left-side list behavior:
+   - each hotel row shows hotel name + rating + from-price,
+   - clicking a hotel row opens a new tab to the HotelPlanner white-label property page,
+   - no room-option panel appears in TI.
 6) Verify fallback paths:
    - no hotel / `showBookingFallback` / `showVrboFallback` shows fallback panel with HotelPlanner + VRBO CTAs,
    - `no_venue_coordinates` or `no_dates` includes handoff fallback CTA,
    - `/api/lodging/search` `429` does not block venue switching/map interaction.
-7) Click one hotel card or marker:
-   - availability request fires once for selected card/marker,
-   - room/rate options render when available,
-   - `hotel_room_view` appears only when options render,
-   - stale/rapid clicks do not render stale room results.
-   - clicking a room-rate CTA opens a new tab via `/go/hotels/checkout` and continues to HotelPlanner checkout
-8) Verify no-date behavior:
-   - if check-in/check-out is not set, availability is blocked with a validation message,
-   - once valid dates are set, availability can be requested (manual date overrides supported).
-9) Check events in Network/analytics:
+7) Click one hotel card and one hotel marker:
+   - a new tab opens to the HP white-label property page route `/Hotel/HotelRoomTypes.htm`,
+   - URL includes `hotelId`, `idTypeId`, `inDate`, `outDate`, `NumRooms`, `sc`, `source`, `kw`, `jobCode`, `Custom1`, `Custom2`,
+   - URL ends with `#content`,
+   - TI left panel does not switch into room options / availability mode.
+8) Check events in Network/analytics:
    - confirm single batched `hotel_pin_impression` event per map render batch with `count`,
-   - confirm `hotel_pin_click`, `hotel_card_click`, `hotel_availability_requested/succeeded/failed`, and `hotel_room_view` payloads include venue/tournament context.
-
-10) Validate room-level handoff correctness:
-   - hotel room handoff action opens `/go/hotels/checkout` in a new tab,
-   - the TI relay returns an auto-submitting HTML form POST,
-   - final destination is HotelPlanner white-label checkout `/Accept/CheckOut.htm`,
-   - no TI payment route is used for booking in this step,
-   - after room options are loaded, changing date inputs without clicking `Update dates` does not change the room checkout payload for those already-loaded options.
+   - confirm `hotel_pin_click`, `hotel_card_click`, and `hotel_checkout_handoff` payloads include venue/tournament/property context,
+   - confirm no `/api/lodging/availability` request fires from hotel marker/list clicks.
 
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 2)
 
@@ -493,7 +484,8 @@ Latest Step 2 API run (local `localhost:3001`) result:
   - `HOTELPLANNER_SITE_ID`
   - `HOTELPLANNER_BASE_URL` (optional default: `https://api.hotelplanner.com/hpapi/v2.3/`)
   - `HOTELPLANNER_WHITE_LABEL_BASE_URL`
-- These should be server-only env vars (no `NEXT_PUBLIC_*` variants).
+  - `NEXT_PUBLIC_HOTELPLANNER_WHITE_LABEL_URL` (same value as `HOTELPLANNER_WHITE_LABEL_BASE_URL`)
+- Only `NEXT_PUBLIC_HOTELPLANNER_WHITE_LABEL_URL` is public. All other HotelPlanner env vars remain server-only.
 
 ### Stage 3 TI Lodging Provider Integration UAT Checklist
 

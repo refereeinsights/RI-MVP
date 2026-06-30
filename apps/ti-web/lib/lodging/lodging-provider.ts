@@ -143,6 +143,7 @@ export type SearchHotelProperty = {
   currency?: string | null;
   fromPrice?: number | null;
   hotelIDTypeID?: number | null;
+  detailUrl?: string | null;
   raw?: unknown;
 };
 

@@ -1970,3 +1970,16 @@ Maintenance rules:
   - Migration: `supabase/migrations/20260517_backfill_confirmed_free_to_insider.sql` — promotes all confirmed free/null-plan accounts to plan='insider' (~45 rows).
   - App fix: `apps/ti-web/lib/tiUserProfileServer.ts` — `syncTiUserProfileFromAuthUser` (called at email confirmation) now promotes plan='free'/null to 'insider' in the UPDATE path so future confirmations of legacy free accounts are handled automatically.
   - No entitlement behavior change; no schema change. Daily email "Insider" count now reflects actual confirmed user base.
+- 2026-06-30: TI venue-map lodging flow simplified to property-page handoff.
+  - Files:
+    - `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`
+    - `apps/ti-web/lib/lodging/lodging-provider.ts`
+    - `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`
+    - `CLAUDE.md`
+  - Changes:
+    - Removed map click dependency on `/api/lodging/availability` and room-option rendering inside the TI venue-map panel.
+    - Hotel marker and left-panel hotel clicks now open HotelPlanner white-label property pages directly in a new tab using `/Hotel/HotelRoomTypes.htm`.
+    - Property handoff URL now carries TI tracking params (`sc`, `source`, `kw`, `jobCode`, `Custom1`, `Custom2`) and ends with `#content`.
+    - Reused `/api/lodging/search` resolved dates for handoff and converted them from `MM/DD/YYYY` to `MM/DD/YY` for HP property URLs.
+    - Hotel markers now show name + rating + from-price; hotel list rows remain highlightable without expanding into room state.
+    - Search normalization now preserves `detailUrl` when available and defaults `hotelIDTypeID` to `0` when missing.
