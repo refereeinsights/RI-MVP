@@ -13,6 +13,16 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-06-30
+
+- TI HotelPlanner venue-map stale tournament date fix:
+  - Updated `apps/ti-web/app/api/lodging/search/route.ts` so tournament-inferred hotel search windows no longer send stale start dates to HotelPlanner on in-progress or past tournaments.
+  - Search-window policy now matches the existing `/go/hotels` handoff behavior more closely:
+    - upcoming tournaments use `start_date` → `end_date + 1 day`,
+    - in-progress tournaments use `today` as check-in with a short bounded checkout window,
+    - fully past tournaments return the existing fallback/no-dates path instead of hitting HP with a past check-in.
+  - This fixes venue-map `Provider failure` responses caused by HP `422 checkIn must not be in the past` errors on long-running or stale tournament records.
+
 ## 2026-06-11
 
 - TI tournament card pre-hydration dead-tap fix on directory/state hub pages:

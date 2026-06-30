@@ -123,6 +123,15 @@ function addDays(value: Date, days: number) {
   return date;
 }
 
+function startOfTodayUtc() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+function diffUtcDays(start: Date, end: Date) {
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000);
+}
+
 function asTrackingString(body: SearchRequestBody, keys: Array<keyof SearchRequestBody>): string | null {
   for (const key of keys) {
     const text = toText(body[key]);
@@ -305,16 +314,47 @@ function resolveSearchWindow(body: SearchRequestBody, tournamentDates: { startDa
     const start = parseIsoDate(tournamentDates.startDate);
     const end = parseIsoDate(tournamentDates.endDate);
     if (start && end && end >= start) {
-      const checkin = start;
-      const checkOut = addDays(end, 1);
-      if (checkOut > checkin) {
+      const today = startOfTodayUtc();
+      const isUpcoming = start >= today;
+      const isInProgress = start < today && end >= today;
+
+      if (isUpcoming) {
+        const checkin = start;
+        const checkOut = addDays(end, 1);
+        if (checkOut > checkin) {
+          return {
+            source: "tournament" as const,
+            window: {
+              checkIn: formatDateToMmDdYyyy(checkin),
+              checkOut: formatDateToMmDdYyyy(checkOut),
+            },
+            reason: null as null | FallbackReason,
+          };
+        }
+      }
+
+      if (isInProgress) {
+        const checkin = today;
+        const endPlusOne = addDays(end, 1);
+        const maxShortStayCheckout = addDays(checkin, 3);
+        const checkOut = endPlusOne <= maxShortStayCheckout ? endPlusOne : maxShortStayCheckout;
+        if (checkOut > checkin && diffUtcDays(checkin, checkOut) > 0) {
+          return {
+            source: "tournament" as const,
+            window: {
+              checkIn: formatDateToMmDdYyyy(checkin),
+              checkOut: formatDateToMmDdYyyy(checkOut),
+            },
+            reason: null as null | FallbackReason,
+          };
+        }
+      }
+
+      if (end < today) {
         return {
           source: "tournament" as const,
-          window: {
-            checkIn: formatDateToMmDdYyyy(checkin),
-            checkOut: formatDateToMmDdYyyy(checkOut),
-          },
-          reason: null as null | FallbackReason,
+          window: null,
+          reason: "no_dates" as FallbackReason,
         };
       }
     }
