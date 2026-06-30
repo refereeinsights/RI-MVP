@@ -999,6 +999,12 @@
   white-space: nowrap;
 }
 
+.hotelRoomListSummary {
+  font-size: 11px;
+  opacity: 0.78;
+  line-height: 1.25;
+}
+
 .hotelRoomRow {
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 10px;
@@ -1024,12 +1030,31 @@
   gap: 2px;
 }
 
+.hotelRoomNameRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .hotelRoomName {
   font-size: 12px;
   font-weight: 900;
   line-height: 1.2;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.hotelRoomBadge {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dbeafe;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 .hotelRoomType,
@@ -1042,8 +1067,9 @@
 }
 
 .hotelRoomRate {
+  display: grid;
+  gap: 2px;
   font-weight: 900;
-  white-space: nowrap;
   font-size: 12px;
   text-align: right;
   align-self: start;
@@ -1060,10 +1086,12 @@
   background: rgba(37, 99, 235, 0.2);
   color: #fff;
   padding: 6px 10px;
+  display: grid;
+  gap: 2px;
   font-weight: 900;
   font-size: 12px;
-  line-height: 1;
-  white-space: nowrap;
+  line-height: 1.1;
+  text-align: right;
   cursor: pointer;
 }
 
@@ -1072,6 +1100,13 @@
   outline: none;
   background: rgba(37, 99, 235, 0.3);
   border-color: rgba(147, 197, 253, 0.75);
+}
+
+.hotelRoomRateSub {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.82;
+  white-space: nowrap;
 }
 
 .hotelHandoffCta {

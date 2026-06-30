@@ -118,6 +118,25 @@ function pickText(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function looksHumanReadableRoomText(value: string | null): boolean {
+  const raw = String(value ?? "").trim();
+  if (!raw) return false;
+  if (raw.length < 4) return false;
+  if (/\s/.test(raw)) return true;
+  if (!/^[A-Za-z0-9._-]+$/.test(raw)) return true;
+  if (raw.length > 24) return false;
+  if (/^[A-Za-z0-9_-]{20,}$/.test(raw)) return false;
+  return /[A-Za-z]/.test(raw) && /\d/.test(raw) ? false : true;
+}
+
+function pickHumanReadableRoomText(...values: unknown[]): string | null {
+  for (const value of values) {
+    const text = pickText(value);
+    if (looksHumanReadableRoomText(text)) return text;
+  }
+  return null;
+}
+
 function parseHotelIDTypeID(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
@@ -332,6 +351,12 @@ function normalizeHotelAvailability(payload: unknown, propertyId: string): Hotel
   const roomTypes = typeof root.roomTypes === "object" && root.roomTypes !== null && !Array.isArray(root.roomTypes)
     ? (root.roomTypes as Record<string, unknown>)
     : null;
+  const ratePlans = typeof root.ratePlans === "object" && root.ratePlans !== null && !Array.isArray(root.ratePlans)
+    ? (root.ratePlans as Record<string, unknown>)
+    : null;
+  const mealPlans = typeof root.mealPlans === "object" && root.mealPlans !== null && !Array.isArray(root.mealPlans)
+    ? (root.mealPlans as Record<string, unknown>)
+    : null;
   const availabilityRows = Array.isArray(root.availabilities) ? (root.availabilities as unknown[]) : [];
   const roomRows = availabilityRows.flatMap((row) => {
     if (!row || typeof row !== "object") return [];
@@ -346,22 +371,45 @@ function normalizeHotelAvailability(payload: unknown, propertyId: string): Hotel
   const roomOptions = roomRows.reduce((acc: HotelRateOption[], row) => {
       const item = (row ?? {}) as Record<string, unknown>;
       const roomTypeCode = pickText(item.roomTypeCode ?? item.roomCode ?? item.code);
-      const roomTypeNameFallback = pickText(item.roomType ?? item.name ?? item.description);
+      const roomTypeNameFallback = pickHumanReadableRoomText(item.roomType, item.name, item.description);
+      const ratePlanCode = pickText(item.ratePlanCode);
+      const mealPlanCode = pickText(item.mealPlanCode);
+      const roomTypeRecord = roomTypeCode && roomTypes
+        ? (
+            roomTypes[roomTypeCode] ??
+            roomTypes[String(Number(roomTypeCode))]
+          )
+        : null;
       const roomName = (() => {
+        const roomTypeLookupName =
+          roomTypeRecord && typeof roomTypeRecord === "object"
+            ? pickHumanReadableRoomText((roomTypeRecord as Record<string, unknown>).name)
+            : null;
+        if (roomTypeLookupName) return roomTypeLookupName;
         if (roomTypeNameFallback) return roomTypeNameFallback;
-        if (roomTypeCode && roomTypes) {
-          const roomTypeRecord = roomTypes[roomTypeCode];
-          if (roomTypeRecord && typeof roomTypeRecord === "object") {
-            const named = pickText((roomTypeRecord as Record<string, unknown>).name);
-            if (named) return named;
-          }
-          const roomTypeRecordByCode = roomTypes[String(Number(roomTypeCode))];
-          if (roomTypeRecordByCode && typeof roomTypeRecordByCode === "object") {
-            const named = pickText((roomTypeRecordByCode as Record<string, unknown>).name);
-            if (named) return named;
-          }
-        }
-        return roomTypeCode ? `Room ${roomTypeCode}` : null;
+        return "Standard room";
+      })();
+      const roomDescription = (() => {
+        if (!roomTypeRecord || typeof roomTypeRecord !== "object") return null;
+        return pickText((roomTypeRecord as Record<string, unknown>).description);
+      })();
+      const ratePlanName = (() => {
+        if (!ratePlanCode || !ratePlans) return null;
+        const ratePlanRecord = ratePlans[ratePlanCode];
+        if (!ratePlanRecord || typeof ratePlanRecord !== "object") return null;
+        return (
+          pickText((ratePlanRecord as Record<string, unknown>).name) ??
+          pickText((ratePlanRecord as Record<string, unknown>).description)
+        );
+      })();
+      const mealPlanName = (() => {
+        if (!mealPlanCode || !mealPlans) return null;
+        const mealPlanRecord = mealPlans[mealPlanCode];
+        if (!mealPlanRecord || typeof mealPlanRecord !== "object") return null;
+        return (
+          pickText((mealPlanRecord as Record<string, unknown>).name) ??
+          pickText((mealPlanRecord as Record<string, unknown>).description)
+        );
       })();
       const rate = pickNumber(item.rate ?? item.totalRate ?? item.price)
         ?? pickNumber(item.totalAfterTax ?? item.totalBeforeTax ?? item.averageAfterTax ?? item.averageBeforeTax)
@@ -378,7 +426,21 @@ function normalizeHotelAvailability(payload: unknown, propertyId: string): Hotel
           const firstRate = rates[0] as Record<string, unknown>;
           return pickNumber(firstRate.amountAfterTax) ?? null;
         })();
+      const nightlyRate = pickNumber(item.averageAfterTax ?? item.averageBeforeTax)
+        ?? (() => {
+          const rates = Array.isArray(item.rates) ? item.rates : null;
+          if (!rates || rates.length === 0) return null;
+          const firstRate = rates[0] as Record<string, unknown>;
+          return pickNumber(firstRate.amountAfterTax) ?? pickNumber(firstRate.amountBeforeTax);
+        })();
       const cancelPolicyRaw = item.cancelPolicy;
+      const isRefundable = typeof cancelPolicyRaw === "object" && cancelPolicyRaw !== null
+        ? typeof (cancelPolicyRaw as Record<string, unknown>).freeCancellation === "boolean"
+          ? Boolean((cancelPolicyRaw as Record<string, unknown>).freeCancellation)
+          : typeof (cancelPolicyRaw as Record<string, unknown>).nonRefundable === "boolean"
+            ? !Boolean((cancelPolicyRaw as Record<string, unknown>).nonRefundable)
+            : null
+        : null;
       const cancelPolicy = typeof cancelPolicyRaw === "string"
         ? cancelPolicyRaw
         : cancelPolicyRaw && typeof cancelPolicyRaw === "object"
@@ -396,14 +458,19 @@ function normalizeHotelAvailability(payload: unknown, propertyId: string): Hotel
           if (totalBefore === null || totalAfter === null) return null;
           return totalAfter - totalBefore;
         })();
-      if (!roomTypeCode || !roomName || rate === null) return acc;
+      if (!roomTypeCode || rate === null) return acc;
       acc.push({
         roomTypeCode,
         roomName,
         rate,
         currency: pickText(item.currency) ?? "USD",
+        roomDescription,
+        ratePlanName,
+        mealPlanName,
+        nightlyRate,
+        isRefundable,
         bundle: pickText(item.bundle),
-        ratePlanCode: pickText(item.ratePlanCode),
+        ratePlanCode,
         payNow: typeof item.payNow === "boolean" ? item.payNow : null,
         taxesAndFees,
         totalWithTaxes: rawRate,

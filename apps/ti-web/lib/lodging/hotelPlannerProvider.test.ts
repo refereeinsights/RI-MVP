@@ -364,7 +364,16 @@ test("getHotelAvailability normalizes roomRates payloads", async () => {
             hotelID: "67747",
             currencyCode: "USD",
             roomTypes: {
-              "2144165": { name: "1 Queen Bed, Smoking Room" },
+              "2144165": {
+                name: "Premium Room 2 Queen Beds Courtyard Area",
+                description: "Large room near courtyard with two queen beds",
+              },
+            },
+            ratePlans: {
+              RATE123: { name: "Best Flexible Rate", description: "Flexible cancellation" },
+            },
+            mealPlans: {
+              MP03: { name: "Bed and Breakfast", description: "Breakfast included" },
             },
             availabilities: [
               {
@@ -375,6 +384,7 @@ test("getHotelAvailability normalizes roomRates payloads", async () => {
                     averageAfterTax: 71.47,
                     bundle: "bundle-modern-room",
                     ratePlanCode: "RATE123",
+                    mealPlanCode: "MP03",
                     payNow: true,
                     cancelPolicy: {
                       freeCancellation: true,
@@ -386,7 +396,7 @@ test("getHotelAvailability normalizes roomRates payloads", async () => {
                   },
                   {
                     roomTypeCode: "DLX",
-                    roomType: "Deluxe",
+                    roomType: "LIgSQJrA8YVtLR7QfGpM-YKrc4xHATBbM1_tpVaNGN4",
                     rate: 275,
                     currency: "USD",
                     taxesAndFees: 12,
@@ -415,13 +425,18 @@ test("getHotelAvailability normalizes roomRates payloads", async () => {
     assert.equal(result.roomOptions.length, 2);
     const legacy = result.roomOptions.find((option) => option.roomTypeCode === "DLX");
     assert.ok(legacy);
-    assert.equal(legacy?.roomName, "Deluxe");
+    assert.equal(legacy?.roomName, "Standard room");
     assert.equal(legacy?.rate, 275);
 
     const modern = result.roomOptions.find((option) => option.roomTypeCode === "2144165");
     assert.ok(modern);
-    assert.equal(modern?.roomName, "1 Queen Bed, Smoking Room");
+    assert.equal(modern?.roomName, "Premium Room 2 Queen Beds Courtyard Area");
     assert.equal(modern?.rate, 214.41);
+    assert.equal(modern?.roomDescription, "Large room near courtyard with two queen beds");
+    assert.equal(modern?.ratePlanName, "Best Flexible Rate");
+    assert.equal(modern?.mealPlanName, "Bed and Breakfast");
+    assert.equal(modern?.nightlyRate, 71.47);
+    assert.equal(modern?.isRefundable, true);
     assert.equal(modern?.bundle, "bundle-modern-room");
     assert.equal(modern?.ratePlanCode, "RATE123");
     assert.equal(modern?.payNow, true);
@@ -432,7 +447,7 @@ test("getHotelAvailability normalizes roomRates payloads", async () => {
   }
 });
 
-test("getHotelAvailability falls back to room code when room name is unavailable", async () => {
+test("getHotelAvailability uses friendly fallback when room name is unavailable", async () => {
   const config = testConfig();
   const provider = createHotelPlannerProvider(config);
 
@@ -479,7 +494,7 @@ test("getHotelAvailability falls back to room code when room name is unavailable
 
     assert.equal(result.roomOptions.length, 1);
     assert.equal(result.roomOptions[0].roomTypeCode, "12345");
-    assert.equal(result.roomOptions[0].roomName, "Room 12345");
+    assert.equal(result.roomOptions[0].roomName, "Standard room");
     assert.equal(result.roomOptions[0].rate, 321);
   } finally {
     global.fetch = originalFetch;

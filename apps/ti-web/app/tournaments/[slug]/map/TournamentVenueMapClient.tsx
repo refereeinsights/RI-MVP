@@ -101,6 +101,11 @@ type HotelAvailabilityRoom = {
   roomName: string;
   rate: number;
   currency: string;
+  roomDescription?: string | null;
+  ratePlanName?: string | null;
+  mealPlanName?: string | null;
+  nightlyRate?: number | null;
+  isRefundable?: boolean | null;
   bundle?: string | null;
   ratePlanCode?: string | null;
   payNow?: boolean | null;
@@ -1734,6 +1739,83 @@ export default function TournamentVenueMapClient({
     return `${currency} ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   };
 
+  const buildRoomSecondaryLabel = (room: HotelAvailabilityRoom) => {
+    const parts = [room.ratePlanName, room.mealPlanName].filter(Boolean);
+    if (parts.length > 0) return parts.join(" • ");
+    if (room.roomDescription) return room.roomDescription;
+    return null;
+  };
+
+  const displayedHotelRoomOptions = useMemo(() => {
+    if (hotelRoomOptions.length <= 2) return hotelRoomOptions;
+
+    const grouped = new Map<
+      string,
+      {
+        order: number;
+        cheapest: HotelAvailabilityRoom;
+        refundable: HotelAvailabilityRoom | null;
+      }
+    >();
+
+    hotelRoomOptions.forEach((room, index) => {
+      const key = room.roomTypeCode || room.roomName;
+      const existing = grouped.get(key);
+      if (!existing) {
+        grouped.set(key, {
+          order: index,
+          cheapest: room,
+          refundable: room.isRefundable ? room : null,
+        });
+        return;
+      }
+
+      const existingCheapestValue = existing.cheapest.totalWithTaxes ?? existing.cheapest.rate;
+      const candidateValue = room.totalWithTaxes ?? room.rate;
+      if (candidateValue < existingCheapestValue) {
+        existing.cheapest = room;
+      }
+
+      if (room.isRefundable) {
+        if (!existing.refundable) {
+          existing.refundable = room;
+        } else {
+          const existingRefundableValue = existing.refundable.totalWithTaxes ?? existing.refundable.rate;
+          if (candidateValue < existingRefundableValue) {
+            existing.refundable = room;
+          }
+        }
+      }
+    });
+
+    return Array.from(grouped.values())
+      .sort((a, b) => a.order - b.order)
+      .flatMap(({ cheapest, refundable }) => {
+        if (!refundable) return [cheapest];
+        const cheapestKey = `${cheapest.roomTypeCode}|${cheapest.ratePlanCode ?? ""}|${cheapest.totalWithTaxes ?? cheapest.rate}`;
+        const refundableKey = `${refundable.roomTypeCode}|${refundable.ratePlanCode ?? ""}|${refundable.totalWithTaxes ?? refundable.rate}`;
+        return cheapestKey === refundableKey ? [cheapest] : [cheapest, refundable];
+      });
+  }, [hotelRoomOptions]);
+
+  const displayedHotelRoomChoices = useMemo(
+    () =>
+      displayedHotelRoomOptions.map((room) => {
+        const groupedMatches = hotelRoomOptions.filter((option) => option.roomTypeCode === room.roomTypeCode);
+        if (groupedMatches.length <= 1) {
+          return { room, badge: null as string | null };
+        }
+
+        const cheapestValue = Math.min(...groupedMatches.map((option) => option.totalWithTaxes ?? option.rate));
+        const roomValue = room.totalWithTaxes ?? room.rate;
+        if (room.isRefundable && roomValue > cheapestValue) {
+          return { room, badge: "Refundable" };
+        }
+        return { room, badge: "Best price" };
+      }),
+    [displayedHotelRoomOptions, hotelRoomOptions]
+  );
+
   const getPinAddress = (pin: HotelPin) => {
     return [pin.addressLine1, pin.city, pin.state].filter(Boolean).join(", ") || null;
   };
@@ -2787,16 +2869,26 @@ export default function TournamentVenueMapClient({
                                   {!hotelAvailabilityLoading && !hotelAvailabilityError && hotelRoomOptions.length > 0 && (
                                     <div className={styles.hotelRoomList}>
                                       <div className={styles.hotelRoomListTitle}>
-                                        {hotelRoomOptions.length} room option{hotelRoomOptions.length === 1 ? "" : "s"}
+                                        {displayedHotelRoomOptions.length} room choice{displayedHotelRoomOptions.length === 1 ? "" : "s"}
                                       </div>
-                                      {hotelRoomOptions.map((room, roomIndex) => (
+                                      {displayedHotelRoomOptions.length !== hotelRoomOptions.length ? (
+                                        <div className={styles.hotelRoomListSummary}>
+                                          {`Showing best rates from ${hotelRoomOptions.length} returned options`}
+                                        </div>
+                                      ) : null}
+                                      {displayedHotelRoomChoices.map(({ room, badge }, roomIndex) => (
                                         <div
                                           key={`${room.roomTypeCode}-${room.roomName}-${room.rate ?? 0}-${roomIndex}`}
                                           className={styles.hotelRoomRow}
                                         >
                                           <div className={styles.hotelRoomDetails}>
-                                            <div className={styles.hotelRoomName}>{room.roomName}</div>
-                                            <div className={styles.hotelRoomType}>Type {room.roomTypeCode}</div>
+                                            <div className={styles.hotelRoomNameRow}>
+                                              <div className={styles.hotelRoomName}>{room.roomName}</div>
+                                              {badge ? <div className={styles.hotelRoomBadge}>{badge}</div> : null}
+                                            </div>
+                                            {buildRoomSecondaryLabel(room) ? (
+                                              <div className={styles.hotelRoomType}>{buildRoomSecondaryLabel(room)}</div>
+                                            ) : null}
                                             <div className={styles.hotelRoomPolicy}>{room.cancelPolicy || ""}</div>
                                           </div>
                                           {room.bundle && selectedVenue?.id && hotelAvailabilityCheckIn && hotelAvailabilityCheckOut ? (
@@ -2832,12 +2924,22 @@ export default function TournamentVenueMapClient({
                                               <input type="hidden" name="checkout" value={hotelAvailabilityCheckOut} />
                                               <input type="hidden" name="source" value="venue_map" />
                                               <button type="submit" className={styles.hotelRoomRateButton}>
-                                                {formatCurrency(room.totalWithTaxes ?? room.rate, hotelAvailabilityCurrency || "USD")}
+                                                <span>{formatCurrency(room.totalWithTaxes ?? room.rate, hotelAvailabilityCurrency || "USD")}</span>
+                                                {room.nightlyRate != null ? (
+                                                  <span className={styles.hotelRoomRateSub}>
+                                                    {`${formatCurrency(room.nightlyRate, room.currency || hotelAvailabilityCurrency || "USD")} / night`}
+                                                  </span>
+                                                ) : null}
                                               </button>
                                             </form>
                                           ) : (
                                             <div className={styles.hotelRoomRate}>
-                                              {formatCurrency(room.totalWithTaxes ?? room.rate, hotelAvailabilityCurrency || "USD")}
+                                              <span>{formatCurrency(room.totalWithTaxes ?? room.rate, hotelAvailabilityCurrency || "USD")}</span>
+                                              {room.nightlyRate != null ? (
+                                                <span className={styles.hotelRoomRateSub}>
+                                                  {`${formatCurrency(room.nightlyRate, room.currency || hotelAvailabilityCurrency || "USD")} / night`}
+                                                </span>
+                                              ) : null}
                                             </div>
                                           )}
                                         </div>
