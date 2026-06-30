@@ -943,6 +943,19 @@
   gap: 8px;
 }
 
+.teamBlockQuickCta {
+  flex: 1 1 100%;
+  max-width: none;
+}
+
+.teamBlockQuickHint {
+  margin-top: 2px;
+  font-size: 11px;
+  opacity: 0.82;
+  text-align: center;
+  line-height: 1.25;
+}
+
 .hotelFilterRow {
   display: grid;
   grid-template-columns: auto 1fr;
