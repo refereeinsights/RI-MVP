@@ -254,6 +254,7 @@ export default function TournamentVenueMapClient({
       }),
     [hotelPins, hotelRatingFilter]
   );
+  const hotelResultCount = hotelPins.length;
 
   useEffect(() => {
     if (openedTrackedRef.current) return;
@@ -1410,8 +1411,10 @@ export default function TournamentVenueMapClient({
   };
   const countsLine = (v: MapVenue) => {
     if (!v.hasOwl || !v.counts) return null;
+    const liveHotelCount = hotelVenueId === v.id && !hotelPinsLoading && !hotelPinsError ? hotelResultCount : null;
     const parts = [`☕ ${v.counts.coffee}`, `🍔 ${v.counts.food}`];
-    if (v.counts.hotels) parts.push(`🏨 ${v.counts.hotels}`);
+    const hotelCount = liveHotelCount ?? v.counts.hotels;
+    if (hotelCount || hotelCount === 0) parts.push(`🏨 ${hotelCount} hotels`);
     return parts.join(" • ");
   };
   const enhancedCounts = (v: MapVenue) => {
@@ -1466,7 +1469,9 @@ export default function TournamentVenueMapClient({
       ? hotelPinsError
       : hotelFallbackCardVisible
         ? "Limited hotel results available"
-        : `Showing ${filteredHotelPins.length} hotel result${filteredHotelPins.length === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`;
+        : hotelRatingFilter > 0
+          ? `Showing ${hotelResultCount} hotel results (${filteredHotelPins.length} match filter, ${mapHotelPinVisibleCount} on map)`
+          : `Showing ${hotelResultCount} hotel result${hotelResultCount === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`;
 
   const buildNavProviderHrefsForLatLng = (lat: number, lng: number) => ({
     google: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lng}`)}`,
@@ -2336,7 +2341,9 @@ export default function TournamentVenueMapClient({
                   </div>
                   <div className={styles.owlPreviewSub}>A quick look at what’s nearby.</div>
                   <div className={styles.venueCounts} style={{ marginTop: 8 }}>
-                    {`☕ ${selectedVenue.counts.coffee} coffee • 🍔 ${selectedVenue.counts.food} food • 🏨 ${selectedVenue.counts.hotels} hotels`}
+                    {`☕ ${selectedVenue.counts.coffee} coffee • 🍔 ${selectedVenue.counts.food} food • 🏨 ${
+                      !hotelPinsLoading && !hotelPinsError ? hotelResultCount : selectedVenue.counts.hotels
+                    } hotels`}
                   </div>
                   {enhancedCounts(selectedVenue) ? (
                     <div className={styles.venueCounts}>
