@@ -2026,3 +2026,11 @@ Maintenance rules:
     - `buildHotelsHref()` now defaults to `provider=hotelplanner`.
     - Removed remaining visible Booking.com hotel copy from TI hotel surfaces (`Search hotels on Booking.com` -> `Search hotels`).
     - Updated UAT guidance so hotel fallback expectations are HotelPlanner + VRBO, not Booking.com + VRBO.
+- 2026-06-30: RI admin hotel click reporting scoped to HotelPlanner partner only.
+  - Files:
+    - `apps/referee/app/admin/ti/outbound/page.tsx`
+    - `apps/referee/app/admin/ti/clicks/page.tsx`
+  - Changes:
+    - Hotel click queries now filter on `partner = 'hotelplanner'` in addition to `destination_type = 'hotels'`, excluding any legacy Booking.com rows.
+    - Renamed tile labels from "Total hotel clicks (Booking)" / "Hotels clicks" to "HotelPlanner clicks".
+    - No schema change needed; `partner` column already exists in `ti_outbound_clicks` (migration `20260420_ti_outbound_clicks_hotels.sql`).

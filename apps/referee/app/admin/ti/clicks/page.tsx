@@ -186,8 +186,8 @@ export default async function TiClicksPage() {
 
   // Outbound click counts from ti_outbound_clicks (server-side, all pages)
   const [hotelsYesterdayRes, hotels7dRes, vrboYesterdayRes, vrbo7dRes] = await Promise.all([
-    supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }).eq("destination_type", "hotels").gte("created_at", yesterdayIso).lt("created_at", todayIso),
-    supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }).eq("destination_type", "hotels").gte("created_at", window7dIso).lt("created_at", todayIso),
+    supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }).eq("destination_type", "hotels").eq("partner", "hotelplanner").gte("created_at", yesterdayIso).lt("created_at", todayIso),
+    supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }).eq("destination_type", "hotels").eq("partner", "hotelplanner").gte("created_at", window7dIso).lt("created_at", todayIso),
     supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }).eq("destination_type", "vrbo").gte("created_at", yesterdayIso).lt("created_at", todayIso),
     supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }).eq("destination_type", "vrbo").gte("created_at", window7dIso).lt("created_at", todayIso),
   ]);
@@ -359,7 +359,7 @@ export default async function TiClicksPage() {
         }}
       >
         <div style={tileStyle}>
-          <div style={tileLabelStyle}>Hotels clicks</div>
+          <div style={tileLabelStyle}>HotelPlanner clicks</div>
           <div style={tileValueStyle}>{outbound.hotels.yesterday.toLocaleString("en-US")}</div>
           <div style={tileMetaStyle}>7d avg {Math.round(outbound.hotels.last7d / 7).toLocaleString("en-US")} / day • all pages</div>
         </div>

@@ -151,8 +151,8 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
   const hotelTotalClicksRes = await supabaseAdmin
     .from("ti_outbound_clicks" as any)
     .select("id", { count: "exact", head: true })
-    .eq("destination_type", "hotels");
-  const hotelTotalClicksCode = (hotelTotalClicksRes as any)?.error?.code;
+    .eq("destination_type", "hotels")
+    .eq("partner", "hotelplanner");
 
   const vrboTotalClicksRes = await supabaseAdmin
     .from("ti_outbound_clicks" as any)
@@ -315,7 +315,7 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
           }}
         >
           <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800, color: "#6b7280" }}>
-            Total hotel clicks (Booking)
+            HotelPlanner clicks
           </div>
           <div style={{ fontSize: 34, fontWeight: 950, lineHeight: 1.1 }}>{hotelTotalClicks}</div>
           {hotelTotalClicksRes.error ? (
