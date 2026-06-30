@@ -248,6 +248,7 @@ function buildAvailabilityBody(input: HotelAvailabilityInput): Record<string, un
 }
 
 function buildGroupRequestBody(input: GroupRequestInput): Record<string, unknown> {
+  const derivedDestination = pickText(input.destination) ?? assertNonEmptyString(input.propertyId, "propertyId");
   return {
     hotelID: assertNonEmptyString(input.propertyId, "propertyId"),
     checkIn: assertNonEmptyString(input.checkIn, "checkIn"),
@@ -263,7 +264,7 @@ function buildGroupRequestBody(input: GroupRequestInput): Record<string, unknown
     comments: pickText(input.comments ?? "") ?? "test test",
     targetRate: clampInt(input.targetRate, 0),
     minRate: clampInt(input.minRate, 0),
-    itinerary: input.itinerary ?? "",
+    itinerary: input.itinerary ?? [{ checkIn: input.checkIn, checkOut: input.checkOut, destination: derivedDestination }],
     groupTypeCode: input.groupTypeCode ?? "143",
     ...toPayloadTextMap({
       sc: input.sc,

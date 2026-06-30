@@ -97,6 +97,58 @@ type HotelSearchResponse = {
   code?: string;
 };
 
+type TeamBlockFormState = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  rooms: string;
+  adultsPerRoom: string;
+  childrenPerRoom: string;
+  split: string;
+  rating: string;
+  roomTypeCode: string;
+  comments: string;
+};
+
+type TeamBlockSuccessState = {
+  requestId: string | null;
+  propertyName: string;
+};
+
+const DEFAULT_TEAM_BLOCK_FORM: TeamBlockFormState = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  rooms: "10",
+  adultsPerRoom: "2",
+  childrenPerRoom: "0",
+  split: "1",
+  rating: "3",
+  roomTypeCode: "8",
+  comments: "",
+};
+
+const TEAM_BLOCK_ROOM_TYPE_OPTIONS = [
+  { value: "1", label: "1 King or Queen" },
+  { value: "2", label: "1 King only" },
+  { value: "3", label: "2 Doubles (1-2 guests)" },
+  { value: "4", label: "2 Doubles (3 guests)" },
+  { value: "5", label: "2 Doubles (4 guests)" },
+  { value: "6", label: "Suite 1BR" },
+  { value: "7", label: "Suite 2BR" },
+  { value: "8", label: "Mixed room types" },
+] as const;
+
+const TEAM_BLOCK_RATING_OPTIONS = [
+  { value: "1", label: "1-2 stars" },
+  { value: "2", label: "1-3 stars" },
+  { value: "2.5", label: "2-3 stars" },
+  { value: "3", label: "2-4 stars" },
+  { value: "3.5", label: "3-4 stars" },
+  { value: "4", label: "3-5 stars" },
+  { value: "5", label: "4-5 stars" },
+] as const;
+
 function buildVenueHotelsHref(args: {
   venue: MapVenue;
   tournamentId: string;
@@ -213,6 +265,11 @@ export default function TournamentVenueMapClient({
   const [isHotelResultsCollapsed, setIsHotelResultsCollapsed] = useState(true);
   const [hotelPinCap, setHotelPinCap] = useState<number>(10);
   const [mapHotelPinVisibleCount, setMapHotelPinVisibleCount] = useState<number>(0);
+  const [teamBlockOpen, setTeamBlockOpen] = useState(false);
+  const [teamBlockSubmitting, setTeamBlockSubmitting] = useState(false);
+  const [teamBlockError, setTeamBlockError] = useState<string | null>(null);
+  const [teamBlockSuccess, setTeamBlockSuccess] = useState<TeamBlockSuccessState | null>(null);
+  const [teamBlockForm, setTeamBlockForm] = useState<TeamBlockFormState>(DEFAULT_TEAM_BLOCK_FORM);
   const [entitlementTier, setEntitlementTier] = useState<TiTier>("unknown");
   const [navSheet, setNavSheet] = useState<NavSheetState>(() => ({
     open: false,
@@ -255,6 +312,10 @@ export default function TournamentVenueMapClient({
     [hotelPins, hotelRatingFilter]
   );
   const hotelResultCount = hotelPins.length;
+  const selectedHotelPin = useMemo(
+    () => hotelPins.find((pin) => pin.propertyId === selectedHotelId) ?? null,
+    [hotelPins, selectedHotelId]
+  );
 
   useEffect(() => {
     if (openedTrackedRef.current) return;
@@ -1439,6 +1500,12 @@ export default function TournamentVenueMapClient({
     setIsHotelResultsCollapsed(false);
   }, [selectedHotelId]);
   useEffect(() => {
+    setTeamBlockOpen(false);
+    setTeamBlockError(null);
+    setTeamBlockSuccess(null);
+    setTeamBlockForm(DEFAULT_TEAM_BLOCK_FORM);
+  }, [hotelVenueId]);
+  useEffect(() => {
     setIsHotelResultsCollapsed(true);
   }, [hotelVenueId]);
   useEffect(() => {
@@ -1446,6 +1513,12 @@ export default function TournamentVenueMapClient({
     if (filteredHotelPins.some((pin) => pin.propertyId === selectedHotelId)) return;
     setSelectedHotelId(null);
   }, [filteredHotelPins, selectedHotelId]);
+  useEffect(() => {
+    setTeamBlockError(null);
+    setTeamBlockSuccess(null);
+    setTeamBlockOpen(false);
+    setTeamBlockForm(DEFAULT_TEAM_BLOCK_FORM);
+  }, [selectedHotelId]);
   const hotelVenueForRedirect =
     selectedVenue ??
     (hotelVenueId
@@ -1472,6 +1545,165 @@ export default function TournamentVenueMapClient({
         : hotelRatingFilter > 0
           ? `Showing ${hotelResultCount} hotel results (${filteredHotelPins.length} match filter, ${mapHotelPinVisibleCount} on map)`
           : `Showing ${hotelResultCount} hotel result${hotelResultCount === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`;
+
+  const getCurrentTeamBlockDates = (pin: HotelPin | null) => {
+    if (!pin) return null;
+    const checkIn = pin.resolvedCheckIn ?? hotelSearchResolvedCheckIn ?? null;
+    const checkOut = pin.resolvedCheckOut ?? hotelSearchResolvedCheckOut ?? null;
+    if (!checkIn || !checkOut) return null;
+    return { checkIn, checkOut };
+  };
+
+  const getTeamBlockDestination = (pin: HotelPin) =>
+    [pin.name, pin.city, pin.state].filter(Boolean).join(", ") || pin.name;
+
+  const openTeamBlockForm = () => {
+    if (!selectedHotelPin) {
+      setTeamBlockError("Select a hotel above before requesting a team hotel block.");
+      return;
+    }
+    const dateRange = getCurrentTeamBlockDates(selectedHotelPin);
+    const venueId = selectedVenue?.id ?? hotelVenueId ?? null;
+    trackLodgingEvent("team_block_cta_click", {
+      page_type: "venue_map",
+      tournament_id: tournament.id,
+      tournament_slug: tournament.slug,
+      venue_id: venueId ?? "",
+      property_id: selectedHotelPin.propertyId,
+      checkin: dateRange?.checkIn ?? null,
+      checkout: dateRange?.checkOut ?? null,
+    });
+    if (!dateRange) {
+      setTeamBlockError("Team hotel block requests require valid tournament dates.");
+      return;
+    }
+    setTeamBlockError(null);
+    setTeamBlockSuccess(null);
+    setTeamBlockOpen(true);
+    trackLodgingEvent("team_block_rfp_start", {
+      page_type: "venue_map",
+      tournament_id: tournament.id,
+      tournament_slug: tournament.slug,
+      venue_id: venueId ?? "",
+      property_id: selectedHotelPin.propertyId,
+      checkin: dateRange.checkIn,
+      checkout: dateRange.checkOut,
+    });
+  };
+
+  const submitTeamBlockForm = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedHotelPin) {
+      setTeamBlockError("Select a hotel above before requesting a team hotel block.");
+      return;
+    }
+    const dateRange = getCurrentTeamBlockDates(selectedHotelPin);
+    if (!dateRange) {
+      setTeamBlockError("Team hotel block requests require valid tournament dates.");
+      return;
+    }
+
+    const rooms = Number(teamBlockForm.rooms);
+    if (!Number.isInteger(rooms) || rooms < 5) {
+      setTeamBlockError("Enter at least 5 rooms for a team hotel block request.");
+      return;
+    }
+
+    setTeamBlockSubmitting(true);
+    setTeamBlockError(null);
+    setTeamBlockSuccess(null);
+
+    try {
+      const response = await fetch(new URL("/api/lodging/group-request", window.location.origin), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId: selectedHotelPin.propertyId,
+          destination: getTeamBlockDestination(selectedHotelPin),
+          checkin: dateRange.checkIn,
+          checkout: dateRange.checkOut,
+          rooms,
+          adults: Number(teamBlockForm.adultsPerRoom),
+          children: Number(teamBlockForm.childrenPerRoom),
+          split: Number(teamBlockForm.split),
+          rating: teamBlockForm.rating,
+          roomTypeCode: teamBlockForm.roomTypeCode,
+          firstName: teamBlockForm.firstName,
+          lastName: teamBlockForm.lastName,
+          email: teamBlockForm.email,
+          comments: teamBlockForm.comments,
+          source: "venue_map",
+          sc: "tournamentinsights",
+          kw: "Team hotel block",
+          jobCode: "TI-TEAM-BLOCK",
+          custom1: `ven:${selectedVenue?.id ?? hotelVenueId ?? ""}`,
+          custom2: tournament.slug,
+          groupTypeCode: "143",
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { success?: boolean; requestId?: string; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.success) {
+        const message = payload?.error ? String(payload.error) : "Unable to submit the team hotel block request right now.";
+        setTeamBlockError(message);
+        trackLodgingEvent("team_block_rfp_submit", {
+          page_type: "venue_map",
+          tournament_id: tournament.id,
+          tournament_slug: tournament.slug,
+          venue_id: selectedVenue?.id ?? hotelVenueId ?? "",
+          property_id: selectedHotelPin.propertyId,
+          checkin: dateRange.checkIn,
+          checkout: dateRange.checkOut,
+          rooms,
+          success: false,
+          request_id: null,
+          error: message,
+        });
+        return;
+      }
+
+      setTeamBlockSuccess({
+        requestId: payload.requestId ?? null,
+        propertyName: selectedHotelPin.name,
+      });
+      setTeamBlockOpen(false);
+      setTeamBlockForm(DEFAULT_TEAM_BLOCK_FORM);
+      trackLodgingEvent("team_block_rfp_submit", {
+        page_type: "venue_map",
+        tournament_id: tournament.id,
+        tournament_slug: tournament.slug,
+        venue_id: selectedVenue?.id ?? hotelVenueId ?? "",
+        property_id: selectedHotelPin.propertyId,
+        checkin: dateRange.checkIn,
+        checkout: dateRange.checkOut,
+        rooms,
+        success: true,
+        request_id: payload.requestId ?? null,
+        error: null,
+      });
+    } catch {
+      const message = "Unable to submit the team hotel block request right now.";
+      setTeamBlockError(message);
+      trackLodgingEvent("team_block_rfp_submit", {
+        page_type: "venue_map",
+        tournament_id: tournament.id,
+        tournament_slug: tournament.slug,
+        venue_id: selectedVenue?.id ?? hotelVenueId ?? "",
+        property_id: selectedHotelPin.propertyId,
+        checkin: dateRange.checkIn,
+        checkout: dateRange.checkOut,
+        rooms,
+        success: false,
+        request_id: null,
+        error: message,
+      });
+    } finally {
+      setTeamBlockSubmitting(false);
+    }
+  };
 
   const buildNavProviderHrefsForLatLng = (lat: number, lng: number) => ({
     google: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lng}`)}`,
@@ -2608,6 +2840,187 @@ export default function TournamentVenueMapClient({
                               </div>
                             </button>
                           ))}
+                        </div>
+                        <div className={styles.teamBlockPanel}>
+                          <div className={styles.teamBlockHeader}>
+                            <div className={styles.teamBlockTitle}>Need 5+ rooms?</div>
+                            <div className={styles.teamBlockSub}>Request a team hotel block for the selected property.</div>
+                          </div>
+
+                          {teamBlockSuccess ? (
+                            <div className={styles.teamBlockSuccess}>
+                              <div className={styles.teamBlockSuccessTitle}>Request submitted</div>
+                              <div>
+                                Sent to HotelPlanner for <strong>{teamBlockSuccess.propertyName}</strong>
+                                {teamBlockSuccess.requestId ? ` · Ref ${teamBlockSuccess.requestId}` : ""}.
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {!selectedHotelPin ? (
+                            <div className={styles.teamBlockHint}>Select a hotel above, then request a team block.</div>
+                          ) : (
+                            <div className={styles.teamBlockSelected}>
+                              <div className={styles.teamBlockSelectedTitle}>{selectedHotelPin.name}</div>
+                              <div className={styles.teamBlockSelectedMeta}>
+                                {getCurrentTeamBlockDates(selectedHotelPin)
+                                  ? `${getCurrentTeamBlockDates(selectedHotelPin)?.checkIn} → ${getCurrentTeamBlockDates(selectedHotelPin)?.checkOut}`
+                                  : "Tournament dates unavailable for team block requests"}
+                              </div>
+                            </div>
+                          )}
+
+                          {teamBlockError ? <div className={styles.lodgingError}>{teamBlockError}</div> : null}
+
+                          {!teamBlockOpen ? (
+                            <button
+                              type="button"
+                              className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
+                              onClick={openTeamBlockForm}
+                              disabled={!selectedHotelPin}
+                            >
+                              Need 5+ rooms? Request team hotel block
+                            </button>
+                          ) : (
+                            <form className={styles.teamBlockForm} onSubmit={submitTeamBlockForm}>
+                              <div className={styles.teamBlockFieldGrid}>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>First name</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="text"
+                                    required
+                                    value={teamBlockForm.firstName}
+                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, firstName: event.target.value }))}
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Last name</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="text"
+                                    required
+                                    value={teamBlockForm.lastName}
+                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, lastName: event.target.value }))}
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Email</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="email"
+                                    required
+                                    value={teamBlockForm.email}
+                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, email: event.target.value }))}
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Rooms</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="number"
+                                    min={5}
+                                    required
+                                    value={teamBlockForm.rooms}
+                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, rooms: event.target.value }))}
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Adults / room</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="number"
+                                    min={1}
+                                    value={teamBlockForm.adultsPerRoom}
+                                    onChange={(event) =>
+                                      setTeamBlockForm((current) => ({ ...current, adultsPerRoom: event.target.value }))
+                                    }
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Children / room</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="number"
+                                    min={0}
+                                    value={teamBlockForm.childrenPerRoom}
+                                    onChange={(event) =>
+                                      setTeamBlockForm((current) => ({ ...current, childrenPerRoom: event.target.value }))
+                                    }
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Room split</span>
+                                  <select
+                                    className={styles.teamBlockInput}
+                                    value={teamBlockForm.split}
+                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, split: event.target.value }))}
+                                  >
+                                    <option value="1">Mostly singles</option>
+                                    <option value="2">Mix of singles/doubles</option>
+                                    <option value="3">Mostly doubles</option>
+                                    <option value="4">Family mix</option>
+                                  </select>
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Target rating</span>
+                                  <select
+                                    className={styles.teamBlockInput}
+                                    value={teamBlockForm.rating}
+                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, rating: event.target.value }))}
+                                  >
+                                    {TEAM_BLOCK_RATING_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Room type</span>
+                                  <select
+                                    className={styles.teamBlockInput}
+                                    value={teamBlockForm.roomTypeCode}
+                                    onChange={(event) =>
+                                      setTeamBlockForm((current) => ({ ...current, roomTypeCode: event.target.value }))
+                                    }
+                                  >
+                                    {TEAM_BLOCK_ROOM_TYPE_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
+                              <label className={styles.teamBlockField}>
+                                <span className={styles.hotelFilterLabel}>Notes</span>
+                                <textarea
+                                  className={styles.teamBlockTextarea}
+                                  rows={3}
+                                  value={teamBlockForm.comments}
+                                  onChange={(event) => setTeamBlockForm((current) => ({ ...current, comments: event.target.value }))}
+                                  placeholder="Team name, budget, or special requests"
+                                />
+                              </label>
+                              <div className={styles.teamBlockActions}>
+                                <button type="submit" className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`} disabled={teamBlockSubmitting}>
+                                  {teamBlockSubmitting ? "Submitting…" : "Submit team block request"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.affiliateCta}
+                                  disabled={teamBlockSubmitting}
+                                  onClick={() => {
+                                    setTeamBlockOpen(false);
+                                    setTeamBlockError(null);
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          )}
                         </div>
                           </div>
                         )}

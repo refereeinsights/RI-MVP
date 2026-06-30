@@ -428,6 +428,26 @@ Latest Step 2 API run (local `localhost:3001`) result:
 - Route accepts `mm/dd/yyyy` and also normalizes ISO `YYYY-MM-DD` inputs to `mm/dd/yyyy`.
 - Property-level provider errors still return `502` with `code:"422"` for unknown HotelPlanner property IDs (expected API rejection path).
 
+### Stage 3.6 HotelPlanner Team Block UAT
+
+- [ ] Local browser flow
+  - Open a TI tournament map page with live HotelPlanner hotel results.
+  - Select one hotel row or map pin first; confirm the hotel still opens the HP property page in a new tab.
+  - In the left panel, confirm `Need 5+ rooms? Request team hotel block` is visible under the hotel list.
+  - Without a selected hotel, confirm the CTA stays disabled and helper copy explains the requirement.
+  - With a selected hotel, confirm the panel shows the selected hotel name and resolved check-in / check-out dates.
+- [ ] Team-block validation
+  - Open the team-block form.
+  - Submit with `rooms < 5`; expect inline validation error before request submission.
+  - Remove one required field (`firstName`, `lastName`, or `email`); browser or route should block submission.
+  - If tournament dates are missing, confirm the form does not open and a date-related error is shown.
+- [ ] Team-block request + analytics
+  - Submit a valid request and check Network for `POST /api/lodging/group-request`.
+  - Confirm payload includes `propertyId`, `destination`, `checkin`, `checkout`, `rooms`, `split`, `rating`, `roomTypeCode`, TI tracking fields, and `groupTypeCode`.
+  - Confirm analytics events fire for `team_block_cta_click`, `team_block_rfp_start`, and `team_block_rfp_submit`.
+  - On success, confirm the UI shows `Request submitted` and, when returned, the HP `requestId`.
+  - On provider failure, confirm the UI keeps the user on the map page and shows an inline error instead of redirecting.
+
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 1 - Search Endpoint)
 
 - [ ] Environment + compile checks

@@ -851,6 +851,98 @@
   gap: 6px;
 }
 
+.teamBlockPanel {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+}
+
+.teamBlockHeader {
+  display: grid;
+  gap: 2px;
+}
+
+.teamBlockTitle {
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.92;
+}
+
+.teamBlockSub,
+.teamBlockHint,
+.teamBlockSelectedMeta,
+.teamBlockSuccess {
+  font-size: 12px;
+  line-height: 1.3;
+  opacity: 0.88;
+}
+
+.teamBlockSelected,
+.teamBlockSuccess {
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  padding: 8px;
+  background: rgba(255,255,255,0.06);
+  display: grid;
+  gap: 2px;
+}
+
+.teamBlockSelectedTitle,
+.teamBlockSuccessTitle {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.teamBlockSuccess {
+  border-color: rgba(34,197,94,0.38);
+  background: rgba(34,197,94,0.12);
+}
+
+.teamBlockForm {
+  display: grid;
+  gap: 8px;
+}
+
+.teamBlockFieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.teamBlockField {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.teamBlockInput,
+.teamBlockTextarea {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  padding: 7px 8px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.teamBlockTextarea {
+  resize: vertical;
+}
+
+.teamBlockActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .hotelFilterRow {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1199,9 +1291,21 @@
   .hotelRoomPolicy,
   .lodgingNotice,
   .lodgingError,
-  .lodgingFallbackReason {
+  .lodgingFallbackReason,
+  .teamBlockSub,
+  .teamBlockHint,
+  .teamBlockSelectedMeta,
+  .teamBlockSuccess {
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  .teamBlockFieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .teamBlockActions {
+    display: grid;
   }
 }
 

@@ -15,6 +15,22 @@ Maintenance rules:
 
 ## 2026-06-30
 
+- TI venue-map team hotel block flow:
+  - Updated:
+    - `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css`
+    - `apps/ti-web/app/api/lodging/group-request/route.ts`
+    - `apps/ti-web/lib/lodging/lodging-provider.ts`
+    - `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`
+    - `apps/ti-web/lib/tiAnalyticsEvents.ts`
+    - `CLAUDE.md`
+  - Changes:
+    - Added an inline `Need 5+ rooms?` team-block request panel to the TI venue-map hotel section.
+    - Team-block requests now bind to the selected HotelPlanner property and reuse resolved tournament dates already attached to the map hotel search flow.
+    - Group-request payloads now pass a destination and a default itinerary derived from selected property + dates so HP receives a complete request body.
+    - Added typed analytics coverage for `team_block_cta_click`, `team_block_rfp_start`, and `team_block_rfp_submit`.
+    - Added local UAT guidance for the team-block flow, including success, validation, and provider-failure paths.
+
 - TI HotelPlanner venue-map stale tournament date fix:
   - Updated `apps/ti-web/app/api/lodging/search/route.ts` so tournament-inferred hotel search windows no longer send stale start dates to HotelPlanner on in-progress or past tournaments.
   - Search-window policy now matches the existing `/go/hotels` handoff behavior more closely:

@@ -93,6 +93,7 @@ export type HotelAvailabilityInput = {
 
 export type GroupRequestInput = {
   propertyId: string;
+  destination?: string | null;
   checkIn: string;
   checkOut: string;
   rooms: number;
@@ -107,7 +108,7 @@ export type GroupRequestInput = {
   comments?: string | null;
   targetRate?: number | null;
   minRate?: number | null;
-  itinerary?: string | null;
+  itinerary?: unknown;
   locale?: string;
   currency?: string;
   source?: string;

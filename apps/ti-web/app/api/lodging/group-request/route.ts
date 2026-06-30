@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 
 type GroupRequestBody = {
   propertyId?: unknown;
+  destination?: unknown;
   checkin?: unknown;
   checkout?: unknown;
   checkIn?: unknown;
@@ -360,6 +361,7 @@ export async function POST(request: Request) {
 
   const providerInput: GroupRequestInput = {
     propertyId,
+    destination: toText(body.destination) ?? undefined,
     checkIn,
     checkOut,
     rooms,
