@@ -753,6 +753,32 @@
   gap: 8px;
 }
 
+.stayHeaderButton {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+}
+
+.stayHeaderButton:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.8);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.stayHeaderCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .stayTitle {
   font-size: 12px;
   font-weight: 900;
@@ -766,6 +792,14 @@
   opacity: 0.86;
   line-height: 1.25;
   margin-top: -2px;
+}
+
+.staySummary {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  opacity: 0.74;
+  text-transform: uppercase;
 }
 
 .lodgingNotice,

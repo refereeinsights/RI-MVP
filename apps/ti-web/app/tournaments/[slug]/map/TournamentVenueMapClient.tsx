@@ -249,6 +249,7 @@ export default function TournamentVenueMapClient({
   const [hotelAvailabilityCheckIn, setHotelAvailabilityCheckIn] = useState<string | null>(null);
   const [hotelAvailabilityCheckOut, setHotelAvailabilityCheckOut] = useState<string | null>(null);
   const [isHotelAvailabilityCollapsed, setIsHotelAvailabilityCollapsed] = useState(false);
+  const [isHotelResultsCollapsed, setIsHotelResultsCollapsed] = useState(true);
   const [hotelPinCap, setHotelPinCap] = useState<number>(10);
   const [mapHotelPinVisibleCount, setMapHotelPinVisibleCount] = useState<number>(0);
   const [entitlementTier, setEntitlementTier] = useState<TiTier>("unknown");
@@ -1190,7 +1191,19 @@ export default function TournamentVenueMapClient({
       const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" })
         .setLngLat([pin.longitude as number, pin.latitude as number])
         .addTo(map);
+      const markerElement = marker.getElement?.() as HTMLElement | null;
+      if (markerElement) markerElement.style.zIndex = selectedHotelId === pin.propertyId ? "18" : "12";
       hotelPinMarkersRef.current.set(key, { marker });
+    }
+  };
+
+  const syncVenueMarkerStackOrder = () => {
+    for (const venue of venues) {
+      const marker = markersRef.current.get(venue.id);
+      if (!marker) continue;
+      const markerElement = marker.getElement?.() as HTMLElement | null;
+      if (!markerElement) continue;
+      markerElement.style.zIndex = venue.id === selectedVenueId ? "40" : "30";
     }
   };
 
@@ -1343,6 +1356,7 @@ export default function TournamentVenueMapClient({
       if (venue.id === selectedVenueId) inner.classList.add(styles.markerSelected);
       else inner.classList.remove(styles.markerSelected);
     }
+    syncVenueMarkerStackOrder();
 
     const sel = selectedVenue;
     if (sel && typeof sel.latitude === "number" && typeof sel.longitude === "number") {
@@ -1536,7 +1550,11 @@ export default function TournamentVenueMapClient({
       return;
     }
     setIsHotelAvailabilityCollapsed(false);
+    setIsHotelResultsCollapsed(false);
   }, [selectedHotelId]);
+  useEffect(() => {
+    setIsHotelResultsCollapsed(true);
+  }, [hotelVenueId]);
   useEffect(() => {
     if (!selectedHotelId) return;
     if (filteredHotelPins.some((pin) => pin.propertyId === selectedHotelId)) return;
@@ -1564,6 +1582,13 @@ export default function TournamentVenueMapClient({
       : null);
   const hotelFallbackCardVisible =
     (hotelPinsFallback?.showBookingFallback || hotelPinsFallback?.showVrboFallback || filteredHotelPins.length === 0) && Boolean(hotelPinsFallback);
+  const hotelPanelSummary = hotelPinsLoading
+    ? "Searching HotelPlanner results…"
+    : hotelPinsError
+      ? hotelPinsError
+      : hotelFallbackCardVisible
+        ? "Limited hotel results available"
+        : `Showing ${filteredHotelPins.length} hotel result${filteredHotelPins.length === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`;
   const hotelSearchDateReady = Boolean(hotelDateCheckIn && hotelDateCheckOut && parseDateInputToMmdd(hotelDateCheckIn, hotelDateCheckOut));
 
   const buildNavProviderHrefsForLatLng = (lat: number, lng: number) => ({
@@ -2686,52 +2711,73 @@ export default function TournamentVenueMapClient({
 
                 {hotelVenueId && hotelVenueForRedirect ? (
                   <div className={styles.stayBlock}>
-                    <div className={styles.stayTitle}>Hotels near this venue</div>
-                    <div className={styles.staySub}>Compare nearby hotels, ratings, and rates.</div>
-                    {hotelPinsLoading ? <div className={styles.lodgingNotice}>Searching HotelPlanner results…</div> : null}
-                    {!hotelPinsLoading && hotelPinsError ? <div className={styles.lodgingError}>{hotelPinsError}</div> : null}
-
-                    {hotelFallbackCardVisible ? (
-                      <div className={styles.lodgingFallback}>
-                        <div className={styles.lodgingFallbackReason}>
-                          {hotelPinsFallback?.reason === "no_dates"
-                            ? "Hotel search requires valid dates from the tournament schedule."
-                            : hotelPinsFallback?.reason === "no_venue_coordinates"
-                              ? "Venue coordinates were missing for precise results."
-                              : "Limited hotel inventory was returned for this venue."}
-                        </div>
-                        <div className={styles.lodgingFallbackActions}>
-                          <a
-                            className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
-                            href={buildVenueHotelsHref({
-                              venue: hotelVenueForRedirect,
-                              tournamentId: tournament.id,
-                            })}
-                            target="_blank"
-                            rel="noopener noreferrer sponsored"
-                            onClick={() => {
-                              void trackTiEvent("venue_map_hotels_clicked", {
-                                page_type: "venue_map",
-                                tournament_id: tournament.id,
-                                tournament_slug: tournament.slug,
-                                venue_id: hotelVenueId,
-                              });
-                            }}
-                          >
-                            View HotelPlanner results
-                          </a>
-                          <a
-                            className={styles.affiliateCta}
-                            href={`/go/vrbo?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
-                            target="_blank"
-                            rel="noopener noreferrer sponsored"
-                          >
-                            Rentals nearby
-                          </a>
-                        </div>
+                    <button
+                      type="button"
+                      className={styles.stayHeaderButton}
+                      onClick={() => setIsHotelResultsCollapsed((collapsed) => !collapsed)}
+                      aria-expanded={!isHotelResultsCollapsed}
+                    >
+                      <div className={styles.stayHeaderCopy}>
+                        <div className={styles.stayTitle}>Hotels near this venue</div>
+                        <div className={styles.staySub}>Compare nearby hotels, ratings, and rates.</div>
+                        <div className={styles.staySummary}>{hotelPanelSummary}</div>
                       </div>
-                    ) : (
-                      <div className={styles.hotelPanelSection}>
+                      <span
+                        className={`${styles.hotelAvailabilityToggleIcon} ${
+                          isHotelResultsCollapsed ? styles.hotelAvailabilityToggleIconCollapsed : ""
+                        }`}
+                        aria-hidden="true"
+                      >
+                        ▾
+                      </span>
+                    </button>
+
+                    {!isHotelResultsCollapsed ? (
+                      <>
+                        {hotelPinsLoading ? <div className={styles.lodgingNotice}>Searching HotelPlanner results…</div> : null}
+                        {!hotelPinsLoading && hotelPinsError ? <div className={styles.lodgingError}>{hotelPinsError}</div> : null}
+
+                        {hotelFallbackCardVisible ? (
+                          <div className={styles.lodgingFallback}>
+                            <div className={styles.lodgingFallbackReason}>
+                              {hotelPinsFallback?.reason === "no_dates"
+                                ? "Hotel search requires valid dates from the tournament schedule."
+                                : hotelPinsFallback?.reason === "no_venue_coordinates"
+                                  ? "Venue coordinates were missing for precise results."
+                                  : "Limited hotel inventory was returned for this venue."}
+                            </div>
+                            <div className={styles.lodgingFallbackActions}>
+                              <a
+                                className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
+                                href={buildVenueHotelsHref({
+                                  venue: hotelVenueForRedirect,
+                                  tournamentId: tournament.id,
+                                })}
+                                target="_blank"
+                                rel="noopener noreferrer sponsored"
+                                onClick={() => {
+                                  void trackTiEvent("venue_map_hotels_clicked", {
+                                    page_type: "venue_map",
+                                    tournament_id: tournament.id,
+                                    tournament_slug: tournament.slug,
+                                    venue_id: hotelVenueId,
+                                  });
+                                }}
+                              >
+                                View HotelPlanner results
+                              </a>
+                              <a
+                                className={styles.affiliateCta}
+                                href={`/go/vrbo?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                                target="_blank"
+                                rel="noopener noreferrer sponsored"
+                              >
+                                Rentals nearby
+                              </a>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={styles.hotelPanelSection}>
                         <div className={styles.hotelFilterRow}>
                           <label className={styles.hotelFilterLabel} htmlFor="hotel-rating-filter">
                             Min rating
@@ -2790,9 +2836,7 @@ export default function TournamentVenueMapClient({
                           </button>
                         </div>
                         {hotelDateRangeError ? <div className={styles.lodgingError}>{hotelDateRangeError}</div> : null}
-                        <div className={styles.lodgingMeta}>
-                          {`Showing ${filteredHotelPins.length} hotel result${filteredHotelPins.length === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`}
-                        </div>
+                        <div className={styles.lodgingMeta}>{hotelPanelSummary}</div>
                         <div
                           className={`${styles.hotelAvailabilityPanel} ${
                             hotelAvailabilityLoading ? styles.hotelAvailabilityPanelLoading : ""
@@ -3017,8 +3061,10 @@ export default function TournamentVenueMapClient({
                             </button>
                           ))}
                         </div>
-                      </div>
-                    )}
+                          </div>
+                        )}
+                      </>
+                    ) : null}
 
                     <div className={`${styles.ctaRow} ${styles.stayCtaRow}`}>
                       <button
