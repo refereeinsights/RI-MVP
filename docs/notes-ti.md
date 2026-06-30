@@ -28,6 +28,8 @@ Maintenance rules:
     - Added an inline `Need 5+ rooms?` team-block request panel to the TI venue-map hotel section.
     - Team-block requests now bind to the selected HotelPlanner property and reuse resolved tournament dates already attached to the map hotel search flow.
     - Group-request payloads now pass a destination and a default itinerary derived from selected property + dates so HP receives a complete request body.
+    - Empty-selection UX is an HTML-disabled CTA with the hint copy `Select a hotel above, then request a team block.` and the room-minimum validation copy is `Enter at least 5 rooms for a team hotel block request.`
+    - The UI `Notes` field is submitted to the API as the `comments` payload key.
     - Added typed analytics coverage for `team_block_cta_click`, `team_block_rfp_start`, and `team_block_rfp_submit`.
     - Added local UAT guidance for the team-block flow, including success, validation, and provider-failure paths.
 

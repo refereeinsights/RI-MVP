@@ -434,16 +434,17 @@ Latest Step 2 API run (local `localhost:3001`) result:
   - Open a TI tournament map page with live HotelPlanner hotel results.
   - Select one hotel row or map pin first; confirm the hotel still opens the HP property page in a new tab.
   - In the left panel, confirm `Need 5+ rooms? Request team hotel block` is visible under the hotel list.
-  - Without a selected hotel, confirm the CTA stays disabled and helper copy explains the requirement.
+  - Without a selected hotel, confirm the CTA button is disabled and the hint copy reads exactly: `Select a hotel above, then request a team block.`
   - With a selected hotel, confirm the panel shows the selected hotel name and resolved check-in / check-out dates.
 - [ ] Team-block validation
   - Open the team-block form.
-  - Submit with `rooms < 5`; expect inline validation error before request submission.
+  - Submit with `rooms < 5`; confirm the inline error reads exactly: `Enter at least 5 rooms for a team hotel block request.`
   - Remove one required field (`firstName`, `lastName`, or `email`); browser or route should block submission.
   - If tournament dates are missing, confirm the form does not open and a date-related error is shown.
 - [ ] Team-block request + analytics
   - Submit a valid request and check Network for `POST /api/lodging/group-request`.
-  - Confirm payload includes `propertyId`, `destination`, `checkin`, `checkout`, `rooms`, `split`, `rating`, `roomTypeCode`, TI tracking fields, and `groupTypeCode`.
+  - Confirm the form’s `Notes` field is sent as `comments` in the payload.
+  - Confirm payload includes `propertyId`, `destination`, `checkin`, `checkout`, `rooms`, `split`, `rating`, `roomTypeCode`, `comments`, TI tracking fields, and `groupTypeCode`.
   - Confirm analytics events fire for `team_block_cta_click`, `team_block_rfp_start`, and `team_block_rfp_submit`.
   - On success, confirm the UI shows `Request submitted` and, when returned, the HP `requestId`.
   - On provider failure, confirm the UI keeps the user on the map page and shows an inline error instead of redirecting.
