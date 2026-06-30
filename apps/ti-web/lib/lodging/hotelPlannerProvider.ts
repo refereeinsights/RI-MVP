@@ -130,6 +130,47 @@ function pickNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function pickCurrencyRate(row: Record<string, unknown>): number | null {
+  return (
+    pickNumber(row.averageAfterTax)
+    ?? pickNumber(row.averageBeforeTax)
+    ?? pickNumber(row.totalAfterTax)
+    ?? pickNumber(row.totalBeforeTax)
+    ?? pickNumber(row.rate)
+    ?? pickNumber(row.amountAfterTax)
+    ?? pickNumber(row.amountBeforeTax)
+    ?? pickNumber(row.totalWithTaxes)
+  );
+}
+
+function extractRateFromAvailabilityRow(entry: Record<string, unknown>): number | null {
+  const direct = pickNumber(entry.fromRate ?? entry.lowRate ?? entry.rate);
+  if (direct !== null) return direct;
+
+  const roomRates = Array.isArray(entry.roomRates) ? entry.roomRates : null;
+  if (!roomRates || roomRates.length === 0) return null;
+
+  let candidate: number | null = null;
+  for (const roomRate of roomRates) {
+    if (!roomRate || typeof roomRate !== "object") continue;
+    const parsed = pickCurrencyRate(roomRate as Record<string, unknown>);
+    if (parsed === null) {
+      const rates = (roomRate as Record<string, unknown>).rates;
+      if (!Array.isArray(rates)) continue;
+      for (const rate of rates) {
+        if (!rate || typeof rate !== "object") continue;
+        const nested = pickCurrencyRate(rate as Record<string, unknown>);
+        if (nested === null) continue;
+        candidate = candidate === null ? nested : Math.min(candidate, nested);
+      }
+      continue;
+    }
+    candidate = candidate === null ? parsed : Math.min(candidate, parsed);
+  }
+
+  return candidate;
+}
+
 function toPayloadTextMap(input: TrackingFields): Record<string, string> {
   const payload: Record<string, string> = {};
   if (input.sc) payload.sc = input.sc;
@@ -237,7 +278,7 @@ function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
     const entry = (row ?? {}) as Record<string, unknown>;
     const propertyId = pickText(entry.hotelID ?? entry.hotelId ?? entry.id);
     if (!propertyId) continue;
-    const candidate = pickNumber(entry.fromRate ?? entry.lowRate ?? entry.rate);
+    const candidate = extractRateFromAvailabilityRow(entry);
     if (candidate === null) continue;
     if (!minRatesByHotel.has(propertyId) || candidate < (minRatesByHotel.get(propertyId) ?? Number.POSITIVE_INFINITY)) {
       minRatesByHotel.set(propertyId, candidate);
@@ -256,7 +297,8 @@ function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
       const reviewCountFromPayload = typeof reviewRaw === "object" && reviewRaw !== null
         ? pickNumber((reviewRaw as Record<string, unknown>).count ?? (reviewRaw as Record<string, unknown>).basedon)
         : null;
-      const fromPrice = minRatesByHotel.get(propertyId) ?? pickNumber(item.fromRate ?? item.lowRate);
+      const fallbackFromRate = pickNumber(item.fromRate ?? item.lowRate);
+      const fromPrice = minRatesByHotel.get(propertyId) ?? fallbackFromRate;
       acc.push({
         id: propertyId,
         name: pickText(item.hotelname ?? item.name ?? item.hotelName) ?? "Hotel",
@@ -329,7 +371,7 @@ function normalizeHotelAvailability(payload: unknown, propertyId: string): Hotel
           const firstRate = rates[0] as Record<string, unknown>;
           return pickNumber(firstRate.amountAfterTax) ?? pickNumber(firstRate.totalAfterTax) ?? pickNumber(firstRate.amountBeforeTax) ?? pickNumber(firstRate.totalBeforeTax);
         })();
-      const rawRate = pickNumber(item.rateAfterTax ?? item.totalWithTaxes ?? item.totalAfterTax)
+      const rawRate = pickNumber(item.totalWithTaxes ?? item.rateAfterTax ?? item.averageAfterTax ?? item.averageBeforeTax ?? item.totalAfterTax)
         ?? (() => {
           const rates = Array.isArray(item.rates) ? item.rates : null;
           if (!rates || rates.length === 0) return null;
@@ -360,6 +402,9 @@ function normalizeHotelAvailability(payload: unknown, propertyId: string): Hotel
         roomName,
         rate,
         currency: pickText(item.currency) ?? "USD",
+        bundle: pickText(item.bundle),
+        ratePlanCode: pickText(item.ratePlanCode),
+        payNow: typeof item.payNow === "boolean" ? item.payNow : null,
         taxesAndFees,
         totalWithTaxes: rawRate,
         cancelPolicy,

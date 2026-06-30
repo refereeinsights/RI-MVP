@@ -362,8 +362,13 @@ Copy/paste prompt:
    - Normal success: hotel cards show name, distance, rating/review count, thumbnail, and from-price.
    - Missing coordinates or low inventory: Booking.com + VRBO fallback CTAs are still visible.
 4. Click one lodging card, verify availability loads, room options render, and HotelPlanner handoff form submits (not TI API for payment).
-5. Validate “Need 5+ rooms?” CTA opens group-request flow and requires required fields.
-6. Check Network for `/api/lodging/search`, `/api/lodging/availability`, `/api/lodging/checkout-handoff`, `/api/lodging/group-request`, `/api/analytics`.
+5. Click a room-rate CTA in the room list:
+   - a new tab opens through `/go/hotels/checkout`,
+   - TI returns an auto-submitting HTML form,
+   - final handoff posts to HotelPlanner white-label checkout `/Accept/CheckOut.htm`,
+   - no TI-hosted payment screen appears.
+6. Validate “Need 5+ rooms?” CTA opens group-request flow and requires required fields.
+7. Check Network for `/api/lodging/search`, `/api/lodging/availability`, `/go/hotels/checkout`, `/api/lodging/group-request`, `/api/analytics`.
 
 Optional targeted UAT for handoff compatibility:
 1) Open `http://localhost:3001/go/hotels?provider=hotelplanner&venueId=ecd43a1e-d24a-4f0d-807b-2084ac24131e&checkin=2026-07-01&checkout=2026-07-03&source=tournament_detail&lat=47.69741&lng=-117.23642&kw=Plantes%20Ferry&jobcode=TI-DEV-TEST&custom1=ven%3Aecd43a1e-d24a-4f0d-807b-2084ac24131e`
@@ -394,25 +399,36 @@ Run after Step 3 implementation is deployed to local server.
    - desktop map shows at most 10 hotel markers (list may show more cards),
    - mobile map shows at most 6 markers,
    - hotels without latitude/longitude appear in list but are not pinned.
-4) Verify fallback paths:
+4) Verify selected marker and filters:
+   - clicking a hotel marker highlights that marker and selected hotel card,
+   - rating filter updates visible card list and pinned markers.
+5) Verify date controls:
+   - check-in/check-out populate from search result when available,
+   - date inputs allow overrides and clicking Update dates re-fires availability on the selected hotel,
+   - invalid ranges block availability and show a clear error.
+6) Verify fallback paths:
    - no hotel / `showBookingFallback` / `showVrboFallback` shows fallback panel with HotelPlanner + VRBO CTAs,
    - `no_venue_coordinates` or `no_dates` includes handoff fallback CTA,
    - `/api/lodging/search` `429` does not block venue switching/map interaction.
-5) Click one hotel card or marker:
+7) Click one hotel card or marker:
    - availability request fires once for selected card/marker,
    - room/rate options render when available,
    - `hotel_room_view` appears only when options render,
    - stale/rapid clicks do not render stale room results.
-6) Verify no-date behavior:
-   - if `resolvedCheckIn` / `resolvedCheckOut` is null, no availability fetch should be made,
-   - immediate fallback CTA is shown.
-7) Check events in Network/analytics:
+   - clicking a room-rate CTA opens a new tab via `/go/hotels/checkout` and continues to HotelPlanner checkout
+8) Verify no-date behavior:
+   - if check-in/check-out is not set, availability is blocked with a validation message,
+   - once valid dates are set, availability can be requested (manual date overrides supported).
+9) Check events in Network/analytics:
    - confirm single batched `hotel_pin_impression` event per map render batch with `count`,
    - confirm `hotel_pin_click`, `hotel_card_click`, `hotel_availability_requested/succeeded/failed`, and `hotel_room_view` payloads include venue/tournament context.
 
-8) Validate handoff:
-   - hotel room handoff action opens `/go/hotels` redirect path in a new tab,
-   - no TI payment route is used for booking in this step.
+10) Validate room-level handoff correctness:
+   - hotel room handoff action opens `/go/hotels/checkout` in a new tab,
+   - the TI relay returns an auto-submitting HTML form POST,
+   - final destination is HotelPlanner white-label checkout `/Accept/CheckOut.htm`,
+   - no TI payment route is used for booking in this step,
+   - after room options are loaded, changing date inputs without clicking `Update dates` does not change the room checkout payload for those already-loaded options.
 
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 2)
 

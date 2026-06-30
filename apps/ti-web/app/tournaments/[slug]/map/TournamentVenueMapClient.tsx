@@ -101,6 +101,9 @@ type HotelAvailabilityRoom = {
   roomName: string;
   rate: number;
   currency: string;
+  bundle?: string | null;
+  ratePlanCode?: string | null;
+  payNow?: boolean | null;
   taxesAndFees?: number | null;
   totalWithTaxes?: number | null;
   cancelPolicy?: string | null;
@@ -228,12 +231,19 @@ export default function TournamentVenueMapClient({
   const [hotelSearchResolvedCheckIn, setHotelSearchResolvedCheckIn] = useState<string | null>(null);
   const [hotelSearchResolvedCheckOut, setHotelSearchResolvedCheckOut] = useState<string | null>(null);
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
+  const [hotelDateCheckIn, setHotelDateCheckIn] = useState<string>("");
+  const [hotelDateCheckOut, setHotelDateCheckOut] = useState<string>("");
+  const [hotelDateRangeError, setHotelDateRangeError] = useState<string | null>(null);
+  const [hotelRatingFilter, setHotelRatingFilter] = useState<number>(0);
   const [hotelAvailabilityLoading, setHotelAvailabilityLoading] = useState(false);
   const [hotelAvailabilityError, setHotelAvailabilityError] = useState<string | null>(null);
   const [hotelRoomOptions, setHotelRoomOptions] = useState<HotelAvailabilityRoom[]>([]);
   const [hotelAvailabilityCurrency, setHotelAvailabilityCurrency] = useState<string | null>(null);
   const [hotelAvailabilityPropertyId, setHotelAvailabilityPropertyId] = useState<string | null>(null);
   const [hotelAvailabilitySessionId, setHotelAvailabilitySessionId] = useState<string | null>(null);
+  const [hotelAvailabilityCheckIn, setHotelAvailabilityCheckIn] = useState<string | null>(null);
+  const [hotelAvailabilityCheckOut, setHotelAvailabilityCheckOut] = useState<string | null>(null);
+  const [isHotelAvailabilityCollapsed, setIsHotelAvailabilityCollapsed] = useState(false);
   const [hotelPinCap, setHotelPinCap] = useState<number>(10);
   const [mapHotelPinVisibleCount, setMapHotelPinVisibleCount] = useState<number>(0);
   const [entitlementTier, setEntitlementTier] = useState<TiTier>("unknown");
@@ -268,6 +278,15 @@ export default function TournamentVenueMapClient({
       : `/tournaments/${encodeURIComponent(tournament.slug)}/map`;
   const openedTrackedRef = useRef(false);
   const loadedTrackedRef = useRef(false);
+  const filteredHotelPins = useMemo(
+    () =>
+      hotelPins.filter((pin) => {
+        if (hotelRatingFilter <= 0) return true;
+        const rating = pin.rating;
+        return typeof rating === "number" && Number.isFinite(rating) && rating >= hotelRatingFilter;
+      }),
+    [hotelPins, hotelRatingFilter]
+  );
 
   useEffect(() => {
     if (openedTrackedRef.current) return;
@@ -942,10 +961,15 @@ export default function TournamentVenueMapClient({
     setSelectedHotelId(null);
     setHotelSearchResolvedCheckIn(null);
     setHotelSearchResolvedCheckOut(null);
+    setHotelDateCheckIn("");
+    setHotelDateCheckOut("");
+    setHotelDateRangeError(null);
     setMapHotelPinVisibleCount(0);
     setHotelAvailabilityPropertyId(null);
     setHotelAvailabilityCurrency(null);
     setHotelAvailabilitySessionId(null);
+    setHotelAvailabilityCheckIn(null);
+    setHotelAvailabilityCheckOut(null);
     clearHotelMarkers();
 
     try {
@@ -1008,6 +1032,9 @@ export default function TournamentVenueMapClient({
       const checkOut = (res.data.resolvedCheckOut ?? null) as string | null;
       setHotelSearchResolvedCheckIn(checkIn);
       setHotelSearchResolvedCheckOut(checkOut);
+      setHotelDateCheckIn(mmddToDateInput(checkIn));
+      setHotelDateCheckOut(mmddToDateInput(checkOut));
+      setHotelDateRangeError(null);
       setHotelPinsFallback(res.data.fallback ?? null);
 
       const normalized = normalizeHotelPins(res.data.hotels ?? [], checkIn, checkOut);
@@ -1081,9 +1108,9 @@ export default function TournamentVenueMapClient({
     if (!selectedVenue) return;
     if (!effectiveMapEnabled) return;
     if (!mapReady) return;
-    renderHotelPins(selectedVenue, hotelPins);
+    renderHotelPins(selectedVenue, filteredHotelPins);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVenueId, mapReady, effectiveMapEnabled, hotelPins, hotelPinCap]);
+  }, [selectedVenueId, mapReady, effectiveMapEnabled, filteredHotelPins, hotelPinCap, selectedHotelId]);
 
   const renderHotelPins = (venue: MapVenue, pins: HotelPin[]) => {
     const mapboxgl = mapboxglRef.current;
@@ -1098,7 +1125,9 @@ export default function TournamentVenueMapClient({
       const key = `hotel:${venue.id}:${pin.propertyId}`;
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = `${styles.placeMarkerBtn} ${styles.hotelPlaceMarkerBtn}`;
+      btn.className = `${styles.placeMarkerBtn} ${styles.hotelPlaceMarkerBtn} ${
+        selectedHotelId === pin.propertyId ? styles.hotelPlaceMarkerSelected : ""
+      }`;
       const markerPrice = formatCurrency(pin.fromPrice, pin.currency || "USD") ?? "Price on request";
       const markerLabel = `${pin.name} · ${markerPrice}`;
       btn.setAttribute("aria-label", `Hotel ${pin.name}. ${markerPrice}`);
@@ -1128,16 +1157,29 @@ export default function TournamentVenueMapClient({
       btn.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+        const currentDates = getCurrentAvailabilityDates(pin);
         void trackTiEvent("hotel_pin_click" as Parameters<typeof trackTiEvent>[0], {
           page_type: "venue_map",
           tournament_id: tournament.id,
           venue_id: venue.id,
           property_id: pin.propertyId,
-          checkin: pin.resolvedCheckIn,
-          checkout: pin.resolvedCheckOut,
+          checkin: currentDates?.checkIn ?? null,
+          checkout: currentDates?.checkOut ?? null,
         } as never);
         setSelectedHotelId(pin.propertyId);
-        void fetchHotelAvailability(pin);
+        setIsHotelAvailabilityCollapsed(false);
+        if (!currentDates) {
+          setHotelAvailabilityError("Please set a valid check-in and checkout date first.");
+          trackLodgingEvent("hotel_availability_failed", {
+            page_type: "venue_map",
+            tournament_id: tournament.id,
+            venue_id: selectedVenue?.id ?? null,
+            property_id: pin.propertyId,
+            reason: "invalid_date_range",
+          });
+          return;
+        }
+        void fetchHotelAvailability(pin, currentDates);
       });
 
       const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" })
@@ -1147,7 +1189,33 @@ export default function TournamentVenueMapClient({
     }
   };
 
-  const fetchHotelAvailability = async (pin: HotelPin) => {
+  const getCurrentAvailabilityDates = (pin: HotelPin) => {
+    const range = parseDateInputToMmdd(hotelDateCheckIn, hotelDateCheckOut);
+    if (range) return range;
+    if (pin.resolvedCheckIn && pin.resolvedCheckOut) {
+      const parsed = parseDateInputToMmdd(mmddToDateInput(pin.resolvedCheckIn), mmddToDateInput(pin.resolvedCheckOut));
+      if (parsed) return parsed;
+    }
+    return null;
+  };
+
+  const onHotelDateInputChange = () => {
+    setHotelDateRangeError(null);
+  };
+
+  const handleApplyHotelDates = () => {
+    if (!selectedHotel) return;
+    const range = getCurrentAvailabilityDates(selectedHotel);
+    if (!range) {
+      setHotelDateRangeError("Please provide a valid check-in and checkout date before requesting room options.");
+      return;
+    }
+    setIsHotelAvailabilityCollapsed(false);
+    void fetchHotelAvailability(selectedHotel, range);
+  };
+
+  const fetchHotelAvailability = async (pin: HotelPin, range?: { checkIn: string; checkOut: string }) => {
+    const normalizedRange = range ?? getCurrentAvailabilityDates(pin);
     const requestId = ++hotelAvailabilityRequestIdRef.current;
     setSelectedHotelId(pin.propertyId);
     setHotelAvailabilityError(null);
@@ -1155,18 +1223,21 @@ export default function TournamentVenueMapClient({
     setHotelAvailabilityCurrency(null);
     setHotelAvailabilityPropertyId(pin.propertyId);
     setHotelAvailabilitySessionId(null);
+    setHotelAvailabilityCheckIn(null);
+    setHotelAvailabilityCheckOut(null);
+    setIsHotelAvailabilityCollapsed(false);
     setHotelAvailabilityLoading(true);
 
-    if (!pin.resolvedCheckIn || !pin.resolvedCheckOut) {
-      setHotelAvailabilityError("Dates were not resolved for this venue; open the HotelPlanner search page.");
+    if (!normalizedRange) {
+      setHotelAvailabilityError("Please set a valid check-in and checkout date first.");
+      setHotelAvailabilityLoading(false);
       trackLodgingEvent("hotel_availability_failed", {
         page_type: "venue_map",
         tournament_id: tournament.id,
         venue_id: selectedVenue?.id ?? null,
         property_id: pin.propertyId,
-        reason: "missing_dates",
+        reason: "invalid_date_range",
       });
-      setHotelAvailabilityLoading(false);
       return;
     }
 
@@ -1175,8 +1246,8 @@ export default function TournamentVenueMapClient({
       tournament_id: tournament.id,
       venue_id: selectedVenue?.id ?? null,
       property_id: pin.propertyId,
-      checkin: pin.resolvedCheckIn,
-      checkout: pin.resolvedCheckOut,
+      checkin: normalizedRange.checkIn,
+      checkout: normalizedRange.checkOut,
     });
 
     try {
@@ -1186,8 +1257,8 @@ export default function TournamentVenueMapClient({
         body: JSON.stringify({
           propertyId: pin.propertyId,
           hotelIDTypeID: pin.hotelIDTypeID ?? undefined,
-          checkin: pin.resolvedCheckIn,
-          checkout: pin.resolvedCheckOut,
+          checkin: normalizedRange.checkIn,
+          checkout: normalizedRange.checkOut,
           rooms: 1,
           adults: 1,
           roomCount: 1,
@@ -1218,6 +1289,8 @@ export default function TournamentVenueMapClient({
 
       setHotelAvailabilitySessionId(raw?.sessionId ?? null);
       setHotelAvailabilityCurrency(raw?.currency ?? null);
+      setHotelAvailabilityCheckIn(normalizedRange.checkIn);
+      setHotelAvailabilityCheckOut(normalizedRange.checkOut);
       setHotelRoomOptions(raw?.roomOptions ?? []);
       trackLodgingEvent("hotel_availability_succeeded", {
         page_type: "venue_map",
@@ -1442,9 +1515,33 @@ export default function TournamentVenueMapClient({
   const primaryVenue = venues[0] ?? null;
   const hotelVenueId = selectedVenue?.id ?? primaryVenue?.id ?? null;
   const selectedHotel = useMemo(
-    () => hotelPins.find((pin) => pin.propertyId === selectedHotelId) ?? null,
-    [hotelPins, selectedHotelId]
+    () => filteredHotelPins.find((pin) => pin.propertyId === selectedHotelId) ?? null,
+    [filteredHotelPins, selectedHotelId]
   );
+  const orderedHotelPins = useMemo(() => {
+    if (!selectedHotelId) return filteredHotelPins;
+    const selectedIndex = filteredHotelPins.findIndex((pin) => pin.propertyId === selectedHotelId);
+    if (selectedIndex === -1) return filteredHotelPins;
+    if (selectedIndex === 0) return filteredHotelPins;
+    return [filteredHotelPins[selectedIndex], ...filteredHotelPins.slice(0, selectedIndex), ...filteredHotelPins.slice(selectedIndex + 1)];
+  }, [filteredHotelPins, selectedHotelId]);
+  useEffect(() => {
+    if (!selectedHotelId) {
+      setIsHotelAvailabilityCollapsed(false);
+      return;
+    }
+    setIsHotelAvailabilityCollapsed(false);
+  }, [selectedHotelId]);
+  useEffect(() => {
+    if (!selectedHotelId) return;
+    if (filteredHotelPins.some((pin) => pin.propertyId === selectedHotelId)) return;
+    setSelectedHotelId(null);
+    setHotelAvailabilityPropertyId(null);
+    setHotelAvailabilityCurrency(null);
+    setHotelAvailabilityCheckIn(null);
+    setHotelAvailabilityCheckOut(null);
+    setHotelRoomOptions([]);
+  }, [filteredHotelPins, selectedHotelId]);
   const hotelVenueForRedirect =
     selectedVenue ??
     (hotelVenueId
@@ -1461,8 +1558,8 @@ export default function TournamentVenueMapClient({
         }
       : null);
   const hotelFallbackCardVisible =
-    (hotelPinsFallback?.showBookingFallback || hotelPinsFallback?.showVrboFallback || hotelPins.length === 0) && Boolean(hotelPinsFallback);
-  const hotelSearchDateReady = Boolean(hotelSearchResolvedCheckIn && hotelSearchResolvedCheckOut);
+    (hotelPinsFallback?.showBookingFallback || hotelPinsFallback?.showVrboFallback || filteredHotelPins.length === 0) && Boolean(hotelPinsFallback);
+  const hotelSearchDateReady = Boolean(hotelDateCheckIn && hotelDateCheckOut && parseDateInputToMmdd(hotelDateCheckIn, hotelDateCheckOut));
 
   const buildNavProviderHrefsForLatLng = (lat: number, lng: number) => ({
     google: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lng}`)}`,
@@ -1586,6 +1683,51 @@ export default function TournamentVenueMapClient({
     if (miles < 0.1) return `${Math.round(meters)} m`;
     return `${miles.toFixed(miles >= 10 ? 0 : 1)} mi`;
   };
+
+  function mmddToDateInput(value: string | null) {
+    if (typeof value !== "string") return "";
+    const match = value.match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/);
+    if (!match) return "";
+    const [, mm, dd, yyyy] = match;
+    const normalizedMm = mm.padStart(2, "0");
+    const normalizedDd = dd.padStart(2, "0");
+    const year = Number(yyyy);
+    const month = Number(normalizedMm);
+    const day = Number(normalizedDd);
+    if (!year || !Number.isFinite(year) || month < 1 || month > 12 || day < 1 || day > 31) return "";
+    const iso = `${yyyy}-${normalizedMm}-${normalizedDd}`;
+    const parsed = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return iso;
+  }
+
+  function parseDateInputToMmdd(checkIn: string, checkOut: string): { checkIn: string; checkOut: string } | null {
+    const parseDate = (raw: string) => {
+      if (!raw) return null;
+      const normalized = raw.trim();
+      const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!match) return null;
+      const [, yyyy, mm, dd] = match;
+      const month = Number(mm);
+      const day = Number(dd);
+      const year = Number(yyyy);
+      if (!year || !Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day) || month < 1 || month > 12 || day < 1 || day > 31) {
+        return null;
+      }
+      const asDate = new Date(`${normalized}T00:00:00`);
+      if (Number.isNaN(asDate.getTime())) return null;
+      if (asDate.getFullYear() !== year || asDate.getMonth() + 1 !== month || asDate.getDate() !== day) return null;
+      return `${mm.padStart(2, "0")}/${dd.padStart(2, "0")}/${yyyy}`;
+    };
+    const parsedCheckIn = parseDate(checkIn);
+    const parsedCheckOut = parseDate(checkOut);
+    if (!parsedCheckIn || !parsedCheckOut) return null;
+    const checkInDate = new Date(`${parsedCheckIn.slice(6, 10)}-${parsedCheckIn.slice(0, 2)}-${parsedCheckIn.slice(3, 5)}T00:00:00`);
+    const checkOutDate = new Date(`${parsedCheckOut.slice(6, 10)}-${parsedCheckOut.slice(0, 2)}-${parsedCheckOut.slice(3, 5)}T00:00:00`);
+    if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime())) return null;
+    if (checkOutDate.getTime() <= checkInDate.getTime()) return null;
+    return { checkIn: parsedCheckIn, checkOut: parsedCheckOut };
+  }
 
   const formatCurrency = (value: number | null | undefined, currency = "USD") => {
     if (typeof value !== "number" || !Number.isFinite(value)) return null;
@@ -2508,26 +2650,249 @@ export default function TournamentVenueMapClient({
                       </div>
                     ) : (
                       <div className={styles.hotelPanelSection}>
-                        <div className={styles.lodgingMeta}>
-                          {`Showing ${hotelPins.length} hotel result${hotelPins.length === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`}
+                        <div className={styles.hotelFilterRow}>
+                          <label className={styles.hotelFilterLabel} htmlFor="hotel-rating-filter">
+                            Min rating
+                          </label>
+                          <select
+                            id="hotel-rating-filter"
+                            className={styles.hotelFilterSelect}
+                            value={hotelRatingFilter}
+                            onChange={(event) => setHotelRatingFilter(Number(event.target.value))}
+                          >
+                            <option value={0}>Any</option>
+                            <option value={3}>3+ stars</option>
+                            <option value={4}>4+ stars</option>
+                            <option value={5}>5 stars</option>
+                          </select>
                         </div>
+
+                        <div className={styles.hotelDateRow}>
+                          <div className={styles.hotelDateField}>
+                            <label className={styles.hotelFilterLabel} htmlFor="hotel-search-checkin">
+                              Check-in
+                            </label>
+                            <input
+                              id="hotel-search-checkin"
+                              className={styles.hotelDateInput}
+                              type="date"
+                              value={hotelDateCheckIn}
+                              onChange={(event) => {
+                                setHotelDateCheckIn(event.target.value);
+                                onHotelDateInputChange();
+                              }}
+                            />
+                          </div>
+                          <div className={styles.hotelDateField}>
+                            <label className={styles.hotelFilterLabel} htmlFor="hotel-search-checkout">
+                              Check-out
+                            </label>
+                            <input
+                              id="hotel-search-checkout"
+                              className={styles.hotelDateInput}
+                              type="date"
+                              value={hotelDateCheckOut}
+                              onChange={(event) => {
+                                setHotelDateCheckOut(event.target.value);
+                                onHotelDateInputChange();
+                              }}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.hotelDateApply}
+                            onClick={handleApplyHotelDates}
+                            disabled={!selectedHotel}
+                          >
+                            Update dates
+                          </button>
+                        </div>
+                        {hotelDateRangeError ? <div className={styles.lodgingError}>{hotelDateRangeError}</div> : null}
+                        <div className={styles.lodgingMeta}>
+                          {`Showing ${filteredHotelPins.length} hotel result${filteredHotelPins.length === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`}
+                        </div>
+                        <div
+                          className={`${styles.hotelAvailabilityPanel} ${
+                            hotelAvailabilityLoading ? styles.hotelAvailabilityPanelLoading : ""
+                          }`}
+                        >
+                          {selectedHotel ? (
+                            <>
+                              <button
+                                type="button"
+                                className={`${styles.hotelAvailabilityHeaderButton} ${
+                                  hotelAvailabilityLoading ? styles.hotelAvailabilityHeaderButtonLoading : ""
+                                }`}
+                                onClick={() => {
+                                  setIsHotelAvailabilityCollapsed((collapsed) => !collapsed);
+                                }}
+                                aria-expanded={!isHotelAvailabilityCollapsed}
+                              >
+                                <div className={styles.hotelAvailabilityHeader}>
+                                  <div>{selectedHotel.name}</div>
+                                  <div className={styles.hotelAvailabilitySummary}>
+                                    {getPinAddress(selectedHotel) || "Address on file"} •{" "}
+                                    {formatCurrency(selectedHotel.fromPrice, selectedHotel.currency || "USD") || "Price on request"}
+                                  </div>
+                                </div>
+                                <span
+                                  className={`${styles.hotelAvailabilityToggleIcon} ${
+                                    isHotelAvailabilityCollapsed ? styles.hotelAvailabilityToggleIconCollapsed : ""
+                                  }`}
+                                  aria-hidden="true"
+                                >
+                                  ▾
+                                </span>
+                              </button>
+
+                              {!isHotelAvailabilityCollapsed ? (
+                                <div className={styles.hotelAvailabilityBody}>
+                                  {hotelAvailabilityLoading ? (
+                                    <div className={`${styles.lodgingNotice} ${styles.hotelAvailabilityLoadingNotice}`}>
+                                      Loading room options...
+                                    </div>
+                                  ) : null}
+                                  {hotelSearchDateReady ? null : (
+                                    <div className={styles.lodgingFallback}>
+                                      <div className={styles.lodgingFallbackReason}>
+                                        Enter check-in and check-out dates, then click Update dates.
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {hotelAvailabilityError ? <div className={styles.lodgingError}>{hotelAvailabilityError}</div> : null}
+                                  {hotelAvailabilityError ? (
+                                    <a
+                                      className={styles.affiliateCta}
+                                      href={buildVenueHotelsHref({
+                                        venue: hotelVenueForRedirect,
+                                        tournamentId: tournament.id,
+                                      })}
+                                      target="_blank"
+                                      rel="noopener noreferrer sponsored"
+                                      onClick={() => {
+                                        void trackLodgingEvent("hotel_checkout_handoff", {
+                                          page_type: "venue_map",
+                                          tournament_id: tournament.id,
+                                          venue_id: selectedVenue?.id ?? null,
+                                          property_id: selectedHotelId,
+                                          reason: "availability_error_fallback",
+                                        });
+                                      }}
+                                    >
+                                      Open full HotelPlanner hotel results
+                                    </a>
+                                  ) : null}
+
+                                  {!hotelAvailabilityLoading && !hotelAvailabilityError && hotelRoomOptions.length > 0 && (
+                                    <div className={styles.hotelRoomList}>
+                                      <div className={styles.hotelRoomListTitle}>
+                                        {hotelRoomOptions.length} room option{hotelRoomOptions.length === 1 ? "" : "s"}
+                                      </div>
+                                      {hotelRoomOptions.map((room, roomIndex) => (
+                                        <div
+                                          key={`${room.roomTypeCode}-${room.roomName}-${room.rate ?? 0}-${roomIndex}`}
+                                          className={styles.hotelRoomRow}
+                                        >
+                                          <div className={styles.hotelRoomDetails}>
+                                            <div className={styles.hotelRoomName}>{room.roomName}</div>
+                                            <div className={styles.hotelRoomType}>Type {room.roomTypeCode}</div>
+                                            <div className={styles.hotelRoomPolicy}>{room.cancelPolicy || ""}</div>
+                                          </div>
+                                          {room.bundle && selectedVenue?.id && hotelAvailabilityCheckIn && hotelAvailabilityCheckOut ? (
+                                            <form
+                                              className={styles.hotelRoomCheckoutForm}
+                                              method="post"
+                                              action="/go/hotels/checkout"
+                                              target="_blank"
+                                              onSubmit={() => {
+                                                trackLodgingEvent("hotel_checkout_handoff", {
+                                                  page_type: "venue_map",
+                                                  tournament_id: tournament.id,
+                                                  venue_id: selectedVenue.id,
+                                                  property_id: hotelAvailabilityPropertyId ?? selectedHotelId,
+                                                  room_type_code: room.roomTypeCode,
+                                                  rate_plan_code: room.ratePlanCode ?? null,
+                                                  checkin: hotelAvailabilityCheckIn,
+                                                  checkout: hotelAvailabilityCheckOut,
+                                                });
+                                              }}
+                                            >
+                                              <input type="hidden" name="bundle" value={room.bundle} />
+                                              <input type="hidden" name="venueId" value={selectedVenue.id} />
+                                              <input type="hidden" name="tournamentId" value={tournament.id} />
+                                              <input
+                                                type="hidden"
+                                                name="propertyId"
+                                                value={hotelAvailabilityPropertyId ?? selectedHotelId ?? ""}
+                                              />
+                                              <input type="hidden" name="roomTypeCode" value={room.roomTypeCode} />
+                                              <input type="hidden" name="ratePlanCode" value={room.ratePlanCode ?? ""} />
+                                              <input type="hidden" name="checkin" value={hotelAvailabilityCheckIn} />
+                                              <input type="hidden" name="checkout" value={hotelAvailabilityCheckOut} />
+                                              <input type="hidden" name="source" value="venue_map" />
+                                              <button type="submit" className={styles.hotelRoomRateButton}>
+                                                {formatCurrency(room.totalWithTaxes ?? room.rate, hotelAvailabilityCurrency || "USD")}
+                                              </button>
+                                            </form>
+                                          ) : (
+                                            <div className={styles.hotelRoomRate}>
+                                              {formatCurrency(room.totalWithTaxes ?? room.rate, hotelAvailabilityCurrency || "USD")}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                      <a
+                                        className={`${styles.affiliateCta} ${styles.hotelHandoffCta}`}
+                                        href={buildVenueHotelsHref({
+                                          venue: hotelVenueForRedirect,
+                                          tournamentId: tournament.id,
+                                        })}
+                                        target="_blank"
+                                        rel="noopener noreferrer sponsored"
+                                      >
+                                        View full booking options
+                                      </a>
+                                    </div>
+                                  )}
+
+                                  {hotelAvailabilitySessionId &&
+                                  !hotelAvailabilityLoading &&
+                                  hotelRoomOptions.length === 0 &&
+                                  !hotelAvailabilityError ? (
+                                    <div className={styles.lodgingNotice}>No room options were returned for this selection.</div>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <div className={styles.lodgingNotice}>Select a hotel card to load room availability.</div>
+                          )}
+                        </div>
+
                         <div className={styles.hotelList}>
-                          {hotelPins.map((pin) => (
+                          {orderedHotelPins.map((pin) => (
                             <button
                               key={pin.propertyId}
                               type="button"
                               className={`${styles.hotelCard} ${selectedHotelId === pin.propertyId ? styles.hotelCardSelected : ""}`}
                               onClick={() => {
+                                const currentDates = getCurrentAvailabilityDates(pin);
                                 setSelectedHotelId(pin.propertyId);
+                                setIsHotelAvailabilityCollapsed(false);
+                                if (!currentDates) {
+                                  setHotelAvailabilityError("Please set a valid check-in and checkout date first.");
+                                  return;
+                                }
                                 trackLodgingEvent("hotel_card_click", {
                                   page_type: "venue_map",
                                   tournament_id: tournament.id,
                                   venue_id: selectedVenue?.id ?? null,
                                   property_id: pin.propertyId,
-                                  checkin: pin.resolvedCheckIn,
-                                  checkout: pin.resolvedCheckOut,
+                                  checkin: currentDates.checkIn,
+                                  checkout: currentDates.checkOut,
                                 });
-                                void fetchHotelAvailability(pin);
+                                void fetchHotelAvailability(pin, currentDates);
                               }}
                             >
                               <div className={styles.hotelCardTitle}>{pin.name}</div>
@@ -2537,7 +2902,9 @@ export default function TournamentVenueMapClient({
                               </div>
                               <div className={styles.hotelCardMeta}>
                                 <span>
-                                  {pin.rating != null ? `★ ${pin.rating.toFixed(1)}${pin.reviewCount ? ` (${pin.reviewCount})` : ""}` : "No rating"}
+                                  {pin.rating != null
+                                    ? `${pin.rating.toFixed(1)}★${pin.reviewCount ? ` (${pin.reviewCount})` : ""}`
+                                    : "—"}
                                 </span>
                                 <span> • </span>
                                 <span>{formatCurrency(pin.fromPrice, pin.currency || "USD") || "Price on request"}</span>
@@ -2547,104 +2914,6 @@ export default function TournamentVenueMapClient({
                               </div>
                             </button>
                           ))}
-                        </div>
-
-                        <div className={styles.hotelAvailabilityPanel}>
-                          {selectedHotel ? (
-                            <>
-                              <div className={styles.hotelAvailabilityHeader}>
-                                <div>{selectedHotel.name}</div>
-                                <div className={styles.hotelAvailabilitySummary}>
-                                  {getPinAddress(selectedHotel) || "Address on file"}
-                                </div>
-                              </div>
-
-                              {hotelAvailabilityLoading ? <div className={styles.lodgingNotice}>Loading room options…</div> : null}
-
-                              {!hotelSearchDateReady && (
-                                <div className={styles.lodgingFallback}>
-                                  <div className={styles.lodgingFallbackReason}>
-                                    Dates are not available for this venue in current context.
-                                  </div>
-                                  <a
-                                    className={styles.affiliateCta}
-                                    href={buildVenueHotelsHref({
-                                      venue: hotelVenueForRedirect,
-                                      tournamentId: tournament.id,
-                                    })}
-                                    target="_blank"
-                                    rel="noopener noreferrer sponsored"
-                                  >
-                                    Open full HotelPlanner search
-                                  </a>
-                                </div>
-                              )}
-
-                              {hotelAvailabilityError ? <div className={styles.lodgingError}>{hotelAvailabilityError}</div> : null}
-                              {hotelAvailabilityError ? (
-                                <a
-                                  className={styles.affiliateCta}
-                                  href={buildVenueHotelsHref({
-                                    venue: hotelVenueForRedirect,
-                                    tournamentId: tournament.id,
-                                  })}
-                                  target="_blank"
-                                  rel="noopener noreferrer sponsored"
-                                  onClick={() => {
-                                    void trackLodgingEvent("hotel_checkout_handoff", {
-                                      page_type: "venue_map",
-                                      tournament_id: tournament.id,
-                                      venue_id: selectedVenue?.id ?? null,
-                                      property_id: selectedHotelId,
-                                      reason: "availability_error_fallback",
-                                    });
-                                  }}
-                                >
-                                  Open full HotelPlanner hotel results
-                                </a>
-                              ) : null}
-
-                              {!hotelAvailabilityLoading && !hotelAvailabilityError && hotelRoomOptions.length > 0 && (
-                                <div className={styles.hotelRoomList}>
-                                  <div className={styles.hotelRoomListTitle}>
-                                    {hotelRoomOptions.length} room option{hotelRoomOptions.length === 1 ? "" : "s"}
-                                  </div>
-                                  {hotelRoomOptions.map((room, roomIndex) => (
-                                    <div
-                                      key={`${room.roomTypeCode}-${room.roomName}-${room.rate ?? 0}-${roomIndex}`}
-                                      className={styles.hotelRoomRow}
-                                    >
-                                      <div>
-                                        <div className={styles.hotelRoomName}>{room.roomName}</div>
-                                        <div className={styles.hotelRoomType}>Type {room.roomTypeCode}</div>
-                                        <div className={styles.hotelRoomPolicy}>{room.cancelPolicy || ""}</div>
-                                      </div>
-                                      <div className={styles.hotelRoomRate}>
-                                        {formatCurrency(room.totalWithTaxes ?? room.rate, hotelAvailabilityCurrency || "USD")}
-                                      </div>
-                                    </div>
-                                  ))}
-                                  <a
-                                    className={`${styles.affiliateCta} ${styles.hotelHandoffCta}`}
-                                    href={buildVenueHotelsHref({
-                                      venue: hotelVenueForRedirect,
-                                      tournamentId: tournament.id,
-                                    })}
-                                    target="_blank"
-                                    rel="noopener noreferrer sponsored"
-                                  >
-                                    View full booking options
-                                  </a>
-                                </div>
-                              )}
-
-                              {hotelAvailabilitySessionId && !hotelAvailabilityLoading && hotelRoomOptions.length === 0 && !hotelAvailabilityError ? (
-                                <div className={styles.lodgingNotice}>No room options were returned for this selection.</div>
-                              ) : null}
-                            </>
-                          ) : (
-                            <div className={styles.lodgingNotice}>Select a hotel card to load room availability.</div>
-                          )}
                         </div>
                       </div>
                     )}

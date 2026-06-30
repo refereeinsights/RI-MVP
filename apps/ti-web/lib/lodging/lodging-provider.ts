@@ -162,6 +162,9 @@ export type HotelRateOption = {
   roomName: string;
   rate: number;
   currency: string;
+  bundle?: string | null;
+  ratePlanCode?: string | null;
+  payNow?: boolean | null;
   taxesAndFees?: number | null;
   totalWithTaxes?: number | null;
   cancelPolicy?: string | null;

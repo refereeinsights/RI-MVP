@@ -219,6 +219,46 @@ Date: 2026-06-29
 
 ### Step 2 Foundation status (now complete)
 
+### Room-level HotelPlanner checkout handoff (2026-06-29)
+
+- Implemented direct room-option handoff from the tournament map hotel panel:
+  - Added `apps/ti-web/app/go/hotels/checkout/route.ts`
+    - accepts POSTed HotelPlanner `bundle`
+    - builds a safe `ReturnPage` back through TI `/go/hotels`
+    - returns auto-submitting HTML form POST to `HOTELPLANNER_WHITE_LABEL_BASE_URL/Accept/CheckOut.htm`
+    - skips `ti_outbound_clicks` logging on localhost, mirrors existing `/go/hotels` behavior
+- Extended HotelPlanner room-option normalization:
+  - `apps/ti-web/lib/lodging/lodging-provider.ts`
+  - `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`
+  - room options now preserve:
+    - `bundle`
+    - `ratePlanCode`
+    - `payNow`
+- Tournament map UI now uses room-level checkout CTA:
+  - `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`
+  - room rate becomes a POST form button to `/go/hotels/checkout` when bundle is present
+  - handoff uses the exact loaded availability stay window, not whatever is currently typed into date inputs
+- Added live payload inspection helper:
+  - `scripts/ops/inspect-hotelplanner-availability.mjs`
+  - confirms live `propertyAvailability` returns `bundle` and room-level booking context needed for white-label checkout
+
+### UAT to run for room-level handoff
+
+- [ ] Open a tournament map page with live HotelPlanner results and select a hotel with available room options.
+- [ ] Click a room-rate pill/button in the room options list:
+  - [ ] opens a new tab
+  - [ ] hits TI relay route `/go/hotels/checkout`
+  - [ ] auto-submits to HotelPlanner white-label checkout (`/Accept/CheckOut.htm`)
+  - [ ] does not open any TI payment flow
+- [ ] Verify the handoff uses the loaded room stay dates:
+  - [ ] load room options
+  - [ ] change date inputs without clicking `Update dates`
+  - [ ] click room rate
+  - [ ] checkout still reflects the previously loaded room option stay window
+- [ ] Fallback behavior:
+  - [ ] if bundle is unavailable, room rate remains non-clickable and `View full booking options` still works
+  - [ ] if HotelPlanner returns the customer via `ReturnPage`, TI falls back through `/go/hotels` with the same venue/date context
+
 Date: 2026-06-29
 
 - Implemented `/api/lodging/availability` in `apps/ti-web/app/api/lodging/availability/route.ts`:
@@ -287,6 +327,9 @@ Status: **Implemented in `TournamentVenueMapClient.tsx` and map styles**
 - Added dynamic HotelPlanner discovery in Tournament map detail panel:
   - Replaced static nearby-hotel CTA presentation with API-driven hotel result cards rendered from `POST /api/lodging/search`.
   - Added hotel marker rendering from search results (desktop cap 10, mobile cap 6 after mount via media-query hook).
+  - Added selected-marker visual state on hotel markers.
+  - Added editable check-in/check-out date controls in the panel; availability fetches now use current UI dates (with MM/DD conversion to API format).
+  - Added min-rating filter in panel (Any, 3+, 4+, 5+).
   - Deduplicated/sorted hotels and rendered list-only entries (no coordinates) as selectable cards without map markers.
 - Implemented on-demand availability retrieval:
   - Added `POST /api/lodging/availability` on marker/card interaction.
@@ -314,6 +357,14 @@ Status: **Implemented in `TournamentVenueMapClient.tsx` and map styles**
   - rating/review count
   - from-price and currency
   - fallback CTA visible when search returns no results/fallback flags.
+- [ ] Verify selected hotel marker highlight:
+  - clicking a map marker highlights only that marker and shows corresponding selected card styling.
+- [ ] Verify date controls:
+  - resolved dates from search populate check-in/check-out.
+  - user can update check-in/check-out and click **Update dates** to re-run availability for selected hotel.
+  - invalid/empty date ranges show validation message and block request.
+- [ ] Verify rating filter:
+  - changing filter updates list and map pins to meet minimum star threshold.
 - [ ] Verify marker cap behavior:
   - Desktop shows at most 10 markers.
   - Mobile shows at most 6 markers.

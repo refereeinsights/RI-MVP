@@ -473,6 +473,13 @@
   transform: translateY(-6px);
 }
 
+.hotelPlaceMarkerSelected .hotelPlaceMarker {
+  border-color: rgba(56, 189, 248, 0.9);
+  background: rgba(7, 71, 166, 0.98);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.35);
+  transform: translateY(-7px) scale(1.03);
+}
+
 .hotelPlaceMarkerIcon {
   font-size: 11px;
   line-height: 1;
@@ -786,21 +793,86 @@
 .hotelAvailabilityPanel {
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 12px;
-  padding: 9px;
+  padding: 6px;
   background: rgba(255,255,255,0.06);
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.hotelAvailabilityPanelLoading {
+  border-color: rgba(96,165,250,0.9);
+  background: rgba(59,130,246,0.14);
+  box-shadow: inset 0 0 0 1px rgba(96,165,250,0.18);
 }
 
 .lodgingFallbackActions,
 .hotelRoomList {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .hotelPanelSection {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+}
+
+.hotelFilterRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.hotelDateRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 6px 8px;
+  align-items: center;
+}
+
+.hotelDateField {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hotelFilterLabel {
+  font-size: 11px;
+  font-weight: 900;
+  opacity: 0.85;
+}
+
+.hotelFilterSelect,
+.hotelDateInput {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.hotelDateInput {
+  min-width: 0;
+}
+
+.hotelDateApply {
+  appearance: none;
+  border: 1px solid rgba(0,0,0,0.14);
+  border-radius: 10px;
+  background: #16a34a;
+  color: #fff;
+  padding: 6px 10px;
+  font-weight: 900;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.hotelDateApply:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .hotelList {
@@ -816,9 +888,9 @@
   background: rgba(255,255,255,0.06);
   color: #fff;
   text-align: left;
-  padding: 10px;
+  padding: 8px;
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .hotelCardSelected {
@@ -835,25 +907,87 @@
 }
 
 .hotelCardTitle {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
 }
 
 .hotelCardMeta {
-  font-size: 12px;
+  font-size: 11px;
   opacity: 0.88;
   line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.hotelAvailabilityHeaderButton {
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.hotelAvailabilityHeaderButtonLoading {
+  background: rgba(59,130,246,0.16);
+  box-shadow: inset 0 0 0 1px rgba(96,165,250,0.24);
+  padding: 6px 8px;
+}
+
+.hotelAvailabilityHeaderButton:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.8);
+  outline-offset: 2px;
 }
 
 .hotelAvailabilityHeader {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   font-weight: 900;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .hotelAvailabilitySummary {
+  font-size: 11px;
   font-weight: 600;
   opacity: 0.86;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.hotelAvailabilityToggleIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: transform 0.15s ease;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.hotelAvailabilityToggleIconCollapsed {
+  transform: rotate(-90deg);
+}
+
+.hotelAvailabilityBody {
+  display: grid;
+  gap: 6px;
+  max-height: 38vh;
+  overflow: hidden;
+}
+
+.hotelAvailabilityLoadingNotice {
+  border: 1px solid rgba(96,165,250,0.65);
+  border-radius: 10px;
+  background: rgba(59,130,246,0.18);
+  padding: 8px 10px;
+  font-weight: 800;
 }
 
 .hotelRoomListTitle {
@@ -862,31 +996,82 @@
   opacity: 0.9;
   text-transform: uppercase;
   letter-spacing: 0.07em;
+  white-space: nowrap;
 }
 
 .hotelRoomRow {
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 10px;
-  padding: 9px;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  padding: 7px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 10px;
+  align-items: start;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hotelRoomList {
+  overflow-y: auto;
+  max-height: calc(38vh - 88px);
+  padding-right: 4px;
+}
+
+.hotelRoomDetails {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
 }
 
 .hotelRoomName {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .hotelRoomType,
 .hotelRoomPolicy {
-  font-size: 12px;
+  font-size: 11px;
   opacity: 0.86;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .hotelRoomRate {
   font-weight: 900;
   white-space: nowrap;
+  font-size: 12px;
+  text-align: right;
+  align-self: start;
+}
+
+.hotelRoomCheckoutForm {
+  justify-self: end;
+}
+
+.hotelRoomRateButton {
+  appearance: none;
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.2);
+  color: #fff;
+  padding: 6px 10px;
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.hotelRoomRateButton:hover,
+.hotelRoomRateButton:focus-visible {
+  outline: none;
+  background: rgba(37, 99, 235, 0.3);
+  border-color: rgba(147, 197, 253, 0.75);
 }
 
 .hotelHandoffCta {
@@ -914,6 +1099,40 @@
 
   .ctaRow {
     margin-top: 8px;
+  }
+
+  .hotelDateRow {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .hotelDateApply {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .hotelAvailabilityHeader {
+    gap: 3px;
+  }
+
+  .hotelRoomRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .hotelRoomRate {
+    margin-left: auto;
+  }
+
+  .hotelAvailabilitySummary,
+  .hotelRoomName,
+  .hotelRoomType,
+  .hotelRoomPolicy,
+  .lodgingNotice,
+  .lodgingError,
+  .lodgingFallbackReason {
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 }
 

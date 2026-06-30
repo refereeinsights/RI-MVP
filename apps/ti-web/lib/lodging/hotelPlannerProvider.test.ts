@@ -182,6 +182,67 @@ test("searchHotels normalizes object-mapped hotel payloads", async () => {
   }
 });
 
+test("searchHotels derives fromPrice from availability roomRates", async () => {
+  const config = testConfig();
+  const provider = createHotelPlannerProvider(config);
+
+  const originalFetch = global.fetch;
+  (global as { fetch: typeof global.fetch }).fetch = async () =>
+    new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          hotels: {
+            "0_67747": {
+              hotelID: "67747",
+              hotelname: "Blue Star Hotel",
+              city: "Denver",
+              state: "CO",
+              currency: "USD",
+            },
+          },
+          availabilities: [
+            {
+              hotelID: "67747",
+              roomRates: [
+                {
+                  roomTypeCode: "DBL",
+                  averageAfterTax: 159,
+                  totalAfterTax: 477,
+                  rates: [{ amountAfterTax: 159, totalAfterTax: 159 }],
+                },
+                {
+                  roomTypeCode: "DBL2",
+                  averageAfterTax: 189,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+
+  try {
+    const result = await provider.searchHotels({
+      checkIn: "08/01/2026",
+      checkOut: "08/03/2026",
+      roomCount: 1,
+      adultCount: 2,
+      destination: "Denver, CO",
+      customerIPAddress: "198.51.100.4",
+      customerUserAgent: "agent/1.2",
+    });
+
+    assert.equal(result.hotels.length, 1);
+    assert.equal(result.hotels[0].id, "67747");
+    assert.equal(result.hotels[0].fromPrice, 159);
+    assert.equal(result.fallback?.showBookingFallback, true);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("searchHotels accepts HotelPlanner payload without success/code when hotels are present", async () => {
   const config = testConfig();
   const provider = createHotelPlannerProvider(config);
@@ -312,6 +373,9 @@ test("getHotelAvailability normalizes roomRates payloads", async () => {
                     roomTypeCode: 2144165,
                     totalAfterTax: 214.41,
                     averageAfterTax: 71.47,
+                    bundle: "bundle-modern-room",
+                    ratePlanCode: "RATE123",
+                    payNow: true,
                     cancelPolicy: {
                       freeCancellation: true,
                       text: "Cancel before 09/16/2026 free",
@@ -358,6 +422,9 @@ test("getHotelAvailability normalizes roomRates payloads", async () => {
     assert.ok(modern);
     assert.equal(modern?.roomName, "1 Queen Bed, Smoking Room");
     assert.equal(modern?.rate, 214.41);
+    assert.equal(modern?.bundle, "bundle-modern-room");
+    assert.equal(modern?.ratePlanCode, "RATE123");
+    assert.equal(modern?.payNow, true);
     assert.equal(modern?.totalWithTaxes, 71.47);
     assert.equal(modern?.cancelPolicy, "Cancel before 09/16/2026 free");
   } finally {
