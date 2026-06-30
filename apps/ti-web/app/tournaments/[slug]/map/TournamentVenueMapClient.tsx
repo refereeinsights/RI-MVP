@@ -194,6 +194,8 @@ export default function TournamentVenueMapClient({
   const openVenueNavChooserRef = useRef<((venue: MapVenue, source: "venue_marker") => void) | null>(null);
   const hotelPinMarkersRef = useRef<Map<string, { marker: any }>>(new Map());
   const lodgingSearchInFlightRef = useRef(0);
+  const teamBlockPanelRef = useRef<HTMLDivElement | null>(null);
+  const teamBlockFirstInputRef = useRef<HTMLInputElement | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState<boolean>(false);
   const [thumbSrc, setThumbSrc] = useState<string>(() => {
@@ -1563,6 +1565,19 @@ export default function TournamentVenueMapClient({
     });
   };
 
+  useEffect(() => {
+    if (!teamBlockOpen) return;
+    const panel = teamBlockPanelRef.current;
+    const input = teamBlockFirstInputRef.current;
+    if (panel) {
+      panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    const timer = window.setTimeout(() => {
+      input?.focus();
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [teamBlockOpen]);
+
   const buildTeamBlockComments = () => {
     const parts = [
       teamBlockForm.teamName ? `Team: ${teamBlockForm.teamName}` : null,
@@ -2819,7 +2834,7 @@ export default function TournamentVenueMapClient({
                             </button>
                           ))}
                         </div>
-                        <div className={styles.teamBlockPanel}>
+                        <div className={styles.teamBlockPanel} ref={teamBlockPanelRef}>
                           <div className={styles.teamBlockHeader}>
                             <div className={styles.teamBlockTitle}>Request team hotel block</div>
                             <div className={styles.teamBlockSub}>
@@ -2854,6 +2869,7 @@ export default function TournamentVenueMapClient({
                                 <label className={styles.teamBlockField}>
                                   <span className={styles.hotelFilterLabel}>Team name</span>
                                   <input
+                                    ref={teamBlockFirstInputRef}
                                     className={styles.teamBlockInput}
                                     type="text"
                                     required
