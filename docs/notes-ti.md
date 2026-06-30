@@ -25,12 +25,13 @@ Maintenance rules:
     - `apps/ti-web/lib/tiAnalyticsEvents.ts`
     - `CLAUDE.md`
   - Changes:
-    - Replaced the embedded TI team-block form with a direct HotelPlanner `Group-Rate` handoff in a new tab.
-    - `Need 5+ rooms?` is now a pure outbound CTA from the venue action block instead of opening an inline TI-owned RFP form.
-    - The handoff URL uses venue-area context plus resolved dates and TI tracking params (`sc`, `CheckInDate1`, `OutDate`, `kw`, `jobCode`, `Custom1`, `Custom2`).
-    - Empty-results UX disables the CTA with the hint copy `Hotel results are required before requesting a team block.`; missing dates disable it with `Tournament dates are required before opening the team block request.`
-    - Promoted the primary `Need 5+ rooms?` entry point into the main venue action block so the group-request handoff stays visible even when the hotel list is long.
-    - Team-block analytics now capture the outbound click from TI; TI no longer owns the downstream RFP form lifecycle.
+    - Restored a TI-branded team-block intake form instead of sending users directly to HotelPlanner `Group-Rate`.
+    - `Need 5+ rooms?` remains in the main venue action block, but now opens a TI-owned inline RFP form in the venue panel.
+    - The flow is area-based in the UI and does not require selecting a specific hotel first; TI still sends the first visible hotel result as the required internal `propertyId` anchor for HotelPlanner.
+    - Form inputs collect team/contact information and fold `teamName`, `phone`, and notes into the API `comments` field.
+    - Submit continues to use `/api/lodging/group-request` with hardcoded provider defaults for `split`, `rating`, `roomTypeCode`, and `groupTypeCode`.
+    - Empty-results UX disables the CTA with the hint copy `Hotel results are required before requesting a team block.`; missing dates disable it with `Tournament dates are required before submitting a team hotel block request.`
+    - Team-block analytics again cover CTA click, form open, and submit success/failure inside TI.
 
 - TI HotelPlanner venue-map stale tournament date fix:
   - Updated `apps/ti-web/app/api/lodging/search/route.ts` so tournament-inferred hotel search windows no longer send stale start dates to HotelPlanner on in-progress or past tournaments.

@@ -42,6 +42,8 @@ export type TiAnalyticsEventName =
   | "owls_eye_directions_clicked"
   | "venue_map_hotels_clicked"
   | "team_block_cta_click"
+  | "team_block_rfp_start"
+  | "team_block_rfp_submit"
   | "weekend_share_clicked"
   | "weekend_page_opened"
   | "weekend_share_venue_map_clicked"
@@ -442,6 +444,28 @@ export type TiAnalyticsEventPropertiesByName = {
     property_id: string | null;
     checkin: string | null;
     checkout: string | null;
+  };
+  team_block_rfp_start: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    property_id: string | null;
+    checkin: string;
+    checkout: string;
+  };
+  team_block_rfp_submit: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    property_id: string | null;
+    checkin: string;
+    checkout: string;
+    rooms: number;
+    success: boolean;
+    request_id: string | null;
+    error: string | null;
   };
   weekend_share_clicked: {
     source_page: "tournament_detail" | "venue_map" | "venue_detail" | "weekend_page";

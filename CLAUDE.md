@@ -432,18 +432,24 @@ Latest Step 2 API run (local `localhost:3001`) result:
 
 - [ ] Local browser flow
   - Open a TI tournament map page with live HotelPlanner hotel results.
-  - In the left panel, confirm `Need 5+ rooms? Request team hotel block` is visible under the hotel list.
+  - In the left panel, confirm `Need 5+ rooms? Request team hotel block` is visible in the main venue action block.
   - Confirm the CTA is available without selecting a specific hotel first.
-  - Confirm the helper copy references the venue area and resolved dates rather than a selected hotel form state.
-- [ ] Team-block handoff
   - Click `Need 5+ rooms? Request team block`.
-  - Confirm a new tab opens to HotelPlanner `Group-Rate`.
-  - Confirm the URL includes `sc`, `city`, `CheckInDate1`, `OutDate`, `kw`, `jobCode`, `Custom1`, and `Custom2`.
-  - Confirm no TI-hosted RFP form is shown.
+  - Confirm a TI-hosted form opens inline and no new tab/redirect occurs.
+  - Confirm the form shows venue-area/tournament/date context.
   - If hotel results are missing, confirm the CTA is disabled and the hint copy reads: `Hotel results are required before requesting a team block.`
-  - If dates are missing, confirm the CTA is disabled and the hint copy reads: `Tournament dates are required before opening the team block request.`
+  - If dates are missing, confirm the CTA is disabled and the hint copy reads: `Tournament dates are required before submitting a team hotel block request.`
+- [ ] Team-block validation and submit
+  - Click `Need 5+ rooms? Request team block`.
+  - Submit with `rooms < 5` and confirm the inline error reads: `Enter at least 5 rooms for a team hotel block request.`
+  - Remove a required field and confirm browser validation blocks submit.
+  - Submit a valid request and confirm `POST /api/lodging/group-request` fires.
+  - Confirm payload contains `propertyId`, `destination`, `checkin`, `checkout`, `rooms`, `adults`, `children`, `firstName`, `lastName`, `email`, `comments`, `split`, `rating`, `roomTypeCode`, `groupTypeCode`, `sc`, `kw`, `jobCode`, `custom1`, and `custom2`.
+  - Confirm `destination` is area-oriented and `propertyId` is still sent internally.
+  - Confirm success stays on TI with branded success UI.
+  - Confirm failure stays on TI with inline error.
 - [ ] Team-block analytics
-  - Confirm `team_block_cta_click` fires with venue/tournament context when the outbound handoff is triggered.
+  - Confirm `team_block_cta_click`, `team_block_rfp_start`, and `team_block_rfp_submit` fire with venue/tournament context.
 
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 1 - Search Endpoint)
 

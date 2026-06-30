@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
@@ -95,6 +95,34 @@ type HotelSearchResponse = {
   resolvedCheckOut?: string | null;
   error?: string;
   code?: string;
+};
+
+type TeamBlockFormState = {
+  teamName: string;
+  contactFirstName: string;
+  contactLastName: string;
+  email: string;
+  phone: string;
+  rooms: string;
+  adultsPerRoom: string;
+  childrenPerRoom: string;
+  notes: string;
+};
+
+type TeamBlockSuccessState = {
+  requestId: string | null;
+};
+
+const DEFAULT_TEAM_BLOCK_FORM: TeamBlockFormState = {
+  teamName: "",
+  contactFirstName: "",
+  contactLastName: "",
+  email: "",
+  phone: "",
+  rooms: "10",
+  adultsPerRoom: "2",
+  childrenPerRoom: "0",
+  notes: "",
 };
 
 function buildVenueHotelsHref(args: {
@@ -213,6 +241,11 @@ export default function TournamentVenueMapClient({
   const [isHotelResultsCollapsed, setIsHotelResultsCollapsed] = useState(true);
   const [hotelPinCap, setHotelPinCap] = useState<number>(10);
   const [mapHotelPinVisibleCount, setMapHotelPinVisibleCount] = useState<number>(0);
+  const [teamBlockOpen, setTeamBlockOpen] = useState(false);
+  const [teamBlockSubmitting, setTeamBlockSubmitting] = useState(false);
+  const [teamBlockError, setTeamBlockError] = useState<string | null>(null);
+  const [teamBlockSuccess, setTeamBlockSuccess] = useState<TeamBlockSuccessState | null>(null);
+  const [teamBlockForm, setTeamBlockForm] = useState<TeamBlockFormState>(DEFAULT_TEAM_BLOCK_FORM);
   const [entitlementTier, setEntitlementTier] = useState<TiTier>("unknown");
   const [navSheet, setNavSheet] = useState<NavSheetState>(() => ({
     open: false,
@@ -1444,6 +1477,10 @@ export default function TournamentVenueMapClient({
     setIsHotelResultsCollapsed(false);
   }, [selectedHotelId]);
   useEffect(() => {
+    setTeamBlockOpen(false);
+    setTeamBlockError(null);
+    setTeamBlockSuccess(null);
+    setTeamBlockForm(DEFAULT_TEAM_BLOCK_FORM);
   }, [hotelVenueId]);
   useEffect(() => {
     setIsHotelResultsCollapsed(true);
@@ -1498,25 +1535,7 @@ export default function TournamentVenueMapClient({
     [teamBlockAnchorPin?.city, teamBlockAnchorPin?.state].filter(Boolean).join(", ") ||
     getTeamBlockAreaLabel();
 
-  const buildTeamBlockHref = () => {
-    const baseUrl = (process.env.NEXT_PUBLIC_HOTELPLANNER_WHITE_LABEL_URL ?? "").trim();
-    if (!baseUrl) return null;
-    const dateRange = getCurrentTeamBlockDates(teamBlockAnchorPin);
-    if (!dateRange) return null;
-    const url = new URL("/Group-Rate/", baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`);
-    url.searchParams.set("sc", "tournamentinsights");
-    url.searchParams.set("city", getTeamBlockDestination());
-    url.searchParams.set("CheckInDate1", dateRange.checkIn);
-    url.searchParams.set("OutDate", dateRange.checkOut);
-    url.searchParams.set("kw", getTeamBlockAreaLabel());
-    url.searchParams.set("jobCode", "TI-TEAM-BLOCK");
-    url.searchParams.set("Custom1", `ven:${selectedVenue?.id ?? hotelVenueId ?? ""}`);
-    url.searchParams.set("Custom2", tournament.slug);
-    return url.toString();
-  };
-
-  const openTeamBlockHandoff = () => {
-    const href = buildTeamBlockHref();
+  const openTeamBlockForm = () => {
     const dateRange = getCurrentTeamBlockDates(teamBlockAnchorPin);
     const venueId = selectedVenue?.id ?? hotelVenueId ?? null;
     trackLodgingEvent("team_block_cta_click", {
@@ -1524,13 +1543,143 @@ export default function TournamentVenueMapClient({
       tournament_id: tournament.id,
       tournament_slug: tournament.slug,
       venue_id: venueId ?? "",
-      property_id: null,
+      property_id: teamBlockAnchorPin?.propertyId ?? null,
       checkin: dateRange?.checkIn ?? null,
       checkout: dateRange?.checkOut ?? null,
     });
-    if (!href) return;
-    if (typeof window !== "undefined") {
-      window.open(href, "_blank", "noopener,noreferrer");
+    if (!teamBlockAnchorPin) return;
+    if (!dateRange) return;
+    setTeamBlockError(null);
+    setTeamBlockSuccess(null);
+    setTeamBlockOpen(true);
+    trackLodgingEvent("team_block_rfp_start", {
+      page_type: "venue_map",
+      tournament_id: tournament.id,
+      tournament_slug: tournament.slug,
+      venue_id: venueId ?? "",
+      property_id: teamBlockAnchorPin.propertyId,
+      checkin: dateRange.checkIn,
+      checkout: dateRange.checkOut,
+    });
+  };
+
+  const buildTeamBlockComments = () => {
+    const parts = [
+      teamBlockForm.teamName ? `Team: ${teamBlockForm.teamName}` : null,
+      teamBlockForm.phone ? `Phone: ${teamBlockForm.phone}` : null,
+      teamBlockForm.notes ? `Notes: ${teamBlockForm.notes}` : null,
+    ].filter(Boolean);
+    return parts.join("\n");
+  };
+
+  const submitTeamBlockForm = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!teamBlockAnchorPin) {
+      setTeamBlockError("Hotel results are required before requesting a team block.");
+      return;
+    }
+    const dateRange = getCurrentTeamBlockDates(teamBlockAnchorPin);
+    if (!dateRange) {
+      setTeamBlockError("Tournament dates are required before submitting a team hotel block request.");
+      return;
+    }
+
+    const rooms = Number(teamBlockForm.rooms);
+    if (!Number.isInteger(rooms) || rooms < 5) {
+      setTeamBlockError("Enter at least 5 rooms for a team hotel block request.");
+      return;
+    }
+
+    setTeamBlockSubmitting(true);
+    setTeamBlockError(null);
+    setTeamBlockSuccess(null);
+
+    try {
+      const response = await fetch(new URL("/api/lodging/group-request", window.location.origin), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId: teamBlockAnchorPin.propertyId,
+          destination: getTeamBlockDestination(),
+          checkin: dateRange.checkIn,
+          checkout: dateRange.checkOut,
+          rooms,
+          adults: Number(teamBlockForm.adultsPerRoom),
+          children: Number(teamBlockForm.childrenPerRoom),
+          split: 1,
+          rating: "3",
+          roomTypeCode: "8",
+          firstName: teamBlockForm.contactFirstName,
+          lastName: teamBlockForm.contactLastName,
+          email: teamBlockForm.email,
+          comments: buildTeamBlockComments(),
+          source: "venue_map",
+          sc: "tournamentinsights",
+          kw: "Team hotel block",
+          jobCode: "TI-TEAM-BLOCK",
+          custom1: `ven:${selectedVenue?.id ?? hotelVenueId ?? ""}`,
+          custom2: tournament.slug,
+          groupTypeCode: "143",
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { success?: boolean; requestId?: string; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.success) {
+        const message = payload?.error ? String(payload.error) : "Unable to submit the team hotel block request right now.";
+        setTeamBlockError(message);
+        trackLodgingEvent("team_block_rfp_submit", {
+          page_type: "venue_map",
+          tournament_id: tournament.id,
+          tournament_slug: tournament.slug,
+          venue_id: selectedVenue?.id ?? hotelVenueId ?? "",
+          property_id: teamBlockAnchorPin.propertyId,
+          checkin: dateRange.checkIn,
+          checkout: dateRange.checkOut,
+          rooms,
+          success: false,
+          request_id: null,
+          error: message,
+        });
+        return;
+      }
+
+      setTeamBlockSuccess({ requestId: payload.requestId ?? null });
+      setTeamBlockOpen(false);
+      setTeamBlockForm(DEFAULT_TEAM_BLOCK_FORM);
+      trackLodgingEvent("team_block_rfp_submit", {
+        page_type: "venue_map",
+        tournament_id: tournament.id,
+        tournament_slug: tournament.slug,
+        venue_id: selectedVenue?.id ?? hotelVenueId ?? "",
+        property_id: teamBlockAnchorPin.propertyId,
+        checkin: dateRange.checkIn,
+        checkout: dateRange.checkOut,
+        rooms,
+        success: true,
+        request_id: payload.requestId ?? null,
+        error: null,
+      });
+    } catch {
+      const message = "Unable to submit the team hotel block request right now.";
+      setTeamBlockError(message);
+      trackLodgingEvent("team_block_rfp_submit", {
+        page_type: "venue_map",
+        tournament_id: tournament.id,
+        tournament_slug: tournament.slug,
+        venue_id: selectedVenue?.id ?? hotelVenueId ?? "",
+        property_id: teamBlockAnchorPin.propertyId,
+        checkin: dateRange.checkIn,
+        checkout: dateRange.checkOut,
+        rooms,
+        success: false,
+        request_id: null,
+        error: message,
+      });
+    } finally {
+      setTeamBlockSubmitting(false);
     }
   };
 
@@ -2670,6 +2819,161 @@ export default function TournamentVenueMapClient({
                             </button>
                           ))}
                         </div>
+                        <div className={styles.teamBlockPanel}>
+                          <div className={styles.teamBlockHeader}>
+                            <div className={styles.teamBlockTitle}>Request team hotel block</div>
+                            <div className={styles.teamBlockSub}>
+                              Tell us about your group and HotelPlanner will follow up with options for this venue area.
+                            </div>
+                          </div>
+
+                          {teamBlockSuccess ? (
+                            <div className={styles.teamBlockSuccess}>
+                              <div className={styles.teamBlockSuccessTitle}>Request submitted</div>
+                              <div>
+                                HotelPlanner will follow up with group options for this venue area.
+                                {teamBlockSuccess.requestId ? ` Ref ${teamBlockSuccess.requestId}.` : ""}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          <div className={styles.teamBlockSelected}>
+                            <div className={styles.teamBlockSelectedTitle}>{getTeamBlockAreaLabel()}</div>
+                            <div className={styles.teamBlockSelectedMeta}>
+                              {getCurrentTeamBlockDates(teamBlockAnchorPin)
+                                ? `${getCurrentTeamBlockDates(teamBlockAnchorPin)?.checkIn} → ${getCurrentTeamBlockDates(teamBlockAnchorPin)?.checkOut}`
+                                : "Tournament dates are required before submitting a team hotel block request."}
+                            </div>
+                          </div>
+
+                          {teamBlockError ? <div className={styles.lodgingError}>{teamBlockError}</div> : null}
+
+                          {teamBlockOpen ? (
+                            <form className={styles.teamBlockForm} onSubmit={submitTeamBlockForm}>
+                              <div className={styles.teamBlockFieldGrid}>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Team name</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="text"
+                                    required
+                                    value={teamBlockForm.teamName}
+                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, teamName: event.target.value }))}
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Contact first name</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="text"
+                                    required
+                                    value={teamBlockForm.contactFirstName}
+                                    onChange={(event) =>
+                                      setTeamBlockForm((current) => ({ ...current, contactFirstName: event.target.value }))
+                                    }
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Contact last name</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="text"
+                                    required
+                                    value={teamBlockForm.contactLastName}
+                                    onChange={(event) =>
+                                      setTeamBlockForm((current) => ({ ...current, contactLastName: event.target.value }))
+                                    }
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Email</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="email"
+                                    required
+                                    value={teamBlockForm.email}
+                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, email: event.target.value }))}
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Phone</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="tel"
+                                    required
+                                    value={teamBlockForm.phone}
+                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, phone: event.target.value }))}
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Rooms</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="number"
+                                    min={5}
+                                    required
+                                    value={teamBlockForm.rooms}
+                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, rooms: event.target.value }))}
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Adults / room</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="number"
+                                    min={1}
+                                    required
+                                    value={teamBlockForm.adultsPerRoom}
+                                    onChange={(event) =>
+                                      setTeamBlockForm((current) => ({ ...current, adultsPerRoom: event.target.value }))
+                                    }
+                                  />
+                                </label>
+                                <label className={styles.teamBlockField}>
+                                  <span className={styles.hotelFilterLabel}>Children / room</span>
+                                  <input
+                                    className={styles.teamBlockInput}
+                                    type="number"
+                                    min={0}
+                                    value={teamBlockForm.childrenPerRoom}
+                                    onChange={(event) =>
+                                      setTeamBlockForm((current) => ({ ...current, childrenPerRoom: event.target.value }))
+                                    }
+                                  />
+                                </label>
+                              </div>
+                              <label className={styles.teamBlockField}>
+                                <span className={styles.hotelFilterLabel}>Notes</span>
+                                <textarea
+                                  className={styles.teamBlockTextarea}
+                                  rows={3}
+                                  value={teamBlockForm.notes}
+                                  onChange={(event) => setTeamBlockForm((current) => ({ ...current, notes: event.target.value }))}
+                                />
+                              </label>
+                              <div className={styles.teamBlockActions}>
+                                <button
+                                  type="submit"
+                                  className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
+                                  disabled={teamBlockSubmitting}
+                                >
+                                  {teamBlockSubmitting ? "Submitting…" : "Submit team block request"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.affiliateCta}
+                                  disabled={teamBlockSubmitting}
+                                  onClick={() => {
+                                    setTeamBlockOpen(false);
+                                    setTeamBlockError(null);
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          ) : null}
+                        </div>
                       </div>
                         )}
                       </>
@@ -2733,8 +3037,11 @@ export default function TournamentVenueMapClient({
                       <button
                         type="button"
                         className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary} ${styles.teamBlockQuickCta}`}
-                        disabled={!buildTeamBlockHref()}
-                        onClick={openTeamBlockHandoff}
+                        disabled={!teamBlockAnchorPin || !getCurrentTeamBlockDates(teamBlockAnchorPin)}
+                        onClick={() => {
+                          setIsHotelResultsCollapsed(false);
+                          openTeamBlockForm();
+                        }}
                       >
                         Need 5+ rooms? Request team block
                       </button>
@@ -2742,10 +3049,10 @@ export default function TournamentVenueMapClient({
                     {!teamBlockAnchorPin ? (
                       <div className={styles.teamBlockQuickHint}>Hotel results are required before requesting a team block.</div>
                     ) : !getCurrentTeamBlockDates(teamBlockAnchorPin) ? (
-                      <div className={styles.teamBlockQuickHint}>Tournament dates are required before opening the team block request.</div>
+                      <div className={styles.teamBlockQuickHint}>Tournament dates are required before submitting a team hotel block request.</div>
                     ) : (
                       <div className={styles.teamBlockQuickHint}>
-                        Opens HotelPlanner group request for <strong>{getTeamBlockAreaLabel()}</strong> in a new tab
+                        Request group options for <strong>{getTeamBlockAreaLabel()}</strong> without leaving TournamentInsights
                       </div>
                     )}
                   </div>
