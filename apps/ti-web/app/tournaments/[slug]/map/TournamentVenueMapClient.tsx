@@ -1454,12 +1454,12 @@ export default function TournamentVenueMapClient({
     const parts = [`☕ ${v.counts.coffee}`, `🍔 ${v.counts.food}`];
     const hotelCount = liveHotelCount ?? v.counts.hotels;
     if (hotelCount || hotelCount === 0) parts.push(`🏨 ${hotelCount} hotels`);
+    if (v.counts.quick_eats) parts.push(`🌮 ${v.counts.quick_eats} quick eats`);
     return parts.join(" • ");
   };
   const enhancedCounts = (v: MapVenue) => {
     if (!v.hasOwl || !v.counts) return null;
     const parts: string[] = [];
-    if (v.counts.quick_eats) parts.push(`🌮 ${v.counts.quick_eats} quick eats`);
     if (v.counts.hangouts) parts.push(`🎳 ${v.counts.hangouts} hangouts`);
     return parts.length ? parts.join(" • ") : null;
   };
@@ -2565,11 +2565,11 @@ export default function TournamentVenueMapClient({
                     Weekend Guide (Owl&apos;s Eye)
                   </div>
                   <div className={styles.owlPreviewSub}>A quick look at what’s nearby.</div>
-                  <div className={styles.venueCounts} style={{ marginTop: 8 }}>
-                    {`☕ ${selectedVenue.counts.coffee} coffee • 🍔 ${selectedVenue.counts.food} food • 🏨 ${
-                      !hotelPinsLoading && !hotelPinsError ? hotelResultCount : selectedVenue.counts.hotels
-                    } hotels`}
-                  </div>
+                  {countsLine(selectedVenue) ? (
+                    <div className={styles.venueCounts} style={{ marginTop: 8 }}>
+                      {countsLine(selectedVenue)}
+                    </div>
+                  ) : null}
                   {enhancedCounts(selectedVenue) ? (
                     <div className={styles.venueCounts}>
                       {enhancedCounts(selectedVenue)}
@@ -2706,295 +2706,7 @@ export default function TournamentVenueMapClient({
               ) : null}
 
                 {hotelVenueId && hotelVenueForRedirect ? (
-                  <div className={styles.stayBlock}>
-                    <button
-                      type="button"
-                      className={styles.stayHeaderButton}
-                      onClick={() => setIsHotelResultsCollapsed((collapsed) => !collapsed)}
-                      aria-expanded={!isHotelResultsCollapsed}
-                    >
-                      <div className={styles.stayHeaderCopy}>
-                        <div className={styles.stayTitle}>Hotels near this venue</div>
-                        <div className={styles.staySub}>Compare nearby hotels, ratings, and rates.</div>
-                        <div className={styles.staySummary}>{hotelPanelSummary}</div>
-                      </div>
-                      <span
-                        className={`${styles.hotelAvailabilityToggleIcon} ${
-                          isHotelResultsCollapsed ? styles.hotelAvailabilityToggleIconCollapsed : ""
-                        }`}
-                        aria-hidden="true"
-                      >
-                        ▾
-                      </span>
-                    </button>
-
-                    {!isHotelResultsCollapsed ? (
-                      <>
-                        {hotelPinsLoading ? <div className={styles.lodgingNotice}>Searching HotelPlanner results…</div> : null}
-                        {!hotelPinsLoading && hotelPinsError ? <div className={styles.lodgingError}>{hotelPinsError}</div> : null}
-
-                        {hotelFallbackCardVisible ? (
-                          <div className={styles.lodgingFallback}>
-                            <div className={styles.lodgingFallbackReason}>
-                              {hotelPinsFallback?.reason === "no_dates"
-                                ? "Hotel search requires valid dates from the tournament schedule."
-                                : hotelPinsFallback?.reason === "no_venue_coordinates"
-                                  ? "Venue coordinates were missing for precise results."
-                                  : "Limited hotel inventory was returned for this venue."}
-                            </div>
-                            <div className={styles.lodgingFallbackActions}>
-                              <a
-                                className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
-                                href={buildVenueHotelsHref({
-                                  venue: hotelVenueForRedirect,
-                                  tournamentId: tournament.id,
-                                })}
-                                target="_blank"
-                                rel="noopener noreferrer sponsored"
-                                onClick={() => {
-                                  void trackTiEvent("venue_map_hotels_clicked", {
-                                    page_type: "venue_map",
-                                    tournament_id: tournament.id,
-                                    tournament_slug: tournament.slug,
-                                    venue_id: hotelVenueId,
-                                  });
-                                }}
-                              >
-                                View HotelPlanner results
-                              </a>
-                              <a
-                                className={styles.affiliateCta}
-                                href={`/go/vrbo?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
-                                target="_blank"
-                                rel="noopener noreferrer sponsored"
-                              >
-                                Rentals nearby
-                              </a>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className={styles.hotelPanelSection}>
-                        <div className={styles.hotelFilterRow}>
-                          <label className={styles.hotelFilterLabel} htmlFor="hotel-rating-filter">
-                            Min rating
-                          </label>
-                          <select
-                            id="hotel-rating-filter"
-                            className={styles.hotelFilterSelect}
-                            value={hotelRatingFilter}
-                            onChange={(event) => setHotelRatingFilter(Number(event.target.value))}
-                          >
-                            <option value={0}>Any</option>
-                            <option value={3}>3+ stars</option>
-                            <option value={4}>4+ stars</option>
-                            <option value={5}>5 stars</option>
-                          </select>
-                        </div>
-                        <div className={styles.lodgingMeta}>{hotelPanelSummary}</div>
-                        {hotelHandoffError ? <div className={styles.lodgingError}>{hotelHandoffError}</div> : null}
-
-                        <div className={styles.hotelList}>
-                          {orderedHotelPins.map((pin) => (
-                            <button
-                              key={pin.propertyId}
-                              type="button"
-                              className={`${styles.hotelCard} ${selectedHotelId === pin.propertyId ? styles.hotelCardSelected : ""}`}
-                              onClick={() => {
-                                setSelectedHotelId(pin.propertyId);
-                                setIsHotelResultsCollapsed(false);
-                                const currentDates = getCurrentPropertyHandoffDates(pin);
-                                trackLodgingEvent("hotel_card_click", {
-                                  page_type: "venue_map",
-                                  tournament_id: tournament.id,
-                                  venue_id: selectedVenue?.id ?? null,
-                                  property_id: pin.propertyId,
-                                  checkin: currentDates?.checkIn ?? null,
-                                  checkout: currentDates?.checkOut ?? null,
-                                });
-                                openHotelPropertyHandoff(pin, selectedVenue?.id ?? null, "hotel_card_click");
-                              }}
-                            >
-                              <div className={styles.hotelCardTitle}>{pin.name}</div>
-                              <div className={styles.hotelCardMeta}>
-                                <span>{getPinAddress(pin) || "Address on file"}</span>
-                                {pin.distanceMiles != null ? <span> • {pin.distanceMiles.toFixed(1)} mi</span> : null}
-                              </div>
-                              <div className={styles.hotelCardMeta}>
-                                <span>
-                                  {pin.rating != null
-                                    ? `${pin.rating.toFixed(1)}★${pin.reviewCount ? ` (${pin.reviewCount})` : ""}`
-                                    : "—"}
-                                </span>
-                                <span> • </span>
-                                <span>{formatCurrency(pin.fromPrice, pin.currency || "USD") || "Price on request"}</span>
-                              </div>
-                              <div className={styles.hotelCardMeta}>
-                                {pin.latitude == null || pin.longitude == null ? "No map coordinates" : "Open HotelPlanner property page"}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                        <div className={styles.teamBlockPanel} ref={teamBlockPanelRef}>
-                          <div className={styles.teamBlockHeader}>
-                            <div className={styles.teamBlockTitle}>Request team hotel block</div>
-                            <div className={styles.teamBlockSub}>
-                              Tell us about your group and HotelPlanner will follow up with options for this venue area.
-                            </div>
-                          </div>
-
-                          {teamBlockSuccess ? (
-                            <div className={styles.teamBlockSuccess}>
-                              <div className={styles.teamBlockSuccessTitle}>Request submitted</div>
-                              <div>
-                                HotelPlanner will follow up with group options for this venue area.
-                                {teamBlockSuccess.requestId ? ` Ref ${teamBlockSuccess.requestId}.` : ""}
-                              </div>
-                            </div>
-                          ) : null}
-
-                          <div className={styles.teamBlockSelected}>
-                            <div className={styles.teamBlockSelectedTitle}>{getTeamBlockAreaLabel()}</div>
-                            <div className={styles.teamBlockSelectedMeta}>
-                              {getCurrentTeamBlockDates(teamBlockAnchorPin)
-                                ? `${getCurrentTeamBlockDates(teamBlockAnchorPin)?.checkIn} → ${getCurrentTeamBlockDates(teamBlockAnchorPin)?.checkOut}`
-                                : "Tournament dates are required before submitting a team hotel block request."}
-                            </div>
-                          </div>
-
-                          {teamBlockError ? <div className={styles.lodgingError}>{teamBlockError}</div> : null}
-
-                          {teamBlockOpen ? (
-                            <form className={styles.teamBlockForm} onSubmit={submitTeamBlockForm}>
-                              <div className={styles.teamBlockFieldGrid}>
-                                <label className={styles.teamBlockField}>
-                                  <span className={styles.hotelFilterLabel}>Team name</span>
-                                  <input
-                                    ref={teamBlockFirstInputRef}
-                                    className={styles.teamBlockInput}
-                                    type="text"
-                                    required
-                                    value={teamBlockForm.teamName}
-                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, teamName: event.target.value }))}
-                                  />
-                                </label>
-                                <label className={styles.teamBlockField}>
-                                  <span className={styles.hotelFilterLabel}>Contact first name</span>
-                                  <input
-                                    className={styles.teamBlockInput}
-                                    type="text"
-                                    required
-                                    value={teamBlockForm.contactFirstName}
-                                    onChange={(event) =>
-                                      setTeamBlockForm((current) => ({ ...current, contactFirstName: event.target.value }))
-                                    }
-                                  />
-                                </label>
-                                <label className={styles.teamBlockField}>
-                                  <span className={styles.hotelFilterLabel}>Contact last name</span>
-                                  <input
-                                    className={styles.teamBlockInput}
-                                    type="text"
-                                    required
-                                    value={teamBlockForm.contactLastName}
-                                    onChange={(event) =>
-                                      setTeamBlockForm((current) => ({ ...current, contactLastName: event.target.value }))
-                                    }
-                                  />
-                                </label>
-                                <label className={styles.teamBlockField}>
-                                  <span className={styles.hotelFilterLabel}>Email</span>
-                                  <input
-                                    className={styles.teamBlockInput}
-                                    type="email"
-                                    required
-                                    value={teamBlockForm.email}
-                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, email: event.target.value }))}
-                                  />
-                                </label>
-                                <label className={styles.teamBlockField}>
-                                  <span className={styles.hotelFilterLabel}>Phone</span>
-                                  <input
-                                    className={styles.teamBlockInput}
-                                    type="tel"
-                                    required
-                                    value={teamBlockForm.phone}
-                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, phone: event.target.value }))}
-                                  />
-                                </label>
-                                <label className={styles.teamBlockField}>
-                                  <span className={styles.hotelFilterLabel}>Rooms</span>
-                                  <input
-                                    className={styles.teamBlockInput}
-                                    type="number"
-                                    min={5}
-                                    required
-                                    value={teamBlockForm.rooms}
-                                    onChange={(event) => setTeamBlockForm((current) => ({ ...current, rooms: event.target.value }))}
-                                  />
-                                </label>
-                                <label className={styles.teamBlockField}>
-                                  <span className={styles.hotelFilterLabel}>Adults / room</span>
-                                  <input
-                                    className={styles.teamBlockInput}
-                                    type="number"
-                                    min={1}
-                                    required
-                                    value={teamBlockForm.adultsPerRoom}
-                                    onChange={(event) =>
-                                      setTeamBlockForm((current) => ({ ...current, adultsPerRoom: event.target.value }))
-                                    }
-                                  />
-                                </label>
-                                <label className={styles.teamBlockField}>
-                                  <span className={styles.hotelFilterLabel}>Children / room</span>
-                                  <input
-                                    className={styles.teamBlockInput}
-                                    type="number"
-                                    min={0}
-                                    value={teamBlockForm.childrenPerRoom}
-                                    onChange={(event) =>
-                                      setTeamBlockForm((current) => ({ ...current, childrenPerRoom: event.target.value }))
-                                    }
-                                  />
-                                </label>
-                              </div>
-                              <label className={styles.teamBlockField}>
-                                <span className={styles.hotelFilterLabel}>Notes</span>
-                                <textarea
-                                  className={styles.teamBlockTextarea}
-                                  rows={3}
-                                  value={teamBlockForm.notes}
-                                  onChange={(event) => setTeamBlockForm((current) => ({ ...current, notes: event.target.value }))}
-                                />
-                              </label>
-                              <div className={styles.teamBlockActions}>
-                                <button
-                                  type="submit"
-                                  className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
-                                  disabled={teamBlockSubmitting}
-                                >
-                                  {teamBlockSubmitting ? "Submitting…" : "Submit team block request"}
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.affiliateCta}
-                                  disabled={teamBlockSubmitting}
-                                  onClick={() => {
-                                    setTeamBlockOpen(false);
-                                    setTeamBlockError(null);
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </form>
-                          ) : null}
-                        </div>
-                      </div>
-                        )}
-                      </>
-                    ) : null}
-
+                  <>
                     <div className={`${styles.ctaRow} ${styles.stayCtaRow}`}>
                       <button
                         type="button"
@@ -3071,7 +2783,296 @@ export default function TournamentVenueMapClient({
                         Request group options for <strong>{getTeamBlockAreaLabel()}</strong> without leaving TournamentInsights
                       </div>
                     )}
-                  </div>
+                    <div className={styles.teamBlockPanel} ref={teamBlockPanelRef}>
+                      <div className={styles.teamBlockHeader}>
+                        <div className={styles.teamBlockTitle}>Request team hotel block</div>
+                        <div className={styles.teamBlockSub}>
+                          Tell us about your group and HotelPlanner will follow up with options for this venue area.
+                        </div>
+                      </div>
+
+                      {teamBlockSuccess ? (
+                        <div className={styles.teamBlockSuccess}>
+                          <div className={styles.teamBlockSuccessTitle}>Request submitted</div>
+                          <div>
+                            HotelPlanner will follow up with group options for this venue area.
+                            {teamBlockSuccess.requestId ? ` Ref ${teamBlockSuccess.requestId}.` : ""}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className={styles.teamBlockSelected}>
+                        <div className={styles.teamBlockSelectedTitle}>{getTeamBlockAreaLabel()}</div>
+                        <div className={styles.teamBlockSelectedMeta}>
+                          {getCurrentTeamBlockDates(teamBlockAnchorPin)
+                            ? `${getCurrentTeamBlockDates(teamBlockAnchorPin)?.checkIn} → ${getCurrentTeamBlockDates(teamBlockAnchorPin)?.checkOut}`
+                            : "Tournament dates are required before submitting a team hotel block request."}
+                        </div>
+                      </div>
+
+                      {teamBlockError ? <div className={styles.lodgingError}>{teamBlockError}</div> : null}
+
+                      {teamBlockOpen ? (
+                        <form className={styles.teamBlockForm} onSubmit={submitTeamBlockForm}>
+                          <div className={styles.teamBlockFieldGrid}>
+                            <label className={styles.teamBlockField}>
+                              <span className={styles.hotelFilterLabel}>Team name</span>
+                              <input
+                                ref={teamBlockFirstInputRef}
+                                className={styles.teamBlockInput}
+                                type="text"
+                                required
+                                value={teamBlockForm.teamName}
+                                onChange={(event) => setTeamBlockForm((current) => ({ ...current, teamName: event.target.value }))}
+                              />
+                            </label>
+                            <label className={styles.teamBlockField}>
+                              <span className={styles.hotelFilterLabel}>Contact first name</span>
+                              <input
+                                className={styles.teamBlockInput}
+                                type="text"
+                                required
+                                value={teamBlockForm.contactFirstName}
+                                onChange={(event) =>
+                                  setTeamBlockForm((current) => ({ ...current, contactFirstName: event.target.value }))
+                                }
+                              />
+                            </label>
+                            <label className={styles.teamBlockField}>
+                              <span className={styles.hotelFilterLabel}>Contact last name</span>
+                              <input
+                                className={styles.teamBlockInput}
+                                type="text"
+                                required
+                                value={teamBlockForm.contactLastName}
+                                onChange={(event) =>
+                                  setTeamBlockForm((current) => ({ ...current, contactLastName: event.target.value }))
+                                }
+                              />
+                            </label>
+                            <label className={styles.teamBlockField}>
+                              <span className={styles.hotelFilterLabel}>Email</span>
+                              <input
+                                className={styles.teamBlockInput}
+                                type="email"
+                                required
+                                value={teamBlockForm.email}
+                                onChange={(event) => setTeamBlockForm((current) => ({ ...current, email: event.target.value }))}
+                              />
+                            </label>
+                            <label className={styles.teamBlockField}>
+                              <span className={styles.hotelFilterLabel}>Phone</span>
+                              <input
+                                className={styles.teamBlockInput}
+                                type="tel"
+                                required
+                                value={teamBlockForm.phone}
+                                onChange={(event) => setTeamBlockForm((current) => ({ ...current, phone: event.target.value }))}
+                              />
+                            </label>
+                            <label className={styles.teamBlockField}>
+                              <span className={styles.hotelFilterLabel}>Rooms</span>
+                              <input
+                                className={styles.teamBlockInput}
+                                type="number"
+                                min={5}
+                                required
+                                value={teamBlockForm.rooms}
+                                onChange={(event) => setTeamBlockForm((current) => ({ ...current, rooms: event.target.value }))}
+                              />
+                            </label>
+                            <label className={styles.teamBlockField}>
+                              <span className={styles.hotelFilterLabel}>Adults / room</span>
+                              <input
+                                className={styles.teamBlockInput}
+                                type="number"
+                                min={1}
+                                required
+                                value={teamBlockForm.adultsPerRoom}
+                                onChange={(event) =>
+                                  setTeamBlockForm((current) => ({ ...current, adultsPerRoom: event.target.value }))
+                                }
+                              />
+                            </label>
+                            <label className={styles.teamBlockField}>
+                              <span className={styles.hotelFilterLabel}>Children / room</span>
+                              <input
+                                className={styles.teamBlockInput}
+                                type="number"
+                                min={0}
+                                value={teamBlockForm.childrenPerRoom}
+                                onChange={(event) =>
+                                  setTeamBlockForm((current) => ({ ...current, childrenPerRoom: event.target.value }))
+                                }
+                              />
+                            </label>
+                          </div>
+                          <label className={styles.teamBlockField}>
+                            <span className={styles.hotelFilterLabel}>Notes</span>
+                            <textarea
+                              className={styles.teamBlockTextarea}
+                              rows={3}
+                              value={teamBlockForm.notes}
+                              onChange={(event) => setTeamBlockForm((current) => ({ ...current, notes: event.target.value }))}
+                            />
+                          </label>
+                          <div className={styles.teamBlockActions}>
+                            <button
+                              type="submit"
+                              className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
+                              disabled={teamBlockSubmitting}
+                            >
+                              {teamBlockSubmitting ? "Submitting…" : "Submit team block request"}
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.affiliateCta}
+                              disabled={teamBlockSubmitting}
+                              onClick={() => {
+                                setTeamBlockOpen(false);
+                                setTeamBlockError(null);
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : null}
+                    </div>
+                    <div className={styles.stayBlock}>
+                      <button
+                        type="button"
+                        className={styles.stayHeaderButton}
+                        onClick={() => setIsHotelResultsCollapsed((collapsed) => !collapsed)}
+                        aria-expanded={!isHotelResultsCollapsed}
+                      >
+                        <div className={styles.stayHeaderCopy}>
+                          <div className={styles.stayTitle}>Hotels near this venue</div>
+                          <div className={styles.staySub}>Compare nearby hotels, ratings, and rates.</div>
+                          <div className={styles.staySummary}>{hotelPanelSummary}</div>
+                        </div>
+                        <span
+                          className={`${styles.hotelAvailabilityToggleIcon} ${
+                            isHotelResultsCollapsed ? styles.hotelAvailabilityToggleIconCollapsed : ""
+                          }`}
+                          aria-hidden="true"
+                        >
+                          ▾
+                        </span>
+                      </button>
+
+                      {!isHotelResultsCollapsed ? (
+                        <>
+                          {hotelPinsLoading ? <div className={styles.lodgingNotice}>Searching HotelPlanner results…</div> : null}
+                          {!hotelPinsLoading && hotelPinsError ? <div className={styles.lodgingError}>{hotelPinsError}</div> : null}
+
+                          {hotelFallbackCardVisible ? (
+                            <div className={styles.lodgingFallback}>
+                              <div className={styles.lodgingFallbackReason}>
+                                {hotelPinsFallback?.reason === "no_dates"
+                                  ? "Hotel search requires valid dates from the tournament schedule."
+                                  : hotelPinsFallback?.reason === "no_venue_coordinates"
+                                    ? "Venue coordinates were missing for precise results."
+                                    : "Limited hotel inventory was returned for this venue."}
+                              </div>
+                              <div className={styles.lodgingFallbackActions}>
+                                <a
+                                  className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
+                                  href={buildVenueHotelsHref({
+                                    venue: hotelVenueForRedirect,
+                                    tournamentId: tournament.id,
+                                  })}
+                                  target="_blank"
+                                  rel="noopener noreferrer sponsored"
+                                  onClick={() => {
+                                    void trackTiEvent("venue_map_hotels_clicked", {
+                                      page_type: "venue_map",
+                                      tournament_id: tournament.id,
+                                      tournament_slug: tournament.slug,
+                                      venue_id: hotelVenueId,
+                                    });
+                                  }}
+                                >
+                                  View HotelPlanner results
+                                </a>
+                                <a
+                                  className={styles.affiliateCta}
+                                  href={`/go/vrbo?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer sponsored"
+                                >
+                                  Rentals nearby
+                                </a>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className={styles.hotelPanelSection}>
+                              <div className={styles.hotelFilterRow}>
+                                <label className={styles.hotelFilterLabel} htmlFor="hotel-rating-filter">
+                                  Min rating
+                                </label>
+                                <select
+                                  id="hotel-rating-filter"
+                                  className={styles.hotelFilterSelect}
+                                  value={hotelRatingFilter}
+                                  onChange={(event) => setHotelRatingFilter(Number(event.target.value))}
+                                >
+                                  <option value={0}>Any</option>
+                                  <option value={3}>3+ stars</option>
+                                  <option value={4}>4+ stars</option>
+                                  <option value={5}>5 stars</option>
+                                </select>
+                              </div>
+                              <div className={styles.lodgingMeta}>{hotelPanelSummary}</div>
+                              {hotelHandoffError ? <div className={styles.lodgingError}>{hotelHandoffError}</div> : null}
+
+                              <div className={styles.hotelList}>
+                                {orderedHotelPins.map((pin) => (
+                                  <button
+                                    key={pin.propertyId}
+                                    type="button"
+                                    className={`${styles.hotelCard} ${selectedHotelId === pin.propertyId ? styles.hotelCardSelected : ""}`}
+                                    onClick={() => {
+                                      setSelectedHotelId(pin.propertyId);
+                                      setIsHotelResultsCollapsed(false);
+                                      const currentDates = getCurrentPropertyHandoffDates(pin);
+                                      trackLodgingEvent("hotel_card_click", {
+                                        page_type: "venue_map",
+                                        tournament_id: tournament.id,
+                                        venue_id: selectedVenue?.id ?? null,
+                                        property_id: pin.propertyId,
+                                        checkin: currentDates?.checkIn ?? null,
+                                        checkout: currentDates?.checkOut ?? null,
+                                      });
+                                      openHotelPropertyHandoff(pin, selectedVenue?.id ?? null, "hotel_card_click");
+                                    }}
+                                  >
+                                    <div className={styles.hotelCardTitle}>{pin.name}</div>
+                                    <div className={styles.hotelCardMeta}>
+                                      <span>{getPinAddress(pin) || "Address on file"}</span>
+                                      {pin.distanceMiles != null ? <span> • {pin.distanceMiles.toFixed(1)} mi</span> : null}
+                                    </div>
+                                    <div className={styles.hotelCardMeta}>
+                                      <span>
+                                        {pin.rating != null
+                                          ? `${pin.rating.toFixed(1)}★${pin.reviewCount ? ` (${pin.reviewCount})` : ""}`
+                                          : "—"}
+                                      </span>
+                                      <span> • </span>
+                                      <span>{formatCurrency(pin.fromPrice, pin.currency || "USD") || "Price on request"}</span>
+                                    </div>
+                                    <div className={styles.hotelCardMeta}>
+                                      {pin.latitude == null || pin.longitude == null ? "No map coordinates" : "Open HotelPlanner property page"}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                      </div>
+                          )}
+                        </>
+                      ) : null}
+                    </div>
+                  </>
                 ) : null}
 
               <div className={styles.owlCtaNudge}>Most teams stay within 10–15 minutes of this venue.</div>

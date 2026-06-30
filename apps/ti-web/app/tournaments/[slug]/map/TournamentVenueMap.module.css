@@ -623,12 +623,21 @@
 }
 
 .stayCtaRow {
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
 }
 
 .stayCtaRow .affiliateCta {
-  flex: 1 1 170px;
-  max-width: 240px;
+  width: 100%;
+  min-height: 50px;
+  max-width: none;
+  padding: 9px 12px;
+  text-align: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1.1;
 }
 
 @media (max-width: 768px) {
@@ -705,8 +714,13 @@
   background: rgba(255,255,255,0.10);
   color: rgba(255,255,255,0.88);
   font-weight: 900;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.15;
   text-decoration: none;
+  text-align: center;
   border: 1px solid rgba(255,255,255,0.20);
+  box-sizing: border-box;
 }
 
 .affiliateCta:hover,
@@ -946,14 +960,37 @@
 .teamBlockQuickCta {
   flex: 1 1 100%;
   max-width: none;
+  min-height: 46px;
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: rgba(147, 197, 253, 0.75);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(29, 78, 216, 0.26);
+}
+
+.teamBlockQuickCta:hover,
+.teamBlockQuickCta:focus-visible {
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  border-color: rgba(191, 219, 254, 0.95);
+  transform: translateY(-1px);
+}
+
+.teamBlockQuickCta:disabled,
+.teamBlockQuickCta:disabled:hover,
+.teamBlockQuickCta:disabled:focus-visible {
+  background: rgba(59, 130, 246, 0.28);
+  border-color: rgba(147, 197, 253, 0.35);
+  color: rgba(255, 255, 255, 0.72);
+  box-shadow: none;
+  transform: none;
 }
 
 .teamBlockQuickHint {
-  margin-top: 2px;
+  margin-top: 0;
   font-size: 11px;
-  opacity: 0.82;
+  opacity: 0.92;
   text-align: center;
   line-height: 1.25;
+  color: rgba(219, 234, 254, 0.95);
 }
 
 .hotelFilterRow {
