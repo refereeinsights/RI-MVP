@@ -1183,6 +1183,12 @@ export default function TournamentVenueMapClient({
 
     const directUrl = extractHotelDetailUrl(pin);
     const url = directUrl ? new URL(directUrl, baseUrl) : new URL("/Hotel/HotelRoomTypes.htm", baseUrl);
+    url.pathname = "/Hotel/HotelRoomTypes.htm";
+    url.search = "";
+    url.searchParams.delete("hotelID");
+    url.searchParams.delete("hotelId");
+    url.searchParams.delete("idtypeid");
+    url.searchParams.delete("idTypeId");
     url.searchParams.set("hotelId", pin.propertyId);
     url.searchParams.set("idTypeId", String(pin.hotelIDTypeID ?? 0));
     url.searchParams.set("inDate", inDate);
@@ -1587,7 +1593,15 @@ export default function TournamentVenueMapClient({
 
   const formatCurrency = (value: number | null | undefined, currency = "USD") => {
     if (typeof value !== "number" || !Number.isFinite(value)) return null;
-    return `${currency} ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    try {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+      }).format(value);
+    } catch {
+      return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    }
   };
 
   const getPinAddress = (pin: HotelPin) => {
