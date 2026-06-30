@@ -20,8 +20,12 @@ Maintenance rules:
   - Search-window policy now matches the existing `/go/hotels` handoff behavior more closely:
     - upcoming tournaments use `start_date` → `end_date + 1 day`,
     - in-progress tournaments use `today` as check-in with a short bounded checkout window,
-    - fully past tournaments return the existing fallback/no-dates path instead of hitting HP with a past check-in.
+  - fully past tournaments return the existing fallback/no-dates path instead of hitting HP with a past check-in.
   - This fixes venue-map `Provider failure` responses caused by HP `422 checkIn must not be in the past` errors on long-running or stale tournament records.
+
+- TI HotelPlanner fallback naming cleanup:
+  - Removed the stale hotel-side `showBookingFallback` naming from the HP lodging search flow and replaced it with neutral `showHotelFallback`.
+  - Updated the provider normalization layer, `/api/lodging/search` response handling, venue-map client fallback handling, and provider tests so the TI hotel flow no longer carries Booking.com-specific semantics in its active HP API contract.
 
 ## 2026-06-11
 

@@ -151,7 +151,7 @@ export type SearchHotelsResult = {
   provider: TiLodgingProvider;
   hotels: SearchHotelProperty[];
   fallback?: {
-    showBookingFallback: boolean;
+    showHotelFallback: boolean;
     showVrboFallback: boolean;
     reason?: FallbackReason;
   };

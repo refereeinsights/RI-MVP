@@ -81,7 +81,7 @@ type HotelPin = {
 };
 
 type HotelSearchFallback = {
-  showBookingFallback: boolean;
+  showHotelFallback: boolean;
   showVrboFallback: boolean;
   reason?: "provider_error" | "low_inventory" | "no_dates" | "no_venue_coordinates";
 };
@@ -945,7 +945,7 @@ export default function TournamentVenueMapClient({
         const payload = await r.json().catch(() => null);
         const data = (payload ?? {}) as HotelSearchResponse;
         if (!r.ok) {
-          const fallback: HotelSearchFallback = { showBookingFallback: true, showVrboFallback: true, reason: "provider_error" };
+          const fallback: HotelSearchFallback = { showHotelFallback: true, showVrboFallback: true, reason: "provider_error" };
           return {
             ok: false,
             status: r.status,
@@ -960,7 +960,7 @@ export default function TournamentVenueMapClient({
 
       if (!res.ok) {
         if (res.status === 429) {
-          setHotelPinsFallback({ showBookingFallback: true, showVrboFallback: true, reason: "provider_error" });
+          setHotelPinsFallback({ showHotelFallback: true, showVrboFallback: true, reason: "provider_error" });
           setHotelPinsError("Search temporarily unavailable. Please try again shortly.");
           setMapHotelPinVisibleCount(0);
           trackLodgingEvent("lodging_map_impression", {
@@ -982,7 +982,7 @@ export default function TournamentVenueMapClient({
           return;
         }
         setHotelPinsError(res.data.error ? String(res.data.error) : "Unable to load hotels right now.");
-        setHotelPinsFallback(res.fallback ?? { showBookingFallback: true, showVrboFallback: true });
+        setHotelPinsFallback(res.fallback ?? { showHotelFallback: true, showVrboFallback: true });
         return;
       }
 
@@ -997,7 +997,7 @@ export default function TournamentVenueMapClient({
       setHotelPins(normalized.pins.concat(normalized.listOnly));
       setHotelPinsFallback(
         normalized.pins.length === 0 && normalized.listOnly.length === 0
-          ? { ...(res.data.fallback ?? { showBookingFallback: true, showVrboFallback: true }), showBookingFallback: true }
+          ? { ...(res.data.fallback ?? { showHotelFallback: true, showVrboFallback: true }), showHotelFallback: true }
           : res.data.fallback ?? null
       );
 
@@ -1025,7 +1025,7 @@ export default function TournamentVenueMapClient({
     } catch (err) {
       if (runId !== lodgingSearchInFlightRef.current) return;
       setHotelPinsError("Unable to load hotels right now.");
-      setHotelPinsFallback({ showBookingFallback: true, showVrboFallback: true, reason: "provider_error" });
+      setHotelPinsFallback({ showHotelFallback: true, showVrboFallback: true, reason: "provider_error" });
     } finally {
       if (runId === lodgingSearchInFlightRef.current) {
         setHotelPinsLoading(false);
@@ -1462,7 +1462,7 @@ export default function TournamentVenueMapClient({
         }
       : null);
   const hotelFallbackCardVisible =
-    (hotelPinsFallback?.showBookingFallback || hotelPinsFallback?.showVrboFallback || filteredHotelPins.length === 0) && Boolean(hotelPinsFallback);
+    (hotelPinsFallback?.showHotelFallback || hotelPinsFallback?.showVrboFallback || filteredHotelPins.length === 0) && Boolean(hotelPinsFallback);
   const hotelPanelSummary = hotelPinsLoading
     ? "Searching HotelPlanner results…"
     : hotelPinsError

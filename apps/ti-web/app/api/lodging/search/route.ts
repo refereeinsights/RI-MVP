@@ -176,7 +176,7 @@ function buildProviderFailureDebug(error: unknown) {
 
 function fallbackPayload(reason: FallbackReason) {
   return {
-    showBookingFallback: true,
+    showHotelFallback: true,
     showVrboFallback: true,
     reason,
   };
@@ -599,10 +599,10 @@ export async function POST(request: Request) {
   const startedAt = Date.now();
   try {
     const result = await provider.searchHotels(providerInput);
-    const fallback = result.fallback ?? { showBookingFallback: false, showVrboFallback: false };
+    const fallback = result.fallback ?? { showHotelFallback: false, showVrboFallback: false };
     const count = Array.isArray(result.hotels) ? result.hotels.length : 0;
     const latencyMs = Date.now() - startedAt;
-    const fallbackReason = fallback.showBookingFallback ? "low_inventory" : null;
+    const fallbackReason = fallback.showHotelFallback ? "low_inventory" : null;
     await updateSessionLifecycle({
       sessionId,
       status: "succeeded",

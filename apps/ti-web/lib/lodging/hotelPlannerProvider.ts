@@ -207,13 +207,13 @@ function toPayloadTextMap(input: TrackingFields): Record<string, string> {
 }
 
 function mapFallback(hotelCount: number, reason?: FallbackReason): {
-  showBookingFallback: boolean;
+  showHotelFallback: boolean;
   showVrboFallback: boolean;
   reason?: FallbackReason;
 } {
   const isFallback = hotelCount < 3;
   return {
-    showBookingFallback: isFallback,
+    showHotelFallback: isFallback,
     showVrboFallback: isFallback,
     reason: isFallback ? reason ?? "low_inventory" : undefined,
   };

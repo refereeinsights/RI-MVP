@@ -176,7 +176,7 @@ test("searchHotels normalizes object-mapped hotel payloads", async () => {
     assert.equal(result.hotels.length, 2);
     assert.equal(result.hotels[0].id, "67747");
     assert.equal(result.hotels[0].fromPrice, 199);
-    assert.equal(result.fallback?.showBookingFallback, true);
+    assert.equal(result.fallback?.showHotelFallback, true);
   } finally {
     global.fetch = originalFetch;
   }
@@ -237,7 +237,7 @@ test("searchHotels derives fromPrice from availability roomRates", async () => {
     assert.equal(result.hotels.length, 1);
     assert.equal(result.hotels[0].id, "67747");
     assert.equal(result.hotels[0].fromPrice, 159);
-    assert.equal(result.fallback?.showBookingFallback, true);
+    assert.equal(result.fallback?.showHotelFallback, true);
   } finally {
     global.fetch = originalFetch;
   }
