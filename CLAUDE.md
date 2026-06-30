@@ -360,7 +360,7 @@ Copy/paste prompt:
 2. Confirm lodging panel mounts in venue detail context and only after map/location context is available.
 3. Test both successful and fallback paths:
    - Normal success: hotel cards show name, distance, rating/review count, thumbnail, and from-price.
-   - Missing coordinates or low inventory: Booking.com + VRBO fallback CTAs are still visible.
+   - Missing coordinates or low inventory: HotelPlanner + VRBO fallback CTAs are still visible.
 4. Click one lodging card, verify availability loads, room options render, and HotelPlanner handoff form submits (not TI API for payment).
 5. Click a room-rate CTA in the room list:
    - a new tab opens through `/go/hotels/checkout`,
@@ -520,7 +520,7 @@ Latest Step 2 API run (local `localhost:3001`) result:
 - [ ] Guardrails:
   - [ ] No HotelPlanner credentials visible in client bundles or requests.
   - [ ] No `reserve` or payment collection endpoint is invoked by TI UI/routes.
-  - [ ] Existing Booking.com and VRBO CTAs remain unchanged as explicit alternatives.
+  - [ ] HotelPlanner hotel CTAs and VRBO rental CTAs remain available as explicit alternatives.
 - [ ] Security:
   - [ ] `/api/lodging/report-sync` returns unauthorized for non-admin/non-cron callers.
   - [ ] `/api/lodging/checkout-handoff` does not expose session secrets.

@@ -385,7 +385,7 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
                     openGoUrlInNewTab("/go/hotels", qp);
                   }}
                 >
-                  Search hotels on Booking.com
+                  Search hotels
                 </button>
               </div>
             </form>

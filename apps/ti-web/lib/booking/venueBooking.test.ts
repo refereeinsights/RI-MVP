@@ -26,11 +26,11 @@ test("canShowBookingCta: true only when venue has a valid ZIP", () => {
 test("buildHotelsHref: includes venueId and optional tournamentId", () => {
   assert.equal(
     buildHotelsHref({ venueId: "00000000-0000-4000-8000-000000000000", tournamentId: null }),
-    "/go/hotels?venueId=00000000-0000-4000-8000-000000000000"
+    "/go/hotels?venueId=00000000-0000-4000-8000-000000000000&provider=hotelplanner"
   );
   assert.equal(
     buildHotelsHref({ venueId: "00000000-0000-4000-8000-000000000000", tournamentId: "11111111-1111-4111-8111-111111111111" }),
-    "/go/hotels?venueId=00000000-0000-4000-8000-000000000000&tournamentId=11111111-1111-4111-8111-111111111111"
+    "/go/hotels?venueId=00000000-0000-4000-8000-000000000000&tournamentId=11111111-1111-4111-8111-111111111111&provider=hotelplanner"
   );
   assert.equal(
     buildHotelsHref({
@@ -42,7 +42,7 @@ test("buildHotelsHref: includes venueId and optional tournamentId", () => {
       latitude: 39.7392,
       longitude: -104.9903,
     }),
-    "/go/hotels?venueId=00000000-0000-4000-8000-000000000000&tournamentId=11111111-1111-4111-8111-111111111111&source=venue_directory&provider=hotelplanner&ss=Denver%2C%20CO&lat=39.7392&lng=-104.9903"
+    "/go/hotels?venueId=00000000-0000-4000-8000-000000000000&tournamentId=11111111-1111-4111-8111-111111111111&source=venue_directory&provider=hotelplanner&ss=Denver%2C+CO&lat=39.7392&lng=-104.9903&latitude=39.7392&longitude=-104.9903"
   );
 });
 

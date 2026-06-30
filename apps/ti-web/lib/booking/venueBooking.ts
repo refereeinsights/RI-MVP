@@ -95,6 +95,7 @@ function addQueryNumber(qp: URLSearchParams, key: string, value: HotelUrlValue) 
 
 function parseCoordinate(value: HotelUrlValue, maxAbs: number) {
   const raw = String(value ?? "").trim();
+  if (!raw) return null;
   const num = Number(raw);
   if (!Number.isFinite(num)) return null;
   if (Math.abs(num) > maxAbs) return null;
@@ -113,7 +114,7 @@ export function buildHotelsHref(args: {
   const qp = new URLSearchParams({ venueId: args.venueId });
   if (args.tournamentId) qp.set("tournamentId", args.tournamentId);
   if (args.source?.trim()) qp.set("source", args.source.trim());
-  if (args.provider?.trim()) qp.set("provider", args.provider.trim());
+  qp.set("provider", args.provider?.trim() || "hotelplanner");
   if (args.ss?.trim()) qp.set("ss", args.ss.trim());
   const lat = parseCoordinate(args.latitude, 90);
   const lng = parseCoordinate(args.longitude, 180);

@@ -1983,3 +1983,16 @@ Maintenance rules:
     - Reused `/api/lodging/search` resolved dates for handoff and converted them from `MM/DD/YYYY` to `MM/DD/YY` for HP property URLs.
     - Hotel markers now show name + rating + from-price; hotel list rows remain highlightable without expanding into room state.
     - Search normalization now preserves `detailUrl` when available and defaults `hotelIDTypeID` to `0` when missing.
+- 2026-06-30: TI hotel outbound partner cutover to HotelPlanner.
+  - Files:
+    - `apps/ti-web/app/go/hotels/route.ts`
+    - `apps/ti-web/lib/booking/venueBooking.ts`
+    - `apps/ti-web/lib/booking/venueBooking.test.ts`
+    - `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`
+    - `CLAUDE.md`
+  - Changes:
+    - `/go/hotels` now routes TI hotel traffic to HotelPlanner only; Booking.com is no longer used as a TI hotel destination or fallback.
+    - Missing lat/lng now falls back to HotelPlanner generic `/Search/` destination queries instead of Booking.com.
+    - `buildHotelsHref()` now defaults to `provider=hotelplanner`.
+    - Removed remaining visible Booking.com hotel copy from TI hotel surfaces (`Search hotels on Booking.com` -> `Search hotels`).
+    - Updated UAT guidance so hotel fallback expectations are HotelPlanner + VRBO, not Booking.com + VRBO.

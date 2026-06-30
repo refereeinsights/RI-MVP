@@ -4,7 +4,7 @@ import { buildBookingSearchString, isValidZip5 } from "@/lib/booking/venueBookin
 
 export const runtime = "nodejs";
 
-type LodgingProvider = "booking" | "hotelplanner";
+type LodgingProvider = "hotelplanner";
 
 function isLocalHost(host: string | null) {
   const value = String(host ?? "").trim().toLowerCase();
@@ -69,8 +69,7 @@ function compareIso(a: string, b: string) {
 }
 
 function parseProvider(raw: string | null): LodgingProvider {
-  const normalized = String(raw ?? "").trim().toLowerCase();
-  return normalized === "hotelplanner" ? "hotelplanner" : "booking";
+  return "hotelplanner";
 }
 
 function parseLatLng(raw: string | null, maxAbs: number) {
@@ -212,25 +211,6 @@ function computeFallbackDates() {
   return { checkin, checkout };
 }
 
-function buildBookingSearchUrl(args: { ss: string; checkin: string; checkout: string }) {
-  const { ss, checkin, checkout } = args;
-  const encodedSS = encodeURIComponent(ss);
-  return `https://www.booking.com/searchresults.html?ss=${encodedSS}&checkin=${checkin}&checkout=${checkout}&group_adults=2&no_rooms=1`;
-}
-
-function wrapAwin(bookingUrl: string) {
-  const mid = process.env.BOOKING_AWIN_MID;
-  const affId = process.env.BOOKING_AWIN_AFFID;
-  if (!mid || !affId) {
-    return { ok: false as const, error: "Missing BOOKING_AWIN_MID or BOOKING_AWIN_AFFID" };
-  }
-
-  const wrapped = `https://www.awin1.com/cread.php?awinmid=${encodeURIComponent(mid)}&awinaffid=${encodeURIComponent(
-    affId
-  )}&ued=${encodeURIComponent(bookingUrl)}`;
-  return { ok: true as const, url: wrapped };
-}
-
 export async function GET(request: Request) {
   const reqUrl = new URL(request.url);
   const venueId = String(reqUrl.searchParams.get("venueId") ?? "").trim();
@@ -333,7 +313,7 @@ export async function GET(request: Request) {
   const hotelPlannerLng = (longitude ?? longitudeAlt ?? venueLng) ?? null;
   const hasHotelPlannerLatLng = hotelPlannerLat !== null && hotelPlannerLng !== null;
 
-  if (!ss && !(provider === "hotelplanner" && hasHotelPlannerLatLng)) {
+  if (!ss && !hasHotelPlannerLatLng) {
     return new NextResponse("Missing ss (destination). Use /weekend-planner to run a generic hotel search.", {
       status: 400,
     });
@@ -424,38 +404,32 @@ export async function GET(request: Request) {
     return { ...computeFallbackDates(), source: "fallback" as const, rejected: null as null | { source: "explicit" | "tournament"; reason: string } };
   })();
 
-  const bookingUrl = buildBookingSearchUrl({
-    ss: bookingSearchString,
-    checkin: dates.checkin,
-    checkout: dates.checkout,
-  });
-
-  const providerTarget: LodgingProvider =
-    provider === "hotelplanner" && hasHotelPlannerLatLng ? "hotelplanner" : "booking";
   const hotelPlannerWhiteLabelUrl = process.env.HOTELPLANNER_WHITE_LABEL_BASE_URL || "";
   const hotelPlannerCheckin = toMmDdYyyy(dates.checkin);
   const hotelPlannerCheckout = toMmDdYyyy(dates.checkout);
+  const hotelPlannerCitySearch = buildHotelPlannerSearchCity({
+    destinationSearch: ss,
+    venueName: venue?.name ?? null,
+    city: venue?.city ?? null,
+    state: venue?.state ?? null,
+  });
+  const hotelPlannerDestination =
+    hotelPlannerLat !== null && hotelPlannerLng !== null
+      ? `${hotelPlannerLat},${hotelPlannerLng}`
+      : String(hotelPlannerCitySearch ?? bookingSearchString).trim();
 
   const hotelPlannerTarget =
-    providerTarget === "hotelplanner" && hotelPlannerWhiteLabelUrl && hotelPlannerCheckin && hotelPlannerCheckout
+    hotelPlannerWhiteLabelUrl && hotelPlannerCheckin && hotelPlannerCheckout && hotelPlannerDestination
       ? buildHotelPlannerSearchUrl({
           baseUrl: hotelPlannerWhiteLabelUrl,
-          destination:
-            hotelPlannerLat !== null && hotelPlannerLng !== null
-              ? `${hotelPlannerLat},${hotelPlannerLng}`
-              : String(ss || "").trim(),
+          destination: hotelPlannerDestination,
           latitude: hotelPlannerLat,
           longitude: hotelPlannerLng,
           dates: { checkin: hotelPlannerCheckin, checkout: hotelPlannerCheckout },
           city:
             hotelPlannerLat !== null && hotelPlannerLng !== null
               ? null
-              : buildHotelPlannerSearchCity({
-                  destinationSearch: ss,
-                  venueName: venue?.name ?? null,
-                  city: venue?.city ?? null,
-                  state: venue?.state ?? null,
-                }),
+              : hotelPlannerCitySearch,
           sc: querySc || "tournamentinsights",
           keyword: queryKeyword || queryKeywordLegacy || null,
           jobCode: queryJobCode,
@@ -470,38 +444,20 @@ export async function GET(request: Request) {
         })
       : "";
 
-  const wrapped = providerTarget === "booking" ? wrapAwin(bookingUrl) : { ok: true as const, url: hotelPlannerTarget };
-  const localProviderTarget = providerTarget;
-  const effectiveProviderTarget: LodgingProvider =
-    localProviderTarget === "hotelplanner" && !hotelPlannerTarget
-      ? "booking"
-      : localProviderTarget;
-
-  if (providerTarget === "hotelplanner" && !hotelPlannerTarget && localDev) {
-    console.warn("[go/hotels] missing HOTELPLANNER_WHITE_LABEL_BASE_URL for provider=hotelplanner, using Booking fallback in local mode");
-  }
-
-  if (!wrapped.ok) {
-    if (!localDev) {
-      console.error("[go/hotels] missing Awin config");
-      return new NextResponse(wrapped.error, { status: 500 });
+  if (!hotelPlannerTarget) {
+    const message = hotelPlannerWhiteLabelUrl
+      ? "Unable to build HotelPlanner target URL."
+      : "HOTELPLANNER_WHITE_LABEL_BASE_URL is required for hotelplanner provider.";
+    if (localDev) {
+      console.warn(`[go/hotels] ${message}`);
     }
-    console.warn("[go/hotels] missing Awin config, using direct booking URL");
-  }
-
-  if (providerTarget === "hotelplanner" && !hotelPlannerTarget && !localDev) {
-    return new NextResponse("HOTELPLANNER_WHITE_LABEL_BASE_URL is required for hotelplanner provider.", { status: 500 });
+    return new NextResponse(message, { status: 500 });
   }
 
   const local = isLocalHost(host);
   const bot = looksLikeBot(userAgent);
-  const redirectTarget =
-    effectiveProviderTarget === "hotelplanner"
-      ? hotelPlannerTarget
-      : wrapped.ok
-        ? wrapped.url
-        : bookingUrl;
-  const targetUrl = effectiveProviderTarget === "hotelplanner" ? hotelPlannerTarget : bookingUrl;
+  const redirectTarget = hotelPlannerTarget;
+  const targetUrl = hotelPlannerTarget;
 
   if (!local && !bot) {
     try {
@@ -515,7 +471,7 @@ export async function GET(request: Request) {
           : "weekend_planner";
       await supabaseAdmin.from("ti_outbound_clicks" as any).insert({
         destination_type: "hotels",
-        partner: effectiveProviderTarget,
+        partner: "hotelplanner",
         source_surface: sourceSurface,
         venue_id: venueIdValid ? venueId : null,
         tournament_id: tournament?.id ?? null,
