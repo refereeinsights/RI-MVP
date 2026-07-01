@@ -503,7 +503,7 @@ function normalizeGroupRequest(payload: unknown): GroupRequestResult {
   const groupRequest = root.groupRequest as Record<string, unknown> | null | undefined;
   const requestId = pickText(groupRequest?.postingID ?? groupRequest?.postingId ?? root.requestId ?? root.id) || null;
   const code = pickNumber(root.code);
-  const success = Boolean(root.success) || code === 0;
+  const success = Boolean(requestId) || Boolean(root.success) || code === 0;
   return {
     success,
     requestId,

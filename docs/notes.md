@@ -4216,6 +4216,15 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added a one-line label editor for connected calendars (stored in `planner_event_sources.source_name`) with fallback `Connected calendar`.
   - Imported event cards and Season calendar event detail now display the source label (or fallback) for ICS-linked events.
   - Files: `apps/ti-web/app/api/planner/sources/[id]/route.ts`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `CLAUDE.md`, `docs/admin-reference.md`.
+- 2026-07-01: TI team-block RFP success normalization fixed for HotelPlanner.
+  - Files:
+    - `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`
+    - `docs/notes-ti.md`
+    - `docs/notes.md`
+  - Changes:
+    - Fixed `normalizeGroupRequest()` to treat a returned HotelPlanner request/posting ID as success even if the payload omits `success: true`.
+    - This resolves the venue-map team-block bug where HotelPlanner created the RFP successfully but TI showed a false failure state.
+    - No HotelPlanner request payload changes were needed; the issue was in TI response normalization.
 
 - 2026-06-02: Weekend Planner (Stage 2.9B-0 v1.3) — label semantics hardening and test doc alignment.
   - Confirmed/locked behavior: label text is single-line only, with `Connected calendar` fallback when blank.
