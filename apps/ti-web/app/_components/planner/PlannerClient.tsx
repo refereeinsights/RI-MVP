@@ -12,6 +12,7 @@ import {
 } from "@/lib/planner/duplicates";
 import { compactAssignmentLabel, getFamilyColorToken } from "@/lib/planner/familyColors";
 import { inferAssignmentFromSourceLabel } from "@/lib/planner/inferAssignmentFromSourceLabel";
+import { sanitizeIcsNotesForDisplay } from "@/lib/planner/icsNoteSanitizer";
 import { isMapLinkEligibleLocation, mapsSearchUrl, plannerEventLocationForMaps } from "@/lib/planner/venueResolution";
 import type {
   PlannerChildWithTeamsRow,
@@ -808,21 +809,6 @@ export default function PlannerClient(props: Props) {
     if (notes.includes("\n")) return "";
     return notes;
   };
-
-  function sanitizeIcsNotesForDisplay(notes: string | null | undefined, sourceType?: string | null) {
-    const normalizedSourceType = String(sourceType ?? "").trim().toLowerCase();
-    const notesTrimmed = collapseWhitespace(String(notes ?? "").trim());
-    if (!notesTrimmed) return "";
-    if (normalizedSourceType !== "ics") return notesTrimmed;
-    const withoutUrls = notesTrimmed.replace(/\b(?:https?:\/\/|www\.)[^\s"'<>]+/gi, " ");
-    const withoutUuid = withoutUrls.replace(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, " ");
-    const withoutHexDigest = withoutUuid.replace(/\b[0-9a-f]{32}\b/gi, " ");
-    const withoutStructuredArtifacts = withoutHexDigest.replace(
-      /\b(?:Game|Practice|Location|Duration|Link)\s*:\s*.*?(?=\s+\b(?:Game|Practice|Location|Duration|Arrival|Uniform|Link)\s*:|$)/gi,
-      " ",
-    );
-    return collapseWhitespace(withoutStructuredArtifacts);
-  }
 
   function isIcsLikeEvent(e: PlannerEventRow) {
     const sourceType = String(e.source_type ?? "").trim().toLowerCase();

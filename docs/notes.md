@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-07-01
 
+- TI Weekend Planner ICS-note sanitization dedupe:
+  - Added a shared planner-only imported-note sanitizer in `apps/ti-web/lib/planner/icsNoteSanitizer.ts` and switched both server shaping and client/calendar rendering to use it.
+  - Preserved the existing privacy-cleaning behavior for raw URLs, UUID-like tokens, hex digests, and `Link:` / structured ICS artifacts.
+  - Added focused tests in `apps/ti-web/lib/planner/icsNoteSanitizer.test.ts` to lock down shared behavior and reduce future drift risk.
+
 - TI Weekend Planner Stage `3.5-1C` closeout:
   - Combined runtime UAT and repo-side audit indicate the stage is ready to close.
   - Clean areas: entitlement gating across explorer/insider/weekend_pro, ICS edit-modal privacy, Schedule-X month/week navigation stability, and planner API mutation enforcement.

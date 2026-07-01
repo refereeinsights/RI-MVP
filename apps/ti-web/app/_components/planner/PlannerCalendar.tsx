@@ -14,6 +14,7 @@ import "@schedule-x/theme-shadcn/dist/index.css";
 import type { PlannerChildWithTeamsRow, PlannerEventRow, PlannerSourceRow } from "@/lib/planner/types";
 import { compactAssignmentLabel, getFamilyColorToken, getUnassignedFamilyColorToken } from "@/lib/planner/familyColors";
 import { inferAssignmentFromSourceLabel } from "@/lib/planner/inferAssignmentFromSourceLabel";
+import { sanitizeIcsNotesForDisplay } from "@/lib/planner/icsNoteSanitizer";
 import { isMapLinkEligibleLocation, mapsSearchUrl, plannerEventLocationForMaps } from "@/lib/planner/venueResolution";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
@@ -56,21 +57,6 @@ function formatEventTimeRange(args: { startIso: string; endIso: string; timeZone
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "";
   const fmt = new Intl.DateTimeFormat(undefined, { timeZone: args.timeZone, hour: "numeric", minute: "2-digit" });
   return `${fmt.format(start)} – ${fmt.format(end)}`;
-}
-
-function sanitizeIcsNotesForDisplay(notes: string | null | undefined, sourceType?: string | null) {
-  const normalizedSourceType = String(sourceType ?? "").trim().toLowerCase();
-  const normalizedNotes = String(notes ?? "").replace(/\s+/g, " ").trim();
-  if (!normalizedNotes) return "";
-  if (normalizedSourceType !== "ics") return normalizedNotes;
-  const withoutUrls = normalizedNotes.replace(/\b(?:https?:\/\/|www\.)[^\s"'<>]+/gi, " ");
-  const withoutUuid = withoutUrls.replace(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, " ");
-  const withoutHexDigest = withoutUuid.replace(/\b[0-9a-f]{32}\b/gi, " ");
-  const withoutStructuredArtifacts = withoutHexDigest.replace(
-    /\b(?:Game|Practice|Location|Duration|Link)\s*:\s*.*?(?=\s+\b(?:Game|Practice|Location|Duration|Arrival|Uniform|Link)\s*:|$)/gi,
-    " ",
-  );
-  return String(withoutStructuredArtifacts).replace(/\s+/g, " ").trim();
 }
 
 type DetailState = { open: boolean; eventId: string | null };
