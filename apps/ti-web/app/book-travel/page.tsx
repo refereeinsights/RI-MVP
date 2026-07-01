@@ -3,6 +3,7 @@
 import "../tournaments/tournaments.css";
 import WeekendPlannerClient from "../weekend-planner/WeekendPlannerClient";
 import styles from "../weekend-planner/WeekendPlanner.module.css";
+import BookTravelTeamBlockForm from "./BookTravelTeamBlockForm";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { getPartnerLinkForSport } from "@/lib/partners";
 
@@ -37,6 +38,8 @@ export default async function BookTravelPage() {
             Enter a city, venue, or event location to search nearby stays. Your event does not need to be listed on TournamentInsights.
           </p>
         </div>
+
+        <BookTravelTeamBlockForm />
 
         <WeekendPlannerClient
           fanaticsGear={{

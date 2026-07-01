@@ -248,11 +248,15 @@ function buildAvailabilityBody(input: HotelAvailabilityInput): Record<string, un
 }
 
 function buildGroupRequestBody(input: GroupRequestInput): Record<string, unknown> {
-  const derivedDestination = pickText(input.destination) ?? assertNonEmptyString(input.propertyId, "propertyId");
+  const propertyId = pickText(input.propertyId);
+  const derivedDestination = pickText(input.destination) ?? propertyId;
+  if (!derivedDestination) {
+    throw new Error("Missing destination");
+  }
   const groupName = pickText(input.groupName);
   const phone = pickText(input.phone);
   return {
-    hotelID: assertNonEmptyString(input.propertyId, "propertyId"),
+    ...(propertyId ? { hotelID: propertyId } : {}),
     checkIn: assertNonEmptyString(input.checkIn, "checkIn"),
     checkOut: assertNonEmptyString(input.checkOut, "checkOut"),
     numRooms: clampInt(input.rooms, 1),

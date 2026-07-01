@@ -461,6 +461,33 @@ Latest Step 2 API run (local `localhost:3001`) result:
 - [ ] Team-block analytics
   - Confirm `team_block_cta_click`, `team_block_rfp_start`, and `team_block_rfp_submit` fire with venue/tournament context.
 
+### Stage 3.7 Book-Travel Team Block UAT
+
+- [ ] Render and placement
+  - Open `http://localhost:3001/book-travel`.
+  - Confirm a TI-branded `Need 5+ rooms for your team?` form renders above the existing book-travel modules.
+  - Confirm the page stays on TI for the full flow; no HotelPlanner redirect should happen on open.
+- [ ] TI venue matching + fallback
+  - While signed in to TI, type at least 2 characters in `Destination` and confirm TI venue suggestions appear.
+  - Select a TI venue suggestion and confirm the input fills with venue/city/state and a matched-venue helper line appears.
+  - Repeat in a signed-out browser (or any 401 suggestion path) and confirm the form still accepts free-text destination with helper copy that TI venue suggestions are unavailable.
+- [ ] Validation
+  - Submit with blank destination and confirm inline error.
+  - Submit with `check-out <= check-in` and confirm inline error.
+  - Submit with `rooms < 5` and confirm the route returns the existing minimum-rooms validation error.
+- [ ] Successful submit
+  - Fill destination, dates, `rooms >= 5`, contact fields, and notes.
+  - Submit and confirm `POST /api/lodging/group-request` fires.
+  - Confirm the page remains on `/book-travel` with inline success UI and no redirect/new tab.
+  - If HotelPlanner returns a request reference, confirm it is shown in success copy.
+- [ ] Network payload
+  - Confirm the request includes `destination`, `checkin`, `checkout`, `rooms`, `adultsPerRoom`, `childrenPerRoom`, `firstName`, `lastName`, `email`, `phone`, `groupName`, `comments`, `split`, `rating`, `roomTypeCode`, `groupTypeCode`, `sc`, `kw`, `jobCode`, `custom1`, and `custom2`.
+  - Confirm `propertyId` is omitted for the `/book-travel` flow.
+- [ ] Venue-map no-regression
+  - Open a TI tournament venue-map page with live hotel results.
+  - Submit the existing TI team-block form there.
+  - Confirm the venue-map flow still succeeds and still sends its hotel-anchored `propertyId`.
+
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 1 - Search Endpoint)
 
 - [ ] Environment + compile checks

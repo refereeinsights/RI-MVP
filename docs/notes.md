@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-07-01
 
+- TI /book-travel team hotel block form with TI venue matching:
+  - Added a new TI-owned team hotel block request form on `/book-travel` via `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx` and `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.module.css`, then mounted it in `apps/ti-web/app/book-travel/page.tsx`.
+  - The form supports debounced TI venue suggestions when available, preserves free-text destination fallback when venue search is unavailable or unauthorized, and submits inline to `/api/lodging/group-request` without redirecting users to HotelPlanner `Group-Rate`.
+  - Extended `apps/ti-web/app/api/lodging/group-request/route.ts`, `apps/ti-web/lib/lodging/lodging-provider.ts`, and `apps/ti-web/lib/lodging/hotelPlannerProvider.ts` so HotelPlanner `createGroupRequest` now supports destination-only submissions with no `propertyId`, while leaving the venue-map hotel-anchored team-block path intact.
+
 - TI Weekend Planner ICS-note sanitization dedupe:
   - Added a shared planner-only imported-note sanitizer in `apps/ti-web/lib/planner/icsNoteSanitizer.ts` and switched both server shaping and client/calendar rendering to use it.
   - Preserved the existing privacy-cleaning behavior for raw URLs, UUID-like tokens, hex digests, and `Link:` / structured ICS artifacts.

@@ -92,7 +92,7 @@ export type HotelAvailabilityInput = {
 } & TrackingFields;
 
 export type GroupRequestInput = {
-  propertyId: string;
+  propertyId?: string | null;
   destination?: string | null;
   checkIn: string;
   checkOut: string;

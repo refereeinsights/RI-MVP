@@ -294,8 +294,9 @@ export async function POST(request: Request) {
 
   const providerName = getLodgingProviderName();
   const propertyId = parsePropertyId(body.propertyId);
-  if (!propertyId) {
-    return asRequestError("Invalid propertyId");
+  const destination = toText(body.destination);
+  if (!propertyId && !destination) {
+    return asRequestError("Missing destination");
   }
 
   const checkIn = normalizeCheckDate(toText(body.checkin) ?? toText(body.checkIn));
@@ -367,7 +368,7 @@ export async function POST(request: Request) {
 
   const providerInput: GroupRequestInput = {
     propertyId,
-    destination: toText(body.destination) ?? undefined,
+    destination: destination ?? undefined,
     checkIn,
     checkOut,
     rooms,
@@ -411,6 +412,7 @@ export async function POST(request: Request) {
     provider: providerName,
     groupRequestQuery: {
       propertyId,
+      destination,
       checkIn,
       checkOut,
       rooms,

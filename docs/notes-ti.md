@@ -15,6 +15,21 @@ Maintenance rules:
 
 ## 2026-07-01
 
+- TI /book-travel team hotel block form with TI venue matching:
+  - Updated:
+    - `apps/ti-web/app/book-travel/page.tsx`
+    - `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx`
+    - `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.module.css`
+    - `apps/ti-web/app/api/lodging/group-request/route.ts`
+    - `apps/ti-web/lib/lodging/lodging-provider.ts`
+    - `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`
+    - `CLAUDE.md`
+  - Changes:
+    - Added a TI-owned team hotel block request form directly on `/book-travel` with inline validation, inline success/error states, and no redirect to HotelPlanner `Group-Rate`.
+    - Added debounced TI venue suggestions backed by `/api/planner/search/venues`, while preserving free-text destination fallback when the venue lookup is unavailable or unauthorized.
+    - Extended the group-request route and HotelPlanner payload builder so destination-only HotelPlanner RFPs can submit without a `propertyId`, while preserving the existing venue-map hotel-anchored RFP path.
+    - Kept TI source tracking on book-travel RFP submissions using `sc`, `kw`, `jobCode`, and human-readable custom destination context instead of internal TI venue IDs.
+
 - TI Weekend Planner ICS-note sanitization dedupe:
   - Updated:
     - `apps/ti-web/lib/planner/icsNoteSanitizer.ts`
