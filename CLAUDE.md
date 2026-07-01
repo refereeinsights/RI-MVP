@@ -154,10 +154,10 @@ Dev note (repo structure):
   - Planner action-entry gating now centralized for manual-event entrypoints and ICS editing.
   - ICS notes are sanitized in list cards, calendar modal, and API fetch responses.
   - Schedule-X date controls now normalize date-shape correctly for month/week navigation.
-- Priority revalidation before continuing:
-  - [ ] Stage 3.5-1C UAT Re-test (tests A/B/C): explorer gating, ICS edit modal privacy, month/week navigation runtime stability.
-  - [ ] Planner API entitlement enforcement smoke checks on `children`, `teams`, `events`, and `sources` mutation routes.
-  - [ ] `planner_entitlement` analytics payload values for action tracking.
+- Stage 3.5-1C closeout status (runtime + repo review, 2026-07-01):
+  - [x] Explorer gating, ICS edit-modal privacy, and month/week calendar navigation runtime stability re-tested clean.
+  - [x] Planner API entitlement enforcement smoke checks on `children`, `teams`, `events`, and `sources` mutation routes re-tested clean.
+  - [ ] `planner_entitlement` analytics payload content still merits one manual DevTools spot-check; event firing was observed and this is non-blocking.
 
 ### Copy/paste prompt (Weekend Planner UAT)
 Use this when running Claude Desktop / Chrome UAT and the nav link is hidden:
@@ -325,9 +325,17 @@ Scope:
   - Header tab-bar `Add event` + section card `Add event` show no modal for explorer session.
   - Copy reads exact `Upgrade to Insider to unlock planner actions.`
   - No `POST /api/planner/events` observed.
-- [ ] Test B — ICS notes privacy in edit modal:
-  - Open a TeamSnap-sourced event in List view and enter Edit.
-  - Event `Notes` field should suppress `Link:`, raw URL strings, and UUID-like tokens.
+- [x] Test B — ICS notes privacy in edit modal:
+  - TeamSnap / imported event edit-modal notes render as clean plain text with no `Link:`, raw URL strings, or UUID-like tokens.
+- [x] Test C — Month/week navigation runtime stability:
+  - Month and week previous/next controls advance exactly one interval.
+  - No `toZonedDateTime` / `to.subtract` console errors or runtime overlays observed during repeated navigation.
+- [x] Direct API enforcement smoke:
+  - Explorer planner mutations reject with `403`.
+  - Insider manual events succeed and Insider calendar cap enforces at `2` with `calendar_feed_limit_reached`.
+  - Weekend Pro planner mutations succeed.
+- [ ] Analytics payload content:
+  - `/api/analytics` requests were observed firing during runtime UAT, but payload field inspection remained tooling-limited in that run. Treat as non-blocking follow-up.
   - Confirm the event payload still saves and displays safely in Card/List views.
 - [ ] Test C — Calendar month/week navigation:
   - Start in Month view with label `June 2026`; click ‹ then ›.

@@ -14,6 +14,12 @@ Maintenance rules:
 
 ## 2026-07-01
 
+- TI Weekend Planner Stage `3.5-1C` closeout:
+  - Combined runtime UAT and repo-side audit indicate the stage is ready to close.
+  - Clean areas: entitlement gating across explorer/insider/weekend_pro, ICS edit-modal privacy, Schedule-X month/week navigation stability, and planner API mutation enforcement.
+  - One non-blocking follow-up remains for manual analytics payload content spot-checking; event firing was observed.
+  - Logged a future cleanup candidate to dedupe duplicated ICS-note sanitization logic between server shaping and client-side planner calendar rendering.
+
 - TI HotelPlanner RFP reporting field refinement:
   - Updated:
     - `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`
