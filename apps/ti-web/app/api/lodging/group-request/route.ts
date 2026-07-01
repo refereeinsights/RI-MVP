@@ -28,6 +28,9 @@ type GroupRequestBody = {
   firstName?: unknown;
   lastName?: unknown;
   email?: unknown;
+  groupName?: unknown;
+  teamName?: unknown;
+  phone?: unknown;
   split?: unknown;
   rating?: unknown;
   roomTypeCode?: unknown;
@@ -359,6 +362,9 @@ export async function POST(request: Request) {
     return asRequestError("Missing email");
   }
 
+  const groupName = asTrackingString(body, ["groupName", "teamName"]);
+  const phone = toText(body.phone);
+
   const providerInput: GroupRequestInput = {
     propertyId,
     destination: toText(body.destination) ?? undefined,
@@ -370,6 +376,8 @@ export async function POST(request: Request) {
     firstName,
     lastName,
     email,
+    groupName,
+    phone,
     split,
     rating: ratingText,
     roomTypeCode,
@@ -413,6 +421,8 @@ export async function POST(request: Request) {
       firstName,
       lastName,
       email,
+      groupName,
+      phone,
       groupTypeCode: providerInput.groupTypeCode,
       source: providerInput.sc,
       locale: providerInput.locale,

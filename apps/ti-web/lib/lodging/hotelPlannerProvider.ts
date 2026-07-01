@@ -249,6 +249,8 @@ function buildAvailabilityBody(input: HotelAvailabilityInput): Record<string, un
 
 function buildGroupRequestBody(input: GroupRequestInput): Record<string, unknown> {
   const derivedDestination = pickText(input.destination) ?? assertNonEmptyString(input.propertyId, "propertyId");
+  const groupName = pickText(input.groupName);
+  const phone = pickText(input.phone);
   return {
     hotelID: assertNonEmptyString(input.propertyId, "propertyId"),
     checkIn: assertNonEmptyString(input.checkIn, "checkIn"),
@@ -261,6 +263,8 @@ function buildGroupRequestBody(input: GroupRequestInput): Record<string, unknown
     firstName: assertNonEmptyString(input.firstName, "firstName"),
     lastName: assertNonEmptyString(input.lastName, "lastName"),
     email: assertNonEmptyString(input.email, "email"),
+    ...(groupName ? { groupName } : {}),
+    ...(phone ? { phone } : {}),
     comments: pickText(input.comments ?? "") ?? "test test",
     targetRate: clampInt(input.targetRate, 0),
     minRate: clampInt(input.minRate, 0),

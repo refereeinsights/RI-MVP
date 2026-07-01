@@ -12,6 +12,20 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-07-01
+
+- TI HotelPlanner RFP reporting field refinement:
+  - Updated:
+    - `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`
+    - `apps/ti-web/app/api/lodging/group-request/route.ts`
+    - `apps/ti-web/lib/lodging/lodging-provider.ts`
+    - `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`
+    - `CLAUDE.md`
+  - Changes:
+    - Promoted TI venue-map team-block form `teamName` and `phone` into first-class HotelPlanner `createGroupRequest` fields (`groupName`, `phone`) instead of relying only on comments.
+    - Preserved current TI tracking params (`sc`, `kw`, `jobCode`, `custom1`, `custom2`) but updated UAT expectations so HP dashboard `Custom1+` columns are no longer required for pass/fail on group requests.
+    - Preserved the earlier success-normalization fix that treats returned HotelPlanner request/posting IDs as successful submissions.
+
 ## 2026-06-11
 
 - TI tournament card pre-hydration dead-tap fix on directory/state hub pages:

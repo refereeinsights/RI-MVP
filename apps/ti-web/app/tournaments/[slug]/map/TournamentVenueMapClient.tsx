@@ -1627,6 +1627,8 @@ export default function TournamentVenueMapClient({
           firstName: teamBlockForm.contactFirstName,
           lastName: teamBlockForm.contactLastName,
           email: teamBlockForm.email,
+          groupName: teamBlockForm.teamName,
+          phone: teamBlockForm.phone,
           comments: buildTeamBlockComments(),
           source: "venue_map",
           sc: "tournamentinsights",

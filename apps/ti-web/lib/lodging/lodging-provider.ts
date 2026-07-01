@@ -102,6 +102,8 @@ export type GroupRequestInput = {
   firstName: string;
   lastName: string;
   email: string;
+  groupName?: string | null;
+  phone?: string | null;
   split: number;
   rating: string;
   roomTypeCode: string;

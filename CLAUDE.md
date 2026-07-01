@@ -444,10 +444,12 @@ Latest Step 2 API run (local `localhost:3001`) result:
   - Submit with `rooms < 5` and confirm the inline error reads: `Enter at least 5 rooms for a team hotel block request.`
   - Remove a required field and confirm browser validation blocks submit.
   - Submit a valid request and confirm `POST /api/lodging/group-request` fires.
-  - Confirm payload contains `propertyId`, `destination`, `checkin`, `checkout`, `rooms`, `adults`, `children`, `firstName`, `lastName`, `email`, `comments`, `split`, `rating`, `roomTypeCode`, `groupTypeCode`, `sc`, `kw`, `jobCode`, `custom1`, and `custom2`.
+  - Confirm payload contains `propertyId`, `destination`, `checkin`, `checkout`, `rooms`, `adults`, `children`, `firstName`, `lastName`, `email`, `groupName`, `phone`, `comments`, `split`, `rating`, `roomTypeCode`, `groupTypeCode`, `sc`, `kw`, `jobCode`, `custom1`, and `custom2`.
   - Confirm `destination` is area-oriented and `propertyId` is still sent internally.
   - Confirm success stays on TI with branded success UI.
   - Confirm failure stays on TI with inline error.
+  - Confirm HotelPlanner reporting/details show first-class RFP fields for `groupName`/team name and `phone`.
+  - Do not require `Custom1+` columns to appear populated in HotelPlanner dashboard views; `jobCode` and `keyword` are the core reporting pass criteria.
 - [ ] Team-block analytics
   - Confirm `team_block_cta_click`, `team_block_rfp_start`, and `team_block_rfp_submit` fire with venue/tournament context.
 

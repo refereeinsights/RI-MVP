@@ -13,6 +13,20 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-07-01
+
+- TI HotelPlanner RFP reporting field refinement:
+  - Updated:
+    - `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`
+    - `apps/ti-web/app/api/lodging/group-request/route.ts`
+    - `apps/ti-web/lib/lodging/lodging-provider.ts`
+    - `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`
+    - `CLAUDE.md`
+  - Changes:
+    - Promoted team-block form `teamName` and `phone` into first-class HotelPlanner `createGroupRequest` fields as `groupName` and `phone`.
+    - Preserved existing TI tracking payload (`sc`, `kw`, `jobCode`, `custom1`, `custom2`) but stopped treating `Custom1+` dashboard columns as required pass criteria for RFP verification.
+    - Kept existing success normalization fix where a returned HotelPlanner request/posting ID is treated as success.
+
 ## 2026-06-30
 
 - TI venue-map team hotel block flow:
