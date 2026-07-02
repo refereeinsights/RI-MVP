@@ -499,6 +499,26 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
           </div>
         </article>
 
+        {isPlannerBeta ? (
+          <article className={styles.panelCard}>
+            <div className={styles.panelHeader}>
+              <h2 className={styles.panelTitle}>Team hotel blocks</h2>
+              <p className={styles.panelSub}>
+                Coordinating rooms for a team or club? Request hotel options for your tournament weekend, including
+                dates, city, team size, and preferred area.
+              </p>
+            </div>
+            <div className={styles.cardBody}>
+              <p className={styles.smallHelper}>Best for team managers, coaches, and clubs booking multiple rooms.</p>
+              <div style={{ paddingTop: "0.95rem" }}>
+                <Link className={styles.ctaFull} href="/book-travel#team-hotel-blocks">
+                  Request team hotel options
+                </Link>
+              </div>
+            </div>
+          </article>
+        ) : null}
+
         {fanaticsHref && props.fanaticsGear ? (
           <article className={styles.panelCard} data-partner="fanatics" data-placement={props.fanaticsGear.tracking.placement} data-sport="all_sports">
             <div className={styles.panelHeader}>

@@ -15,6 +15,22 @@ Maintenance rules:
 
 ## 2026-07-02
 
+- TI Weekend Planner nav discovery + team-travel bridge:
+  - Updated:
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/weekend-planner/page.tsx`
+    - `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`
+    - `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx`
+    - `docs/notes-ti.md`
+    - `docs/notes.md`
+    - `docs/weekend-planner-current-state.md`
+    - `CLAUDE.md`
+  - Changes:
+    - Replaced the shared-header Weekend Planner TODO with a visible `Weekend Planner Beta` nav link next to the existing travel/discovery items.
+    - Tightened the existing logged-out beta intro copy on `/weekend-planner` to the plainer schedule-first version.
+    - Added a compact planner-beta-only `Team hotel blocks` card in the optional travel section that links into the existing TI-branded `/book-travel#team-hotel-blocks` form instead of creating a new request flow.
+    - Added a stable `id="team-hotel-blocks"` anchor on the existing `/book-travel` team-block form so the new planner CTA can land directly on the current HotelPlanner-backed intake form.
+
 - TI Weekend Planner beta framing + planner-first landing polish:
   - Updated:
     - `apps/ti-web/app/weekend-planner/page.tsx`

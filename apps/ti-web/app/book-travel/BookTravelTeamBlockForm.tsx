@@ -275,7 +275,7 @@ export default function BookTravelTeamBlockForm() {
   }
 
   return (
-    <section className={styles.card} aria-label="Team hotel block request">
+    <section id="team-hotel-blocks" className={styles.card} aria-label="Team hotel block request">
       <div className={styles.header}>
         <div>
           <h2 className={styles.title}>Need 5+ rooms for your team?</h2>

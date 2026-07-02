@@ -203,9 +203,9 @@ export default async function WeekendPlannerPage() {
 	          <p className="subtitle">Plan the weekend. Manage the season.</p>
             {!isAuthed ? (
               <p className={`subtitle ${styles.betaIntro}`}>
-                You’re invited to test an early version of Weekend Planner. Build one sports schedule for games,
-                practices, tournaments, travel notes, and team calendar feeds — then use Upcoming, This Weekend,
-                and Season views to see what’s coming next.
+                You’re invited to test an early version of Weekend Planner. Add games, practices, tournaments,
+                travel notes, and team calendar feeds in one place. Then check Upcoming, This Weekend, and Season
+                views to see what is coming next.
               </p>
             ) : null}
 	          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>

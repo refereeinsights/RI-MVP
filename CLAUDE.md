@@ -447,6 +447,40 @@ Run this on `https://www.tournamentinsights.com/weekend-planner` or `http://loca
 - [ ] Existing entitlement gates are unchanged
 - [ ] Affiliate disclosure still appears where expected
 
+### Weekend Planner nav + team-travel bridge UAT
+
+Run this on `http://localhost:3001/weekend-planner` or `https://www.tournamentinsights.com/weekend-planner` after the nav/linking pass is present.
+
+1. Shared header nav
+- [ ] Header nav includes `Weekend Planner Beta`
+- [ ] Clicking `Weekend Planner Beta` routes to `/weekend-planner`
+- [ ] Existing `Map`, `Tournament Directory`, `Venue Insights`, and `Book Travel` links still work
+
+2. `/weekend-planner` logged out
+- [ ] Logged-out beta intro reads exactly:
+  - `You’re invited to test an early version of Weekend Planner. Add games, practices, tournaments, travel notes, and team calendar feeds in one place. Then check Upcoming, This Weekend, and Season views to see what is coming next.`
+- [ ] Optional travel section still appears below the planner-first onboarding content
+- [ ] A compact `Team hotel blocks` card appears near the Hotels / Vacation Rentals cards
+- [ ] Card CTA says `Request team hotel options`
+- [ ] Card copy does not use `RFP`
+- [ ] Clicking the CTA routes to `/book-travel#team-hotel-blocks`
+
+3. `/weekend-planner` logged in
+- [ ] Planner loads normally for a signed-in user
+- [ ] `Team hotel blocks` card still appears in planner-beta mode only
+- [ ] Existing planner interactions remain unchanged
+
+4. `/book-travel` handoff target
+- [ ] The existing TI-branded team hotel block form is reachable at `#team-hotel-blocks`
+- [ ] Landing from the planner CTA places the form in view
+- [ ] No duplicate compact planner card is added to `/book-travel`
+- [ ] Existing book-travel hotel / rental / share flows still work
+
+5. Mobile responsive pass
+- [ ] `Weekend Planner Beta` remains visible in the existing wrapped header nav at mobile width
+- [ ] The nav remains readable without a new hamburger menu
+- [ ] The team-travel CTA remains visible and usable in the travel grid on mobile
+
 ### TI Lodging Provider Integration UAT (HotelPlanner v2)
 
 Use this after the lodging implementation is in place and before any staging/public push.
