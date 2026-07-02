@@ -86,8 +86,18 @@ function buildReadableDestinationContext(typedDestination: string, matchedVenue:
   return [matchedVenue.name, [matchedVenue.city, matchedVenue.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ");
 }
 
-export default function BookTravelTeamBlockForm() {
-  const [isOpen, setIsOpen] = useState(false);
+type BookTravelTeamBlockFormProps = {
+  surface?: "book_travel_page" | "weekend_planner";
+  defaultOpen?: boolean;
+  showToggle?: boolean;
+};
+
+export default function BookTravelTeamBlockForm({
+  surface = "book_travel_page",
+  defaultOpen = false,
+  showToggle = true,
+}: BookTravelTeamBlockFormProps = {}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const [form, setForm] = useState<TeamBlockFormState>(DEFAULT_FORM);
   const [matchedVenue, setMatchedVenue] = useState<VenueSuggestion | null>(null);
   const [venueResults, setVenueResults] = useState<VenueSuggestion[]>([]);
@@ -110,16 +120,16 @@ export default function BookTravelTeamBlockForm() {
     if (startedRef.current) return;
     startedRef.current = true;
     void sendTiAnalytics("team_block_cta_click", {
-      page_type: "book_travel",
-      source: "book_travel_page",
+      page_type: surface === "weekend_planner" ? "weekend_planner" : "book_travel",
+      source: surface,
       property_id: null,
       checkin: form.checkin || null,
       checkout: form.checkout || null,
       destination: readableDestinationContext || form.destination || null,
     });
     void sendTiAnalytics("team_block_rfp_start", {
-      page_type: "book_travel",
-      source: "book_travel_page",
+      page_type: surface === "weekend_planner" ? "weekend_planner" : "book_travel",
+      source: surface,
       property_id: null,
       checkin: form.checkin || null,
       checkout: form.checkout || null,
@@ -221,12 +231,12 @@ export default function BookTravelTeamBlockForm() {
           rating: "5",
           roomTypeCode: "8",
           groupTypeCode: "143",
-          source: "book_travel_page",
+          source: surface,
           sc: "tournamentinsights",
           kw: "Team hotel block",
           jobCode: "TI-TEAM-BLOCK",
           custom1: readableDestinationContext || providerDestination,
-          custom2: "book_travel",
+          custom2: surface,
         }),
       });
 
@@ -241,8 +251,8 @@ export default function BookTravelTeamBlockForm() {
 
       setSuccess({ requestId: payload.requestId ?? null });
       void sendTiAnalytics("team_block_rfp_submit", {
-        page_type: "book_travel",
-        source: "book_travel_page",
+        page_type: surface === "weekend_planner" ? "weekend_planner" : "book_travel",
+        source: surface,
         property_id: null,
         checkin: formatDateToMmDdYyyy(checkInDate),
         checkout: formatDateToMmDdYyyy(checkOutDate),
@@ -258,8 +268,8 @@ export default function BookTravelTeamBlockForm() {
       const failedCheckOut = parseIsoDateInput(form.checkout);
       setError(message);
       void sendTiAnalytics("team_block_rfp_submit", {
-        page_type: "book_travel",
-        source: "book_travel_page",
+        page_type: surface === "weekend_planner" ? "weekend_planner" : "book_travel",
+        source: surface,
         property_id: null,
         checkin: failedCheckIn ? formatDateToMmDdYyyy(failedCheckIn) : null,
         checkout: failedCheckOut ? formatDateToMmDdYyyy(failedCheckOut) : null,
@@ -283,17 +293,19 @@ export default function BookTravelTeamBlockForm() {
             Submit a TI-branded hotel block request for any destination. Match a TI venue when available, or continue with free text.
           </p>
         </div>
-        <button
-          type="button"
-          className={styles.toggleButton}
-          aria-expanded={isOpen}
-          onClick={() => {
-            setIsOpen((current) => !current);
-            if (!isOpen) trackStart();
-          }}
-        >
-          {isOpen ? "Hide form" : "Open form"}
-        </button>
+        {showToggle ? (
+          <button
+            type="button"
+            className={styles.toggleButton}
+            aria-expanded={isOpen}
+            onClick={() => {
+              setIsOpen((current) => !current);
+              if (!isOpen) trackStart();
+            }}
+          >
+            {isOpen ? "Hide form" : "Open form"}
+          </button>
+        ) : null}
       </div>
 
       {isOpen ? (

@@ -28,8 +28,9 @@ Maintenance rules:
   - Changes:
     - Replaced the shared-header Weekend Planner TODO with a visible `Weekend Planner Beta` nav link next to the existing travel/discovery items.
     - Tightened the existing logged-out beta intro copy on `/weekend-planner` to the plainer schedule-first version.
-    - Added a compact planner-beta-only `Team hotel blocks` card in the optional travel section that links into the existing TI-branded `/book-travel#team-hotel-blocks` form instead of creating a new request flow.
-    - Added a stable `id="team-hotel-blocks"` anchor on the existing `/book-travel` team-block form so the new planner CTA can land directly on the current HotelPlanner-backed intake form.
+    - Added a compact planner-beta-only `Team hotel blocks` card in the optional travel section.
+    - Switched that planner CTA from a `/book-travel` handoff to an inline reveal of the existing TI-branded team hotel block form on `/weekend-planner`, still submitting through the current HotelPlanner-backed `/api/lodging/group-request` flow.
+    - Kept the existing `/book-travel` team-block form intact and available as the travel-first surface.
 
 - TI Weekend Planner beta framing + planner-first landing polish:
   - Updated:

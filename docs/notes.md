@@ -17,8 +17,8 @@ Maintenance rules:
 - TI Weekend Planner nav discovery + team-travel bridge:
   - Replaced the shared-header Weekend Planner TODO in `apps/ti-web/app/layout.tsx` with a live `Weekend Planner Beta` nav link.
   - Updated the existing logged-out beta intro copy in `apps/ti-web/app/weekend-planner/page.tsx` to the cleaner schedule-first version.
-  - Added a compact planner-beta-only `Team hotel blocks` card in `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` that links to the existing TI-branded `/book-travel#team-hotel-blocks` form.
-  - Added `id="team-hotel-blocks"` to the existing `/book-travel` team hotel block section in `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx` so the planner CTA lands on the current HotelPlanner-backed flow instead of creating a duplicate form.
+  - Added a compact planner-beta-only `Team hotel blocks` card in `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` that now expands the existing TI-branded team hotel block form inline on `/weekend-planner`.
+  - Reused `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx` across both surfaces so planner submissions still flow through the current HotelPlanner-backed `/api/lodging/group-request` route without creating a duplicate implementation.
 
 - TI Weekend Planner beta framing + planner-first landing polish:
   - Updated `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, and `apps/ti-web/app/weekend-planner/WeekendPlanner.module.css` to present `/weekend-planner` as `Weekend Planner Beta` for logged-out users, add a planner-first onboarding checklist, compact beta-access guidance, and a secondary `/premium` learn-more path for sharing/private family calendar features.

@@ -463,16 +463,16 @@ Run this on `http://localhost:3001/weekend-planner` or `https://www.tournamentin
 - [ ] A compact `Team hotel blocks` card appears near the Hotels / Vacation Rentals cards
 - [ ] Card CTA says `Request team hotel options`
 - [ ] Card copy does not use `RFP`
-- [ ] Clicking the CTA routes to `/book-travel#team-hotel-blocks`
+- [ ] Clicking the CTA opens the TI-branded team hotel block form inline on `/weekend-planner`
+- [ ] The URL stays on `/weekend-planner`
 
 3. `/weekend-planner` logged in
 - [ ] Planner loads normally for a signed-in user
 - [ ] `Team hotel blocks` card still appears in planner-beta mode only
 - [ ] Existing planner interactions remain unchanged
 
-4. `/book-travel` handoff target
-- [ ] The existing TI-branded team hotel block form is reachable at `#team-hotel-blocks`
-- [ ] Landing from the planner CTA places the form in view
+4. Inline form reuse + `/book-travel` regression
+- [ ] The revealed form on `/weekend-planner` is the TI-branded team hotel block form, not an external HP page
 - [ ] No duplicate compact planner card is added to `/book-travel`
 - [ ] Existing book-travel hotel / rental / share flows still work
 

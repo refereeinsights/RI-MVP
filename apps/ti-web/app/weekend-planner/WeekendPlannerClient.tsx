@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import BookTravelTeamBlockForm from "../book-travel/BookTravelTeamBlockForm";
 import { sendTiAnalytics } from "@/lib/analytics";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { getTier } from "@/lib/entitlements";
@@ -91,6 +92,7 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
   const [canNativeShare, setCanNativeShare] = useState(false);
   const [checkinText, setCheckinText] = useState<string>("");
   const [checkoutText, setCheckoutText] = useState<string>("");
+  const [teamBlockOpen, setTeamBlockOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -511,9 +513,13 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
             <div className={styles.cardBody}>
               <p className={styles.smallHelper}>Best for team managers, coaches, and clubs booking multiple rooms.</p>
               <div style={{ paddingTop: "0.95rem" }}>
-                <Link className={styles.ctaFull} href="/book-travel#team-hotel-blocks">
+                <button
+                  type="button"
+                  className={styles.ctaFull}
+                  onClick={() => setTeamBlockOpen((current) => !current)}
+                >
                   Request team hotel options
-                </Link>
+                </button>
               </div>
             </div>
           </article>
@@ -562,6 +568,12 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
         ) : null}
 
       </div>
+
+      {isPlannerBeta && teamBlockOpen ? (
+        <div className={styles.inlineTeamBlockWrap}>
+          <BookTravelTeamBlockForm surface="weekend_planner" defaultOpen showToggle={false} />
+        </div>
+      ) : null}
 
       <div className={styles.secondaryStack}>
         <article className={styles.panelCard}>

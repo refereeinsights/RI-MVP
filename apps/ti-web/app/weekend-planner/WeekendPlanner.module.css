@@ -71,6 +71,7 @@
 
 /* Map-panel CTA look */
 .ctaFull {
+  appearance: none;
   display: inline-flex;
   width: 100%;
   align-items: center;
@@ -82,6 +83,7 @@
   border: 1px solid rgba(0, 0, 0, 0.12);
   background: rgba(255, 255, 255, 0.92);
   color: #0b1f14;
+  cursor: pointer;
 }
 
 .ctaSecondary {
@@ -94,6 +96,10 @@
   margin-top: 1.1rem;
   display: grid;
   gap: 1.1rem;
+}
+
+.inlineTeamBlockWrap {
+  margin-top: 1.1rem;
 }
 
 .smallHelper {
