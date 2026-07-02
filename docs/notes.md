@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-07-02
 
+- TI Weekend Planner beta framing + planner-first landing polish:
+  - Updated `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, and `apps/ti-web/app/weekend-planner/WeekendPlanner.module.css` to present `/weekend-planner` as `Weekend Planner Beta` for logged-out users, add a planner-first onboarding checklist, compact beta-access guidance, and a secondary `/premium` learn-more path for sharing/private family calendar features.
+  - Added a small mode guard to the shared travel client so `/weekend-planner` can label hotels/rentals as optional support tools without changing `/book-travel` from its travel-first positioning.
+  - Preserved existing planner auth/entitlement logic plus all existing hotel, vacation rental, and share/copy travel behavior.
+
 - TI Weekend Planner Stage `3.6` mobile command layer / next-action polish:
   - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` and `apps/ti-web/app/_components/planner/Planner.module.css` to add bounded `Today` / `Tomorrow` shortcuts inside the existing Upcoming lens, strengthen the mobile `Next up` callout, and tighten calendar-side onboarding/empty-state guidance without changing entitlement or mutation behavior.
   - The promoted next-up card now reuses loaded conflict data for `Possible overlap`, adds a `Tight turnaround` advisory when the following loaded event begins within 45 minutes, and only shows `Different venue next` when both adjacent events have distinct linked TI venues.

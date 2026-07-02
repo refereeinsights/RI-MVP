@@ -403,6 +403,50 @@ Stage 3.6 local browser UAT result (2026-07-02):
 Automation note:
 - Pre-inject `window.confirm = () => true` before `Disconnect calendar` checks. Native browser confirm froze the tab under automation during this run.
 
+### Weekend Planner Beta framing UAT
+
+Run this on `https://www.tournamentinsights.com/weekend-planner` or `http://localhost:3001/weekend-planner` after the beta-framing pass is present.
+
+1. `/weekend-planner` logged out, desktop and mobile
+- [ ] H1 says `Weekend Planner Beta`
+- [ ] Beta intro appears under the subtitle
+- [ ] Logged-out CTA card says `Start by building your sports schedule`
+- [ ] Primary CTA says `Create account to test beta`
+- [ ] Secondary CTA says `Sign in`
+- [ ] `What to test first` appears before travel modules
+- [ ] `Beta access` note appears
+- [ ] Secondary Weekend Pro CTA appears and links to `/premium`
+- [ ] Travel section is labeled `Optional: plan travel around your weekend`
+
+2. `/weekend-planner` logged in, desktop and mobile
+- [ ] Logged-in user sees the planner UI immediately
+- [ ] Logged-out beta orientation checklist does not appear
+- [ ] Beta access note does not appear
+- [ ] Logged-out Weekend Pro orientation block does not appear
+- [ ] Travel section, if visible, is labeled optional
+- [ ] Existing planner actions still work
+
+3. `/book-travel` logged out and logged in
+- [ ] Page remains travel-first
+- [ ] No `Weekend Planner Beta` framing appears
+- [ ] No `What to test first` section appears
+- [ ] No beta access note appears
+- [ ] No logged-out Weekend Pro beta CTA appears
+- [ ] Hotel search still works
+- [ ] Vacation rental search still works
+- [ ] Share/copy travel link still works
+
+4. Upgrade CTA behavior
+- [ ] `View Weekend Pro` uses a normal Next.js link
+- [ ] Link points to `/premium`
+- [ ] Link does not trigger Stripe checkout directly
+
+5. Regression checks
+- [ ] Email verification redirect behavior is unchanged
+- [ ] Existing auth redirects are unchanged
+- [ ] Existing entitlement gates are unchanged
+- [ ] Affiliate disclosure still appears where expected
+
 ### TI Lodging Provider Integration UAT (HotelPlanner v2)
 
 Use this after the lodging implementation is in place and before any staging/public push.

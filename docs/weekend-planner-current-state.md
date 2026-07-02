@@ -47,11 +47,13 @@ This is not public marketing copy. It is an internal product/engineering memory 
 - Stage 3.5-1B private family iCal subscription feed: implemented and UAT completed.
 - Stage 3.5-1C entitlement/privacy/calendar-nav hardening: implemented and closed.
 - Stage 3.6 mobile command layer / next-action polish: implemented and local browser UAT passed.
+- Logged-out beta framing on `/weekend-planner`: implemented (planner-first hero/orientation content, optional-travel framing, and secondary Weekend Pro learn-more path).
 
 ### Open roadmap items (not yet implemented)
 
 High-confidence next work:
 
+- Run a quick runtime/browser pass on the new logged-out beta framing to confirm `/weekend-planner` stays planner-first while `/book-travel` remains travel-first.
 - Finalize one non-blocking analytics payload spot-check for `planner_entitlement` during a runtime browser pass.
 - Refresh this document’s older Stage 2.9B / 2.9C source-specific UAT notes so they reflect current closed status rather than historical prompt inventory.
 - Evaluate whether assisted venue linking (`2.10B`) is still a priority now that conservative venue matching and linked-venue surfaces are live.
@@ -87,6 +89,12 @@ Weekend Planner lives inside the existing TournamentInsights web app and should 
 Primary route:
 
 - /weekend-planner
+
+Current logged-out framing:
+
+- `/weekend-planner` is now intentionally presented as `Weekend Planner Beta`
+- logged-out users see planner-first orientation content before optional travel tools
+- optional hotel/rental/share modules still live on the page as support tools, not the main product pitch
 
 Compatibility route:
 

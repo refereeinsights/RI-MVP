@@ -15,6 +15,19 @@ Maintenance rules:
 
 ## 2026-07-02
 
+- TI Weekend Planner beta framing + planner-first landing polish:
+  - Updated:
+    - `apps/ti-web/app/weekend-planner/page.tsx`
+    - `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`
+    - `apps/ti-web/app/weekend-planner/WeekendPlanner.module.css`
+    - `docs/weekend-planner-current-state.md`
+    - `CLAUDE.md`
+  - Changes:
+    - Reframed `/weekend-planner` as `Weekend Planner Beta` for logged-out users with a planner-first hero, a compact beta intro, and clearer schedule-building CTA copy.
+    - Added logged-out-only orientation content covering `What to test first`, a compact beta-access note, and a secondary `View Weekend Pro` link to `/premium` without introducing pricing-table or checkout behavior.
+    - Added a small shared-client mode guard so `/weekend-planner` can label the travel modules as optional while `/book-travel` remains travel-first by default.
+    - Updated the shared travel/share heading in planner-beta mode only, while preserving existing hotel, rental, share, auth, and entitlement behavior.
+
 - TI Weekend Planner Stage `3.6` mobile command layer / next-action polish:
   - Updated:
     - `apps/ti-web/app/_components/planner/PlannerClient.tsx`

@@ -26,6 +26,8 @@ type FanaticsGearCard = {
   };
 };
 
+type WeekendPlannerClientMode = "planner_beta" | "book_travel";
+
 function getPlannerSourcePage(pathname: string | null | undefined) {
   const path = String(pathname ?? "").trim().toLowerCase();
   if (path.startsWith("/weekend-planner")) return "weekend_planner";
@@ -77,7 +79,9 @@ function safeSetStoredDestination(value: string) {
   }
 }
 
-export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGearCard }) {
+export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGearCard; mode?: WeekendPlannerClientMode }) {
+  const mode = props.mode ?? "book_travel";
+  const isPlannerBeta = mode === "planner_beta";
   const viewedFiredRef = useRef(false);
   const sourcePageRef = useRef<"book_travel" | "weekend_planner">("book_travel");
   const [tier, setTier] = useState<"explorer" | "insider" | "weekend_pro" | "unknown">("unknown");
@@ -297,6 +301,15 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
 
   return (
     <>
+      {isPlannerBeta ? (
+        <section className={styles.travelIntro} aria-label="Optional travel planning">
+          <h2 className={styles.travelIntroTitle}>Optional: plan travel around your weekend</h2>
+          <p className={styles.travelIntroCopy}>
+            Already know your tournament city, venue, or dates? Search hotels or vacation rentals from the same
+            starting point.
+          </p>
+        </section>
+      ) : null}
       <div className={styles.mainGrid}>
         <article className={styles.panelCard}>
           <div className={styles.panelHeader}>
@@ -533,7 +546,9 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
       <div className={styles.secondaryStack}>
         <article className={styles.panelCard}>
           <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Planning with a team or family?</h2>
+            <h2 className={styles.panelTitle}>
+              {isPlannerBeta ? "Sharing travel plans with a team or family?" : "Planning with a team or family?"}
+            </h2>
             <p className={styles.panelSub}>
               Share this travel page with your group so everyone can search from the same starting point.
             </p>

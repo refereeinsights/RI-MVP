@@ -59,7 +59,7 @@ function formatDateRange(start: string | null, end: string | null) {
 
 export async function generateMetadata() {
   return {
-    title: "Weekend Planner",
+    title: "Weekend Planner Beta",
     description:
       "Save tournaments, plan travel, and organize venue logistics for your sports weekend with TournamentInsights.",
     alternates: { canonical: "/weekend-planner" },
@@ -199,8 +199,15 @@ export default async function WeekendPlannerPage() {
 	    <div className={`pitchWrap tournamentsWrap ${styles.standaloneShell}`} data-weekend-planner-root="true">
 	      <section className="field tournamentsField">
 	        <div className="headerBlock">
-	          <h1 className="title">Weekend Planner</h1>
+	          <h1 className="title">Weekend Planner Beta</h1>
 	          <p className="subtitle">Plan the weekend. Manage the season.</p>
+            {!isAuthed ? (
+              <p className={`subtitle ${styles.betaIntro}`}>
+                You’re invited to test an early version of Weekend Planner. Build one sports schedule for games,
+                practices, tournaments, travel notes, and team calendar feeds — then use Upcoming, This Weekend,
+                and Season views to see what’s coming next.
+              </p>
+            ) : null}
 	          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
 	            {isAuthed ? (
 	              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto", display: "grid", gap: 12 }}>
@@ -211,14 +218,15 @@ export default async function WeekendPlannerPage() {
 	            ) : (
 	              <article className={styles.panelCard}>
 	                <div className={styles.panelHeader}>
-	                  <h2 className={styles.panelTitle}>Your whole weekend—and season—in one place</h2>
+	                  <h2 className={styles.panelTitle}>Start by building your sports schedule</h2>
 	                  <p className={styles.panelSub}>
-	                    Save games, practices, venues, travel notes, and tournament logistics in one mobile-first planner.
+	                    Add a game, practice, tournament, or travel note. Connect a team calendar feed when you have an
+                      ICS / iCal link.
 	                  </p>
 	                </div>
 	                <div className={styles.cardBody} style={{ display: "grid", gap: 10 }}>
 	                  <Link className={styles.ctaFull} href="/signup?returnTo=%2Fweekend-planner">
-	                    Create account
+	                    Create account to test beta
 	                  </Link>
 	                  <Link className="secondaryLink" href="/login?returnTo=%2Fweekend-planner">
 	                    Sign in
@@ -229,8 +237,60 @@ export default async function WeekendPlannerPage() {
 	          </div>
 	        </div>
 
-	        {/* Intentionally no extra bottom CTAs here — keep the lower section focused on travel widgets + share tools. */}
-	        <WeekendPlannerClient />
+          {!isAuthed ? (
+            <div className={styles.onboardingStack}>
+              <section className={styles.infoCard} aria-label="What to test first">
+                <h2 className={styles.infoTitle}>What to test first</h2>
+                <p className={styles.infoIntro}>Start with one or two simple actions, then reply to the beta email with feedback.</p>
+                <div className={styles.checklistGrid}>
+                  <article className={styles.checklistItem}>
+                    <h3 className={styles.checklistTitle}>Add one manual event</h3>
+                    <p className={styles.checklistCopy}>Create a game, practice, tournament, hotel note, or travel reminder.</p>
+                  </article>
+                  <article className={styles.checklistItem}>
+                    <h3 className={styles.checklistTitle}>Connect a team calendar</h3>
+                    <p className={styles.checklistCopy}>
+                      Paste an ICS / iCal feed from TeamSnap, SportsEngine, GameChanger, Sports Connect, or another
+                      calendar source.
+                    </p>
+                  </article>
+                  <article className={styles.checklistItem}>
+                    <h3 className={styles.checklistTitle}>Check your weekend</h3>
+                    <p className={styles.checklistCopy}>
+                      Use Upcoming, This Weekend, and Season views to see whether your schedule feels easier to manage.
+                    </p>
+                  </article>
+                  <article className={styles.checklistItem}>
+                    <h3 className={styles.checklistTitle}>Send feedback</h3>
+                    <p className={styles.checklistCopy}>
+                      Reply with what worked, what confused you, and what you expected but could not do.
+                    </p>
+                  </article>
+                </div>
+              </section>
+
+              <section className={styles.supportNote} aria-label="Beta access">
+                <p className={styles.supportNoteCopy}>
+                  Beta access: Explorer accounts can preview Weekend Planner. Insider accounts can add events and
+                  connect calendars. Weekend Pro includes planner sharing and private family calendar subscription.
+                </p>
+              </section>
+
+              <section className={styles.upgradeCard} aria-label="Weekend Pro secondary path">
+                <p className={styles.upgradeCopy}>
+                  Want to share your planner or subscribe to a private family calendar? Weekend Pro unlocks planner
+                  sharing and private calendar subscription.
+                </p>
+                <div>
+                  <Link href="/premium" className={styles.upgradeLink}>
+                    View Weekend Pro
+                  </Link>
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+	        <WeekendPlannerClient mode="planner_beta" />
 
 	        <div className={styles.disclosure}>
 	          <AffiliateDisclosure />

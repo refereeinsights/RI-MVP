@@ -135,6 +135,131 @@
   opacity: 0.92;
 }
 
+.betaIntro {
+  max-width: 860px;
+  margin: 10px auto 0;
+}
+
+.onboardingStack {
+  max-width: 980px;
+  margin: 14px auto 0;
+  display: grid;
+  gap: 12px;
+}
+
+.infoCard {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(15, 61, 46, 0.12);
+  border-radius: 16px;
+  padding: 16px;
+  color: #0b1f14;
+}
+
+.infoTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.infoIntro {
+  margin: 8px 0 0 0;
+  color: rgba(16, 34, 19, 0.8);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.checklistGrid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.checklistItem {
+  background: rgba(245, 248, 246, 0.96);
+  border: 1px solid rgba(15, 61, 46, 0.12);
+  border-radius: 14px;
+  padding: 12px 13px;
+}
+
+.checklistTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 900;
+  color: #0b1f14;
+}
+
+.checklistCopy {
+  margin: 6px 0 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(16, 34, 19, 0.82);
+}
+
+.supportNote {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 61, 46, 0.1);
+  border-radius: 14px;
+  padding: 10px 14px;
+}
+
+.supportNoteCopy {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(16, 34, 19, 0.76);
+}
+
+.upgradeCard {
+  background: rgba(240, 247, 242, 0.94);
+  border: 1px solid rgba(15, 61, 46, 0.1);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.upgradeCopy {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(16, 34, 19, 0.82);
+}
+
+.upgradeLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 61, 46, 0.18);
+  background: rgba(255, 255, 255, 0.96);
+  color: #0b1f14;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.travelIntro {
+  max-width: 980px;
+  margin: 14px auto 0;
+  display: grid;
+  gap: 4px;
+}
+
+.travelIntroTitle {
+  margin: 0;
+  color: #0b1f14;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.travelIntroCopy {
+  margin: 0;
+  color: rgba(16, 34, 19, 0.8);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .disclosure {
   max-width: 900px;
   margin: 1.1rem auto 0;
