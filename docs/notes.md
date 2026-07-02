@@ -12,6 +12,13 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-07-02
+
+- TI Weekend Planner Stage `3.6` mobile command layer / next-action polish:
+  - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` and `apps/ti-web/app/_components/planner/Planner.module.css` to add bounded `Today` / `Tomorrow` shortcuts inside the existing Upcoming lens, strengthen the mobile `Next up` callout, and tighten calendar-side onboarding/empty-state guidance without changing entitlement or mutation behavior.
+  - The promoted next-up card now reuses loaded conflict data for `Possible overlap`, adds a `Tight turnaround` advisory when the following loaded event begins within 45 minutes, and only shows `Different venue next` when both adjacent events have distinct linked TI venues.
+  - Updated `apps/ti-web/lib/planner/guestShares.ts` and `apps/ti-web/lib/planner/calendarFeeds.ts` so Weekend Pro share/feed panels use more actionable helper text when no guest link or calendar subscription exists yet.
+
 ## 2026-07-01
 
 - TI /book-travel team hotel block form with TI venue matching:
@@ -29,6 +36,19 @@ Maintenance rules:
   - Clean areas: entitlement gating across explorer/insider/weekend_pro, ICS edit-modal privacy, Schedule-X month/week navigation stability, and planner API mutation enforcement.
   - One non-blocking follow-up remains for manual analytics payload content spot-checking; event firing was observed.
   - Logged a future cleanup candidate to dedupe duplicated ICS-note sanitization logic between server shaping and client-side planner calendar rendering.
+
+- TI Weekend Planner Stage `3.5` branch status cleanup:
+  - Updated `docs/weekend-planner-current-state.md` so the planner snapshot reflects the current shipped state instead of the older post-`2.9C-5` roadmap view.
+  - Marked implemented/validated in the current-state snapshot:
+    - Stage `3.0`
+    - Stage `3.1`
+    - Stage `3.2`
+    - Stage `3.3C-2`
+    - Stage `3.3C-5`
+    - Stage `3.5-1`
+    - Stage `3.5-1B`
+    - Stage `3.5-1C`
+  - Reduced open next-work notes to one non-blocking analytics payload spot-check, optional cleanup of older historical Stage `2.9B` / `2.9C` UAT notes, and drafting the next mobile command-layer stage.
 
 - TI HotelPlanner RFP reporting field refinement:
   - Updated:

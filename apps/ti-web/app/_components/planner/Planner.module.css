@@ -352,6 +352,14 @@
   max-width: 260px;
 }
 
+.upcomingFocusRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  width: 100%;
+}
+
 .dateFilterWrap {
   position: relative;
   display: flex;
@@ -922,6 +930,25 @@
   overflow-wrap: anywhere;
 }
 
+.nextUpAdvisories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nextUpAdvisoryBadge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .venueContextBlock {
   display: grid;
   gap: 8px;
@@ -1179,6 +1206,19 @@
   overflow-wrap: anywhere;
 }
 
+.commandStateNotice {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid #dbe4ee;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+}
+
 @media (max-width: 640px) {
   .page {
     padding-left: 12px;
@@ -1210,7 +1250,8 @@
   .headerActions,
   .scheduleViewButtonsRow,
   .calendarToggle,
-  .dateFilterActions {
+  .dateFilterActions,
+  .upcomingFocusRow {
     display: grid;
     grid-template-columns: 1fr 1fr;
     width: 100%;
@@ -1226,6 +1267,7 @@
   .headerActions > *,
   .scheduleViewButtonsRow > *,
   .calendarToggle > *,
+  .upcomingFocusRow > *,
   .eventActions > *,
   .eventActionSummaryRow > *,
   .dateFilterActions > * {
@@ -1262,6 +1304,10 @@
     border: 1px solid #bbf7d0;
     border-radius: 12px;
     background: #f0fdf4;
+  }
+
+  .nextUpAdvisories {
+    justify-content: flex-start;
   }
 
   .eventHeaderRow {

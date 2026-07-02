@@ -1,6 +1,6 @@
 # TournamentInsights Weekend Planner — GPT / Codex Memory Snapshot
 
-Last updated: Post Stage 2.9C-5 F3 blocker verification (2026-06-03)
+Last updated: Post Stage 3.6 local implementation pass (2026-07-02)
 
 This document is the canonical working memory for TournamentInsights Weekend Planner planning, Codex prompts, Claude UAT prompts, GPT knowledge ingestion, and roadmap alignment.
 
@@ -38,24 +38,28 @@ This is not public marketing copy. It is an internal product/engineering memory 
 - SQL migration `20260528_ti_planner_stage2_sources_unique_url_full.sql` is present for source URL uniqueness constraints and was produced for Stage 2.9B/2.10 work.
 - Stage 2.9C-5 source identity closeout prompt: available in `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md`.
 - Stage 2.9C-5 focused F3 blocker prompt: available in `docs/prompts/ti-planner-stage-2.9c-f3-limit-blocker-fix-v1.0.md`.
+- Stage 3.0 responsive planner layout foundation: implemented.
+- Stage 3.1 venue-aware event card integration: implemented.
+- Stage 3.2 mobile next-event action hierarchy: implemented.
+- Stage 3.3C-2 child/team assignment model: implemented and signed off.
+- Stage 3.3C-5 conservative venue matching + venue/map click paths: implemented and signed off.
+- Stage 3.5-1 Weekend Pro guest family schedule sharing: implemented and UAT completed.
+- Stage 3.5-1B private family iCal subscription feed: implemented and UAT completed.
+- Stage 3.5-1C entitlement/privacy/calendar-nav hardening: implemented and closed.
+- Stage 3.6 mobile command layer / next-action polish: implemented locally; runtime UAT pending.
 
 ### Open roadmap items (not yet implemented)
 
 High-confidence next work:
 
-- Stage 2.9C-F3 blocker fix: prevent Insider users at feed limit from importing additional calendars and return 403 API bypass response.
-- 2.10B: implement user-confirmed assisted venue linking in UI + event update path.
-- 2.9B-1B (Team Connect): finalize explicit cancel/delete confirmation outcome and hard-delete confirmation for this path.
-- 2.9B-2 / 2.9B-3 / 2.9B-4: complete outstanding cancel/delete and platform-specific follow-up checks where marked pending.
-- Source name fallback policy: finalize final behavior for `Connected calendar` vs explicit labels.
-- Source color stability on additional families: validate cross-refresh persistence.
-- Stage 2.10B product boundary work:
-  - show source location + linked TI venue distinctly in event surfaces.
-  - implement safe search UI if not existing.
-  - ensure mobile ergonomics for search modal.
-- 2.9B-4 / 2.9C: broader missing-source semantics confirmation matrix completion.
-- 2.9B-5 / 2.9B-6 / 2.9B-Later: remaining platform coverage.
-- Stage 3.0 / 3.0B / 3.1 / 3.2 venue-aware and responsive expansions.
+- Run runtime UAT for Stage `3.6`, especially:
+  - `Today` / `Tomorrow` shortcuts
+  - `Next up` advisory hints
+  - explorer / insider empty-state copy
+  - Weekend Pro share/feed panel discoverability
+- Finalize one non-blocking analytics payload spot-check for `planner_entitlement` during a runtime browser pass.
+- Refresh this document’s older Stage 2.9B / 2.9C source-specific UAT notes so they reflect current closed status rather than historical prompt inventory.
+- Evaluate whether assisted venue linking (`2.10B`) is still a priority now that conservative venue matching and linked-venue surfaces are live.
 
 ### Safety contracts that must never regress
 

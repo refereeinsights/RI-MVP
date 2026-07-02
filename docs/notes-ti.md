@@ -13,6 +13,22 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-07-02
+
+- TI Weekend Planner Stage `3.6` mobile command layer / next-action polish:
+  - Updated:
+    - `apps/ti-web/app/_components/planner/PlannerClient.tsx`
+    - `apps/ti-web/app/_components/planner/Planner.module.css`
+    - `apps/ti-web/lib/planner/guestShares.ts`
+    - `apps/ti-web/lib/planner/calendarFeeds.ts`
+    - `docs/weekend-planner-current-state.md`
+    - `CLAUDE.md`
+  - Changes:
+    - Added Upcoming-only `Today` / `Tomorrow` shortcuts as bounded filters inside the existing `upcoming` lens instead of introducing new planner view types.
+    - Expanded the mobile `Next up` treatment so the promoted first upcoming card can reuse loaded conflict data for `Possible overlap`, call out `Tight turnaround` when the next loaded event starts within 45 minutes, and show `Different venue next` only when both adjacent loaded events have distinct linked TI venues.
+    - Tightened planner empty states and calendar-side onboarding copy for explorer, unverified, Insider-with-no-feed, and Insider-with-one-feed scenarios without changing planner mutation or entitlement enforcement.
+    - Strengthened Weekend Pro share/feed helper text so the guest-link and calendar-subscription panels read as actionable next steps rather than generic entitlement copy.
+
 ## 2026-07-01
 
 - TI /book-travel team hotel block form with TI venue matching:
@@ -53,6 +69,22 @@ Maintenance rules:
     - analytics event firing was observed, but payload content still merits one manual DevTools spot-check; treated as non-blocking follow-up rather than a stage blocker.
   - Follow-up candidate:
     - dedupe duplicated ICS-note sanitization logic shared between server shaping and planner calendar client rendering.
+
+- TI Weekend Planner Stage `3.5` branch status cleanup:
+  - Updated `docs/weekend-planner-current-state.md` so the implementation snapshot now reflects the current shipped planner state instead of the older post-`2.9C-5` roadmap view.
+  - Marked implemented/validated:
+    - Stage `3.0`
+    - Stage `3.1`
+    - Stage `3.2`
+    - Stage `3.3C-2`
+    - Stage `3.3C-5`
+    - Stage `3.5-1`
+    - Stage `3.5-1B`
+    - Stage `3.5-1C`
+  - Reduced open next-work notes to:
+    - one non-blocking analytics payload spot-check
+    - optional refresh of older historical Stage `2.9B` / `2.9C` UAT notes
+    - drafting the next mobile command-layer implementation stage
 
 - TI HotelPlanner RFP reporting field refinement:
   - Updated:

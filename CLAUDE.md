@@ -353,6 +353,32 @@ Retest prompt (Claude/Desktop):
    - exact label/state before/after each click
    - first thrown runtime error (if any) with full stack.
 
+### Stage 3.6 UAT (Mobile command layer / next-action polish)
+
+Run this on `http://localhost:3001/weekend-planner` after Stage `3.6` changes are present.
+
+- [ ] Upcoming shortcuts:
+  - [ ] In `Upcoming`, the planner shows bounded shortcut buttons for `All upcoming`, `Today`, and `Tomorrow`.
+  - [ ] These shortcuts do not create new top-level schedule views; `Upcoming` remains the active main lens.
+  - [ ] `Today` only shows events loaded for today; `Tomorrow` only shows events loaded for tomorrow.
+- [ ] Next up callout:
+  - [ ] On mobile width, the first upcoming loaded event card still carries the compact `Next up` treatment instead of rendering a duplicate summary module elsewhere.
+  - [ ] If the first upcoming event already has a loaded conflict badge, the callout can also show `Possible overlap` without creating a second conflict-detection system.
+  - [ ] `Different venue next` only appears when both the promoted event and the next loaded event have linked TI venue IDs and those IDs differ.
+  - [ ] `Tight turnaround` only appears when the next loaded event starts within 45 minutes after the promoted event ends.
+- [ ] Empty/onboarding states:
+  - [ ] Explorer sees upgrade-focused planner copy, not generic “no events yet” copy.
+  - [ ] Unverified user sees verify-email-focused planner copy.
+  - [ ] Insider with zero connected calendars sees “connect your first calendar” guidance near the calendar-management area.
+  - [ ] Insider with exactly one connected calendar sees copy that calls out the remaining second-calendar slot.
+- [ ] Weekend Pro discoverability:
+  - [ ] On Weekend Pro with no guest share yet, the share panel copy clearly explains why to create a guest link.
+  - [ ] On Weekend Pro with no calendar feed yet, the calendar-feed panel copy clearly explains why to create a private subscription URL.
+- [ ] Analytics spot-check:
+  - [ ] Open DevTools → Network and filter for analytics requests.
+  - [ ] Confirm normal planner analytics still fire and no new browser errors appear from the `Upcoming` shortcut interactions.
+  - [ ] If checking mobile `Next up` visibility in browser tools, record viewport width and whether the advisory badges rendered on the promoted card only.
+
 ### TI Lodging Provider Integration UAT (HotelPlanner v2)
 
 Use this after the lodging implementation is in place and before any staging/public push.

@@ -102,6 +102,7 @@ type TournamentSearchResult = {
 };
 
 type LoadedConflictInfo = { conflictCount: number };
+type UpcomingFocus = "all" | "today" | "tomorrow";
 
 function detectLoadedEventConflicts(events: PlannerEventRow[]) {
   const byId = new Map<string, LoadedConflictInfo>();
@@ -137,6 +138,16 @@ function detectLoadedEventConflicts(events: PlannerEventRow[]) {
   }
 
   return byId;
+}
+
+function eventWindowMs(event: PlannerEventRow) {
+  const start = new Date(String(event.starts_at ?? ""));
+  if (Number.isNaN(start.getTime())) return null;
+  const startMs = start.getTime();
+  const rawEnd = event.ends_at ? new Date(String(event.ends_at)) : null;
+  const rawEndMs = rawEnd && !Number.isNaN(rawEnd.getTime()) ? rawEnd.getTime() : null;
+  const endMs = rawEndMs && rawEndMs > startMs ? rawEndMs : startMs + 60 * 60_000;
+  return { startMs, endMs };
 }
 
 const EVENT_TYPES: { value: PlannerEventType; label: string }[] = [
@@ -557,6 +568,7 @@ export default function PlannerClient(props: Props) {
   const [importError, setImportError] = useState<string | null>(null);
   const [importGate, setImportGate] = useState<"limit" | "unverified" | "explorer" | null>(null);
   const [familyFilter, setFamilyFilter] = useState<FamilyFilterValue>("all");
+  const [upcomingFocus, setUpcomingFocus] = useState<UpcomingFocus>("all");
 
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeAnchorEventId, setMergeAnchorEventId] = useState<string | null>(null);
@@ -1154,17 +1166,26 @@ export default function PlannerClient(props: Props) {
 
   const eventsForScheduleView = useMemo(() => {
     if (scheduleView !== "upcoming") return events;
-	    const nowMs = Date.now();
-	    return (events ?? [])
-	      .filter((e) => {
-	        const d = new Date(String(e.starts_at ?? ""));
-	        if (Number.isNaN(d.getTime())) return false;
-	        return d.getTime() >= nowMs;
-	      })
-	      .slice()
-	      .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)))
-	      .slice(0, 20);
-  }, [events, scheduleView]);
+    const nowMs = Date.now();
+    const todayStart = startOfDayLocal(new Date());
+    const tomorrowStart = addDaysLocal(todayStart, 1);
+    const dayAfterTomorrowStart = addDaysLocal(todayStart, 2);
+    return (events ?? [])
+      .filter((e) => {
+        const d = new Date(String(e.starts_at ?? ""));
+        if (Number.isNaN(d.getTime())) return false;
+        const startMs = d.getTime();
+        if (startMs < nowMs) return false;
+        if (upcomingFocus === "today") return startMs < tomorrowStart.getTime();
+        if (upcomingFocus === "tomorrow") {
+          return startMs >= tomorrowStart.getTime() && startMs < dayAfterTomorrowStart.getTime();
+        }
+        return true;
+      })
+      .slice()
+      .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)))
+      .slice(0, 20);
+  }, [events, scheduleView, upcomingFocus]);
 
   const sourcesById = useMemo(() => {
     const m = new Map<string, PlannerSourceRow>();
@@ -1205,6 +1226,11 @@ export default function PlannerClient(props: Props) {
   useEffect(() => {
     if (scheduleView === "season") return;
     setSeasonDateFilterOpen(false);
+  }, [scheduleView]);
+
+  useEffect(() => {
+    if (scheduleView === "upcoming") return;
+    setUpcomingFocus("all");
   }, [scheduleView]);
 
   useEffect(() => {
@@ -1257,15 +1283,49 @@ export default function PlannerClient(props: Props) {
 	    return sortedKeys.map((key) => ({ key, events: (groups.get(key) ?? []).slice() }));
   }, [filteredEventsForScheduleView, tz]);
 
-  const nextUpcomingLoadedEventId = useMemo(() => {
-    const nowMs = Date.now();
-    const nextFuture = filteredEventsForScheduleView.find((e) => {
-      const startMs = new Date(String(e.starts_at ?? "")).getTime();
-      if (Number.isNaN(startMs)) return false;
-      return startMs >= nowMs;
-    });
-    return String(nextFuture?.id ?? filteredEventsForScheduleView[0]?.id ?? "").trim() || null;
+  const loadedConflictsByEventId = useMemo(() => {
+    return detectLoadedEventConflicts(filteredEventsForScheduleView);
   }, [filteredEventsForScheduleView]);
+
+  const nextUpcomingLoadedEventIndex = useMemo(() => {
+    if (!filteredEventsForScheduleView.length) return -1;
+    const nowMs = Date.now();
+    const nextFutureIndex = filteredEventsForScheduleView.findIndex((event) => {
+      const parsed = eventWindowMs(event);
+      if (!parsed) return false;
+      return parsed.startMs >= nowMs;
+    });
+    return nextFutureIndex >= 0 ? nextFutureIndex : 0;
+  }, [filteredEventsForScheduleView]);
+
+  const nextUpcomingLoadedEventId = useMemo(() => {
+    if (nextUpcomingLoadedEventIndex < 0) return null;
+    return String(filteredEventsForScheduleView[nextUpcomingLoadedEventIndex]?.id ?? "").trim() || null;
+  }, [filteredEventsForScheduleView, nextUpcomingLoadedEventIndex]);
+
+  const nextUpcomingAdvisories = useMemo(() => {
+    if (nextUpcomingLoadedEventIndex < 0) return [] as string[];
+    const current = filteredEventsForScheduleView[nextUpcomingLoadedEventIndex] ?? null;
+    if (!current) return [] as string[];
+    const next = filteredEventsForScheduleView[nextUpcomingLoadedEventIndex + 1] ?? null;
+    const advisories: string[] = [];
+    const currentConflictCount = loadedConflictsByEventId.get(current.id)?.conflictCount ?? 0;
+    if (currentConflictCount > 0) advisories.push("Possible overlap");
+    if (next) {
+      const currentWindow = eventWindowMs(current);
+      const nextWindow = eventWindowMs(next);
+      if (currentWindow && nextWindow && currentConflictCount === 0) {
+        const gapMinutes = Math.round((nextWindow.startMs - currentWindow.endMs) / 60_000);
+        if (gapMinutes >= 0 && gapMinutes <= 45) advisories.push("Tight turnaround");
+      }
+      const currentVenueId = String(current.linkedVenue?.id ?? "").trim();
+      const nextVenueId = String(next.linkedVenue?.id ?? "").trim();
+      if (currentVenueId && nextVenueId && currentVenueId !== nextVenueId) {
+        advisories.push("Different venue next");
+      }
+    }
+    return advisories;
+  }, [filteredEventsForScheduleView, loadedConflictsByEventId, nextUpcomingLoadedEventIndex]);
 
   function teamLabel(teamId: string | null | undefined) {
     const normalizedTeamId = String(teamId ?? "").trim();
@@ -1441,8 +1501,10 @@ export default function PlannerClient(props: Props) {
   const scheduleSummaryLabel = useMemo(() => {
     if (scheduleView === "weekend") return "This Weekend";
     if (scheduleView === "season") return "Season";
+    if (upcomingFocus === "today") return "Today";
+    if (upcomingFocus === "tomorrow") return "Tomorrow";
     return "Upcoming";
-  }, [scheduleView]);
+  }, [scheduleView, upcomingFocus]);
 
   function openSeasonDateFilter() {
     setSeasonDateDraftStart(seasonDateStart);
@@ -1521,10 +1583,6 @@ export default function PlannerClient(props: Props) {
     }
     return m;
   }, [duplicateCandidates]);
-
-	  const loadedConflictsByEventId = useMemo(() => {
-	    return detectLoadedEventConflicts(filteredEventsForScheduleView);
-	  }, [filteredEventsForScheduleView]);
 
   function sourceLabelFallback() {
     return "Connected calendar";
@@ -3066,6 +3124,34 @@ export default function PlannerClient(props: Props) {
 		            </div>
 
               <div className={styles.scheduleSelectRow}>
+                  {scheduleView === "upcoming" ? (
+                    <div className={styles.upcomingFocusRow} aria-label="Upcoming focus shortcuts">
+                      <button
+                        className={upcomingFocus === "all" ? styles.primaryBtn : styles.secondaryBtn}
+                        type="button"
+                        onClick={() => setUpcomingFocus("all")}
+                        disabled={busy}
+                      >
+                        All upcoming
+                      </button>
+                      <button
+                        className={upcomingFocus === "today" ? styles.primaryBtn : styles.secondaryBtn}
+                        type="button"
+                        onClick={() => setUpcomingFocus("today")}
+                        disabled={busy}
+                      >
+                        Today
+                      </button>
+                      <button
+                        className={upcomingFocus === "tomorrow" ? styles.primaryBtn : styles.secondaryBtn}
+                        type="button"
+                        onClick={() => setUpcomingFocus("tomorrow")}
+                        disabled={busy}
+                      >
+                        Tomorrow
+                      </button>
+                    </div>
+                  ) : null}
                   {familyFilterOptions.length > 1 ? (
                     <select
                       className={styles.select}
@@ -3172,7 +3258,13 @@ export default function PlannerClient(props: Props) {
 		              })()}
 		            </div>
 		          ) : scheduleView === "upcoming" ? (
-		            <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>Next 30 days · loaded events only</div>
+		            <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>
+                  {upcomingFocus === "today"
+                    ? "Today · loaded events only"
+                    : upcomingFocus === "tomorrow"
+                      ? "Tomorrow · loaded events only"
+                      : "Next 30 days · loaded events only"}
+                </div>
 		          ) : null}
               {scheduleView === "season" && seasonDateRangeLabel ? (
                 <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>Dates: {seasonDateRangeLabel}</div>
@@ -3340,7 +3432,31 @@ export default function PlannerClient(props: Props) {
 	          ) : scheduleView === "upcoming" ? (
 	            <div className={styles.muted}>
 	              {familyFilter === "all" ? (
-                  <>No upcoming events yet. Connect a team calendar or add a manual event to start planning.</>
+                  isUnverified ? (
+                    <>
+                      Verify your email to connect a calendar or add manual events.{" "}
+                      <Link href="/verify-email" className="secondaryLink">
+                        Verify email
+                      </Link>
+                      .
+                    </>
+                  ) : isExplorer ? (
+                    <>
+                      Upgrade to Insider to unlock planner actions, calendar connections, and saved weekend planning.{" "}
+                      <Link href="/premium" className="secondaryLink">
+                        Upgrade now
+                      </Link>
+                      .
+                    </>
+                  ) : !sources.length ? (
+                    <>No upcoming events yet. Connect your first calendar or add a manual event to start planning.</>
+                  ) : upcomingFocus === "today" ? (
+                    <>No events are loaded for <b>today</b>. Try <b>Tomorrow</b> or <b>All upcoming</b>.</>
+                  ) : upcomingFocus === "tomorrow" ? (
+                    <>No events are loaded for <b>tomorrow</b>. Try <b>Today</b> or <b>All upcoming</b>.</>
+                  ) : (
+                    <>No upcoming events yet. Connect a team calendar or add a manual event to start planning.</>
+                  )
                 ) : (
                   <>No upcoming events match <b>{activeFamilyFilterLabel}</b>. Try <b>All schedules</b> or another family filter.</>
                 )}
@@ -3352,7 +3468,15 @@ export default function PlannerClient(props: Props) {
                 ) : (
                   <>No season events match <b>{activeFamilyFilterLabel}</b> in this date range. Clear <b>Dates</b> or choose another range.</>
                 ) : familyFilter === "all" ? (
-                  <>No season events yet. Connect a team calendar or add events manually to build your planner.</>
+                  isUnverified ? (
+                    <>Verify your email to start building your season schedule.</>
+                  ) : isExplorer ? (
+                    <>Upgrade to Insider to build and save a season schedule.</>
+                  ) : !sources.length ? (
+                    <>No season events yet. Connect your first calendar or add events manually to build your planner.</>
+                  ) : (
+                    <>No season events yet. Connect a team calendar or add events manually to build your planner.</>
+                  )
                 ) : (
                   <>No season events match <b>{activeFamilyFilterLabel}</b>. Try <b>All schedules</b> or another family filter.</>
                 )}
@@ -3406,6 +3530,15 @@ export default function PlannerClient(props: Props) {
                             <span className={styles.nextUpSummary}>
                               {nextUpSummaryParts.filter(Boolean).join(" · ") || "Next upcoming loaded event"}
                             </span>
+                            {nextUpcomingAdvisories.length ? (
+                              <div className={styles.nextUpAdvisories}>
+                                {nextUpcomingAdvisories.map((advisory) => (
+                                  <span key={`${e.id}-${advisory}`} className={styles.nextUpAdvisoryBadge}>
+                                    {advisory}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
                         ) : null}
                         <div className={styles.eventHeaderRow}>
@@ -4205,6 +4338,24 @@ export default function PlannerClient(props: Props) {
 		              ? `${sources.length} connected calendar${sources.length === 1 ? "" : "s"}.`
 		              : "No connected calendars yet."}
 		        </div>
+              {!sourcesBusy && sources.length === 0 ? (
+                <div className={styles.commandStateNotice}>
+                  {isUnverified ? (
+                    <>Verify your email first, then connect your first team calendar.</>
+                  ) : isExplorer ? (
+                    <>Upgrade to Insider to unlock calendar connections and manual-event planning.</>
+                  ) : isInsider ? (
+                    <>Connect your first calendar to make <b>Upcoming</b>, <b>This Weekend</b>, and <b>Season</b> useful immediately.</>
+                  ) : (
+                    <>Connect a team calendar here, then use the sharing and subscription tools below for your family.</>
+                  )}
+                </div>
+              ) : null}
+              {!sourcesBusy && isInsider && sources.length === 1 ? (
+                <div className={styles.commandStateNotice}>
+                  Insider supports <b>2</b> connected calendars. Add one more team calendar or upgrade to Weekend Pro for unlimited feeds.
+                </div>
+              ) : null}
 			        <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
 			              <button
 			            className={styles.secondaryBtn}

@@ -159,7 +159,7 @@ function createPlannerCalendarFeedPanelState(params: {
       "Anyone with this private URL can subscribe to your family sports schedule in Apple Calendar, Google Calendar, or Outlook. Edits still happen in Weekend Planner.";
   } else if (isWeekendPro) {
     helperText =
-      "Create a private read-only calendar subscription for your family sports schedule. Notes, source metadata, and editing controls stay private.";
+      "Create a private read-only calendar subscription so your family schedule appears in Apple Calendar, Google Calendar, or Outlook while notes, source metadata, and editing controls stay private.";
   }
 
   return {

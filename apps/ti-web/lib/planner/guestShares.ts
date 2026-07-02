@@ -323,7 +323,7 @@ function createGuestSharePanelState(params: {
       "Anyone with this link can view your shared family sports schedule. Private notes, account details, calendar source details, and editing controls are hidden.";
   } else if (isWeekendPro) {
     helperText =
-      "Create a private read-only family schedule link. Private notes, account details, calendar source details, and editing controls stay hidden.";
+      "Create a private read-only family schedule link so grandparents, carpools, or co-parents can follow the weekend without logging in. Private notes, account details, calendar source details, and editing controls stay hidden.";
   }
 
   return {
