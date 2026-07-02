@@ -28,6 +28,21 @@ Maintenance rules:
     - Expanded the mobile `Next up` treatment so the promoted first upcoming card can reuse loaded conflict data for `Possible overlap`, call out `Tight turnaround` when the next loaded event starts within 45 minutes, and show `Different venue next` only when both adjacent loaded events have distinct linked TI venues.
     - Tightened planner empty states and calendar-side onboarding copy for explorer, unverified, Insider-with-no-feed, and Insider-with-one-feed scenarios without changing planner mutation or entitlement enforcement.
     - Strengthened Weekend Pro share/feed helper text so the guest-link and calendar-subscription panels read as actionable next steps rather than generic entitlement copy.
+  - Local browser UAT outcome:
+    - PASS on local dev runtime.
+    - Verified clean:
+      - `Upcoming` + bounded `Today` / `Tomorrow` shortcuts
+      - mobile `Next up` callout placement/content
+      - advisory-badge correctness for fixture data
+      - explorer / Insider onboarding copy
+      - Weekend Pro share/feed discoverability copy
+      - no new planner console/runtime regressions
+    - Unverified-auth follow-up:
+      - Added an unverified auth fixture and confirmed current TI behavior blocks session establishment at login, redirecting directly to `/verify-email`.
+      - This matches the desired forced-verification model; signed-in-but-unverified planner UAT is no longer the primary browser path.
+      - Planner-side unverified guards remain defense-in-depth only.
+    - Automation note:
+      - browser automation should pre-inject `window.confirm = () => true` before `Disconnect calendar` because native confirm froze the test tab during automation
 
 ## 2026-07-01
 

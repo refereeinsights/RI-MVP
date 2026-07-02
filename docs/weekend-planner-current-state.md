@@ -1,6 +1,6 @@
 # TournamentInsights Weekend Planner — GPT / Codex Memory Snapshot
 
-Last updated: Post Stage 3.6 local implementation pass (2026-07-02)
+Last updated: Post Stage 3.6 local browser UAT pass (2026-07-02)
 
 This document is the canonical working memory for TournamentInsights Weekend Planner planning, Codex prompts, Claude UAT prompts, GPT knowledge ingestion, and roadmap alignment.
 
@@ -46,20 +46,18 @@ This is not public marketing copy. It is an internal product/engineering memory 
 - Stage 3.5-1 Weekend Pro guest family schedule sharing: implemented and UAT completed.
 - Stage 3.5-1B private family iCal subscription feed: implemented and UAT completed.
 - Stage 3.5-1C entitlement/privacy/calendar-nav hardening: implemented and closed.
-- Stage 3.6 mobile command layer / next-action polish: implemented locally; runtime UAT pending.
+- Stage 3.6 mobile command layer / next-action polish: implemented and local browser UAT passed.
 
 ### Open roadmap items (not yet implemented)
 
 High-confidence next work:
 
-- Run runtime UAT for Stage `3.6`, especially:
-  - `Today` / `Tomorrow` shortcuts
-  - `Next up` advisory hints
-  - explorer / insider empty-state copy
-  - Weekend Pro share/feed panel discoverability
 - Finalize one non-blocking analytics payload spot-check for `planner_entitlement` during a runtime browser pass.
 - Refresh this document’s older Stage 2.9B / 2.9C source-specific UAT notes so they reflect current closed status rather than historical prompt inventory.
 - Evaluate whether assisted venue linking (`2.10B`) is still a priority now that conservative venue matching and linked-venue surfaces are live.
+- Carry forward two known testing notes:
+  - forced email verification is the intended TI auth model: unverified users are redirected to `/verify-email` before planner session establishment, so signed-in-unverified planner UAT is not a primary browser path
+  - browser automation should override native `window.confirm()` before disconnect-calendar actions because CDP hung on the native confirm dialog during Stage `3.6` UAT
 
 ### Safety contracts that must never regress
 
@@ -133,7 +131,7 @@ The planner shell and public planning context should remain accessible according
 Explorer includes:
 
 - signed-out users
-- signed-in but unverified users
+- users whose email is not yet verified (they are redirected to `/verify-email` before a usable planner session is established)
 
 Explorer can:
 
@@ -151,7 +149,7 @@ Explorer cannot:
 Explorer messaging:
 
 - signed-out: sign in or create an account
-- unverified: verify email
+- unverified: verify email via the auth redirect flow
 
 Do not frame Explorer limitations as paid-upgrade limitations.
 

@@ -368,7 +368,7 @@ Run this on `http://localhost:3001/weekend-planner` after Stage `3.6` changes ar
   - [ ] `Tight turnaround` only appears when the next loaded event starts within 45 minutes after the promoted event ends.
 - [ ] Empty/onboarding states:
   - [ ] Explorer sees upgrade-focused planner copy, not generic “no events yet” copy.
-  - [ ] Unverified user sees verify-email-focused planner copy.
+  - [ ] Unverified login flow redirects to `/verify-email` before a usable planner session is created.
   - [ ] Insider with zero connected calendars sees “connect your first calendar” guidance near the calendar-management area.
   - [ ] Insider with exactly one connected calendar sees copy that calls out the remaining second-calendar slot.
 - [ ] Weekend Pro discoverability:
@@ -378,6 +378,30 @@ Run this on `http://localhost:3001/weekend-planner` after Stage `3.6` changes ar
   - [ ] Open DevTools → Network and filter for analytics requests.
   - [ ] Confirm normal planner analytics still fire and no new browser errors appear from the `Upcoming` shortcut interactions.
   - [ ] If checking mobile `Next up` visibility in browser tools, record viewport width and whether the advisory badges rendered on the promoted card only.
+
+Stage 3.6 local browser UAT result (2026-07-02):
+- [x] Upcoming shortcuts:
+  - `All upcoming` / `Today` / `Tomorrow` appear only inside `Upcoming`
+  - `Today` and `Tomorrow` meta + empty-state behavior verified clean
+- [x] Next up callout:
+  - first upcoming loaded event keeps the compact in-card `Next up` treatment
+  - no duplicate standalone summary module observed
+- [x] Advisory correctness:
+  - `Different venue next` verified against distinct linked TI venues in fixture data
+  - no false `Possible overlap` / `Tight turnaround` signals observed
+- [x] Empty/onboarding states:
+  - explorer copy verified as upgrade-focused
+  - Insider zero-calendar and one-calendar states verified clean
+- [x] Weekend Pro discoverability:
+  - share/feed panel copy verified as actionable and specific
+- [x] Regression sanity:
+  - no new JS/runtime errors from Upcoming shortcut interactions
+- [x] Unverified auth behavior:
+  - fixture account confirmed the desired TI behavior: login redirects directly to `/verify-email` and no usable planner session is created
+  - planner-side unverified gating is therefore defense-in-depth, not the normal browser path
+
+Automation note:
+- Pre-inject `window.confirm = () => true` before `Disconnect calendar` checks. Native browser confirm froze the tab under automation during this run.
 
 ### TI Lodging Provider Integration UAT (HotelPlanner v2)
 
@@ -1114,7 +1138,7 @@ Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.
 
 - [ ] No dead primary actions:
   - [ ] At calendar-feed limit (Insider), clicking **Connect calendar** shows an actionable upgrade prompt (not a disabled/inert button).
-  - [ ] Signed-in but unverified: **Connect calendar** shows verify-email prompt.
+  - [ ] Unverified account login redirects to `/verify-email` before a usable planner session is established.
 - [ ] Add event stays schedule-first:
   - [ ] `Add event` is reachable near the top without multi-screen scrolling.
   - [ ] Clicking `Add event` opens the manual event form and scrolls to it.
@@ -1130,9 +1154,9 @@ Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.
   - [ ] Key actions fire events once per click.
   - [ ] Payloads remain privacy-safe (no IDs/URLs/titles/notes/addresses/exact timestamps).
 
-#### Stage 2.8 Fixture note — Unverified email account (required)
+#### Stage 2.8 Fixture note — Unverified email account
 
-The “unverified email → Connect calendar shows verify-email prompt” item cannot be tested unless at least one UAT account has `email_confirmed_at = NULL` in Supabase Auth.
+Current intended TI behavior is forced email verification before authenticated planner access. An unverified fixture is still useful, but the expected runtime outcome is login redirect to `/verify-email`, not a signed-in planner session with action-level verify prompts.
 
 Preferred approach (stable):
 - Create and keep a dedicated account permanently unverified (example: `uat+unverified@tournamentinsights.com`) and record its credentials above.
@@ -1142,7 +1166,7 @@ Alternative approach (temporary / for one-off verification):
   - `UPDATE auth.users SET email_confirmed_at = NULL WHERE email = 'uat+planner-b@tournamentinsights.com';`
   - Revert by setting it back to a timestamp after testing.
 
-If no unverified fixture exists, Stage 2.8 sign-off must treat this as an **open item**.
+If no unverified fixture exists, the auth-redirect behavior cannot be rechecked in browser UAT.
 
 ### Stage 2.10 UAT (Venue / Location Data Capture)
 
@@ -1732,8 +1756,8 @@ Login as UAT Planner A.
   - [ ] Can connect multiple calendars.
   - [ ] Season visual calendar renders and works as before.
 - [ ] Unverified user messaging (Explorer):
-  - [ ] Attempting to connect a calendar prompts verify-email messaging (not paid framing).
-  - [ ] Server responds with `email_verification_required` (403) for calendar import attempts.
+  - [ ] Unverified account login is blocked and redirects to `/verify-email` before a usable planner session is created.
+  - [ ] Planner-side server checks still reject direct unverified calendar-import attempts with `email_verification_required` (403) if exercised outside the normal browser login flow.
 
 ### Weekend Planner (/weekend-planner) — Stage 2 ICS Import
 

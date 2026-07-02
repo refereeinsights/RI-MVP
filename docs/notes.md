@@ -18,6 +18,11 @@ Maintenance rules:
   - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` and `apps/ti-web/app/_components/planner/Planner.module.css` to add bounded `Today` / `Tomorrow` shortcuts inside the existing Upcoming lens, strengthen the mobile `Next up` callout, and tighten calendar-side onboarding/empty-state guidance without changing entitlement or mutation behavior.
   - The promoted next-up card now reuses loaded conflict data for `Possible overlap`, adds a `Tight turnaround` advisory when the following loaded event begins within 45 minutes, and only shows `Different venue next` when both adjacent events have distinct linked TI venues.
   - Updated `apps/ti-web/lib/planner/guestShares.ts` and `apps/ti-web/lib/planner/calendarFeeds.ts` so Weekend Pro share/feed panels use more actionable helper text when no guest link or calendar subscription exists yet.
+  - Local browser UAT passed:
+    - `Today` / `Tomorrow`, `Next up`, explorer / Insider onboarding copy, and Weekend Pro discoverability copy all verified clean.
+    - No new planner console/runtime errors were observed during the Stage `3.6` browser pass.
+    - Follow-up auth check confirmed the desired TI model: unverified users are blocked at login, redirected to `/verify-email`, and do not establish a usable planner session.
+    - Browser automation should override native `window.confirm()` before disconnect-calendar checks to avoid tab hangs.
 
 ## 2026-07-01
 
