@@ -450,6 +450,16 @@ export default async function AdminPage({
   const rollForwardYearFilter =
     rollForwardYearRaw && Number.isInteger(Number(rollForwardYearRaw)) ? Number(rollForwardYearRaw) : null;
   const rollForwardBatchFilter = (searchParams.rf_batch ?? "").trim();
+  const rollForwardHiddenRaw = (searchParams.rf_hide ?? "").trim();
+  const rollForwardHiddenIds = Array.from(
+    new Set(
+      rollForwardHiddenRaw
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
+  const rollForwardHiddenSet = new Set(rollForwardHiddenIds);
   const discoverOffsetRaw = (searchParams.discover_offset ?? "").trim();
   const discoverOffset =
     discoverOffsetRaw && Number.isFinite(Number(discoverOffsetRaw)) ? Math.max(0, Number(discoverOffsetRaw)) : 0;
@@ -495,6 +505,10 @@ export default async function AdminPage({
   }
   if (tab === "tournament-uploads" && rollForwardBatchFilter) {
     params.set("rf_batch", rollForwardBatchFilter);
+  }
+  const adminBasePathWithoutHidden = params.toString() ? `/admin?${params.toString()}` : "/admin";
+  if (tab === "tournament-uploads" && rollForwardHiddenIds.length > 0) {
+    params.set("rf_hide", rollForwardHiddenIds.join(","));
   }
   const adminBasePath = params.toString() ? `/admin?${params.toString()}` : "/admin";
 
@@ -660,12 +674,14 @@ export default async function AdminPage({
       : null;
   const rollForwardLogs =
     tab === "tournament-uploads"
-      ? await listTournamentRollForwardLogs({
-          status: rollForwardStatusFilter,
-          targetYear: rollForwardYearFilter,
-          batchLabel: rollForwardBatchFilter || null,
-          limit: 120,
-        })
+      ? (
+          await listTournamentRollForwardLogs({
+            status: rollForwardStatusFilter,
+            targetYear: rollForwardYearFilter,
+            batchLabel: rollForwardBatchFilter || null,
+            limit: 120,
+          })
+        ).filter((log) => !rollForwardHiddenSet.has(log.id))
       : [];
   const rollForwardLogCounts = rollForwardLogs.reduce(
     (acc, log) => {
@@ -2650,6 +2666,7 @@ export default async function AdminPage({
     "use server";
     await requireAdmin();
     const redirectTo = formData.get("redirect_to");
+    const hideFromView = String(formData.get("bulk_hide_from_view") || "").trim() === "1";
     const logIds = formData
       .getAll("log_ids")
       .map((value) => String(value).trim())
@@ -2710,7 +2727,22 @@ export default async function AdminPage({
       if (error) return redirectWithNotice(redirectTo, `Bulk roll-forward update failed: ${error.message}`);
     }
     revalidatePath("/admin");
-    return redirectWithNotice(redirectTo, `Updated ${logIds.length} roll-forward log rows.`);
+    if (!hideFromView) {
+      return redirectWithNotice(redirectTo, `Updated ${logIds.length} roll-forward log rows.`);
+    }
+    const base = typeof redirectTo === "string" && redirectTo.length > 0 ? redirectTo : "/admin";
+    const [, qs] = base.split("?");
+    const params = new URLSearchParams(qs ?? "");
+    const hiddenIds = new Set(
+      String(params.get("rf_hide") ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    );
+    for (const logId of logIds) hiddenIds.add(logId);
+    return redirectWithNoticeAndQuery(redirectTo, `Updated ${logIds.length} roll-forward log rows.`, {
+      rf_hide: hiddenIds.size ? Array.from(hiddenIds).join(",") : null,
+    });
   }
 
   async function dedupePendingTournamentsAction(formData: FormData) {
@@ -6713,6 +6745,22 @@ export default async function AdminPage({
                   >
                     Filter log
                   </button>
+                  {rollForwardHiddenIds.length > 0 ? (
+                    <a
+                      href={adminBasePathWithoutHidden}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #ccc",
+                        background: "#fff",
+                        color: "#111",
+                        fontWeight: 700,
+                        textDecoration: "none",
+                      }}
+                    >
+                      Show {rollForwardHiddenIds.length} hidden
+                    </a>
+                  ) : null}
                 </form>
               </div>
 
@@ -6778,6 +6826,19 @@ export default async function AdminPage({
                         <option value="replace">Replace</option>
                         <option value="append">Append</option>
                       </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "end" }}>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                          minHeight: 42,
+                        }}
+                      >
+                        <input type="checkbox" name="bulk_hide_from_view" value="1" defaultChecked />
+                        Hide updated rows from this view
+                      </span>
                     </label>
                     <div style={{ display: "flex", alignItems: "end" }}>
                       <button
