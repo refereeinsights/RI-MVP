@@ -95,6 +95,7 @@ import type {
   TournamentSubmissionType,
 } from "@/lib/types/tournament";
 import { createTournamentFromUrl, fetchHtml } from "@/server/admin/pasteUrl";
+import { rollForwardTournamentsFromCsvText } from "@/server/admin/rollForwardTournaments";
 import {
   insertRun as insertSourceRun,
   ensureRegistryRow,
@@ -2512,6 +2513,62 @@ export default async function AdminPage({
     }
 
     return redirectWithNotice(redirectTo, noticeParts.join(" ").trim());
+  }
+
+  async function rollForwardTournamentsDryRunAction(formData: FormData) {
+    "use server";
+    const file = formData.get("upload") as File | null;
+    const redirectTo = formData.get("redirect_to");
+    const source = (formData.get("source") as TournamentSource) ?? "external_crawl";
+    const fallbackSportInput = String(formData.get("fallback_sport") || "soccer").toLowerCase();
+    const fallbackSport = TOURNAMENT_SPORTS.includes(fallbackSportInput as any)
+      ? (fallbackSportInput as (typeof TOURNAMENT_SPORTS)[number])
+      : "soccer";
+
+    if (!file || file.size <= 0) {
+      return redirectWithNotice(redirectTo, "Attach a CSV file for roll-forward dry run.");
+    }
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      return redirectWithNotice(redirectTo, "Roll-forward only supports CSV files.");
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const contents = buffer.toString("utf8");
+    const result = await rollForwardTournamentsFromCsvText(contents, {
+      mode: "dry_run",
+      defaultSource: source,
+      fallbackSport,
+    });
+    return redirectWithNotice(redirectTo, result.notice);
+  }
+
+  async function rollForwardTournamentsApplyAction(formData: FormData) {
+    "use server";
+    const file = formData.get("upload") as File | null;
+    const redirectTo = formData.get("redirect_to");
+    const source = (formData.get("source") as TournamentSource) ?? "external_crawl";
+    const fallbackSportInput = String(formData.get("fallback_sport") || "soccer").toLowerCase();
+    const fallbackSport = TOURNAMENT_SPORTS.includes(fallbackSportInput as any)
+      ? (fallbackSportInput as (typeof TOURNAMENT_SPORTS)[number])
+      : "soccer";
+
+    if (!file || file.size <= 0) {
+      return redirectWithNotice(redirectTo, "Attach a CSV file before applying roll-forward.");
+    }
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      return redirectWithNotice(redirectTo, "Roll-forward only supports CSV files.");
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const contents = buffer.toString("utf8");
+    const result = await rollForwardTournamentsFromCsvText(contents, {
+      mode: "apply",
+      defaultSource: source,
+      fallbackSport,
+    });
+    revalidatePath("/admin");
+    revalidatePath("/tournaments");
+    return redirectWithNotice(redirectTo, result.notice);
   }
 
   async function dedupePendingTournamentsAction(formData: FormData) {
@@ -6237,6 +6294,11 @@ export default async function AdminPage({
                 Cleaner removes duplicate slugs, missing locations, off-sport entries, and invalid URLs. A summary
                 appears in the notice banner after import.
               </p>
+              <p style={{ fontSize: 12, color: "#777", margin: 0 }}>
+                Roll forward uses CSV only. Include <code>existing_tournament_id</code> or <code>existing_slug</code>
+                plus future <code>start_date</code>/<code>end_date</code>. New sibling slugs follow the existing
+                <code>base-YYYY</code> series pattern and all created siblings default to draft.
+              </p>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <button
                   type="submit"
@@ -6251,6 +6313,36 @@ export default async function AdminPage({
                   }}
                 >
                   Run cleaner & import
+                </button>
+                <button
+                  type="submit"
+                  formAction={rollForwardTournamentsDryRunAction}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #555",
+                    background: "#fff",
+                    color: "#111",
+                    fontWeight: 800,
+                    width: "fit-content",
+                  }}
+                >
+                  Dry run roll forward
+                </button>
+                <button
+                  type="submit"
+                  formAction={rollForwardTournamentsApplyAction}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #b91c1c",
+                    background: "#fff5f5",
+                    color: "#991b1b",
+                    fontWeight: 900,
+                    width: "fit-content",
+                  }}
+                >
+                  Roll forward past tournaments
                 </button>
               </div>
             </form>

@@ -4321,3 +4321,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Prepared repo-validated prompt at `docs/prompts/ti-planner-stage-2.9a-ics-source-identity-audit-sports-family-uat-prep.md`.
   - Synced Stage 2.9A UAT references across `CLAUDE.md`, `docs/weekend-planner-uat.md`, `docs/weekend-planner-current-state.md`, and `docs/qa/ti-planner-ics-uat.md`.
   - No runtime code changes were made in 2.9A; remaining 2.9B validation remains pending on real platform feeds.
+- RI Admin: tournament roll-forward from CSV:
+  - Added `apps/referee/src/server/admin/rollForwardTournaments.ts` plus two upload-form actions in `apps/referee/app/admin/page.tsx` for explicit dry-run and apply flows.
+  - Admins can now create future-year sibling tournaments from CSV using `existing_tournament_id` or `existing_slug`, with conservative fallback matching when direct identifiers are missing.
+  - New sibling slugs now follow the series-safe `base-YYYY` convention, copied venue links are reused aggressively from the matched parent tournament, and all created siblings default to `draft` rather than inheriting the parent status.
+  - Dry-run stays in the existing redirect+notice admin pattern while detailed per-row output is written to server logs for review before apply.
