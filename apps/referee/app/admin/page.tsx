@@ -6719,8 +6719,18 @@ export default async function AdminPage({
               {rollForwardLogs.length === 0 ? (
                 <p style={{ fontSize: 12, color: "#777", margin: "12px 0 0 0" }}>No roll-forward log rows match the current filters.</p>
               ) : (
-                <form id="roll-forward-bulk-form" action={bulkUpdateRollForwardLogsAction} style={{ marginTop: 12 }}>
-                  <input type="hidden" name="redirect_to" value={adminBasePath} />
+                <>
+                  {rollForwardLogs.map((log) => {
+                    const formId = `roll-forward-log-${log.id}`;
+                    return (
+                      <form key={formId} id={formId} action={updateRollForwardLogAction}>
+                        <input type="hidden" name="redirect_to" value={adminBasePath} />
+                        <input type="hidden" name="log_id" value={log.id} />
+                      </form>
+                    );
+                  })}
+                  <form id="roll-forward-bulk-form" action={bulkUpdateRollForwardLogsAction} style={{ marginTop: 12 }}>
+                    <input type="hidden" name="redirect_to" value={adminBasePath} />
                   <div
                     style={{
                       display: "grid",
@@ -6869,24 +6879,20 @@ export default async function AdminPage({
                               {log.researched_at ? new Date(log.researched_at).toLocaleString() : "—"}
                             </td>
                             <td style={{ padding: 8 }}>
-                              <form id={formId} action={updateRollForwardLogAction}>
-                                <input type="hidden" name="redirect_to" value={adminBasePath} />
-                                <input type="hidden" name="log_id" value={log.id} />
-                              </form>
-                                <button
-                                  form={formId}
-                                  type="submit"
-                                  style={{
-                                    padding: "8px 10px",
-                                    borderRadius: 8,
-                                    border: "1px solid #555",
-                                    background: "#fff",
-                                    color: "#111",
-                                    fontWeight: 800,
-                                  }}
-                                >
-                                  Save
-                                </button>
+                              <button
+                                form={formId}
+                                type="submit"
+                                style={{
+                                  padding: "8px 10px",
+                                  borderRadius: 8,
+                                  border: "1px solid #555",
+                                  background: "#fff",
+                                  color: "#111",
+                                  fontWeight: 800,
+                                }}
+                              >
+                                Save
+                              </button>
                             </td>
                           </tr>
                         );
@@ -6894,7 +6900,8 @@ export default async function AdminPage({
                     </tbody>
                     </table>
                   </div>
-                </form>
+                  </form>
+                </>
               )}
             </details>
           </div>
