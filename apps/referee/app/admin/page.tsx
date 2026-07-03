@@ -96,6 +96,7 @@ import type {
 } from "@/lib/types/tournament";
 import { createTournamentFromUrl, fetchHtml } from "@/server/admin/pasteUrl";
 import { rollForwardTournamentsFromCsvText } from "@/server/admin/rollForwardTournaments";
+import { listTournamentRollForwardLogs } from "@/server/admin/rollForwardTournaments";
 import {
   insertRun as insertSourceRun,
   ensureRegistryRow,
@@ -106,6 +107,7 @@ import {
   updateRunExtractedJson,
 } from "@/server/admin/sources";
 import { recomputeAllWhistleScores } from "@/lib/whistleScores";
+import type { RollForwardStatus, TournamentRollForwardLogRow } from "@/lib/types/supabase";
 
 type Tab =
   | "users"
@@ -121,6 +123,7 @@ type Tab =
 type VStatus = "pending" | "approved" | "rejected";
 type MissingTournamentFilter = "venues" | "urls" | "dates" | "director_email" | "";
 type UploadsVenuesFilter = "all" | "missing" | "has";
+type RollForwardLogFilter = RollForwardStatus | "";
 type ReadyVenueItem = {
   venue_id: string;
   name: string | null;
@@ -142,6 +145,13 @@ const TOURNAMENT_SOURCES: TournamentSource[] = [
   "gotsoccer",
   "cal_south",
   "public_submission",
+];
+const ROLL_FORWARD_LOG_STATUSES: RollForwardStatus[] = [
+  "pending",
+  "no_dates_announced",
+  "discontinued",
+  "done",
+  "ambiguous",
 ];
 const SUBMISSION_TYPES = ["internet", "website", "paid", "admin"] as const;
 
@@ -310,6 +320,8 @@ export default async function AdminPage({
     staff_token_tournament_id?: string;
     uploads_sort?: string;
     uploads_venues?: string;
+    rf_status?: string;
+    rf_year?: string;
   };
 }) {
   const adminUser = await requireAdmin();
@@ -428,6 +440,13 @@ export default async function AdminPage({
   const uploadsVenuesRaw = (searchParams.uploads_venues ?? "").trim().toLowerCase();
   const uploadsVenuesFilter: UploadsVenuesFilter =
     uploadsVenuesRaw === "missing" || uploadsVenuesRaw === "has" ? (uploadsVenuesRaw as UploadsVenuesFilter) : "all";
+  const rollForwardStatusRaw = (searchParams.rf_status ?? "").trim().toLowerCase();
+  const rollForwardStatusFilter: RollForwardLogFilter = ROLL_FORWARD_LOG_STATUSES.includes(rollForwardStatusRaw as RollForwardStatus)
+    ? (rollForwardStatusRaw as RollForwardStatus)
+    : "";
+  const rollForwardYearRaw = (searchParams.rf_year ?? "").trim();
+  const rollForwardYearFilter =
+    rollForwardYearRaw && Number.isInteger(Number(rollForwardYearRaw)) ? Number(rollForwardYearRaw) : null;
   const discoverOffsetRaw = (searchParams.discover_offset ?? "").trim();
   const discoverOffset =
     discoverOffsetRaw && Number.isFinite(Number(discoverOffsetRaw)) ? Math.max(0, Number(discoverOffsetRaw)) : 0;
@@ -464,6 +483,12 @@ export default async function AdminPage({
   }
   if (tab === "tournament-uploads" && uploadsVenuesFilter !== "all") {
     params.set("uploads_venues", uploadsVenuesFilter);
+  }
+  if (tab === "tournament-uploads" && rollForwardStatusFilter) {
+    params.set("rf_status", rollForwardStatusFilter);
+  }
+  if (tab === "tournament-uploads" && rollForwardYearFilter) {
+    params.set("rf_year", String(rollForwardYearFilter));
   }
   const adminBasePath = params.toString() ? `/admin?${params.toString()}` : "/admin";
 
@@ -627,6 +652,14 @@ export default async function AdminPage({
           };
         })()
       : null;
+  const rollForwardLogs =
+    tab === "tournament-uploads"
+      ? await listTournamentRollForwardLogs({
+          status: rollForwardStatusFilter,
+          targetYear: rollForwardYearFilter,
+          limit: 120,
+        })
+      : [];
   const tournamentListingFetchLimit = missingFilter ? 5000 : 100;
   const listedTournaments: AdminListedTournament[] =
     tab === "tournament-listings"
@@ -2569,6 +2602,31 @@ export default async function AdminPage({
     revalidatePath("/admin");
     revalidatePath("/tournaments");
     return redirectWithNotice(redirectTo, result.notice);
+  }
+
+  async function updateRollForwardLogAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const redirectTo = formData.get("redirect_to");
+    const logId = String(formData.get("log_id") || "").trim();
+    const statusRaw = String(formData.get("status") || "").trim().toLowerCase();
+    const notes = String(formData.get("notes") || "").trim() || null;
+    if (!logId) return redirectWithNotice(redirectTo, "Roll-forward log id missing.");
+    if (!ROLL_FORWARD_LOG_STATUSES.includes(statusRaw as RollForwardStatus)) {
+      return redirectWithNotice(redirectTo, "Invalid roll-forward status.");
+    }
+
+    const { error } = await supabaseAdmin
+      .from("tournament_roll_forward_log")
+      .update({
+        status: statusRaw as RollForwardStatus,
+        notes,
+        researched_at: new Date().toISOString(),
+      })
+      .eq("id", logId);
+    if (error) return redirectWithNotice(redirectTo, `Roll-forward log update failed: ${error.message}`);
+    revalidatePath("/admin");
+    return redirectWithNotice(redirectTo, "Roll-forward log updated.");
   }
 
   async function dedupePendingTournamentsAction(formData: FormData) {
@@ -6498,6 +6556,165 @@ export default async function AdminPage({
                 city/state/zip and backfills those fields — then use the inference panel above to match nearby venues.
               </p>
             </form>
+
+            <div
+              style={{
+                marginTop: 16,
+                border: "1px solid #ddd",
+                borderRadius: 14,
+                padding: 16,
+                background: "#fafafa",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <div>
+                  <h3 style={{ margin: 0 }}>Roll-forward research log</h3>
+                  <p style={{ fontSize: 12, color: "#555", margin: "6px 0 0 0" }}>
+                    Tracks future-year rollover research outcomes, sibling creation, and manual admin corrections.
+                  </p>
+                </div>
+                <form action="/admin" method="get" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
+                  <input type="hidden" name="tab" value="tournament-uploads" />
+                  {uploadsSort !== "updated_desc" ? <input type="hidden" name="uploads_sort" value={uploadsSort} /> : null}
+                  {uploadsVenuesFilter !== "all" ? <input type="hidden" name="uploads_venues" value={uploadsVenuesFilter} /> : null}
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Status
+                    <select
+                      name="rf_status"
+                      defaultValue={rollForwardStatusFilter}
+                      style={{ display: "block", marginTop: 4, padding: 8, minWidth: 180 }}
+                    >
+                      <option value="">All</option>
+                      {ROLL_FORWARD_LOG_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Target year
+                    <input
+                      type="number"
+                      name="rf_year"
+                      defaultValue={rollForwardYearFilter ?? ""}
+                      placeholder="2027"
+                      style={{ display: "block", marginTop: 4, padding: 8, width: 110, borderRadius: 8, border: "1px solid #ccc" }}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #555",
+                      background: "#fff",
+                      color: "#111",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Filter log
+                  </button>
+                </form>
+              </div>
+
+              {rollForwardLogs.length === 0 ? (
+                <p style={{ fontSize: 12, color: "#777", margin: "12px 0 0 0" }}>No roll-forward log rows match the current filters.</p>
+              ) : (
+                <div style={{ overflowX: "auto", marginTop: 12 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
+                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Parent</th>
+                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Target year</th>
+                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Status</th>
+                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Sibling</th>
+                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Notes</th>
+                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Researched</th>
+                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Save</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rollForwardLogs.map((log) => {
+                        const parent = (log as any).parent;
+                        const sibling = (log as any).sibling;
+                        const formId = `roll-forward-log-${log.id}`;
+                        return (
+                          <tr key={log.id} style={{ borderBottom: "1px solid #eee", verticalAlign: "top" }}>
+                            <td style={{ padding: 8 }}>
+                              {parent?.slug ? (
+                                <a href={`/tournaments/${parent.slug}`} style={{ color: "#0f3d2e", fontWeight: 700, textDecoration: "none" }}>
+                                  {parent?.name || parent?.slug}
+                                </a>
+                              ) : (
+                                <span>{parent?.name || log.parent_tournament_id}</span>
+                              )}
+                              <div style={{ color: "#666", marginTop: 4 }}>{parent?.slug || log.parent_tournament_id}</div>
+                            </td>
+                            <td style={{ padding: 8 }}>{log.target_year}</td>
+                            <td style={{ padding: 8 }}>
+                              <select
+                                form={formId}
+                                name="status"
+                                defaultValue={log.status}
+                                style={{ padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                              >
+                                {ROLL_FORWARD_LOG_STATUSES.map((status) => (
+                                  <option key={status} value={status}>
+                                    {status}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td style={{ padding: 8 }}>
+                              {sibling?.slug ? (
+                                <a href={`/tournaments/${sibling.slug}`} style={{ color: "#0f3d2e", fontWeight: 700, textDecoration: "none" }}>
+                                  {sibling?.name || sibling?.slug}
+                                </a>
+                              ) : (
+                                <span style={{ color: "#777" }}>{log.sibling_id ?? "—"}</span>
+                              )}
+                            </td>
+                            <td style={{ padding: 8 }}>
+                              <textarea
+                                form={formId}
+                                name="notes"
+                                defaultValue={log.notes ?? ""}
+                                rows={3}
+                                style={{ width: "100%", minWidth: 220, padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                              />
+                            </td>
+                            <td style={{ padding: 8, color: "#555" }}>
+                              {log.researched_at ? new Date(log.researched_at).toLocaleString() : "—"}
+                            </td>
+                            <td style={{ padding: 8 }}>
+                              <form id={formId} action={updateRollForwardLogAction}>
+                                <input type="hidden" name="redirect_to" value={adminBasePath} />
+                                <input type="hidden" name="log_id" value={log.id} />
+                              </form>
+                                <button
+                                  form={formId}
+                                  type="submit"
+                                  style={{
+                                    padding: "8px 10px",
+                                    borderRadius: 8,
+                                    border: "1px solid #555",
+                                    background: "#fff",
+                                    color: "#111",
+                                    fontWeight: 800,
+                                  }}
+                                >
+                                  Save
+                                </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
 
 	          {pendingTournaments.length === 0 ? (

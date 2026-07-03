@@ -4326,3 +4326,9 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Admins can now create future-year sibling tournaments from CSV using `existing_tournament_id` or `existing_slug`, with conservative fallback matching when direct identifiers are missing.
   - New sibling slugs now follow the series-safe `base-YYYY` convention, copied venue links are reused aggressively from the matched parent tournament, and all created siblings default to `draft` rather than inheriting the parent status.
   - Dry-run stays in the existing redirect+notice admin pattern while detailed per-row output is written to server logs for review before apply.
+- RI Admin: roll-forward research log + status-aware CSV:
+  - Added `supabase/migrations/20260703_tournament_roll_forward_log.sql` for `public.tournament_roll_forward_log` with admin-only RLS, target-year uniqueness, status check constraint, and `updated_at` trigger support.
+  - Extended `apps/referee/src/server/admin/rollForwardTournaments.ts` so roll-forward CSV rows now support `roll_forward_status` + `target_year`, allowing log-only updates (`pending`, `no_dates_announced`, `discontinued`, `ambiguous`) or sibling creation / resolution (`done`).
+  - Added venue augmentation support for complete CSV venue payloads: parent venue links are still copied first, then one complete CSV venue can be matched/created and linked without replacing existing copied links or changing the parent primary venue.
+  - Added a lightweight roll-forward research log monitor/editor to `apps/referee/app/admin/page.tsx` under the tournament uploads tab with status/year filters and inline status/notes correction.
+  - Documented the GPT / MCP research-queue selection rules in `docs/admin-reference.md`.

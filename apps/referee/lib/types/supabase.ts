@@ -19,6 +19,55 @@ type GenericTable = {
 };
 
 type PublicTables = {
+  tournament_roll_forward_log: {
+    Row: {
+      id: string;
+      parent_tournament_id: string;
+      target_year: number;
+      status: "pending" | "no_dates_announced" | "discontinued" | "done" | "ambiguous";
+      sibling_id: string | null;
+      notes: string | null;
+      researched_at: string | null;
+      created_at: string;
+      updated_at: string;
+    };
+    Insert: {
+      id?: string;
+      parent_tournament_id: string;
+      target_year: number;
+      status: "pending" | "no_dates_announced" | "discontinued" | "done" | "ambiguous";
+      sibling_id?: string | null;
+      notes?: string | null;
+      researched_at?: string | null;
+      created_at?: string;
+      updated_at?: string;
+    };
+    Update: {
+      id?: string;
+      parent_tournament_id?: string;
+      target_year?: number;
+      status?: "pending" | "no_dates_announced" | "discontinued" | "done" | "ambiguous";
+      sibling_id?: string | null;
+      notes?: string | null;
+      researched_at?: string | null;
+      created_at?: string;
+      updated_at?: string;
+    };
+    Relationships: [
+      {
+        foreignKeyName: "tournament_roll_forward_log_parent_tournament_id_fkey";
+        columns: ["parent_tournament_id"];
+        referencedRelation: "tournaments";
+        referencedColumns: ["id"];
+      },
+      {
+        foreignKeyName: "tournament_roll_forward_log_sibling_id_fkey";
+        columns: ["sibling_id"];
+        referencedRelation: "tournaments";
+        referencedColumns: ["id"];
+      }
+    ];
+  };
   referee_contacts: {
     Row: {
       id: string;
@@ -196,3 +245,12 @@ export type TournamentRefereeContactInsert =
   Database["public"]["Tables"]["tournament_referee_contacts"]["Insert"];
 export type TournamentRefereeContactUpdate =
   Database["public"]["Tables"]["tournament_referee_contacts"]["Update"];
+
+export type RollForwardStatus =
+  Database["public"]["Tables"]["tournament_roll_forward_log"]["Row"]["status"];
+export type TournamentRollForwardLogRow =
+  Database["public"]["Tables"]["tournament_roll_forward_log"]["Row"];
+export type TournamentRollForwardLogInsert =
+  Database["public"]["Tables"]["tournament_roll_forward_log"]["Insert"];
+export type TournamentRollForwardLogUpdate =
+  Database["public"]["Tables"]["tournament_roll_forward_log"]["Update"];

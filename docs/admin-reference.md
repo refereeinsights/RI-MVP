@@ -558,6 +558,28 @@ All four are `SECURITY DEFINER`, execute granted to `service_role` only. Called 
 Implemented in `apps/referee/app/admin/ti/clicks/page.tsx` (server) + `ClicksTableClient.tsx` (client).
 - Queries: today, yesterday, last 7d, last 30d windows for ~48 named events.
 - Grouped display: Discovery, Tournament Detail, Tournament Map, Directory, Venue Map, Weekend Share, Weekend Planner, Conversion, Owl's Eye, Book Travel.
+
+## Tournament roll-forward research queue
+
+- The admin upload tab now supports a durable `tournament_roll_forward_log` memory layer on top of CSV-based roll-forward.
+- GPT / MCP research should identify likely parent tournaments first, then output CSV rows with:
+  - `existing_tournament_id` or `existing_slug`
+  - `target_year`
+  - `roll_forward_status`
+  - optional creation fields (`name`, `start_date`, `end_date`, venue/location fields, `source_url`)
+  - optional `notes`
+- Canonical research selection logic:
+  - find historical tournament rows that do not yet have a `tournament_roll_forward_log` row for the target year
+  - or rows with existing log status `pending`
+  - exclude rows already logged as `done` for that target year
+  - periodically re-check rows logged as `no_dates_announced`
+- Roll-forward status semantics:
+  - `pending` = queued for research / seed only
+  - `no_dates_announced` = researched, no public future dates yet
+  - `discontinued` = event appears no longer active
+  - `ambiguous` = parent/year mapping could not be resolved confidently
+  - `done` = sibling tournament exists or was created
+- Sibling creation remains CSV-driven through the admin roll-forward workflow; the log is audit + queue memory, not a separate creation path.
 - KPI health tiles (6): top funnel metrics with yesterday vs 7d-avg comparison.
 - Outbound clicks section (3 tiles): Hotels (from `ti_outbound_clicks`), Vrbo (from `ti_outbound_clicks`), Fanatics (from `partner_click_clicked` events in `ti_map_events`). Note: Fanatics tile counts ALL `partner_click_clicked` events — if additional partners are added, filter by `properties->>'partner_key' = 'fanatics'`.
 - Conversion funnel: map_viewed → tournament_detail_page_viewed → book_travel_* funnel rates.
