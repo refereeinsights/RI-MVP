@@ -24,6 +24,7 @@ type PublicTables = {
       id: string;
       parent_tournament_id: string;
       target_year: number;
+      batch_label: string | null;
       status: "pending" | "no_dates_announced" | "discontinued" | "done" | "ambiguous";
       sibling_id: string | null;
       notes: string | null;
@@ -35,6 +36,7 @@ type PublicTables = {
       id?: string;
       parent_tournament_id: string;
       target_year: number;
+      batch_label?: string | null;
       status: "pending" | "no_dates_announced" | "discontinued" | "done" | "ambiguous";
       sibling_id?: string | null;
       notes?: string | null;
@@ -46,6 +48,7 @@ type PublicTables = {
       id?: string;
       parent_tournament_id?: string;
       target_year?: number;
+      batch_label?: string | null;
       status?: "pending" | "no_dates_announced" | "discontinued" | "done" | "ambiguous";
       sibling_id?: string | null;
       notes?: string | null;

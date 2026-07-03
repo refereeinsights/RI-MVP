@@ -565,9 +565,12 @@ Implemented in `apps/referee/app/admin/ti/clicks/page.tsx` (server) + `ClicksTab
 - GPT / MCP research should identify likely parent tournaments first, then output CSV rows with:
   - `existing_tournament_id` or `existing_slug`
   - `target_year`
+  - `batch_label`
   - `roll_forward_status`
   - optional creation fields (`name`, `start_date`, `end_date`, venue/location fields, `source_url`)
   - optional `notes`
+- Reuse the same `batch_label` in the GPT run title and CSV filename. Recommended format: `jan-2026-wk1`, `jan-2026-wk2`, etc.
+- Recommended cadence is weekly or two-week chunks so MCP result size, external search volume, and manual QA stay bounded.
 - Canonical research selection logic:
   - find historical tournament rows that do not yet have a `tournament_roll_forward_log` row for the target year
   - or rows with existing log status `pending`
