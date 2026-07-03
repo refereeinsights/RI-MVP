@@ -87,6 +87,7 @@ type NormalizedRollForwardRow = {
   existingTournamentId: string | null;
   existingSlug: string | null;
   targetYear: number | null;
+  batchLabel: string | null;
   rollForwardStatus: RollForwardStatus | null;
   name: string | null;
   sport: string | null;
@@ -198,6 +199,7 @@ function parseRows(csvText: string) {
     ),
     existingSlug: cleanNullable(getValue(row, "existing_slug", "parent_slug")),
     targetYear: normalizeInteger(getValue(row, "target_year")),
+    batchLabel: cleanNullable(getValue(row, "batch_label", "batch", "research_batch")),
     rollForwardStatus: normalizeRollForwardStatus(getValue(row, "roll_forward_status")),
     name: cleanNullable(getValue(row, "name", "tournament_name")),
     sport: cleanNullable(getValue(row, "sport", "tournament_sport")),
@@ -472,6 +474,12 @@ function buildNotice(mode: RollForwardMode, summary: RollForwardSummary) {
   }. Check server logs for row details.`;
 }
 
+function normalizeBatchLabel(value: string | null | undefined) {
+  const clean = cleanNullable(value);
+  if (!clean) return null;
+  return clean.slice(0, 120);
+}
+
 function buildLogRowResult(
   row: NormalizedRollForwardRow,
   action: RollForwardRowAction,
@@ -562,6 +570,7 @@ export async function rollForwardTournamentsFromCsvText(
         await upsertRollForwardLog(supabase, {
           parent_tournament_id: parent.id,
           target_year: row.targetYear,
+          batch_label: normalizeBatchLabel(row.batchLabel),
           status: row.rollForwardStatus,
           sibling_id: null,
           notes: row.notes,
@@ -613,6 +622,7 @@ export async function rollForwardTournamentsFromCsvText(
         await upsertRollForwardLog(supabase, {
           parent_tournament_id: parent.id,
           target_year: row.targetYear,
+          batch_label: normalizeBatchLabel(row.batchLabel),
           status: "done",
           sibling_id: existingSibling.id,
           notes: row.notes,
@@ -679,13 +689,6 @@ export async function rollForwardTournamentsFromCsvText(
       tournament_director_email: row.tournamentDirectorEmail ?? parent.tournament_director_email,
       referee_contact: row.refereeContact ?? parent.referee_contact,
       referee_contact_email: row.refereeContactEmail ?? parent.referee_contact_email,
-      raw: {
-        kind: "roll_forward",
-        parent_tournament_id: parent.id,
-        parent_slug: parent.slug,
-        target_year: row.targetYear,
-        csv_row: row.raw,
-      },
     };
 
     const insertRes = await supabase.from("tournaments" as any).insert(insertPayload).select("id").single();
@@ -750,6 +753,7 @@ export async function rollForwardTournamentsFromCsvText(
     await upsertRollForwardLog(supabase, {
       parent_tournament_id: parent.id,
       target_year: row.targetYear,
+      batch_label: normalizeBatchLabel(row.batchLabel),
       status: "done",
       sibling_id: newTournamentId,
       notes: row.notes,
@@ -793,12 +797,13 @@ export async function rollForwardTournamentsFromCsvText(
 export async function listTournamentRollForwardLogs(params?: {
   status?: RollForwardStatus | "";
   targetYear?: number | null;
+  batchLabel?: string | null;
   limit?: number;
 }) {
   let query = supabaseAdmin
     .from("tournament_roll_forward_log")
     .select(
-      "id,parent_tournament_id,target_year,status,sibling_id,notes,researched_at,created_at,updated_at,parent:tournaments!tournament_roll_forward_log_parent_tournament_id_fkey(id,name,slug,start_date),sibling:tournaments!tournament_roll_forward_log_sibling_id_fkey(id,name,slug,start_date)"
+      "id,parent_tournament_id,target_year,batch_label,status,sibling_id,notes,researched_at,created_at,updated_at,parent:tournaments!tournament_roll_forward_log_parent_tournament_id_fkey(id,name,slug,start_date),sibling:tournaments!tournament_roll_forward_log_sibling_id_fkey(id,name,slug,start_date)"
     )
     .order("target_year", { ascending: false })
     .order("updated_at", { ascending: false })
@@ -806,6 +811,7 @@ export async function listTournamentRollForwardLogs(params?: {
 
   if (params?.status) query = query.eq("status", params.status);
   if (params?.targetYear) query = query.eq("target_year", params.targetYear);
+  if (params?.batchLabel) query = query.ilike("batch_label", params.batchLabel);
 
   const { data, error } = await query;
   if (error) throw new Error(error.message || "failed_list_roll_forward_logs");

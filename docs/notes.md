@@ -4332,3 +4332,10 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added venue augmentation support for complete CSV venue payloads: parent venue links are still copied first, then one complete CSV venue can be matched/created and linked without replacing existing copied links or changing the parent primary venue.
   - Added a lightweight roll-forward research log monitor/editor to `apps/referee/app/admin/page.tsx` under the tournament uploads tab with status/year filters and inline status/notes correction.
   - Documented the GPT / MCP research-queue selection rules in `docs/admin-reference.md`.
+- RI Admin: roll-forward batch labels:
+  - Added `supabase/migrations/20260703_tournament_roll_forward_log_batch_label.sql` so `public.tournament_roll_forward_log` can store nullable `batch_label` values for weekly or two-week research chunks.
+  - Extended `apps/referee/src/server/admin/rollForwardTournaments.ts` to ingest `batch_label` from CSV (`batch_label`, `batch`, or `research_batch`) and persist it on both status-only log rows and sibling creation rows.
+  - Updated the roll-forward upload guidance and log monitor in `apps/referee/app/admin/page.tsx` so admins can filter/edit by batch label such as `jan-2026-wk1`.
+- RI Admin: roll-forward sibling creation compatibility fix:
+  - Removed the roll-forward insert dependency on `tournaments.raw` in `apps/referee/src/server/admin/rollForwardTournaments.ts` after apply runs showed production/local schema-cache failures (`Could not find the 'raw' column of 'tournaments' in the schema cache`) even though the research log updates succeeded.
+  - Sibling creation now relies on the explicit tournament fields plus `tournament_roll_forward_log` for auditability, instead of requiring a `raw` payload on the new tournament row.
