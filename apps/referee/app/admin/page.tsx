@@ -12,6 +12,7 @@ import TournamentVenueLinker from "@/components/admin/TournamentVenueLinker";
 import TournamentPartnerNearbyEditor from "@/components/admin/TournamentPartnerNearbyEditor";
 import UploadsVenueInferencePanel from "@/components/admin/UploadsVenueInferencePanel";
 import UploadsVenueExtractButton from "@/components/admin/UploadsVenueExtractButton";
+import RollForwardLogBulkControls from "@/components/admin/RollForwardLogBulkControls";
 import {
   buildTournamentFuzzyNameStateSeasonFingerprint,
   buildTournamentNameStateSeasonFingerprint,
@@ -322,6 +323,7 @@ export default async function AdminPage({
     uploads_venues?: string;
     rf_status?: string;
     rf_year?: string;
+    rf_batch?: string;
   };
 }) {
   const adminUser = await requireAdmin();
@@ -447,6 +449,7 @@ export default async function AdminPage({
   const rollForwardYearRaw = (searchParams.rf_year ?? "").trim();
   const rollForwardYearFilter =
     rollForwardYearRaw && Number.isInteger(Number(rollForwardYearRaw)) ? Number(rollForwardYearRaw) : null;
+  const rollForwardBatchFilter = (searchParams.rf_batch ?? "").trim();
   const discoverOffsetRaw = (searchParams.discover_offset ?? "").trim();
   const discoverOffset =
     discoverOffsetRaw && Number.isFinite(Number(discoverOffsetRaw)) ? Math.max(0, Number(discoverOffsetRaw)) : 0;
@@ -489,6 +492,9 @@ export default async function AdminPage({
   }
   if (tab === "tournament-uploads" && rollForwardYearFilter) {
     params.set("rf_year", String(rollForwardYearFilter));
+  }
+  if (tab === "tournament-uploads" && rollForwardBatchFilter) {
+    params.set("rf_batch", rollForwardBatchFilter);
   }
   const adminBasePath = params.toString() ? `/admin?${params.toString()}` : "/admin";
 
@@ -657,9 +663,18 @@ export default async function AdminPage({
       ? await listTournamentRollForwardLogs({
           status: rollForwardStatusFilter,
           targetYear: rollForwardYearFilter,
+          batchLabel: rollForwardBatchFilter || null,
           limit: 120,
         })
       : [];
+  const rollForwardLogCounts = rollForwardLogs.reduce(
+    (acc, log) => {
+      acc.total += 1;
+      acc[log.status] += 1;
+      return acc;
+    },
+    { total: 0, pending: 0, no_dates_announced: 0, discontinued: 0, done: 0, ambiguous: 0 } as Record<string, number>
+  );
   const tournamentListingFetchLimit = missingFilter ? 5000 : 100;
   const listedTournaments: AdminListedTournament[] =
     tab === "tournament-listings"
@@ -2610,6 +2625,7 @@ export default async function AdminPage({
     const redirectTo = formData.get("redirect_to");
     const logId = String(formData.get("log_id") || "").trim();
     const statusRaw = String(formData.get("status") || "").trim().toLowerCase();
+    const batchLabel = String(formData.get("batch_label") || "").trim() || null;
     const notes = String(formData.get("notes") || "").trim() || null;
     if (!logId) return redirectWithNotice(redirectTo, "Roll-forward log id missing.");
     if (!ROLL_FORWARD_LOG_STATUSES.includes(statusRaw as RollForwardStatus)) {
@@ -2620,6 +2636,7 @@ export default async function AdminPage({
       .from("tournament_roll_forward_log")
       .update({
         status: statusRaw as RollForwardStatus,
+        batch_label: batchLabel,
         notes,
         researched_at: new Date().toISOString(),
       })
@@ -2627,6 +2644,73 @@ export default async function AdminPage({
     if (error) return redirectWithNotice(redirectTo, `Roll-forward log update failed: ${error.message}`);
     revalidatePath("/admin");
     return redirectWithNotice(redirectTo, "Roll-forward log updated.");
+  }
+
+  async function bulkUpdateRollForwardLogsAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const redirectTo = formData.get("redirect_to");
+    const logIds = formData
+      .getAll("log_ids")
+      .map((value) => String(value).trim())
+      .filter(Boolean);
+    const statusRaw = String(formData.get("bulk_status") || "").trim().toLowerCase();
+    const batchLabelInput = String(formData.get("bulk_batch_label") || "").trim();
+    const notesInput = String(formData.get("bulk_notes") || "").trim();
+    const notesMode = String(formData.get("bulk_notes_mode") || "replace").trim().toLowerCase();
+
+    if (!logIds.length) {
+      return redirectWithNotice(redirectTo, "Select at least one roll-forward log row.");
+    }
+
+    const updates: Record<string, unknown> = {
+      researched_at: new Date().toISOString(),
+    };
+
+    if (statusRaw) {
+      if (!ROLL_FORWARD_LOG_STATUSES.includes(statusRaw as RollForwardStatus)) {
+        return redirectWithNotice(redirectTo, "Invalid bulk roll-forward status.");
+      }
+      updates.status = statusRaw as RollForwardStatus;
+    }
+
+    if (batchLabelInput) {
+      updates.batch_label = batchLabelInput;
+    }
+
+    if (notesInput && notesMode === "replace") {
+      updates.notes = notesInput;
+    }
+
+    if (Object.keys(updates).length === 1) {
+      return redirectWithNotice(redirectTo, "Choose at least one bulk change before saving.");
+    }
+
+    if (notesInput && notesMode === "append") {
+      const { data: existingRows, error: existingError } = await supabaseAdmin
+        .from("tournament_roll_forward_log")
+        .select("id,notes")
+        .in("id", logIds);
+      if (existingError) return redirectWithNotice(redirectTo, `Bulk roll-forward update failed: ${existingError.message}`);
+      const notesById = new Map(((existingRows ?? []) as Array<{ id: string; notes: string | null }>).map((row) => [row.id, row.notes]));
+      for (const logId of logIds) {
+        const existingNotes = String(notesById.get(logId) ?? "").trim();
+        const mergedNotes = existingNotes ? `${existingNotes}\n${notesInput}` : notesInput;
+        const { error } = await supabaseAdmin
+          .from("tournament_roll_forward_log")
+          .update({ ...updates, notes: mergedNotes })
+          .eq("id", logId);
+        if (error) return redirectWithNotice(redirectTo, `Bulk roll-forward update failed: ${error.message}`);
+      }
+    } else {
+      const { error } = await supabaseAdmin
+        .from("tournament_roll_forward_log")
+        .update(updates)
+        .in("id", logIds);
+      if (error) return redirectWithNotice(redirectTo, `Bulk roll-forward update failed: ${error.message}`);
+    }
+    revalidatePath("/admin");
+    return redirectWithNotice(redirectTo, `Updated ${logIds.length} roll-forward log rows.`);
   }
 
   async function dedupePendingTournamentsAction(formData: FormData) {
@@ -6354,7 +6438,8 @@ export default async function AdminPage({
               </p>
               <p style={{ fontSize: 12, color: "#777", margin: 0 }}>
                 Roll forward uses CSV only. Include <code>existing_tournament_id</code> or <code>existing_slug</code>
-                plus future <code>start_date</code>/<code>end_date</code>. New sibling slugs follow the existing
+                plus future <code>start_date</code>/<code>end_date</code>. Add <code>batch_label</code> for chunk
+                tracking (for example <code>jan-2026-wk1</code>). New sibling slugs follow the existing
                 <code>base-YYYY</code> series pattern and all created siblings default to draft.
               </p>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -6557,7 +6642,7 @@ export default async function AdminPage({
               </p>
             </form>
 
-            <div
+            <details
               style={{
                 marginTop: 16,
                 border: "1px solid #ddd",
@@ -6566,7 +6651,10 @@ export default async function AdminPage({
                 background: "#fafafa",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 800, color: "#111", listStyle: "none" }}>
+                Roll-forward research log ({rollForwardLogCounts.total}) · done {rollForwardLogCounts.done} · no dates {rollForwardLogCounts.no_dates_announced} · ambiguous {rollForwardLogCounts.ambiguous}
+              </summary>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
                 <div>
                   <h3 style={{ margin: 0 }}>Roll-forward research log</h3>
                   <p style={{ fontSize: 12, color: "#555", margin: "6px 0 0 0" }}>
@@ -6602,6 +6690,16 @@ export default async function AdminPage({
                       style={{ display: "block", marginTop: 4, padding: 8, width: 110, borderRadius: 8, border: "1px solid #ccc" }}
                     />
                   </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Batch label
+                    <input
+                      type="text"
+                      name="rf_batch"
+                      defaultValue={rollForwardBatchFilter}
+                      placeholder="jan-2026-wk1"
+                      style={{ display: "block", marginTop: 4, padding: 8, width: 180, borderRadius: 8, border: "1px solid #ccc" }}
+                    />
+                  </label>
                   <button
                     type="submit"
                     style={{
@@ -6621,12 +6719,83 @@ export default async function AdminPage({
               {rollForwardLogs.length === 0 ? (
                 <p style={{ fontSize: 12, color: "#777", margin: "12px 0 0 0" }}>No roll-forward log rows match the current filters.</p>
               ) : (
-                <div style={{ overflowX: "auto", marginTop: 12 }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <form id="roll-forward-bulk-form" action={bulkUpdateRollForwardLogsAction} style={{ marginTop: 12 }}>
+                  <input type="hidden" name="redirect_to" value={adminBasePath} />
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                      gap: 10,
+                      padding: 12,
+                      borderRadius: 10,
+                      border: "1px solid #ddd",
+                      background: "#fff",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Bulk status
+                      <select name="bulk_status" defaultValue="" style={{ display: "block", marginTop: 4, padding: 8 }}>
+                        <option value="">No change</option>
+                        {ROLL_FORWARD_LOG_STATUSES.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Bulk batch label
+                      <input
+                        type="text"
+                        name="bulk_batch_label"
+                        placeholder="jan-2026-wk1"
+                        style={{ display: "block", marginTop: 4, padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Bulk notes
+                      <input
+                        type="text"
+                        name="bulk_notes"
+                        placeholder="Optional notes for selected rows"
+                        style={{ display: "block", marginTop: 4, padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Notes mode
+                      <select name="bulk_notes_mode" defaultValue="replace" style={{ display: "block", marginTop: 4, padding: 8 }}>
+                        <option value="replace">Replace</option>
+                        <option value="append">Append</option>
+                      </select>
+                    </label>
+                    <div style={{ display: "flex", alignItems: "end" }}>
+                      <button
+                        type="submit"
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "1px solid #555",
+                          background: "#fff",
+                          color: "#111",
+                          fontWeight: 800,
+                        }}
+                      >
+                        Update selected rows
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "end" }}>
+                      <RollForwardLogBulkControls formId="roll-forward-bulk-form" />
+                    </div>
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
+                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Pick</th>
                         <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Parent</th>
                         <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Target year</th>
+                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Batch</th>
                         <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Status</th>
                         <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Sibling</th>
                         <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Notes</th>
@@ -6642,6 +6811,9 @@ export default async function AdminPage({
                         return (
                           <tr key={log.id} style={{ borderBottom: "1px solid #eee", verticalAlign: "top" }}>
                             <td style={{ padding: 8 }}>
+                              <input type="checkbox" name="log_ids" value={log.id} />
+                            </td>
+                            <td style={{ padding: 8 }}>
                               {parent?.slug ? (
                                 <a href={`/tournaments/${parent.slug}`} style={{ color: "#0f3d2e", fontWeight: 700, textDecoration: "none" }}>
                                   {parent?.name || parent?.slug}
@@ -6652,6 +6824,15 @@ export default async function AdminPage({
                               <div style={{ color: "#666", marginTop: 4 }}>{parent?.slug || log.parent_tournament_id}</div>
                             </td>
                             <td style={{ padding: 8 }}>{log.target_year}</td>
+                            <td style={{ padding: 8 }}>
+                              <input
+                                form={formId}
+                                name="batch_label"
+                                defaultValue={(log as any).batch_label ?? ""}
+                                placeholder="jan-2026-wk1"
+                                style={{ width: "100%", minWidth: 150, padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                              />
+                            </td>
                             <td style={{ padding: 8 }}>
                               <select
                                 form={formId}
@@ -6711,10 +6892,11 @@ export default async function AdminPage({
                         );
                       })}
                     </tbody>
-                  </table>
-                </div>
+                    </table>
+                  </div>
+                </form>
               )}
-            </div>
+            </details>
           </div>
 
 	          {pendingTournaments.length === 0 ? (
