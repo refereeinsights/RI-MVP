@@ -59,6 +59,13 @@ function genericImportFailure() {
   return "We couldn’t import that calendar right now. Please try again.";
 }
 
+function currentImportWindow(now = new Date()) {
+  return {
+    windowStart: addDays(now, -EVENT_WINDOW_PAST_DAYS),
+    windowEnd: addDays(now, EVENT_WINDOW_FUTURE_DAYS),
+  };
+}
+
 function clamp(value: string | null, maxLen: number) {
   const v = String(value ?? "").trim();
   if (!v) return null;
@@ -498,8 +505,7 @@ export function normalizeIcsEvents(params: {
     // Expand recurrence if rrule exists.
     if (ev.rrule && typeof ev.rrule.between === "function") {
       const now = new Date();
-      const windowStart = addDays(now, -EVENT_WINDOW_PAST_DAYS);
-      const windowEnd = addDays(now, EVENT_WINDOW_FUTURE_DAYS);
+      const { windowStart, windowEnd } = currentImportWindow(now);
       let occurrences: Date[] = [];
       try {
         occurrences = ev.rrule.between(windowStart, windowEnd, true);
@@ -566,6 +572,48 @@ async function loadExistingEventsByUid(params: { supabase: SupabaseClient; userI
     });
   });
   return byUid;
+}
+
+async function pruneMissingSourceEvents(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  sourceId: string;
+  keepUids: string[];
+}) {
+  const { windowStart, windowEnd } = currentImportWindow();
+  const { data, error } = await (params.supabase.from("planner_events" as any) as any)
+    .select("id,source_event_uid")
+    .eq("user_id", params.userId)
+    .eq("source_id", params.sourceId)
+    .eq("source_type", "ics")
+    .gte("starts_at", windowStart.toISOString())
+    .lte("starts_at", windowEnd.toISOString())
+    .limit(MAX_EVENTS_PER_SYNC);
+  if (error) {
+    logSupabaseError("select stale planner_events during refresh failed", error);
+    return { ok: false as const };
+  }
+
+  const keepSet = new Set(params.keepUids);
+  const staleIds = ((data ?? []) as any[])
+    .filter((row) => {
+      const uid = String(row?.source_event_uid ?? "").trim();
+      return uid && !keepSet.has(uid);
+    })
+    .map((row) => String(row?.id ?? "").trim())
+    .filter(Boolean);
+
+  if (!staleIds.length) return { ok: true as const };
+
+  const { error: deleteError } = await (params.supabase.from("planner_events" as any) as any)
+    .delete()
+    .in("id", staleIds)
+    .eq("user_id", params.userId);
+  if (deleteError) {
+    logSupabaseError("delete stale planner_events during refresh failed", deleteError);
+    return { ok: false as const };
+  }
+  return { ok: true as const };
 }
 
 export async function importIcsToPlanner(params: {
@@ -670,6 +718,19 @@ export async function importIcsToPlanner(params: {
     .map((event) => String(event.source_event_uid ?? "").trim())
     .filter(Boolean)
     .slice(0, MAX_EVENTS_PER_SYNC);
+
+  if (input.mode === "refresh") {
+    const pruneResult = await pruneMissingSourceEvents({
+      supabase,
+      userId: input.userId,
+      sourceId: finalSourceId,
+      keepUids: usableSourceUids,
+    });
+    if (!pruneResult.ok) {
+      return { ok: false, status: 500, error: genericImportFailure() };
+    }
+  }
+
   const existingEventsByUid = await loadExistingEventsByUid({
     supabase,
     userId: input.userId,

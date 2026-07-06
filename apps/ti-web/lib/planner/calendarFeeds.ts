@@ -197,7 +197,7 @@ async function loadOwnerSnapshot(ownerUserId: string): Promise<PlannerCalendarFe
   return { user: user as any, profile, tier, unverified };
 }
 
-async function loadMergedDuplicateSuppressionSet(ownerUserId: string, events: PlannerEventRow[]) {
+async function loadSuppressionSet(ownerUserId: string, events: PlannerEventRow[]) {
   const sourceIds = Array.from(new Set(events.map((event) => collapseWhitespace(event.source_id)).filter(Boolean)));
   const sourceUids = Array.from(
     new Set(events.map((event) => collapseWhitespace(event.source_event_uid)).filter(Boolean))
@@ -207,7 +207,7 @@ async function loadMergedDuplicateSuppressionSet(ownerUserId: string, events: Pl
   const { data, error } = await (supabaseAdmin.from("planner_event_suppressions" as any) as any)
     .select("source_id,source_event_uid")
     .eq("user_id", ownerUserId)
-    .eq("reason", "merged_duplicate")
+    .in("reason", ["merged_duplicate", "deleted_source_event"])
     .in("source_id", sourceIds)
     .in("source_event_uid", sourceUids)
     .limit(1000);
@@ -627,7 +627,7 @@ export async function loadPlannerCalendarFeedByToken(token: string): Promise<Pla
         : event.source_type,
   }));
 
-  const suppressedKeys = await loadMergedDuplicateSuppressionSet(row.owner_user_id, rawEvents);
+  const suppressedKeys = await loadSuppressionSet(row.owner_user_id, rawEvents);
   const visibleEvents = filterSuppressedEvents(rawEvents, suppressedKeys);
   const enrichedEvents = await enrichPlannerEventsWithLinkedVenue(supabaseAdmin, visibleEvents);
   const childIds = Array.from(new Set(enrichedEvents.map((event) => collapseWhitespace(event.child_profile_id)).filter(Boolean)));

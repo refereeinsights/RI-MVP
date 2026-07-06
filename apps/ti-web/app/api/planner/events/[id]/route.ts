@@ -224,6 +224,38 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
   const eventId = String(id ?? "").trim();
   if (!eventId) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
 
+  const { data: existingEvent, error: existingEventError } = await (supabase.from("planner_events" as any) as any)
+    .select("id,source_type,source_id,source_event_uid")
+    .eq("id", eventId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingEventError) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+  if (!existingEvent) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+
+  const sourceType = String((existingEvent as any).source_type ?? "").trim();
+  const sourceId = String((existingEvent as any).source_id ?? "").trim();
+  const sourceEventUid = String((existingEvent as any).source_event_uid ?? "").trim();
+  const isImportedIcs = sourceType === "ics" && sourceId && sourceEventUid;
+
+  if (isImportedIcs) {
+    const { error: suppressError } = await (supabase.from("planner_event_suppressions" as any) as any)
+      .insert({
+        user_id: user.id,
+        reason: "deleted_source_event",
+        source_id: sourceId,
+        source_event_uid: sourceEventUid,
+        event_id: eventId,
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (suppressError) {
+      const code = String((suppressError as any).code ?? "");
+      if (code !== "23505") return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+    }
+  }
+
   const { error } = await (supabase.from("planner_events" as any) as any)
     .delete()
     .eq("id", eventId)

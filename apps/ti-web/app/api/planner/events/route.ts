@@ -302,7 +302,7 @@ export async function GET(req: Request) {
     const { data: suppressions, error: suppressError } = await (supabase.from("planner_event_suppressions" as any) as any)
       .select("source_id,source_event_uid")
       .eq("user_id", userId)
-      .eq("reason", "merged_duplicate")
+      .in("reason", ["merged_duplicate", "deleted_source_event"])
       .in("source_id", sourceIds)
       .in("source_event_uid", sourceUids)
       .limit(1000);

@@ -187,7 +187,7 @@ async function loadOwnerSnapshot(ownerUserId: string): Promise<PlannerGuestShare
   return { user: user as any, profile, tier, unverified };
 }
 
-async function loadMergedDuplicateSuppressionSet(ownerUserId: string, events: PlannerEventRow[]) {
+async function loadSuppressionSet(ownerUserId: string, events: PlannerEventRow[]) {
   const sourceIds = Array.from(
     new Set(events.map((event) => collapseWhitespace(event.source_id)).filter(Boolean))
   );
@@ -199,7 +199,7 @@ async function loadMergedDuplicateSuppressionSet(ownerUserId: string, events: Pl
   const { data, error } = await (supabaseAdmin.from("planner_event_suppressions" as any) as any)
     .select("source_id,source_event_uid")
     .eq("user_id", ownerUserId)
-    .eq("reason", "merged_duplicate")
+    .in("reason", ["merged_duplicate", "deleted_source_event"])
     .in("source_id", sourceIds)
     .in("source_event_uid", sourceUids)
     .limit(1000);
@@ -563,7 +563,7 @@ export async function loadPlannerGuestSharedView(token: string): Promise<Planner
         : event.source_type,
   }));
 
-  const suppressedKeys = await loadMergedDuplicateSuppressionSet(shareRow.owner_user_id, rawEvents);
+  const suppressedKeys = await loadSuppressionSet(shareRow.owner_user_id, rawEvents);
   const visibleEvents = filterSuppressedGuestEvents(rawEvents, suppressedKeys);
   const enrichedEvents = await enrichPlannerEventsWithLinkedVenue(supabaseAdmin, visibleEvents);
 
