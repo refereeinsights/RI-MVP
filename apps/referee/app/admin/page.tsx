@@ -2699,7 +2699,7 @@ export default async function AdminPage({
       updates.notes = notesInput;
     }
 
-    if (Object.keys(updates).length === 1) {
+    if (Object.keys(updates).length === 1 && !hideFromView) {
       return redirectWithNotice(redirectTo, "Choose at least one bulk change before saving.");
     }
 
@@ -6777,6 +6777,9 @@ export default async function AdminPage({
                       </form>
                     );
                   })}
+                  <div style={{ marginTop: 12, marginBottom: 12, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <RollForwardLogBulkControls formId="roll-forward-bulk-form" />
+                  </div>
                   <form id="roll-forward-bulk-form" action={bulkUpdateRollForwardLogsAction} style={{ marginTop: 12 }}>
                     <input type="hidden" name="redirect_to" value={adminBasePath} />
                   <div
@@ -6854,9 +6857,6 @@ export default async function AdminPage({
                       >
                         Update selected rows
                       </button>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "end" }}>
-                      <RollForwardLogBulkControls formId="roll-forward-bulk-form" />
                     </div>
                   </div>
                   <div style={{ overflowX: "auto" }}>
