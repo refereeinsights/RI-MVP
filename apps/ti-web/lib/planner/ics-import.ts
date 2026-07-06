@@ -427,8 +427,34 @@ export function normalizeIcsEvents(params: {
   }
   const now = new Date();
   const out: NormalizedPlannerEvent[] = [];
+  const canceledSourceEventUids = new Set<string>();
   const errors: string[] = [];
   let parsedTotal = 0;
+
+  const toEventDate = (dt: unknown, tzid: string | null): Date | null => {
+    if (!dt) return null;
+    if (typeof dt === "string") {
+      return parseDateOnlyToUtcMidnight({ dateOnly: dt, tzid });
+    }
+    if (dt instanceof Date && Number.isFinite(dt.getTime())) return dt;
+    return null;
+  };
+
+  const buildSourceEventUid = (paramsForUid: {
+    uidRaw: string;
+    startDate: Date | null;
+    title: string;
+    addressText: string | null;
+    recurringInstance: boolean;
+  }) => {
+    const startsIso = paramsForUid.startDate ? dateToIsoUtc(paramsForUid.startDate) : "";
+    if (paramsForUid.uidRaw) {
+      if (paramsForUid.recurringInstance && startsIso) return `${paramsForUid.uidRaw}|${startsIso}`;
+      return paramsForUid.uidRaw;
+    }
+    const h = hashStable([params.sourceUrl, paramsForUid.title, startsIso, paramsForUid.addressText ?? ""]);
+    return `hash_${h}`;
+  };
 
   const pushEvent = (ev: any, instanceStart?: Date) => {
     parsedTotal += 1;
@@ -438,6 +464,8 @@ export function normalizeIcsEvents(params: {
     const descRaw = String(ev.description ?? "").trim();
     const locationRaw = String(ev.location ?? "").trim();
     const tzid = safeTimeZone(String(ev.tzid ?? ev.timezone ?? "") || null);
+    const statusRaw = String(ev.status ?? "").trim().toUpperCase();
+    const isCancelled = statusRaw === "CANCELLED" || statusRaw === "CANCELED";
 
     const parsedDescription = parseStructuredDescription(descRaw);
     const canonicalLocationText = collapseWhitespace(stripHtml(locationRaw || parsedDescription.locationText || ""));
@@ -447,43 +475,39 @@ export function normalizeIcsEvents(params: {
     const addressText = clamp(normalizedLocation.cleanedLocation, 200);
     const fieldLabel = clamp(normalizedLocation.fieldLabel, 80);
 
-    const startDate: Date | null = (() => {
-      const dt = instanceStart ?? ev.start;
-      if (!dt) return null;
-      if (typeof dt === "string") {
-        // DATE-only
-        return parseDateOnlyToUtcMidnight({ dateOnly: dt, tzid });
-      }
-      if (dt instanceof Date && Number.isFinite(dt.getTime())) return dt;
-      return null;
-    })();
+    const startDate: Date | null = toEventDate(instanceStart ?? ev.start, tzid);
 
     if (!startDate || !Number.isFinite(startDate.getTime())) return;
     if (!inImportWindow(startDate, now)) return;
 
+    if (isCancelled) {
+      canceledSourceEventUids.add(
+        buildSourceEventUid({
+          uidRaw,
+          startDate,
+          title,
+          addressText,
+          recurringInstance: Boolean(instanceStart),
+        })
+      );
+      return;
+    }
+
     let endDate: Date | null = null;
     const end = ev.end ?? null;
-    if (end) {
-      if (typeof end === "string") {
-        endDate = parseDateOnlyToUtcMidnight({ dateOnly: end, tzid });
-      } else if (end instanceof Date && Number.isFinite(end.getTime())) {
-        endDate = end;
-      }
-    }
+    if (end) endDate = toEventDate(end, tzid);
     if (endDate && endDate.getTime() < startDate.getTime()) endDate = null;
 
     const startsIso = dateToIsoUtc(startDate);
     const endsIso = endDate ? dateToIsoUtc(endDate) : null;
 
-    // source_event_uid: must never be null
-    const sourceEventUid = (() => {
-      if (uidRaw) {
-        if (instanceStart) return `${uidRaw}|${startsIso}`;
-        return uidRaw;
-      }
-      const h = hashStable([params.sourceUrl, title, startsIso, addressText ?? ""]);
-      return `hash_${h}`;
-    })();
+    const sourceEventUid = buildSourceEventUid({
+      uidRaw,
+      startDate,
+      title,
+      addressText,
+      recurringInstance: Boolean(instanceStart),
+    });
 
     out.push({
       title,
@@ -523,7 +547,7 @@ export function normalizeIcsEvents(params: {
     if (out.length >= MAX_EVENTS_PER_SYNC) break;
   }
 
-  return { events: out, errors, parsedTotal };
+  return { events: out, canceledSourceEventUids: Array.from(canceledSourceEventUids), errors, parsedTotal };
 }
 
 async function loadExistingEventsByUid(params: { supabase: SupabaseClient; userId: string; sourceId: string; uids: string[] }) {
@@ -640,6 +664,7 @@ export async function importIcsToPlanner(params: {
   });
 
   const usableEvents = normalized.events;
+  const canceledSourceEventUids = normalized.canceledSourceEventUids ?? [];
   const parsedTotal = normalized.parsedTotal;
   const inWindowTotal = usableEvents.length;
 
@@ -871,6 +896,10 @@ export async function importIcsToPlanner(params: {
       }
       updated += 1;
     }
+  }
+
+  if (input.mode === "refresh" && canceledSourceEventUids.length) {
+    skipped += canceledSourceEventUids.length;
   }
 
   // If refresh and no usable events, treat as success (calendar may have no upcoming items)
