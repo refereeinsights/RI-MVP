@@ -274,6 +274,34 @@ function displayNameFromEmail(email: string | null) {
     .join(" ");
 }
 
+const NON_HUMAN_EMAIL_NAME_PARTS = new Set([
+  "admin",
+  "contact",
+  "hello",
+  "info",
+  "noreply",
+  "smoke",
+  "support",
+  "team",
+  "test",
+  "ti",
+]);
+
+function deriveFirstNameFromEmail(email: string | null | undefined) {
+  const local = String(email ?? "")
+    .trim()
+    .toLowerCase()
+    .split("@")[0] ?? "";
+  if (!local || !/[._-]/.test(local)) return "";
+
+  const firstChunk = local.split(/[._-]+/).find(Boolean) ?? "";
+  const normalized = firstChunk.replace(/\d+/g, "").replace(/[^a-z]/g, "");
+  if (normalized.length < 2 || normalized.length > 20) return "";
+  if (NON_HUMAN_EMAIL_NAME_PARTS.has(normalized)) return "";
+
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
 function firstNameFromDisplayName(value: string | null | undefined) {
   const normalized = normalizeDisplayName(value);
   if (!normalized) return "";
@@ -292,7 +320,8 @@ function renderTiAdminEmailTemplate(
   text: string,
   recipient: { email: string; display_name: string | null | undefined },
 ) {
-  const firstName = firstNameFromDisplayName(recipient.display_name);
+  const firstName =
+    firstNameFromDisplayName(recipient.display_name) || deriveFirstNameFromEmail(recipient.email);
   const replacements: Record<string, string> = {
     "{{first_name}}": firstName,
     "{{first_name_or_there}}": firstName || "there",
