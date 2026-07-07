@@ -274,6 +274,39 @@ function displayNameFromEmail(email: string | null) {
     .join(" ");
 }
 
+function firstNameFromDisplayName(value: string | null | undefined) {
+  const normalized = normalizeDisplayName(value);
+  if (!normalized) return "";
+  return normalized.split(/\s+/)[0] ?? "";
+}
+
+function cleanRenderedGreeting(text: string) {
+  return text
+    .replace(/Hello\s+,/g, "Hello,")
+    .replace(/Hello\s{2,}/g, "Hello ")
+    .replace(/Hi\s+,/g, "Hi,")
+    .replace(/Hi\s{2,}/g, "Hi ");
+}
+
+function renderTiAdminEmailTemplate(
+  text: string,
+  recipient: { email: string; display_name: string | null | undefined },
+) {
+  const firstName = firstNameFromDisplayName(recipient.display_name);
+  const replacements: Record<string, string> = {
+    "{{first_name}}": firstName,
+    "{{first_name_or_there}}": firstName || "there",
+    "{{email}}": recipient.email,
+  };
+
+  const rendered = Object.entries(replacements).reduce(
+    (acc, [token, value]) => acc.split(token).join(value),
+    text,
+  );
+
+  return cleanRenderedGreeting(rendered);
+}
+
 function asText(value: unknown) {
   if (value == null) return null;
   const text = String(value).trim();
@@ -899,6 +932,20 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   const loginUrl = `${tiBaseUrl}/login?returnTo=${encodeURIComponent("/account")}`;
   const secret = (process.env.EMAIL_UNSUBSCRIBE_SECRET ?? "").trim();
   const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 30 days
+  const recipientProfileByEmail = new Map<string, { display_name: string | null }>();
+
+  try {
+    const { data: profileRows } = await (supabaseAdmin.from("ti_users" as any) as any)
+      .select("email,display_name")
+      .in("email", allowedRecipients);
+    for (const row of (profileRows ?? []) as Array<{ email: string | null; display_name: string | null }>) {
+      const email = String(row.email ?? "").trim().toLowerCase();
+      if (!email) continue;
+      recipientProfileByEmail.set(email, { display_name: row.display_name ?? null });
+    }
+  } catch {
+    // ignore and send without profile personalization
+  }
 
   let sent = 0;
   const sentEmails: string[] = [];
@@ -912,6 +959,15 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
       const results = await Promise.all(
         group.map(async (email) => {
           try {
+            const recipientProfile = recipientProfileByEmail.get(email) ?? { display_name: null };
+            const renderedSubject = renderTiAdminEmailTemplate(safeSubject, {
+              email,
+              display_name: recipientProfile.display_name,
+            });
+            const renderedBody = renderTiAdminEmailTemplate(safeBody, {
+              email,
+              display_name: recipientProfile.display_name,
+            });
             const unsubscribeUrl =
               kind === "marketing" && secret
                 ? (() => {
@@ -923,9 +979,9 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
               kind === "marketing" && unsubscribeUrl
                 ? `Unsubscribe: ${unsubscribeUrl}\nManage preferences: ${manageUrl}`
                 : `Manage preferences: ${manageUrl}`;
-            const fullText = `${safeBody}\n\n—\n${optOutText}`;
+            const fullText = `${renderedBody}\n\n—\n${optOutText}`;
 
-            const bodyHtml = plainTextToEmailHtml(safeBody);
+            const bodyHtml = plainTextToEmailHtml(renderedBody);
             const footerLinksHtml =
               kind === "marketing"
                 ? [
@@ -996,7 +1052,7 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
 
             const res = await sendEmail({
               to: email,
-              subject: safeSubject,
+              subject: renderedSubject,
               html,
               text: fullText,
               from: process.env.TI_OUTREACH_FROM ?? "TournamentInsights <hello@mail.tournamentinsights.com>",
