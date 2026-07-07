@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { User as AuthUser } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 import AdminNav from "@/components/admin/AdminNav";
+import TiBulkRecipientSelector from "@/components/admin/TiBulkRecipientSelector";
 import { requireAdmin } from "@/lib/admin";
 import { sendEmail } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -896,8 +897,8 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   const templateId = String(formData.get("template_id") ?? "").trim();
   const subject = String(formData.get("subject") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
-  const sendToAllLoaded = String(formData.get("send_to_all_loaded") ?? "").trim() === "on";
   const confirmSend = String(formData.get("confirm_send") ?? "").trim();
+  const includeDuplicateRecipients = String(formData.get("include_duplicate_recipients") ?? "").trim() === "on";
   const kindRaw = String(formData.get("kind") ?? "").trim().toLowerCase();
   const kind: EmailTemplateKind = kindRaw === "transactional" ? "transactional" : "marketing";
 
@@ -907,24 +908,10 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
 
   const MAX_RECIPIENTS = 50;
 
-  let recipients: string[] = [];
-  if (sendToAllLoaded) {
-    let query = (supabaseAdmin.from("ti_users" as any) as any)
-      .select("email,created_at,id")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (q) {
-      query = isUuid(q) ? query.or(`email.ilike.%${q}%,id.eq.${q}`) : query.ilike("email", `%${q}%`);
-    }
-    const { data, error } = await query;
-    if (error) redirect(buildPathWithNotice(`TI users load failed: ${error.message}`, q));
-    recipients = ((data ?? []) as Array<{ email: string | null }>).map((row) => (row.email ?? "").trim().toLowerCase()).filter(Boolean);
-  } else {
-    recipients = formData
-      .getAll("recipient_email")
-      .map((value) => String(value ?? "").trim().toLowerCase())
-      .filter(Boolean);
-  }
+  const recipients = formData
+    .getAll("recipient_email")
+    .map((value) => String(value ?? "").trim().toLowerCase())
+    .filter(Boolean);
 
   const unique = Array.from(new Set(recipients)).filter((email) => EMAIL_PATTERN.test(email));
   if (!unique.length) redirect(buildPathWithNotice("Select at least one valid recipient email.", q));
@@ -956,6 +943,24 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   const safeSubject = subject.length > 160 ? `${subject.slice(0, 160)}…` : subject;
   const safeBody = body.length > 12000 ? `${body.slice(0, 12000)}…` : body;
   const subjectKey = computeAdminBlastSubjectKey(safeSubject);
+  const priorSendLookup = await loadLastAdminBlastSentAtByEmail({ subjectKey, emails: unique });
+  const duplicateRecipients = unique.filter((email) => priorSendLookup.map.has(email));
+  if (duplicateRecipients.length && !includeDuplicateRecipients) {
+    const preview = duplicateRecipients
+      .slice(0, 8)
+      .map((email) => {
+        const sentAt = priorSendLookup.map.get(email);
+        return sentAt ? `${email} (${fmtDate(sentAt)})` : email;
+      })
+      .join(", ");
+    redirect(
+      buildPathWithNoticeAndTemplate(
+        `Blocked ${duplicateRecipients.length} duplicate campaign recipient(s). ${preview}${duplicateRecipients.length > 8 ? ", …" : ""} Use the duplicate override to resend.`,
+        q,
+        templateId,
+      ),
+    );
+  }
   const tiBaseUrl = getTiPublicBaseUrl();
   const manageUrl = `${tiBaseUrl}/account`;
   const loginUrl = `${tiBaseUrl}/login?returnTo=${encodeURIComponent("/account")}`;
@@ -2672,39 +2677,26 @@ export default async function TiAdminPage({
                   </button>
                 </div>
                 <div style={{ display: "grid", gap: 8 }}>
-                  <label style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 12, color: "#334155" }}>
-                    <input type="checkbox" name="send_to_all_loaded" />
-                    Send to all loaded users (current search results)
-                  </label>
-	                  <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10, maxHeight: 220, overflow: "auto", background: "#f8fafc" }}>
-	                    {((tiUsers ?? []) as TiUserRow[]).length ? (
-	                      <div style={{ display: "grid", gap: 6 }}>
-	                        {((tiUsers ?? []) as TiUserRow[]).map((row) => {
-	                          const email = (row.email ?? "").trim();
-	                          if (!email) return null;
-	                          const plan = String(row.plan ?? "").trim().toLowerCase();
-	                          const entitlementLabel =
-	                            plan === "weekend_pro" ? "weekend_pro" : row.email_confirmed_at ? "insider" : plan || "free";
-	                          const sentAt = bulkSendAlreadySentLoad.map.get(email.toLowerCase()) ?? null;
-	                          return (
-	                            <label
-	                              key={`bulk-${row.id}`}
-	                              style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "#0f172a" }}
-	                            >
-	                              <input type="checkbox" name="recipient_email" value={email} />
-	                              <span style={{ fontWeight: 700 }}>{displayNameFromEmail(email)}</span>
-	                              <span style={{ color: "#64748b" }}>
-	                                {email} · {entitlementLabel} · auth:{row.email_confirmed_at ? "confirmed" : "pending"}
-	                                {sentAt ? ` · sent:${fmtDate(sentAt)}` : ""}
-	                              </span>
-	                            </label>
-	                          );
-	                        })}
-	                      </div>
-	                    ) : (
-	                      <div style={{ color: "#64748b", fontSize: 12 }}>No users loaded.</div>
-                    )}
-                  </div>
+                  <TiBulkRecipientSelector
+                    campaignLabel={selectedTemplate?.name ?? null}
+                    recipients={((tiUsers ?? []) as TiUserRow[]).flatMap((row) => {
+                      const email = (row.email ?? "").trim();
+                      if (!email) return [];
+                      const plan = String(row.plan ?? "").trim().toLowerCase();
+                      const entitlementLabel =
+                        plan === "weekend_pro" ? "weekend_pro" : row.email_confirmed_at ? "insider" : plan || "free";
+                      const sentAtRaw = bulkSendAlreadySentLoad.map.get(email.toLowerCase()) ?? null;
+                      return [
+                        {
+                          id: `bulk-${row.id}`,
+                          email,
+                          label: displayNameFromEmail(email),
+                          meta: `${email} · ${entitlementLabel} · auth:${row.email_confirmed_at ? "confirmed" : "pending"}`,
+                          sentAt: sentAtRaw ? fmtDate(sentAtRaw) : null,
+                        },
+                      ];
+                    })}
+                  />
                 </div>
                 <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
                   Confirm by typing <code>SEND</code>
