@@ -42,6 +42,7 @@ export function renderOutreachTemplate(
     "{{tournament_name}}": tournamentName,
     "{{tournament_url}}": buildTournamentUrl(tournament.slug ?? ""),
     "{{city_state_parens}}": cityStateParens,
+    "{{first_name}}": firstName,
     "{{first_name_or_there}}": firstName,
     "{{sender_name}}": DEFAULT_SENDER_NAME,
     "{{sender_email}}": DEFAULT_SENDER_EMAIL,
