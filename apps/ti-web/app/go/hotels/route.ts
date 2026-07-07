@@ -190,6 +190,22 @@ function buildHotelPlannerSearchUrl(args: {
   return searchUrl.toString();
 }
 
+function deriveHotelPlannerTrackingDefaults(args: {
+  sourceSurface: string;
+  venueId: string | null;
+  tournamentSlug: string | null;
+}) {
+  const normalizedSurface = String(args.sourceSurface ?? "").trim() || "weekend_planner";
+  const venueId = String(args.venueId ?? "").trim();
+  const tournamentSlug = String(args.tournamentSlug ?? "").trim();
+
+  return {
+    jobCode: "TI-HOTELS",
+    custom1: venueId ? `ven:${venueId}` : `src:${normalizedSurface}`,
+    custom2: tournamentSlug || normalizedSurface,
+  };
+}
+
 function todayUtcIso() {
   const now = new Date();
   const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -420,28 +436,44 @@ export async function GET(request: Request) {
 
   const hotelPlannerTarget =
     hotelPlannerWhiteLabelUrl && hotelPlannerCheckin && hotelPlannerCheckout && hotelPlannerDestination
-      ? buildHotelPlannerSearchUrl({
-          baseUrl: hotelPlannerWhiteLabelUrl,
-          destination: hotelPlannerDestination,
-          latitude: hotelPlannerLat,
-          longitude: hotelPlannerLng,
-          dates: { checkin: hotelPlannerCheckin, checkout: hotelPlannerCheckout },
-          city:
-            hotelPlannerLat !== null && hotelPlannerLng !== null
-              ? null
-              : hotelPlannerCitySearch,
-          sc: querySc || "tournamentinsights",
-          keyword: queryKeyword || queryKeywordLegacy || null,
-          jobCode: queryJobCode,
-          custom1: queryCustom1,
-          custom2: queryCustom2,
-          custom3: queryCustom3,
-          custom4: queryCustom4,
-          custom5: queryCustom5,
-          custom6: queryCustom6,
-          custom7: queryCustom7,
-          custom8: queryCustom8,
-        })
+      ? (() => {
+          const sourceSurface =
+            venueIdValid
+              ? "venue_page"
+              : source === "tournament_directory"
+              ? "tournament_directory"
+              : source === "tournament_detail"
+              ? "tournament_detail"
+              : "weekend_planner";
+          const trackingDefaults = deriveHotelPlannerTrackingDefaults({
+            sourceSurface,
+            venueId: venueIdValid ? venueId : null,
+            tournamentSlug: tournament?.slug ?? null,
+          });
+
+          return buildHotelPlannerSearchUrl({
+            baseUrl: hotelPlannerWhiteLabelUrl,
+            destination: hotelPlannerDestination,
+            latitude: hotelPlannerLat,
+            longitude: hotelPlannerLng,
+            dates: { checkin: hotelPlannerCheckin, checkout: hotelPlannerCheckout },
+            city:
+              hotelPlannerLat !== null && hotelPlannerLng !== null
+                ? null
+                : hotelPlannerCitySearch,
+            sc: querySc || "tournamentinsights",
+            keyword: queryKeyword || queryKeywordLegacy || null,
+            jobCode: queryJobCode || trackingDefaults.jobCode,
+            custom1: queryCustom1 || trackingDefaults.custom1,
+            custom2: queryCustom2 || trackingDefaults.custom2,
+            custom3: queryCustom3,
+            custom4: queryCustom4,
+            custom5: queryCustom5,
+            custom6: queryCustom6,
+            custom7: queryCustom7,
+            custom8: queryCustom8,
+          });
+        })()
       : "";
 
   if (!hotelPlannerTarget) {
