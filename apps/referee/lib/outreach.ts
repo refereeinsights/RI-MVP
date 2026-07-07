@@ -55,7 +55,11 @@ export function renderOutreachTemplate(
 
   const subject = apply(template.subject_template);
   let body = apply(template.body_template);
-  body = body.replace(/Hello\s+,/g, "Hello,").replace(/Hello\s{2,}/g, "Hello ");
+  body = body
+    .replace(/Hello\s+,/g, "Hello,")
+    .replace(/Hello\s{2,}/g, "Hello ")
+    .replace(/Hi\s+,/g, "Hi,")
+    .replace(/Hi\s{2,}/g, "Hi ");
 
   return { subject, body };
 }
