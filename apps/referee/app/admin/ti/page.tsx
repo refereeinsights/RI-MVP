@@ -1072,9 +1072,10 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
 
             const headers: Record<string, string> = {};
             if (kind === "marketing") {
+              const unsubscribeEmail = process.env.EMAIL_REPLY_TO ?? "hello@tournamentinsights.com";
               const listUnsubscribe = unsubscribeUrl
-                ? `<${unsubscribeUrl}>, <mailto:hello@mail.tournamentinsights.com?subject=unsubscribe>`
-                : `<mailto:hello@mail.tournamentinsights.com?subject=unsubscribe>`;
+                ? `<${unsubscribeUrl}>, <mailto:${unsubscribeEmail}?subject=unsubscribe>`
+                : `<mailto:${unsubscribeEmail}?subject=unsubscribe>`;
               headers["List-Unsubscribe"] = listUnsubscribe;
               if (unsubscribeUrl) headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
             }
