@@ -324,6 +324,7 @@ export default async function AdminPage({
     rf_status?: string;
     rf_year?: string;
     rf_batch?: string;
+    rf_hide?: string;
   };
 }) {
   const adminUser = await requireAdmin();
