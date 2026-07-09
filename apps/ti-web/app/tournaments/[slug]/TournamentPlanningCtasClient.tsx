@@ -81,7 +81,7 @@ export default function TournamentPlanningCtasClient(props: {
       <div className={styles.copyBlock}>
         <div className={styles.eyebrow}>Planning for this tournament?</div>
         <div className={styles.body}>
-          Use the weekend plan to organize venues, travel notes, schedules, and parent logistics around this event.
+          Keep venues, schedules, travel notes, and parent logistics organized for this event.
         </div>
       </div>
 
@@ -159,7 +159,7 @@ export default function TournamentPlanningCtasClient(props: {
             });
           }}
         >
-          Need rooms for the team? Request team hotel options
+          Need rooms for the team? Request team hotel options →
         </Link>
       </div>
     </div>

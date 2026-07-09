@@ -4363,6 +4363,10 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Updated `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx` to use component-scoped styling so `Plan this tournament` renders as the primary TI button instead of relying on inherited wrapper selectors.
   - Kept `Open venue map →` and `Search travel →` visually secondary and preserved the team hotel action as a compact text link.
   - Preserved all existing destinations, analytics tracking, save behavior, and planner/travel behavior.
+- 2026-07-09: Tournament detail planner CTA copy + tertiary link polish.
+  - Shortened the planning body copy to: `Keep venues, schedules, travel notes, and parent logistics organized for this event.`
+  - Updated the tertiary team hotel link copy to: `Need rooms for the team? Request team hotel options →`
+  - Softened the tertiary link styling by removing the persistent underline and using hover/focus underline only, while preserving readability and focus affordance on the dark hero background.
 - 2026-07-09: Weekend page date-only parsing fix.
   - Fixed `apps/ti-web/app/weekend/[slug]/page.tsx` to parse `YYYY-MM-DD` tournament dates at local midnight for both range and short-date formatting.
   - This removes the off-by-one date display drift between tournament detail pages and `/weekend/[slug]` for date-only tournament values.

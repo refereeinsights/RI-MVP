@@ -69,16 +69,21 @@
 }
 
 .teamHotelLink {
-  color: rgba(255, 255, 255, 0.96);
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: rgba(255, 255, 255, 0.82);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.5;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
 }
 
-.teamHotelLink:hover {
+.teamHotelLink:hover,
+.teamHotelLink:focus-visible {
   color: #ffffff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 @media (max-width: 640px) {
