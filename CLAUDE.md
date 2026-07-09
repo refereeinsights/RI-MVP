@@ -663,8 +663,11 @@ Latest Step 2 API run (local `localhost:3001`) result:
 - [ ] Tournament detail desktop
   - Open a TI tournament detail page such as `/tournaments/puma-pro16-nxtpro-session-2-richmond-va`.
   - Confirm the planning block appears near the existing save action, not as a new global banner.
-  - Confirm the heading says `Planning for this tournament?`
+  - Confirm the heading says `Planning for this tournament?` and is not forced to all-caps.
   - Confirm the body says `Use the weekend plan to organize venues, travel notes, schedules, and parent logistics around this event.`
+  - Confirm `Plan this tournament` renders as the strongest visual CTA, not plain text.
+  - Confirm `Open venue map →` and `Search travel →` are visually secondary to `Plan this tournament`.
+  - Confirm `Need rooms for the team? Request team hotel options` remains a secondary text link.
   - Click `Plan this tournament` and confirm it still routes to the existing `/weekend/[slug]` path.
   - If the tournament already supported a venue anchor, confirm that behavior still works.
   - Click `Open venue map →` and confirm it still routes to `/tournaments/[slug]/map`.
@@ -672,8 +675,9 @@ Latest Step 2 API run (local `localhost:3001`) result:
   - Click `Need rooms for the team? Request team hotel options` and confirm it routes to `/book-travel#team-hotel-blocks`.
 - [ ] Tournament detail mobile
   - Confirm the planning block stays compact and readable.
+  - Confirm `Plan this tournament` remains the clearest visual CTA on mobile.
   - Confirm links wrap cleanly and remain tappable.
-  - Confirm the new team-hotel link remains visually secondary to the planner CTA.
+  - Confirm the team-hotel link remains visually secondary to the planner CTA.
 - [ ] Tournament directory desktop
   - Open `/tournaments` with at least one result.
   - Confirm one compact soft planner module appears above the populated results grid and below filters/summary content.

@@ -4359,6 +4359,10 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
 - 2026-07-09: Weekend Planner soft CTA button styling fix.
   - Added explicit TI primary pill button styling to `apps/ti-web/app/tournaments/SoftPlannerCtaClient.module.css` so `Open Weekend Planner Beta` no longer depends on the global `.card .primaryLink` selector.
   - Preserved card styling, copy, routing, analytics, and responsive stacked mobile layout.
+- 2026-07-09: Tournament detail planner CTA hierarchy refinement.
+  - Updated `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx` to use component-scoped styling so `Plan this tournament` renders as the primary TI button instead of relying on inherited wrapper selectors.
+  - Kept `Open venue map →` and `Search travel →` visually secondary and preserved the team hotel action as a compact text link.
+  - Preserved all existing destinations, analytics tracking, save behavior, and planner/travel behavior.
 - 2026-07-09: Weekend page date-only parsing fix.
   - Fixed `apps/ti-web/app/weekend/[slug]/page.tsx` to parse `YYYY-MM-DD` tournament dates at local midnight for both range and short-date formatting.
   - This removes the off-by-one date display drift between tournament detail pages and `/weekend/[slug]` for date-only tournament values.

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import styles from "./TournamentPlanningCtasClient.module.css";
 
 function isValidIsoDate(value: string | null | undefined) {
   const raw = String(value ?? "").trim();
@@ -76,19 +77,17 @@ export default function TournamentPlanningCtasClient(props: {
   if (!slug) return null;
 
   return (
-    <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-      <div style={{ display: "grid", gap: 6 }}>
-        <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.9 }}>
-          Planning for this tournament?
-        </div>
-        <div style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 620, color: "rgba(255,255,255,0.95)" }}>
+    <div className={styles.wrapper}>
+      <div className={styles.copyBlock}>
+        <div className={styles.eyebrow}>Planning for this tournament?</div>
+        <div className={styles.body}>
           Use the weekend plan to organize venues, travel notes, schedules, and parent logistics around this event.
         </div>
       </div>
 
-      <div className="detailLinksRow" style={{ marginTop: 0, justifyContent: "flex-start", gap: 10, flexWrap: "wrap" as const }}>
+      <div className={`detailLinksRow ${styles.primaryRow}`}>
         <Link
-          className="primaryLink"
+          className={styles.primaryCta}
           href={weekendHref}
           onClick={() => {
             void trackTiEvent("weekend_planner_contextual_cta_clicked", {
@@ -112,7 +111,7 @@ export default function TournamentPlanningCtasClient(props: {
           Plan this tournament
         </Link>
         <Link
-          className="secondaryLink"
+          className={`secondaryLink ${styles.secondaryCta}`}
           href={mapHref}
           onClick={() => {
             void trackTiEvent("tournament_detail_venue_map_clicked", {
@@ -128,7 +127,7 @@ export default function TournamentPlanningCtasClient(props: {
           Open venue map →
         </Link>
         <Link
-          className="secondaryLink"
+          className={`secondaryLink ${styles.secondaryCta}`}
           href={travelHref}
           onClick={() => {
             void trackTiEvent("tournament_detail_travel_search_clicked", {
@@ -145,9 +144,9 @@ export default function TournamentPlanningCtasClient(props: {
         </Link>
       </div>
 
-      <div>
+      <div className={styles.teamHotelRow}>
         <Link
-          className="secondaryLink"
+          className={styles.teamHotelLink}
           href="/book-travel#team-hotel-blocks"
           onClick={() => {
             void trackTiEvent("team_hotel_cta_clicked", {
