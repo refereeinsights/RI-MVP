@@ -4356,3 +4356,6 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Restyled `apps/ti-web/app/tournaments/SoftPlannerCtaClient.tsx` into a compact TI-style planning card using component-scoped CSS instead of the generic gray panel treatment.
   - Updated the body copy to: `Keep tournament weekends, travel notes, and reminders organized in Weekend Planner.`
   - Preserved placement above the populated results grid, existing `/weekend-planner` routing, and all contextual CTA analytics behavior.
+- 2026-07-09: Weekend page date-only parsing fix.
+  - Fixed `apps/ti-web/app/weekend/[slug]/page.tsx` to parse `YYYY-MM-DD` tournament dates at local midnight for both range and short-date formatting.
+  - This removes the off-by-one date display drift between tournament detail pages and `/weekend/[slug]` for date-only tournament values.

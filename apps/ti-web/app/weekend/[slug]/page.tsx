@@ -67,11 +67,20 @@ type NearbyRow = {
   reason_tags?: string[] | null;
 };
 
+function parseIsoDateAtLocalMidnight(iso: string | null) {
+  if (!iso) return null;
+  const raw = String(iso).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const d = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
 function formatDateRange(startIso: string | null, endIso: string | null) {
   if (!startIso && !endIso) return null;
   try {
-    const start = startIso ? new Date(startIso) : null;
-    const end = endIso ? new Date(endIso) : null;
+    const start = parseIsoDateAtLocalMidnight(startIso);
+    const end = parseIsoDateAtLocalMidnight(endIso);
     const fmt = (d: Date) =>
       d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
     if (start && end) return startIso === endIso ? fmt(start) : `${fmt(start)} – ${fmt(end)}`;
@@ -82,10 +91,9 @@ function formatDateRange(startIso: string | null, endIso: string | null) {
 }
 
 function formatIsoDateShort(iso: string | null) {
-  if (!iso) return null;
   try {
-    const d = new Date(`${iso}T00:00:00`);
-    if (Number.isNaN(d.getTime())) return null;
+    const d = parseIsoDateAtLocalMidnight(iso);
+    if (!d) return null;
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   } catch {
     return null;
