@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import styles from "./SoftPlannerCtaClient.module.css";
 
 export default function SoftPlannerCtaClient() {
   const viewedRef = useRef(false);
@@ -19,19 +20,15 @@ export default function SoftPlannerCtaClient() {
   }, []);
 
   return (
-    <article className="card card-grass" style={{ marginBottom: "1rem" }}>
-      <div className="cardHeader">
-        <div>
-          <div className="cardTitle" style={{ fontSize: 18 }}>
-            Following multiple tournaments?
-          </div>
-          <div className="cardMeta">Use Weekend Planner to keep tournament weekends, travel notes, and reminders in one place.</div>
+    <article className={styles.card}>
+      <div className={styles.content}>
+        <div className={styles.copyBlock}>
+          <h2 className={styles.title}>Following multiple tournaments?</h2>
+          <p className={styles.body}>Keep tournament weekends, travel notes, and reminders organized in Weekend Planner.</p>
         </div>
-      </div>
-      <div className="cardFooter" style={{ padding: "0 1.15rem 1.15rem" }}>
         <Link
           href="/weekend-planner"
-          className="primaryLink"
+          className={`${styles.cta} primaryLink`}
           onClick={() => {
             void trackTiEvent("weekend_planner_contextual_cta_clicked", {
               surface: "tournament_directory",

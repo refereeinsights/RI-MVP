@@ -4352,3 +4352,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Weekend Planner page-view ownership now lives in `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`; signed-out auth CTA tracking lives in `apps/ti-web/app/weekend-planner/WeekendPlannerEntryCtas.tsx`.
   - Activation payloads now rely on safe buckets (`loaded_event_count_bucket`, `feed_count_bucket`, `child_team_count_bucket`) and exclude raw event/source/share/feed/request identifiers.
   - Updated `apps/referee/app/admin/ti/clicks/page.tsx` so the new activation events are visible without adding a new dashboard.
+- 2026-07-09: Weekend Planner Stage 3.7B soft CTA visual refinement on `/tournaments`.
+  - Restyled `apps/ti-web/app/tournaments/SoftPlannerCtaClient.tsx` into a compact TI-style planning card using component-scoped CSS instead of the generic gray panel treatment.
+  - Updated the body copy to: `Keep tournament weekends, travel notes, and reminders organized in Weekend Planner.`
+  - Preserved placement above the populated results grid, existing `/weekend-planner` routing, and all contextual CTA analytics behavior.
