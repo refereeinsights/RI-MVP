@@ -27,6 +27,7 @@ const MAP_EVENTS = new Set([
   "tournament_detail_weekend_plan_clicked",
   "tournament_detail_venue_map_clicked",
   "tournament_detail_travel_search_clicked",
+  "tournament_detail_hotel_cta_clicked",
   "tournament_detail_page_viewed",
   "tournament_card_plan_weekend_clicked",
   "tournament_directory_page_viewed",

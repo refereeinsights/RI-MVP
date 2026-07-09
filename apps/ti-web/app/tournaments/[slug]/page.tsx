@@ -20,6 +20,7 @@ import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import TournamentMapTeaser from "@/components/tournaments/TournamentMapTeaser";
 import TournamentDetailStickyMapCta from "@/components/tournaments/TournamentDetailStickyMapCta";
 import TournamentPlanningCtasClient from "./TournamentPlanningCtasClient";
+import TournamentDetailHotelCtaClient from "./TournamentDetailHotelCtaClient";
 import SoccerWorldCupFanGearCard from "@/components/partners/SoccerWorldCupFanGearCard";
 import FanaticsGearModule from "@/components/partners/FanaticsGearModule";
 import { getFanaticsLinkAndDisclosure } from "@/lib/partners";
@@ -1319,15 +1320,7 @@ async function TournamentVenueDetails({
         {tournamentHotelsHref && hotelClickVenueId ? (
           <div style={{ marginTop: 10 }}>
             <div className="detailLinksRow" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" as any }}>
-              <a
-                className="secondaryLink hotelBookingCta"
-                href={tournamentHotelsHref}
-                target="_blank"
-	                rel="noopener noreferrer sponsored"
-	                style={{ minWidth: 260 }}
-	              >
-	                {stayHotelsLabel}
-	              </a>
+              <TournamentDetailHotelCtaClient href={tournamentHotelsHref} label={stayHotelsLabel} minWidth={260} />
 	              <a
 	                className="secondaryLink hotelBookingCta"
 	                href={`/go/vrbo?venueId=${encodeURIComponent(hotelClickVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
@@ -1344,16 +1337,10 @@ async function TournamentVenueDetails({
           </div>
         ) : (
           <div style={{ marginTop: 10 }}>
-            <a
-              className="secondaryLink hotelBookingCta"
+            <TournamentDetailHotelCtaClient
               href={headerHotelsHref}
-              target="_blank"
-              rel="noopener noreferrer sponsored"
-            >
-              {tournament.city
-                ? `🏨 Find hotels in ${tournament.city}`
-                : "🏨 Find hotels near this tournament"}
-            </a>
+              label={tournament.city ? `🏨 Find hotels in ${tournament.city}` : "🏨 Find hotels near this tournament"}
+            />
             <AffiliateDisclosure>
               Travel links may earn TournamentInsights a commission at no extra cost to you.
             </AffiliateDisclosure>

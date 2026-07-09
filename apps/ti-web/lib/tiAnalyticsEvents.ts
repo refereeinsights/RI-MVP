@@ -8,6 +8,7 @@ export type TiAnalyticsEventName =
   | "tournament_detail_weekend_plan_clicked"
   | "tournament_detail_venue_map_clicked"
   | "tournament_detail_travel_search_clicked"
+  | "tournament_detail_hotel_cta_clicked"
   | "tournament_detail_page_viewed"
   | "tournament_card_plan_weekend_clicked"
   | "tournament_directory_page_viewed"
@@ -223,6 +224,13 @@ export type TiAnalyticsEventPropertiesByName = {
     source_page: "tournament_detail";
     cta: "travel_search";
     href: string;
+  };
+  tournament_detail_hotel_cta_clicked: {
+    surface: "tournament_detail";
+    source_page_type: "tournament";
+    cta_type: "hotels";
+    cta_location: "stay_close";
+    context_type: "tournament";
   };
   tournament_detail_page_viewed: {
     page_type: "tournament_detail";

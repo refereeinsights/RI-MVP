@@ -4386,3 +4386,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Extended `apps/ti-web/components/AffiliateDisclosure.tsx` to accept optional custom inline copy while preserving its default text for existing `/book-travel`, `/weekend-planner`, and teaser usage.
   - Added the concise disclosure copy `Travel links may earn TournamentInsights a commission at no extra cost to you.` to the `/weekend/[slug]` stay CTA section and the lower `/tournaments/[slug]` stay CTA cluster only.
   - Left the existing disclosure in `apps/ti-web/components/tournaments/TournamentMapTeaser.tsx` unchanged to avoid duplicate disclosure clutter on tournament detail pages.
+- 2026-07-09: TI tournament-detail stay-close hotel CTA analytics.
+  - Added `tournament_detail_hotel_cta_clicked` as a typed TI analytics event with privacy-safe placement fields only: `surface`, `source_page_type`, `cta_type`, `cta_location`, and `context_type`.
+  - Added `apps/ti-web/app/tournaments/[slug]/TournamentDetailHotelCtaClient.tsx` so both stay-close hotel CTA variants on tournament detail pages emit the new event without changing the existing `/go/hotels` destination or blocking navigation.
+  - Allowlisted the event for `public.ti_map_events` persistence in `apps/ti-web/app/api/analytics/route.ts` and surfaced it in `/admin/ti/clicks` via `apps/referee/app/admin/ti/clicks/page.tsx`; existing `/go/hotels` outbound logging to `ti_outbound_clicks` remains unchanged.
