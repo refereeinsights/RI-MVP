@@ -9,6 +9,7 @@ export default function WeekendPlanningCtasClient(props: {
   venueMapHref: string;
   bookTravelHref: string;
   hotelsHref: string | null;
+  hotelsLabel?: string | null;
   rentalsHref: string | null;
   plannerHubHref: string;
 }) {
@@ -35,7 +36,7 @@ export default function WeekendPlanningCtasClient(props: {
             });
           }}
         >
-          Find hotels
+          {String(props.hotelsLabel ?? "").trim() || "Find hotels"}
         </a>
       ) : null}
 
@@ -115,4 +116,3 @@ export default function WeekendPlanningCtasClient(props: {
     </div>
   );
 }
-

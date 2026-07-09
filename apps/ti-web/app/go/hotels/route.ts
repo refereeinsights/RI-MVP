@@ -206,6 +206,17 @@ function deriveHotelPlannerTrackingDefaults(args: {
   };
 }
 
+function logWeakHotelPlannerDestination(args: {
+  reason: "generic_destination" | "missing_location_context" | "invalid_tournament_context" | "invalid_venue_context";
+  sourceSurface: string;
+  venueIdPresent: boolean;
+  tournamentIdPresent: boolean;
+  latLngPresent: boolean;
+  cityStatePresent: boolean;
+}) {
+  console.warn("[go/hotels] weak destination context", args);
+}
+
 function todayUtcIso() {
   const now = new Date();
   const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -328,8 +339,25 @@ export async function GET(request: Request) {
   const hotelPlannerLat = (latitude ?? latitudeAlt ?? venueLat) ?? null;
   const hotelPlannerLng = (longitude ?? longitudeAlt ?? venueLng) ?? null;
   const hasHotelPlannerLatLng = hotelPlannerLat !== null && hotelPlannerLng !== null;
+  const sourceSurface =
+    venueIdValid
+      ? "venue_page"
+      : source === "tournament_directory"
+      ? "tournament_directory"
+      : source === "tournament_detail"
+      ? "tournament_detail"
+      : "weekend_planner";
+  const hasCityState = Boolean(String(venue?.city ?? "").trim() && String(venue?.state ?? "").trim());
 
   if (!ss && !hasHotelPlannerLatLng) {
+    logWeakHotelPlannerDestination({
+      reason: "missing_location_context",
+      sourceSurface,
+      venueIdPresent: venueIdValid,
+      tournamentIdPresent: Boolean(requestedTournamentId),
+      latLngPresent: false,
+      cityStatePresent: hasCityState,
+    });
     return new NextResponse("Missing ss (destination). Use /weekend-planner to run a generic hotel search.", {
       status: 400,
     });
@@ -434,17 +462,38 @@ export async function GET(request: Request) {
       ? `${hotelPlannerLat},${hotelPlannerLng}`
       : String(hotelPlannerCitySearch ?? bookingSearchString).trim();
 
+  if (venueIdValid && !venue?.id) {
+    logWeakHotelPlannerDestination({
+      reason: "invalid_venue_context",
+      sourceSurface,
+      venueIdPresent: true,
+      tournamentIdPresent: Boolean(requestedTournamentId),
+      latLngPresent: hasHotelPlannerLatLng,
+      cityStatePresent: hasCityState,
+    });
+  } else if (requestedTournamentId && !tournament?.id) {
+    logWeakHotelPlannerDestination({
+      reason: "invalid_tournament_context",
+      sourceSurface,
+      venueIdPresent: venueIdValid,
+      tournamentIdPresent: true,
+      latLngPresent: hasHotelPlannerLatLng,
+      cityStatePresent: hasCityState,
+    });
+  } else if (hotelPlannerDestination === "United States" || bookingSearchString === "United States") {
+    logWeakHotelPlannerDestination({
+      reason: "generic_destination",
+      sourceSurface,
+      venueIdPresent: venueIdValid,
+      tournamentIdPresent: Boolean(requestedTournamentId),
+      latLngPresent: hasHotelPlannerLatLng,
+      cityStatePresent: hasCityState,
+    });
+  }
+
   const hotelPlannerTarget =
     hotelPlannerWhiteLabelUrl && hotelPlannerCheckin && hotelPlannerCheckout && hotelPlannerDestination
       ? (() => {
-          const sourceSurface =
-            venueIdValid
-              ? "venue_page"
-              : source === "tournament_directory"
-              ? "tournament_directory"
-              : source === "tournament_detail"
-              ? "tournament_detail"
-              : "weekend_planner";
           const trackingDefaults = deriveHotelPlannerTrackingDefaults({
             sourceSurface,
             venueId: venueIdValid ? venueId : null,
@@ -493,14 +542,6 @@ export async function GET(request: Request) {
 
   if (!local && !bot) {
     try {
-      const sourceSurface =
-        venueIdValid
-          ? "venue_page"
-          : source === "tournament_directory"
-          ? "tournament_directory"
-          : source === "tournament_detail"
-          ? "tournament_detail"
-          : "weekend_planner";
       await supabaseAdmin.from("ti_outbound_clicks" as any).insert({
         destination_type: "hotels",
         partner: "hotelplanner",

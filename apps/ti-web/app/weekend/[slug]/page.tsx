@@ -307,6 +307,7 @@ export default async function WeekendPage({
   const hotelsHref = selectedVenue?.id
     ? buildHotelsHref({ venueId: selectedVenue.id, tournamentId: tournament.id })
     : null;
+  const hotelsLabel = selectedVenue?.id ? "Find hotels near the venue" : "Find hotels near this tournament";
 
   const vrboHrefBase = selectedVenue?.id
     ? `/go/vrbo?venueId=${encodeURIComponent(selectedVenue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=weekend_share`
@@ -630,6 +631,7 @@ export default async function WeekendPage({
               venueMapHref={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}
               bookTravelHref={bookTravelHref}
               hotelsHref={hotelsHref ? `${hotelsHref}&source=weekend_share` : null}
+              hotelsLabel={hotelsLabel}
               rentalsHref={vrboHrefBase}
               plannerHubHref="/weekend-planner"
             />

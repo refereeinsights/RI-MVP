@@ -4377,3 +4377,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
 - 2026-07-09: TI admin dashboard email Weekend Planner extension.
   - Extended `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts` to add a Weekend Planner operator summary immediately after `TI Users`.
   - The email now includes activation event counts, tournament-to-planner funnel counts/rates, direct planner entry metrics, first planner actions, team hotel interest, Weekend Pro interest, top tournament pages by planner clicks, anomaly alerts, and explicit `not tracked` gaps using existing `ti_map_events` analytics only.
+- 2026-07-09: TI hotel funnel UX polish.
+  - Updated `apps/ti-web/app/weekend/[slug]/WeekendPlanningCtasClient.tsx` and `apps/ti-web/app/weekend/[slug]/page.tsx` so the primary weekend-page hotel CTA keeps its existing primary styling but now uses venue-aware copy: `Find hotels near the venue`.
+  - Updated `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx` so the secondary travel CTA now says `Find hotels & travel →` while preserving the existing destination and analytics behavior.
+  - Updated `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx` so `/book-travel#team-hotel-blocks` auto-opens the form after mount, the toggle copy now reads `Start team hotel request` / `Hide team hotel request`, and the subtitle now uses parent/team-manager-friendly wording.
+  - Added safe weak-destination warning logs in `apps/ti-web/app/go/hotels/route.ts` for generic destination fallbacks and missing/invalid location context without blocking redirects or logging private data.

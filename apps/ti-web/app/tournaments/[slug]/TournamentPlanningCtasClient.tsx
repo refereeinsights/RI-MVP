@@ -147,7 +147,7 @@ export default function TournamentPlanningCtasClient(props: {
             });
           }}
         >
-          Search travel →
+          Find hotels & travel →
         </Link>
       </div>
 

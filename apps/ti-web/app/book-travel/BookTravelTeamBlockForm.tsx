@@ -134,6 +134,12 @@ export default function BookTravelTeamBlockForm({
     });
   }, [authState, entitlement, showToggle, surface]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#team-hotel-blocks") return;
+    setIsOpen(true);
+  }, []);
+
   function trackStart() {
     if (startedRef.current) return;
     startedRef.current = true;
@@ -282,7 +288,7 @@ export default function BookTravelTeamBlockForm({
         <div>
           <h2 className={styles.title}>Need 5+ rooms for your team?</h2>
           <p className={styles.subtitle}>
-            Submit a TI-branded hotel block request for any destination. Match a TI venue when available, or continue with free text.
+            Tell us your dates and headcount. We’ll help your team find group hotel options near the venue.
           </p>
         </div>
         {showToggle ? (
@@ -303,7 +309,7 @@ export default function BookTravelTeamBlockForm({
               if (!isOpen) trackStart();
             }}
           >
-            {isOpen ? "Hide form" : "Open form"}
+            {isOpen ? "Hide team hotel request" : "Start team hotel request"}
           </button>
         ) : null}
       </div>
