@@ -36,11 +36,33 @@
 }
 
 .cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   flex: 0 0 auto;
   width: auto;
   min-width: 0;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #0f6b4a;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
   white-space: nowrap;
   align-self: center;
+}
+
+.cta:hover {
+  background: #0d5c40;
+  color: #fff;
+  text-decoration: none;
 }
 
 .cta:focus-visible {
