@@ -641,6 +641,23 @@ Latest Step 2 API run (local `localhost:3001`) result:
   - Confirm the Weekend Planner team-hotel card fires `team_hotel_cta_viewed` and `team_hotel_cta_clicked`.
   - Confirm analytics payloads omit contact info, dates, notes, provider IDs, request IDs, and destination text.
 
+### Stage 3.7B Weekend Planner Contextual CTA Discovery Handoff
+
+- [ ] Confirm this stage remains documentation-only; no TI product files outside docs/notes/UAT changed.
+- [ ] Read `docs/prompts/ti-planner-stage-3.7b-contextual-cta-discovery.md` and confirm the discovery scope still forbids adding CTAs or planner-prefill behavior in this pass.
+- [ ] Read `docs/audits/ti-weekend-planner-stage-3.7b-discovery-2026-07-09.md` and confirm it covers:
+  - `/tournaments/[slug]`
+  - `/weekend/[slug]`
+  - `/<sport>/<state>`
+  - `/<sport>/<state>/<metro>`
+  - `/tournaments`
+  - `/book-travel`
+- [ ] Confirm the report explicitly distinguishes:
+  - true existing save/context behavior on `/weekend/[slug]`
+  - generic only `city/state/checkin/checkout` prefill on `/weekend-planner`
+  - valid secondary travel CTA target `/book-travel#team-hotel-blocks`
+- [ ] Confirm the recommended first implementation step is to refine/reuse existing tournament-detail and directory planner surfaces before adding new softer hub CTAs.
+
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 1 - Search Endpoint)
 
 - [ ] Environment + compile checks

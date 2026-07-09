@@ -12,6 +12,10 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-07-09
+
+- TI Weekend Planner Stage `3.7B` discovery pass documented without product code changes: added a tightened implementation prompt plus a file-anchored findings report covering `/tournaments/[slug]`, `/weekend/[slug]`, `/<sport>/<state>`, `/<sport>/<state>/<metro>`, `/tournaments`, and `/book-travel`; conclusion is to reuse the existing tournament → weekend planning path, avoid inventing a new `/weekend-planner` tournament-prefill bridge, and treat `/book-travel#team-hotel-blocks` as the safe secondary travel CTA target: `docs/prompts/ti-planner-stage-3.7b-contextual-cta-discovery.md`, `docs/audits/ti-weekend-planner-stage-3.7b-discovery-2026-07-09.md`.
+
 ## 2026-07-02
 
 - TI Weekend Planner nav discovery + team-travel bridge:
