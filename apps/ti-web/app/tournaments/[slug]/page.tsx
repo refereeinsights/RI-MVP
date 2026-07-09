@@ -1039,7 +1039,7 @@ async function TournamentVenueDetails({
 
   return (
     <>
-      <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={null} />
+      <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={headerHotelsHref} />
 
       {showLoggedOutUpsell ? (
         <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
@@ -1339,7 +1339,18 @@ async function TournamentVenueDetails({
 	            </div>
 	          </div>
 	        ) : (
-          <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>Hotel options unavailable right now.</div>
+          <div style={{ marginTop: 10 }}>
+            <a
+              className="secondaryLink hotelBookingCta"
+              href={headerHotelsHref}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+            >
+              {tournament.city
+                ? `🏨 Find hotels in ${tournament.city}`
+                : "🏨 Find hotels near this tournament"}
+            </a>
+          </div>
         )}
       </div>
 

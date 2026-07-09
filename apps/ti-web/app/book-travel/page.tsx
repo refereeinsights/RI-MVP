@@ -6,8 +6,10 @@ import styles from "../weekend-planner/WeekendPlanner.module.css";
 import BookTravelTeamBlockForm from "./BookTravelTeamBlockForm";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { getPartnerLinkForSport } from "@/lib/partners";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { getTiTierServer } from "@/lib/entitlementsServer";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
   return {
@@ -19,12 +21,28 @@ export async function generateMetadata() {
 }
 
 export default async function BookTravelPage() {
-  const fanatics = await getPartnerLinkForSport({
-    partnerKey: "fanatics",
-    sport: "all_sports",
-    pageType: "gear_hub",
-    placement: "fanatics_module",
-  });
+  const supabase = createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const [fanatics, tierInfo] = await Promise.all([
+    getPartnerLinkForSport({
+      partnerKey: "fanatics",
+      sport: "all_sports",
+      pageType: "gear_hub",
+      placement: "fanatics_module",
+    }),
+    getTiTierServer(user ?? null),
+  ]);
+
+  const isAuthed = Boolean(user);
+  const isUnverified = Boolean(isAuthed && tierInfo.unverified);
+  const authState: "signed_out" | "unverified" | "verified" = !isAuthed
+    ? "signed_out"
+    : isUnverified
+      ? "unverified"
+      : "verified";
+  const entitlement: "explorer" | "insider" | "weekend_pro" | "unknown" = isAuthed
+    ? tierInfo.tier
+    : "unknown";
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -39,11 +57,9 @@ export default async function BookTravelPage() {
           </p>
         </div>
 
-        <BookTravelTeamBlockForm authState="signed_out" entitlement="unknown" />
-
         <WeekendPlannerClient
-          initialAuthState="signed_out"
-          initialEntitlement="unknown"
+          initialAuthState={authState}
+          initialEntitlement={entitlement}
           fanaticsGear={{
             partnerLinkId: fanatics.link?.id ?? null,
             title: "Tournament Weekend Gear",
@@ -60,6 +76,8 @@ export default async function BookTravelPage() {
             },
           }}
         />
+
+        <BookTravelTeamBlockForm authState={authState} entitlement={entitlement} />
 
         <section className={styles.faqBlock} aria-label="Book travel FAQs">
           <h2 className={styles.faqTitle}>FAQs for tournament travel</h2>

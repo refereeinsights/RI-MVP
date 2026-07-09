@@ -316,6 +316,8 @@ export default async function WeekendPage({
     const qp = new URLSearchParams();
     if (tournament.city) qp.set("city", tournament.city);
     if (tournament.state) qp.set("state", tournament.state);
+    if (tournament.start_date) qp.set("checkin", tournament.start_date);
+    if (tournament.end_date) qp.set("checkout", tournament.end_date);
     const qs = qp.toString();
     return qs ? `/book-travel?${qs}` : "/book-travel";
   })();
