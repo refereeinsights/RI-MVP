@@ -4374,3 +4374,6 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added explicit `/weekend/[slug]` arrival, save-click, and save-success analytics via `weekend_plan_page_viewed`, `weekend_plan_save_clicked`, and `weekend_plan_saved`.
   - Added `apps/ti-web/app/weekend/[slug]/WeekendPlanViewTracker.tsx`, passed server-derived `planExists` into the client tracker as `has_existing_plan`, and added `?source=tournament_detail` only to the primary tournament-detail weekend-plan CTA for attribution.
   - Expanded tournament-detail contextual CTA viewed/clicked payloads with optional `tournament_id` and `tournament_slug`, persisted the new events through `apps/ti-web/app/api/analytics/route.ts`, and surfaced them on `/admin/ti/clicks`.
+- 2026-07-09: TI admin dashboard email Weekend Planner extension.
+  - Extended `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts` to add a Weekend Planner operator summary immediately after `TI Users`.
+  - The email now includes activation event counts, tournament-to-planner funnel counts/rates, direct planner entry metrics, first planner actions, team hotel interest, Weekend Pro interest, top tournament pages by planner clicks, anomaly alerts, and explicit `not tracked` gaps using existing `ti_map_events` analytics only.

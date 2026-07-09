@@ -23,6 +23,85 @@ type PublicDirectoryBySportRow = {
   new_yesterday?: unknown;
 };
 
+type TiMapEventRow = {
+  event_name: string;
+  properties: Record<string, unknown> | null;
+};
+
+type WeekendPlannerDailySummary =
+  | {
+      ok: true;
+      windowLabel: string;
+      activations: number;
+      planClicks: number;
+      teamHotelRequests: number;
+      snapshot: {
+        totalActivations: number;
+        plannerViews: number;
+        plannerLoaded: number;
+        newPlannerUsers: "not tracked";
+        returningPlannerUsers: "not tracked";
+      };
+      tournamentFunnel: {
+        detailViews: number;
+        plannerCtaImpressions: number;
+        plannerClicks: number;
+        weekendArrivals: number;
+        weekendSaveClicks: number;
+        weekendSaved: number;
+        plannerOpensFromWeekendFlow: "not tracked";
+        activatedAfterWeekendFlow: "not tracked";
+      };
+      directEntry: {
+        plannerViews: number;
+        loggedOutViews: number;
+        createAccountClicks: number;
+        signInClicks: number;
+        authRequiredViews: number;
+        plannerLoaded: number;
+        emptyStateViewed: number;
+        calendarConnectStarts: "not tracked";
+        manualEventsAdded: number;
+        calendarFeedsConnected: number;
+      };
+      firstActions: {
+        manualEventsAdded: number;
+        calendarFeedsConnected: number;
+        weekendPlansSaved: number;
+        guestSharesCreated: number;
+        privateCalendarFeedsCreated: number;
+      };
+      activationBySource: {
+        tracked: false;
+        arrivalsBySource: Record<"tournament_detail" | "direct" | "unknown", number>;
+      };
+      teamHotel: {
+        ctaImpressions: number;
+        ctaClicks: number;
+        formStarts: number;
+        requestsSubmitted: number;
+      };
+      weekendProInterest: {
+        gateViews: number;
+        gateClicks: number;
+        premiumViews: number;
+        premiumClicks: number;
+      };
+      topTournamentPages: Array<{
+        tournamentSlug: string;
+        impressions: number;
+        clicks: number;
+        ctr: number | null;
+      }>;
+      alerts: string[];
+      missingTracking: string[];
+    }
+  | {
+      ok: false;
+      windowLabel: string;
+      error: string;
+    };
+
 function isAuthorized(req: Request) {
   const url = new URL(req.url);
   const tokenFromQuery = url.searchParams.get("token");
@@ -61,6 +140,454 @@ function htmlEscape(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function formatRatioPercent(numerator: number | null | undefined, denominator: number | null | undefined) {
+  const n = Number(numerator ?? NaN);
+  const d = Number(denominator ?? NaN);
+  if (!Number.isFinite(n) || !Number.isFinite(d) || d <= 0) return "n/a";
+  return `${((n / d) * 100).toFixed(1)}%`;
+}
+
+function formatMetricValue(value: number | string) {
+  if (typeof value === "number") return formatInt(value);
+  return value;
+}
+
+function renderMetricRows(rows: Array<{ label: string; value: number | string; note?: string }>) {
+  return `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <tbody>
+      ${rows
+        .map(
+          (row) => `<tr>
+            <td style="padding:6px 0;border-top:1px solid #e5e7eb;color:#334155;">${htmlEscape(row.label)}</td>
+            <td style="padding:6px 0 6px 16px;border-top:1px solid #e5e7eb;text-align:right;color:#0f172a;font-weight:800;white-space:nowrap;">${htmlEscape(
+              formatMetricValue(row.value),
+            )}</td>
+            <td style="padding:6px 0 6px 12px;border-top:1px solid #e5e7eb;color:#64748b;text-align:right;">${htmlEscape(row.note ?? "")}</td>
+          </tr>`,
+        )
+        .join("")}
+    </tbody>
+  </table>`;
+}
+
+function renderSectionCard(title: string, subtitle: string | null, bodyHtml: string) {
+  return `<div style="margin-top:14px;border:1px solid #dbe7e1;border-radius:12px;padding:12px;background:#f8fffb;">
+    <div style="font-size:11px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;">${htmlEscape(title)}</div>
+    ${subtitle ? `<div style="margin-top:4px;color:#475569;font-size:12px;line-height:1.4;">${htmlEscape(subtitle)}</div>` : ""}
+    <div style="margin-top:8px;">${bodyHtml}</div>
+  </div>`;
+}
+
+function eventPropertyText(row: TiMapEventRow, key: string) {
+  const value = row.properties?.[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function countEvents(rows: TiMapEventRow[], eventName: string, predicate?: (row: TiMapEventRow) => boolean) {
+  return rows.filter((row) => row.event_name === eventName && (!predicate || predicate(row))).length;
+}
+
+function formatDateLabelInTimeZone(date: Date, timeZone: string) {
+  return date.toLocaleDateString("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+async function loadWeekendPlannerDailySummary(params: {
+  yesterdayStartUtcIso: string;
+  todayStartUtcIso: string;
+  yesterdayStart: Date;
+  todayStart: Date;
+  timeZone: string;
+}): Promise<WeekendPlannerDailySummary> {
+  const windowLabel = `${formatDateLabelInTimeZone(params.yesterdayStart, params.timeZone)} (${params.timeZone})`;
+  try {
+    const trackedEventNames = [
+      "tournament_detail_page_viewed",
+      "weekend_planner_contextual_cta_viewed",
+      "tournament_detail_weekend_plan_clicked",
+      "weekend_plan_page_viewed",
+      "weekend_plan_save_clicked",
+      "weekend_plan_saved",
+      "weekend_planner_viewed",
+      "weekend_planner_auth_required_viewed",
+      "weekend_planner_create_account_clicked",
+      "weekend_planner_sign_in_clicked",
+      "weekend_planner_loaded",
+      "weekend_planner_empty_state_viewed",
+      "planner_manual_event_created",
+      "planner_calendar_feed_connect_succeeded",
+      "planner_guest_share_created",
+      "planner_calendar_feed_created",
+      "team_hotel_cta_viewed",
+      "team_hotel_cta_clicked",
+      "team_hotel_request_started",
+      "team_hotel_request_submitted",
+      "premium_modal_viewed",
+      "premium_cta_clicked",
+      "planner_weekend_pro_gate_viewed",
+      "planner_weekend_pro_gate_clicked",
+    ];
+
+    const { data, error } = await supabaseAdmin
+      .from("ti_map_events" as any)
+      .select("event_name,properties")
+      .in("event_name", trackedEventNames)
+      .gte("created_at", params.yesterdayStartUtcIso)
+      .lt("created_at", params.todayStartUtcIso);
+
+    if (error) {
+      return { ok: false, windowLabel, error: error.message || "Failed to load weekend planner analytics." };
+    }
+
+    const rows = ((data ?? []) as TiMapEventRow[]) ?? [];
+    const plannerCtaImpressions = countEvents(
+      rows,
+      "weekend_planner_contextual_cta_viewed",
+      (row) => eventPropertyText(row, "source_page_type") === "tournament" && eventPropertyText(row, "cta_type") === "weekend_plan",
+    );
+    const plannerClicks = countEvents(rows, "tournament_detail_weekend_plan_clicked");
+    const detailViews = countEvents(rows, "tournament_detail_page_viewed");
+    const weekendArrivals = countEvents(rows, "weekend_plan_page_viewed");
+    const weekendSaveClicks = countEvents(rows, "weekend_plan_save_clicked");
+    const weekendSaved = countEvents(rows, "weekend_plan_saved");
+    const plannerViews = countEvents(rows, "weekend_planner_viewed");
+    const loggedOutViews = countEvents(rows, "weekend_planner_viewed", (row) => eventPropertyText(row, "auth_state") === "signed_out");
+    const createAccountClicks = countEvents(rows, "weekend_planner_create_account_clicked");
+    const signInClicks = countEvents(rows, "weekend_planner_sign_in_clicked");
+    const authRequiredViews = countEvents(rows, "weekend_planner_auth_required_viewed");
+    const plannerLoaded = countEvents(rows, "weekend_planner_loaded");
+    const emptyStateViewed = countEvents(rows, "weekend_planner_empty_state_viewed");
+    const manualEventsAdded = countEvents(rows, "planner_manual_event_created");
+    const calendarFeedsConnected = countEvents(rows, "planner_calendar_feed_connect_succeeded");
+    const guestSharesCreated = countEvents(rows, "planner_guest_share_created");
+    const privateCalendarFeedsCreated = countEvents(rows, "planner_calendar_feed_created");
+    const teamHotelImpressions = countEvents(rows, "team_hotel_cta_viewed");
+    const teamHotelClicks = countEvents(rows, "team_hotel_cta_clicked");
+    const teamHotelStarts = countEvents(rows, "team_hotel_request_started");
+    const teamHotelSubmitted = countEvents(rows, "team_hotel_request_submitted");
+    const premiumViews = countEvents(rows, "premium_modal_viewed");
+    const premiumClicks = countEvents(rows, "premium_cta_clicked");
+    const plannerGateViews = countEvents(rows, "planner_weekend_pro_gate_viewed");
+    const plannerGateClicks = countEvents(rows, "planner_weekend_pro_gate_clicked");
+    const activations = manualEventsAdded + calendarFeedsConnected;
+
+    const arrivalsBySource: Record<"tournament_detail" | "direct" | "unknown", number> = {
+      tournament_detail: 0,
+      direct: 0,
+      unknown: 0,
+    };
+    const impressionsBySlug = new Map<string, number>();
+    const clicksBySlug = new Map<string, number>();
+
+    for (const row of rows) {
+      if (row.event_name === "weekend_plan_page_viewed") {
+        const sourcePage = eventPropertyText(row, "source_page");
+        if (sourcePage === "tournament_detail" || sourcePage === "direct" || sourcePage === "unknown") {
+          arrivalsBySource[sourcePage] += 1;
+        } else {
+          arrivalsBySource.unknown += 1;
+        }
+      }
+
+      if (
+        row.event_name === "weekend_planner_contextual_cta_viewed" &&
+        eventPropertyText(row, "source_page_type") === "tournament" &&
+        eventPropertyText(row, "cta_type") === "weekend_plan"
+      ) {
+        const slug = eventPropertyText(row, "tournament_slug");
+        if (slug) impressionsBySlug.set(slug, (impressionsBySlug.get(slug) ?? 0) + 1);
+      }
+
+      if (row.event_name === "tournament_detail_weekend_plan_clicked") {
+        const slug = eventPropertyText(row, "tournament_slug");
+        if (slug) clicksBySlug.set(slug, (clicksBySlug.get(slug) ?? 0) + 1);
+      }
+    }
+
+    const topTournamentPages = Array.from(new Set([...impressionsBySlug.keys(), ...clicksBySlug.keys()]))
+      .map((tournamentSlug) => {
+        const impressions = impressionsBySlug.get(tournamentSlug) ?? 0;
+        const clicks = clicksBySlug.get(tournamentSlug) ?? 0;
+        return {
+          tournamentSlug,
+          impressions,
+          clicks,
+          ctr: impressions > 0 ? (clicks / impressions) * 100 : null,
+        };
+      })
+      .filter((row) => row.impressions > 0 || row.clicks > 0)
+      .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions || a.tournamentSlug.localeCompare(b.tournamentSlug))
+      .slice(0, 5);
+
+    const alerts: string[] = [];
+    if (plannerCtaImpressions >= 100 && plannerClicks / Math.max(plannerCtaImpressions, 1) < 0.005) {
+      alerts.push("Planning CTA CTR is below 0.5% on 100+ impressions.");
+    }
+    if (emptyStateViewed > 0 && manualEventsAdded === 0) {
+      alerts.push("Planner empty-state views occurred but no manual events were added.");
+    }
+    if (weekendSaveClicks > 0 && weekendSaved === 0) {
+      alerts.push("Weekend plan save clicks occurred but no successful weekend plan saves were tracked.");
+    }
+    if (teamHotelClicks > 0 && teamHotelStarts === 0) {
+      alerts.push("Team hotel CTA clicks occurred but no team hotel form starts were tracked.");
+    }
+    if (plannerViews > 0 && authRequiredViews >= Math.ceil(plannerViews * 0.5)) {
+      alerts.push("Auth-required planner views are high relative to planner views.");
+    }
+
+    const missingTracking = [
+      "new planner users",
+      "returning planner users",
+      "calendar feed connect starts",
+      "Weekend Planner opens from weekend flow",
+      "activated users/events after weekend flow",
+      "activation by source",
+    ];
+
+    return {
+      ok: true,
+      windowLabel,
+      activations,
+      planClicks: plannerClicks,
+      teamHotelRequests: teamHotelSubmitted,
+      snapshot: {
+        totalActivations: activations,
+        plannerViews,
+        plannerLoaded,
+        newPlannerUsers: "not tracked",
+        returningPlannerUsers: "not tracked",
+      },
+      tournamentFunnel: {
+        detailViews,
+        plannerCtaImpressions,
+        plannerClicks,
+        weekendArrivals,
+        weekendSaveClicks,
+        weekendSaved,
+        plannerOpensFromWeekendFlow: "not tracked",
+        activatedAfterWeekendFlow: "not tracked",
+      },
+      directEntry: {
+        plannerViews,
+        loggedOutViews,
+        createAccountClicks,
+        signInClicks,
+        authRequiredViews,
+        plannerLoaded,
+        emptyStateViewed,
+        calendarConnectStarts: "not tracked",
+        manualEventsAdded,
+        calendarFeedsConnected,
+      },
+      firstActions: {
+        manualEventsAdded,
+        calendarFeedsConnected,
+        weekendPlansSaved: weekendSaved,
+        guestSharesCreated,
+        privateCalendarFeedsCreated,
+      },
+      activationBySource: {
+        tracked: false,
+        arrivalsBySource,
+      },
+      teamHotel: {
+        ctaImpressions: teamHotelImpressions,
+        ctaClicks: teamHotelClicks,
+        formStarts: teamHotelStarts,
+        requestsSubmitted: teamHotelSubmitted,
+      },
+      weekendProInterest: {
+        gateViews: plannerGateViews,
+        gateClicks: plannerGateClicks,
+        premiumViews,
+        premiumClicks,
+      },
+      topTournamentPages,
+      alerts,
+      missingTracking,
+    };
+  } catch (error: any) {
+    return {
+      ok: false,
+      windowLabel,
+      error: String(error?.message ?? error ?? "unknown_error"),
+    };
+  }
+}
+
+function renderWeekendPlannerSummaryHtml(params: {
+  summary: WeekendPlannerDailySummary | null;
+  weekendProCheckouts?: { total: number; yesterday: number } | null;
+  weekendPassPurchases?: { total: number; yesterday: number } | null;
+}) {
+  const { summary, weekendProCheckouts, weekendPassPurchases } = params;
+  if (!summary) return "";
+  if (!summary.ok) {
+    return renderSectionCard(
+      "Weekend Planner",
+      `Daily operator summary for ${summary.windowLabel}`,
+      `<div style="color:#b91c1c;font-weight:800;">Error loading Weekend Planner metrics: ${htmlEscape(summary.error)}</div>`,
+    );
+  }
+
+  const snapshotHtml = renderMetricRows([
+    { label: "Date window", value: summary.windowLabel },
+    { label: "Activation events", value: summary.snapshot.totalActivations, note: "manual event + calendar connect" },
+    { label: "Weekend Planner views", value: summary.snapshot.plannerViews },
+    { label: "Planner loaded", value: summary.snapshot.plannerLoaded },
+    { label: "New planner users", value: summary.snapshot.newPlannerUsers },
+    { label: "Returning planner users", value: summary.snapshot.returningPlannerUsers },
+  ]);
+
+  const tournamentFunnelHtml = renderMetricRows([
+    { label: "Tournament detail views", value: summary.tournamentFunnel.detailViews },
+    { label: "Planning CTA impressions", value: summary.tournamentFunnel.plannerCtaImpressions },
+    {
+      label: "`Plan this tournament` clicks",
+      value: summary.tournamentFunnel.plannerClicks,
+      note: formatRatioPercent(summary.tournamentFunnel.plannerClicks, summary.tournamentFunnel.plannerCtaImpressions),
+    },
+    { label: "`/weekend/[slug]` arrivals", value: summary.tournamentFunnel.weekendArrivals },
+    { label: "Weekend plan save clicks", value: summary.tournamentFunnel.weekendSaveClicks },
+    {
+      label: "Weekend plan saves",
+      value: summary.tournamentFunnel.weekendSaved,
+      note: formatRatioPercent(summary.tournamentFunnel.weekendSaved, summary.tournamentFunnel.weekendArrivals),
+    },
+    { label: "Planner opens from weekend flow", value: summary.tournamentFunnel.plannerOpensFromWeekendFlow },
+    { label: "Activated after weekend flow", value: summary.tournamentFunnel.activatedAfterWeekendFlow },
+    { label: "Planner activation rate", value: formatRatioPercent(summary.activations, summary.snapshot.plannerLoaded) },
+    {
+      label: "End-to-end activation",
+      value: formatRatioPercent(summary.activations, summary.tournamentFunnel.plannerCtaImpressions),
+    },
+  ]);
+
+  const directEntryHtml = renderMetricRows([
+    { label: "`/weekend-planner` views", value: summary.directEntry.plannerViews },
+    { label: "Logged-out planner views", value: summary.directEntry.loggedOutViews },
+    { label: "Create account clicks", value: summary.directEntry.createAccountClicks },
+    { label: "Sign in clicks", value: summary.directEntry.signInClicks },
+    { label: "Auth-required views", value: summary.directEntry.authRequiredViews },
+    {
+      label: "Planner loaded",
+      value: summary.directEntry.plannerLoaded,
+      note: formatRatioPercent(summary.directEntry.plannerLoaded, summary.directEntry.plannerViews),
+    },
+    { label: "Empty planner state viewed", value: summary.directEntry.emptyStateViewed },
+    { label: "Calendar feed connect starts", value: summary.directEntry.calendarConnectStarts },
+    {
+      label: "Manual events added",
+      value: summary.directEntry.manualEventsAdded,
+      note: formatRatioPercent(summary.directEntry.manualEventsAdded, summary.directEntry.plannerLoaded),
+    },
+    {
+      label: "Calendar feeds connected",
+      value: summary.directEntry.calendarFeedsConnected,
+      note: formatRatioPercent(summary.directEntry.calendarFeedsConnected, summary.directEntry.plannerLoaded),
+    },
+  ]);
+
+  const firstActionsHtml = renderMetricRows([
+    { label: "Manual events added", value: summary.firstActions.manualEventsAdded },
+    { label: "Calendar feeds connected", value: summary.firstActions.calendarFeedsConnected },
+    { label: "Weekend plans saved", value: summary.firstActions.weekendPlansSaved },
+    { label: "Guest shares created", value: summary.firstActions.guestSharesCreated },
+    { label: "Private calendar feeds created", value: summary.firstActions.privateCalendarFeedsCreated },
+  ]);
+
+  const activationBySourceHtml = renderMetricRows([
+    { label: "Activation by source", value: "not tracked", note: "completion events do not carry source attribution yet" },
+    { label: "Weekend arrivals from tournament detail", value: summary.activationBySource.arrivalsBySource.tournament_detail },
+    { label: "Weekend arrivals direct", value: summary.activationBySource.arrivalsBySource.direct },
+    { label: "Weekend arrivals unknown", value: summary.activationBySource.arrivalsBySource.unknown },
+  ]);
+
+  const teamHotelHtml = renderMetricRows([
+    { label: "Team hotel CTA impressions", value: summary.teamHotel.ctaImpressions },
+    {
+      label: "Team hotel CTA clicks",
+      value: summary.teamHotel.ctaClicks,
+      note: formatRatioPercent(summary.teamHotel.ctaClicks, summary.teamHotel.ctaImpressions),
+    },
+    { label: "Team hotel form starts", value: summary.teamHotel.formStarts },
+    { label: "Team hotel requests submitted", value: summary.teamHotel.requestsSubmitted },
+  ]);
+
+  const weekendProHtml = renderMetricRows([
+    { label: "Planner Weekend Pro gate views", value: summary.weekendProInterest.gateViews },
+    { label: "Planner Weekend Pro gate clicks", value: summary.weekendProInterest.gateClicks },
+    { label: "Premium modal views", value: summary.weekendProInterest.premiumViews },
+    { label: "Premium CTA clicks", value: summary.weekendProInterest.premiumClicks },
+    { label: "Weekend Pro checkouts", value: Number(weekendProCheckouts?.yesterday ?? 0) || 0, note: "PT yesterday" },
+    { label: "Founders Preview purchases", value: Number(weekendPassPurchases?.yesterday ?? 0) || 0, note: "PT yesterday" },
+  ]);
+
+  const topPagesHtml =
+    summary.topTournamentPages.length > 0
+      ? `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#ecfdf3;">
+              <th style="text-align:left;padding:8px 10px;border-top:1px solid #d1fae5;border-bottom:1px solid #d1fae5;">Tournament</th>
+              <th style="text-align:right;padding:8px 10px;border-top:1px solid #d1fae5;border-bottom:1px solid #d1fae5;">Impressions</th>
+              <th style="text-align:right;padding:8px 10px;border-top:1px solid #d1fae5;border-bottom:1px solid #d1fae5;">Clicks</th>
+              <th style="text-align:right;padding:8px 10px;border-top:1px solid #d1fae5;border-bottom:1px solid #d1fae5;">CTR</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summary.topTournamentPages
+              .map(
+                (row) => `<tr>
+                  <td style="padding:8px 10px;border-top:1px solid #e5e7eb;">${htmlEscape(row.tournamentSlug)}</td>
+                  <td style="padding:8px 10px;border-top:1px solid #e5e7eb;text-align:right;">${htmlEscape(formatInt(row.impressions))}</td>
+                  <td style="padding:8px 10px;border-top:1px solid #e5e7eb;text-align:right;">${htmlEscape(formatInt(row.clicks))}</td>
+                  <td style="padding:8px 10px;border-top:1px solid #e5e7eb;text-align:right;">${htmlEscape(
+                    row.ctr == null ? "n/a" : `${row.ctr.toFixed(1)}%`,
+                  )}</td>
+                </tr>`,
+              )
+              .join("")}
+          </tbody>
+        </table>`
+      : `<div style="color:#64748b;font-size:13px;">No public tournament slug attribution was available yesterday.</div>`;
+
+  const alertsHtml =
+    summary.alerts.length > 0
+      ? `<ul style="margin:0;padding-left:18px;color:#92400e;font-size:13px;line-height:1.5;">${summary.alerts
+          .map((alert) => `<li>${htmlEscape(alert)}</li>`)
+          .join("")}</ul>`
+      : `<div style="color:#166534;font-size:13px;">No threshold alerts triggered yesterday.</div>`;
+
+  const missingTrackingHtml =
+    summary.missingTracking.length > 0
+      ? `<ul style="margin:0;padding-left:18px;color:#64748b;font-size:13px;line-height:1.5;">${summary.missingTracking
+          .map((item) => `<li>${htmlEscape(item)}</li>`)
+          .join("")}</ul>`
+      : `<div style="color:#166534;font-size:13px;">No missing tracking noted.</div>`;
+
+  return renderSectionCard(
+    "Weekend Planner",
+    `Daily operator summary for ${summary.windowLabel}. Activation counts are event counts, not de-duplicated users.`,
+    [
+      renderSectionCard("Snapshot", null, snapshotHtml),
+      renderSectionCard("Tournament → Weekend Planner Funnel", null, tournamentFunnelHtml),
+      renderSectionCard("Direct Weekend Planner Entry Funnel", null, directEntryHtml),
+      renderSectionCard("First Planner Actions", null, firstActionsHtml),
+      renderSectionCard("Activation by Source", null, activationBySourceHtml),
+      renderSectionCard("Team Hotel Blocks", null, teamHotelHtml),
+      renderSectionCard("Weekend Pro Interest", null, weekendProHtml),
+      renderSectionCard("Top Tournament Pages by Planner Clicks", null, topPagesHtml),
+      renderSectionCard("Alerts / Anomalies", null, alertsHtml),
+      renderSectionCard("Missing Tracking / Notes", null, missingTrackingHtml),
+    ].join(""),
+  );
 }
 
 const SPORT_LABELS_ANY = TI_SPORT_LABELS as unknown as Record<string, string>;
@@ -333,6 +860,7 @@ function buildEmailHtml(params: {
   tiles?: Awaited<ReturnType<typeof loadAdminDashboardEmailTiles>> | null;
   weekendProCheckouts?: { total: number; yesterday: number } | null;
   weekendPassPurchases?: { total: number; yesterday: number } | null;
+  weekendPlannerSummary?: WeekendPlannerDailySummary | null;
 }) {
   const {
     generatedAtIso,
@@ -347,6 +875,7 @@ function buildEmailHtml(params: {
     tiles,
     weekendProCheckouts,
     weekendPassPurchases,
+    weekendPlannerSummary,
   } = params;
   const dashboardUrl = `${baseUrl}/admin/outreach-dashboard`;
 
@@ -446,6 +975,12 @@ function buildEmailHtml(params: {
         })()
       : "";
 
+  const weekendPlannerHtml = renderWeekendPlannerSummaryHtml({
+    summary: weekendPlannerSummary ?? null,
+    weekendProCheckouts: weekendProCheckouts ?? null,
+    weekendPassPurchases: weekendPassPurchases ?? null,
+  });
+
   const tilesHtml =
     includeTiles && tiles
       ? `<div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
@@ -463,9 +998,10 @@ function buildEmailHtml(params: {
           )}
           ${renderUsersTile({ insiderTotal: tiInsiderTotal, insiderNew: tiInsiderNew, weekendTotal: tiWeekendTotal, weekendNew: tiWeekendNew })}
         </div>
+        ${weekendPlannerHtml}
         ${sportTilesHtml}
         ${heatmapHtml}`
-      : "";
+      : weekendPlannerHtml;
 
   const rows = totalsBySport
     .map((row) => {
@@ -647,12 +1183,19 @@ export async function GET(req: Request) {
     const todayIso = todayStart.toISOString();
     const yesterdayIso = yesterdayStart.toISOString();
 
-    const [tiles, tiUserCounts, totalsBySport, riSummary, lowestStates] = await Promise.all([
+    const [tiles, tiUserCounts, totalsBySport, riSummary, lowestStates, weekendPlannerSummary] = await Promise.all([
       includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null),
       includeTiles ? loadTiUserCountsExcludingInternal({ todayStartUtcIso: todayIso, yesterdayStartUtcIso: yesterdayIso }) : Promise.resolve(null),
       includeOutreach ? Promise.all(TI_SPORTS.map((sport) => loadOutreachTotals(sport))) : Promise.resolve([]),
       includeRiSummary ? loadRiSummaryCounts() : Promise.resolve(null),
       includeLowestStates ? loadLowestStates(5) : Promise.resolve(null),
+      loadWeekendPlannerDailySummary({
+        yesterdayStartUtcIso: yesterdayIso,
+        todayStartUtcIso: todayIso,
+        yesterdayStart,
+        todayStart,
+        timeZone,
+      }),
     ]);
     const weekendProCheckouts = includeTiles
       ? await loadWeekendProCheckoutCounts({
@@ -698,8 +1241,12 @@ export async function GET(req: Request) {
       weekendPassPurchases: weekendPassPurchases
         ? { total: weekendPassPurchases.total, yesterday: weekendPassPurchases.yesterday }
         : null,
+      weekendPlannerSummary,
     });
-    const subject = `TI Admin Dashboard — ${generatedAtIso.slice(0, 10)}`;
+    const subject =
+      weekendPlannerSummary && weekendPlannerSummary.ok
+        ? `TI Admin Dashboard — Weekend Planner: ${weekendPlannerSummary.activations} activations, ${weekendPlannerSummary.planClicks} plan clicks, ${weekendPlannerSummary.teamHotelRequests} team hotel requests — ${generatedAtIso.slice(0, 10)}`
+        : `TI Admin Dashboard — ${generatedAtIso.slice(0, 10)}`;
 
     const responsePayload = {
       ok: true,
@@ -718,6 +1265,7 @@ export async function GET(req: Request) {
       tiles: tiles ?? null,
       weekendProCheckouts: weekendProCheckouts ?? null,
       weekendPassPurchases: weekendPassPurchases ?? null,
+      weekendPlannerSummary: weekendPlannerSummary ?? null,
       riSummary: riSummary ?? null,
       lowestStates: lowestStates ?? null,
     };

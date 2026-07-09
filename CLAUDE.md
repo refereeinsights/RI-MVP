@@ -738,6 +738,56 @@ Latest Step 2 API run (local `localhost:3001`) result:
   - Confirm these rows group under Weekend Planner rather than `Other`.
   - Confirm payloads omit user IDs, email addresses, calendar/source IDs, share tokens, notes, event titles, and raw referrer URLs.
 
+### Stage 3.7D Weekend Planner Admin Email UAT
+
+- [ ] Dry-run the TI admin dashboard email cron route and inspect the generated HTML/JSON payload.
+  - Confirm the Weekend Planner summary appears immediately after the `TI Users` block.
+  - Confirm the Weekend Planner block appears before sport-specific tiles such as `Basketball`.
+- [ ] Weekend Planner snapshot
+  - Confirm the block shows a PT day window and labels activation as event-count based.
+  - Confirm activation events equal `planner_manual_event_created + planner_calendar_feed_connect_succeeded`.
+  - Confirm new planner users and returning planner users render as `not tracked`.
+- [ ] Tournament → Weekend Planner funnel
+  - Confirm the block includes:
+    - tournament detail views
+    - planning CTA impressions
+    - `Plan this tournament` clicks
+    - `/weekend/[slug]` arrivals
+    - weekend plan save clicks
+    - weekend plan saves
+  - Confirm planning CTA CTR, weekend save rate, planner activation rate, and end-to-end activation render safely with `n/a` for zero denominators.
+  - Confirm planner opens from weekend flow and activated after weekend flow render as `not tracked`.
+- [ ] Direct Weekend Planner entry funnel
+  - Confirm the block includes:
+    - `/weekend-planner` views
+    - logged-out views
+    - create account clicks
+    - sign-in clicks
+    - auth-required views
+    - planner loaded
+    - empty planner state viewed
+    - manual events added
+    - calendar feeds connected
+  - Confirm calendar feed connect starts render as `not tracked`.
+- [ ] First planner actions + Team Hotel + Weekend Pro
+  - Confirm the block includes:
+    - manual events added
+    - calendar feeds connected
+    - weekend plans saved
+    - guest shares created
+    - private calendar feeds created
+    - team hotel CTA impressions/clicks/form starts/request submissions
+    - planner Weekend Pro gate views/clicks
+    - premium modal views / premium CTA clicks
+    - PT-yesterday Weekend Pro checkouts and Founders Preview purchases
+- [ ] Top pages + alerts + notes
+  - Confirm top tournament planner-click rows use public tournament slugs only.
+  - Confirm CTR is `n/a` when impressions are zero.
+  - Confirm alerts/anomalies are short and threshold-based.
+  - Confirm missing tracking is listed explicitly rather than guessed.
+- [ ] Privacy
+  - Confirm the email does not include user IDs, email addresses, phone numbers, team/child names, notes, private event titles/times, share/feed URLs, tokens, `source_event_uid`, or HotelPlanner identifiers.
+
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 1 - Search Endpoint)
 
 - [ ] Environment + compile checks
