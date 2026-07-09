@@ -16,6 +16,7 @@ import TournamentWeatherPlannerAccordion from "@/components/tournaments/Tourname
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
 import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import TournamentMapTeaser from "@/components/tournaments/TournamentMapTeaser";
 import TournamentDetailStickyMapCta from "@/components/tournaments/TournamentDetailStickyMapCta";
 import TournamentPlanningCtasClient from "./TournamentPlanningCtasClient";
@@ -1315,7 +1316,7 @@ async function TournamentVenueDetails({
 	      >
 	        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Stay close to where games are played</h2>
 	        <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>Most teams stay within 10–15 minutes of their fields.</div>
-	        {tournamentHotelsHref && hotelClickVenueId ? (
+        {tournamentHotelsHref && hotelClickVenueId ? (
           <div style={{ marginTop: 10 }}>
             <div className="detailLinksRow" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" as any }}>
               <a
@@ -1334,11 +1335,14 @@ async function TournamentVenueDetails({
 	                rel="noopener noreferrer sponsored"
 	                style={{ minWidth: 260 }}
 	              >
-	                {stayRentalsLabel}
-	              </a>
-	            </div>
-	          </div>
-	        ) : (
+                {stayRentalsLabel}
+              </a>
+            </div>
+            <AffiliateDisclosure>
+              Travel links may earn TournamentInsights a commission at no extra cost to you.
+            </AffiliateDisclosure>
+          </div>
+        ) : (
           <div style={{ marginTop: 10 }}>
             <a
               className="secondaryLink hotelBookingCta"
@@ -1350,6 +1354,9 @@ async function TournamentVenueDetails({
                 ? `🏨 Find hotels in ${tournament.city}`
                 : "🏨 Find hotels near this tournament"}
             </a>
+            <AffiliateDisclosure>
+              Travel links may earn TournamentInsights a commission at no extra cost to you.
+            </AffiliateDisclosure>
           </div>
         )}
       </div>

@@ -1,8 +1,11 @@
+import type { ReactNode } from "react";
+
 type Props = {
   className?: string;
+  children?: ReactNode;
 };
 
-export function AffiliateDisclosure({ className }: Props) {
+export function AffiliateDisclosure({ className, children }: Props) {
   return (
     <div
       className={className}
@@ -13,9 +16,12 @@ export function AffiliateDisclosure({ className }: Props) {
         lineHeight: 1.35,
       }}
     >
-      This page may contain affiliate links. TournamentInsights may earn a commission if you purchase through these links, at no
-      additional cost to you.
+      {children ?? (
+        <>
+          This page may contain affiliate links. TournamentInsights may earn a commission if you purchase through these links, at no
+          additional cost to you.
+        </>
+      )}
     </div>
   );
 }
-

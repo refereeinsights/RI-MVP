@@ -4382,3 +4382,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Updated `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx` so the secondary travel CTA now says `Find hotels & travel →` while preserving the existing destination and analytics behavior.
   - Updated `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx` so `/book-travel#team-hotel-blocks` auto-opens the form after mount, the toggle copy now reads `Start team hotel request` / `Hide team hotel request`, and the subtitle now uses parent/team-manager-friendly wording.
   - Added safe weak-destination warning logs in `apps/ti-web/app/go/hotels/route.ts` for generic destination fallbacks and missing/invalid location context without blocking redirects or logging private data.
+- 2026-07-09: TI compact travel disclosure follow-through.
+  - Extended `apps/ti-web/components/AffiliateDisclosure.tsx` to accept optional custom inline copy while preserving its default text for existing `/book-travel`, `/weekend-planner`, and teaser usage.
+  - Added the concise disclosure copy `Travel links may earn TournamentInsights a commission at no extra cost to you.` to the `/weekend/[slug]` stay CTA section and the lower `/tournaments/[slug]` stay CTA cluster only.
+  - Left the existing disclosure in `apps/ti-web/components/tournaments/TournamentMapTeaser.tsx` unchanged to avoid duplicate disclosure clutter on tournament detail pages.

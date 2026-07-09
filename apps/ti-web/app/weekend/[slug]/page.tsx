@@ -9,6 +9,7 @@ import WeekendShareOpenTracker from "./WeekendShareOpenTracker";
 import WeekendPlanViewTracker from "./WeekendPlanViewTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import PrintButton from "@/components/PrintButton";
+import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import WeekendPlanningCtasClient from "./WeekendPlanningCtasClient";
 import WeekendProUpgradeModalTrigger from "@/components/premium/WeekendProUpgradeModalTrigger";
 import DirectionsChooserClient from "./DirectionsChooserClient";
@@ -635,6 +636,11 @@ export default async function WeekendPage({
               rentalsHref={vrboHrefBase}
               plannerHubHref="/weekend-planner"
             />
+          </div>
+          <div className="ti-print-hide">
+            <AffiliateDisclosure>
+              Travel links may earn TournamentInsights a commission at no extra cost to you.
+            </AffiliateDisclosure>
           </div>
           <div className="ti-print-hide" style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <PrintButton label="Print weekend plan" className="secondaryLink" />
