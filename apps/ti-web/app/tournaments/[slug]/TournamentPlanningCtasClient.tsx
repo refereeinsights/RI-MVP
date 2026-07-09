@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 
 function isValidIsoDate(value: string | null | undefined) {
@@ -17,15 +18,15 @@ export default function TournamentPlanningCtasClient(props: {
   tournamentId: string;
   tournamentSlug: string;
   primaryVenueId?: string | null;
-  owlPreviewCounts?: { food: number; coffee: number; quick_eats: number; hangouts: number; hotels: number } | null;
-  planHasLodging?: boolean;
   city: string | null;
   state: string | null;
   startDate: string | null;
   endDate: string | null;
+  authState: "signed_out" | "unverified" | "verified";
+  entitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
 }) {
   const slug = String(props.tournamentSlug ?? "").trim();
-  if (!slug) return null;
+  const viewedRef = useRef(false);
 
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
   const weekendHref = (() => {
@@ -34,7 +35,6 @@ export default function TournamentPlanningCtasClient(props: {
     if (!primaryVenueId) return base;
     return `${base}?venue=${encodeURIComponent(primaryVenueId)}`;
   })();
-
   const travelHref = (() => {
     const qp = new URLSearchParams();
     const city = String(props.city ?? "").trim();
@@ -51,33 +51,54 @@ export default function TournamentPlanningCtasClient(props: {
     return qs ? `/book-travel?${qs}` : "/book-travel";
   })();
 
-  const chips: Array<{ key: string; label: string }> = [];
-  const counts = props.owlPreviewCounts ?? null;
-  if (counts) {
-    if (counts.food > 0) chips.push({ key: "food", label: `${counts.food} food picks` });
-    if (counts.quick_eats > 0) chips.push({ key: "quick_eats", label: `${counts.quick_eats} quick eats` });
-    if (counts.coffee > 0) chips.push({ key: "coffee", label: `${counts.coffee} coffee spots` });
-    if (counts.hangouts > 0) chips.push({ key: "hangouts", label: `${counts.hangouts} hangouts` });
-  }
+  useEffect(() => {
+    if (viewedRef.current) return;
+    if (!slug) return;
+    viewedRef.current = true;
+    void trackTiEvent("weekend_planner_contextual_cta_viewed", {
+      surface: "tournament",
+      source_page_type: "tournament",
+      cta_type: "weekend_plan",
+      auth_state: props.authState,
+      entitlement: props.entitlement,
+      context_type: "tournament",
+    });
+    void trackTiEvent("team_hotel_cta_viewed", {
+      surface: "tournament",
+      source_page_type: "tournament",
+      cta_type: "team_hotel",
+      auth_state: props.authState,
+      entitlement: props.entitlement,
+      context_type: "team_hotel",
+    });
+  }, [props.authState, props.entitlement]);
 
-  const staysChip = (() => {
-    if (props.planHasLodging) return { label: "Nearby stays", href: weekendHref };
-    if (counts?.hotels && counts.hotels > 0) return { label: `${counts.hotels} stays`, href: weekendHref };
-    if (String(props.city ?? "").trim() || String(props.state ?? "").trim()) return { label: "Find stays nearby", href: travelHref };
-    return null;
-  })();
+  if (!slug) return null;
 
   return (
-    <div style={{ marginTop: 10, display: "grid", gap: 10, justifyItems: "center", textAlign: "center" }}>
-      <div style={{ fontSize: 13, opacity: 0.92, maxWidth: 560 }}>
-        Build a weekend plan with venue map, lodging, coffee, quick eats, restaurants, and parent hangouts.
+    <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+      <div style={{ display: "grid", gap: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.9 }}>
+          Planning for this tournament?
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 620, color: "rgba(255,255,255,0.95)" }}>
+          Use the weekend plan to organize venues, travel notes, schedules, and parent logistics around this event.
+        </div>
       </div>
 
-      <div className="detailLinksRow" style={{ marginTop: 0, justifyContent: "center", gap: 10, flexWrap: "wrap" as any }}>
+      <div className="detailLinksRow" style={{ marginTop: 0, justifyContent: "flex-start", gap: 10, flexWrap: "wrap" as const }}>
         <Link
           className="primaryLink"
           href={weekendHref}
           onClick={() => {
+            void trackTiEvent("weekend_planner_contextual_cta_clicked", {
+              surface: "tournament",
+              source_page_type: "tournament",
+              cta_type: "weekend_plan",
+              auth_state: props.authState,
+              entitlement: props.entitlement,
+              context_type: "tournament",
+            });
             void trackTiEvent("tournament_detail_weekend_plan_clicked", {
               page_type: "tournament_detail",
               tournament_id: props.tournamentId,
@@ -124,50 +145,23 @@ export default function TournamentPlanningCtasClient(props: {
         </Link>
       </div>
 
-      <div style={{ width: "min(640px, 100%)", marginTop: 2 }}>
-        <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>
-          Owl’s Eye Weekend Preview
-        </div>
-        {chips.length || staysChip ? (
-          <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-            {chips.map((c) => (
-              <span
-                key={c.key}
-                style={{
-                  fontSize: 12,
-                  fontWeight: 850,
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  background: "rgba(255,255,255,0.06)",
-                }}
-              >
-                {c.label}
-              </span>
-            ))}
-            {staysChip ? (
-              <a
-                href={staysChip.href}
-                className="secondaryLink"
-                style={{
-                  fontSize: 12,
-                  fontWeight: 900,
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  background: "rgba(255,255,255,0.06)",
-                  textDecoration: "none",
-                }}
-              >
-                {staysChip.label}
-              </a>
-            ) : null}
-          </div>
-        ) : (
-          <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>
-            Weekend planning options will appear when venue details are available.
-          </div>
-        )}
+      <div>
+        <Link
+          className="secondaryLink"
+          href="/book-travel#team-hotel-blocks"
+          onClick={() => {
+            void trackTiEvent("team_hotel_cta_clicked", {
+              surface: "tournament",
+              source_page_type: "tournament",
+              cta_type: "team_hotel",
+              auth_state: props.authState,
+              entitlement: props.entitlement,
+              context_type: "team_hotel",
+            });
+          }}
+        >
+          Need rooms for the team? Request team hotel options
+        </Link>
       </div>
     </div>
   );

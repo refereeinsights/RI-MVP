@@ -658,6 +658,47 @@ Latest Step 2 API run (local `localhost:3001`) result:
   - valid secondary travel CTA target `/book-travel#team-hotel-blocks`
 - [ ] Confirm the recommended first implementation step is to refine/reuse existing tournament-detail and directory planner surfaces before adding new softer hub CTAs.
 
+### Stage 3.7B Weekend Planner Contextual CTA Implementation UAT
+
+- [ ] Tournament detail desktop
+  - Open a TI tournament detail page such as `/tournaments/puma-pro16-nxtpro-session-2-richmond-va`.
+  - Confirm the planning block appears near the existing save action, not as a new global banner.
+  - Confirm the heading says `Planning for this tournament?`
+  - Confirm the body says `Use the weekend plan to organize venues, travel notes, schedules, and parent logistics around this event.`
+  - Click `Plan this tournament` and confirm it still routes to the existing `/weekend/[slug]` path.
+  - If the tournament already supported a venue anchor, confirm that behavior still works.
+  - Click `Open venue map →` and confirm it still routes to `/tournaments/[slug]/map`.
+  - Click `Search travel →` and confirm it still routes to `/book-travel` with the existing safe query context.
+  - Click `Need rooms for the team? Request team hotel options` and confirm it routes to `/book-travel#team-hotel-blocks`.
+- [ ] Tournament detail mobile
+  - Confirm the planning block stays compact and readable.
+  - Confirm links wrap cleanly and remain tappable.
+  - Confirm the new team-hotel link remains visually secondary to the planner CTA.
+- [ ] Tournament directory desktop
+  - Open `/tournaments` with at least one result.
+  - Confirm one compact soft planner module appears above the populated results grid and below filters/summary content.
+  - Confirm the heading says `Following multiple tournaments?`
+  - Confirm the CTA says `Open Weekend Planner Beta`
+  - Click it and confirm it routes to `/weekend-planner`.
+  - Confirm per-card `Plan weekend`, hotel, rental, venue, and detail actions still work unchanged.
+- [ ] Tournament directory mobile
+  - Confirm the soft planner module does not crowd the filters or first tournament cards.
+  - Confirm tournament card CTA rows are no more cluttered than before.
+- [ ] No-results fallback
+  - Force a no-results state on `/tournaments`.
+  - Confirm the existing `Plan by city` card still appears and still routes to `/weekend-planner` with the existing safe city/state prefill behavior.
+- [ ] Analytics sanity
+  - Confirm `weekend_planner_contextual_cta_viewed` fires for the tournament-detail planner block.
+  - Confirm `weekend_planner_contextual_cta_clicked` fires for `Plan this tournament`.
+  - Confirm the `/tournaments` soft planner module fires contextual CTA viewed/clicked analytics.
+  - Confirm the tournament-detail secondary team-hotel link fires `team_hotel_cta_viewed` and `team_hotel_cta_clicked`.
+  - Confirm payloads stay privacy-safe and omit raw IDs not already part of established public analytics patterns, plus omit notes, tokens, share/feed URLs, contact info, and HotelPlanner identifiers.
+- [ ] Regression
+  - Confirm `/weekend/[slug]` behavior is unchanged.
+  - Confirm `/weekend-planner` behavior is unchanged.
+  - Confirm no Stripe checkout is triggered by any of these CTAs.
+  - Confirm no user-facing copy says `RFP`.
+
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 1 - Search Endpoint)
 
 - [ ] Environment + compile checks

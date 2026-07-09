@@ -5,6 +5,7 @@ import { TI_SPORT_LABELS } from "@/lib/tiSports";
 import { lookupZipLatLng } from "@/lib/lookupZipLatLng";
 import MetroMarketChips from "./_components/MetroMarketChips";
 import PlanWeekendCtaClient from "./PlanWeekendCtaClient";
+import SoftPlannerCtaClient from "./SoftPlannerCtaClient";
 import TournamentDirectoryAnalyticsClient from "./TournamentDirectoryAnalyticsClient";
 import TournamentDirectoryFiltersClient from "./TournamentDirectoryFiltersClient";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
@@ -606,7 +607,9 @@ export default async function TournamentsPage({
               </article>
             </div>
           ) : (
-            <div className="grid">
+            <>
+              <SoftPlannerCtaClient />
+              <div className="grid">
               {tournamentsSorted.map((t) => {
                 const start = formatDate(t.start_date);
                 const end = formatDate(t.end_date);
@@ -729,7 +732,8 @@ export default async function TournamentsPage({
                     </article>
                   );
               })}
-            </div>
+              </div>
+            </>
           )}
         </div>
 

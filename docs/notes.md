@@ -14,6 +14,10 @@ Maintenance rules:
 
 ## 2026-07-09
 
+- TI Weekend Planner Stage `3.7B` implementation:
+  - Added a new tournament-detail planning block under the existing save action in `apps/ti-web/app/tournaments/[slug]/page.tsx` using `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx`, with clearer planner copy, existing `/weekend/[slug]` routing, existing venue/travel links, and a secondary `Request team hotel options` link to `/book-travel#team-hotel-blocks`.
+  - Added one compact soft Weekend Planner module above populated `/tournaments` results via `apps/ti-web/app/tournaments/SoftPlannerCtaClient.tsx`, leaving per-card `Plan weekend` actions and the no-results `Plan by city` fallback unchanged.
+  - Reused Stage `3.7A` activation/team-hotel analytics and minimally extended `apps/ti-web/lib/tiAnalyticsEvents.ts` typing so tournament and directory planner CTA payloads remain privacy-safe without introducing a new prefill model or planner schema.
 - TI Weekend Planner Stage `3.7B` discovery pass documented without product code changes: added a tightened implementation prompt plus a file-anchored findings report covering `/tournaments/[slug]`, `/weekend/[slug]`, `/<sport>/<state>`, `/<sport>/<state>/<metro>`, `/tournaments`, and `/book-travel`; conclusion is to reuse the existing tournament → weekend planning path, avoid inventing a new `/weekend-planner` tournament-prefill bridge, and treat `/book-travel#team-hotel-blocks` as the safe secondary travel CTA target: `docs/prompts/ti-planner-stage-3.7b-contextual-cta-discovery.md`, `docs/audits/ti-weekend-planner-stage-3.7b-discovery-2026-07-09.md`.
 
 ## 2026-07-02

@@ -131,6 +131,8 @@ type PlannerView = "upcoming" | "this_weekend" | "season" | "calendar" | "list";
 type PlannerGateName = "multi_calendar" | "visual_calendar" | "source_colors" | "conflicts" | "merge_cleanup" | "map";
 type PlannerActivationSurface =
   | "planner"
+  | "tournament"
+  | "tournament_directory"
   | "travel"
   | "saved_tournament"
   | "guest_share"
@@ -145,6 +147,7 @@ type PlannerCtaType =
   | "venue_map"
   | "travel"
   | "team_hotel"
+  | "open_planner_beta"
   | "add_first_event"
   | "guest_share"
   | "calendar_feed";
@@ -812,16 +815,16 @@ export type TiAnalyticsEventPropertiesByName = {
     surface: PlannerActivationSurface;
     source_page_type: PlannerSourcePageType;
     cta_type: PlannerCtaType;
-    auth_state: PlannerAuthState;
-    entitlement: PlannerEntitlement;
+    auth_state?: PlannerAuthState;
+    entitlement?: PlannerEntitlement;
     context_type: PlannerContextType;
   };
   weekend_planner_contextual_cta_clicked: {
     surface: PlannerActivationSurface;
     source_page_type: PlannerSourcePageType;
     cta_type: PlannerCtaType;
-    auth_state: PlannerAuthState;
-    entitlement: PlannerEntitlement;
+    auth_state?: PlannerAuthState;
+    entitlement?: PlannerEntitlement;
     context_type: PlannerContextType;
   };
   weekend_planner_prefill_started: {
@@ -923,16 +926,16 @@ export type TiAnalyticsEventPropertiesByName = {
     entitlement: PlannerEntitlement;
   };
   team_hotel_cta_viewed: {
-    surface: "team_hotel" | "travel";
-    source_page_type: "planner" | "book_travel" | "travel";
+    surface: "team_hotel" | "travel" | "tournament";
+    source_page_type: "planner" | "book_travel" | "travel" | "tournament";
     cta_type: "team_hotel";
     auth_state: PlannerAuthState;
     entitlement: PlannerEntitlement;
     context_type: "team_hotel";
   };
   team_hotel_cta_clicked: {
-    surface: "team_hotel" | "travel";
-    source_page_type: "planner" | "book_travel" | "travel";
+    surface: "team_hotel" | "travel" | "tournament";
+    source_page_type: "planner" | "book_travel" | "travel" | "tournament";
     cta_type: "team_hotel";
     auth_state: PlannerAuthState;
     entitlement: PlannerEntitlement;
