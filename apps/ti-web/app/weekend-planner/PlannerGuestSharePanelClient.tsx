@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 
 import styles from "./WeekendPlanner.module.css";
 
@@ -33,11 +34,14 @@ function formatLastAccessed(value: string | null) {
 
 export default function PlannerGuestSharePanelClient(props: {
   initialState: PlannerGuestSharePanelState;
+  entitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
+  authState: "verified" | "unverified";
 }) {
   const [state, setState] = useState(props.initialState);
   const [revealedUrl, setRevealedUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<ActionStatus>("idle");
   const [errorText, setErrorText] = useState<string | null>(null);
+  const viewedRef = useRef(false);
 
   const detailsLabel = useMemo(() => {
     if (!state.hasShare) return "No guest link created yet.";
@@ -45,6 +49,18 @@ export default function PlannerGuestSharePanelClient(props: {
     if (state.shareActive) return "Active family schedule link.";
     return "Guest link is currently inactive.";
   }, [state]);
+
+  useEffect(() => {
+    if (viewedRef.current) return;
+    viewedRef.current = true;
+    void trackTiEvent("planner_guest_share_panel_viewed", {
+      surface: "guest_share",
+      source_page_type: "planner",
+      action_surface: "guest_share",
+      auth_state: props.authState,
+      entitlement: props.entitlement,
+    });
+  }, [props.authState, props.entitlement]);
 
   async function runAction(action: "create" | "reveal" | "regenerate" | "revoke") {
     setStatus("working");
@@ -67,8 +83,33 @@ export default function PlannerGuestSharePanelClient(props: {
       setState(payload.state);
       if (action === "revoke") {
         setRevealedUrl(null);
+        void trackTiEvent("planner_guest_share_disabled", {
+          surface: "guest_share",
+          source_page_type: "planner",
+          action_surface: "guest_share",
+          auth_state: props.authState,
+          entitlement: props.entitlement,
+        });
         setStatus("idle");
         return;
+      }
+
+      if (action === "create") {
+        void trackTiEvent("planner_guest_share_created", {
+          surface: "guest_share",
+          source_page_type: "planner",
+          action_surface: "guest_share",
+          auth_state: props.authState,
+          entitlement: props.entitlement,
+        });
+      } else if (action === "regenerate") {
+        void trackTiEvent("planner_guest_share_regenerated", {
+          surface: "guest_share",
+          source_page_type: "planner",
+          action_surface: "guest_share",
+          auth_state: props.authState,
+          entitlement: props.entitlement,
+        });
       }
 
       const shareUrl = String(payload.share_url ?? "").trim();
@@ -76,6 +117,13 @@ export default function PlannerGuestSharePanelClient(props: {
         setRevealedUrl(shareUrl);
         try {
           await navigator.clipboard.writeText(shareUrl);
+          void trackTiEvent("planner_guest_share_copied", {
+            surface: "guest_share",
+            source_page_type: "planner",
+            action_surface: "guest_share",
+            auth_state: props.authState,
+            entitlement: props.entitlement,
+          });
           setStatus("copied");
           window.setTimeout(() => setStatus("idle"), 1400);
           return;

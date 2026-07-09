@@ -20,5 +20,11 @@ export default async function PlannerGuestSharePanel() {
     unverified: tierInfo.unverified,
   });
 
-  return <PlannerGuestSharePanelClient initialState={initialState} />;
+  return (
+    <PlannerGuestSharePanelClient
+      initialState={initialState}
+      entitlement={tierInfo.tier}
+      authState={tierInfo.unverified ? "unverified" : "verified"}
+    />
+  );
 }

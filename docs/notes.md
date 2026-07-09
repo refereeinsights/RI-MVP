@@ -4339,3 +4339,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
 - RI Admin: roll-forward sibling creation compatibility fix:
   - Removed the roll-forward insert dependency on `tournaments.raw` in `apps/referee/src/server/admin/rollForwardTournaments.ts` after apply runs showed production/local schema-cache failures (`Could not find the 'raw' column of 'tournaments' in the schema cache`) even though the research log updates succeeded.
   - Sibling creation now relies on the explicit tournament fields plus `tournament_roll_forward_log` for auditability, instead of requiring a `raw` payload on the new tournament row.
+- 2026-07-09: Weekend Planner Stage 3.7A activation analytics.
+  - Added privacy-safe activation analytics for `/weekend-planner` entry, logged-out auth CTAs, post-load planner measurement, empty-state measurement, guest share actions, private calendar feed actions, saved-tournament contextual CTAs, and TI team-hotel flows.
+  - Weekend Planner page-view ownership now lives in `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`; signed-out auth CTA tracking lives in `apps/ti-web/app/weekend-planner/WeekendPlannerEntryCtas.tsx`.
+  - Activation payloads now rely on safe buckets (`loaded_event_count_bucket`, `feed_count_bucket`, `child_team_count_bucket`) and exclude raw event/source/share/feed/request identifiers.
+  - Updated `apps/referee/app/admin/ti/clicks/page.tsx` so the new activation events are visible without adding a new dashboard.

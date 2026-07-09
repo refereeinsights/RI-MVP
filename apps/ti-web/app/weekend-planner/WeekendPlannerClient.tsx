@@ -1,12 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import BookTravelTeamBlockForm from "../book-travel/BookTravelTeamBlockForm";
 import { sendTiAnalytics } from "@/lib/analytics";
-import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
-import { getTier } from "@/lib/entitlements";
-import { WEEKEND_PRO_FOUNDING_DEADLINE_COPY } from "@/lib/weekendProPricing";
 import styles from "./WeekendPlanner.module.css";
 
 const DESTINATION_STORAGE_KEY = "ti_weekend_planner_destination";
@@ -80,12 +76,17 @@ function safeSetStoredDestination(value: string) {
   }
 }
 
-export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGearCard; mode?: WeekendPlannerClientMode }) {
+export default function WeekendPlannerClient(props: {
+  fanaticsGear?: FanaticsGearCard;
+  mode?: WeekendPlannerClientMode;
+  initialAuthState: "signed_out" | "unverified" | "verified";
+  initialEntitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
+}) {
   const mode = props.mode ?? "book_travel";
   const isPlannerBeta = mode === "planner_beta";
   const viewedFiredRef = useRef(false);
+  const plannerTeamHotelViewedRef = useRef(false);
   const sourcePageRef = useRef<"book_travel" | "weekend_planner">("book_travel");
-  const [tier, setTier] = useState<"explorer" | "insider" | "weekend_pro" | "unknown">("unknown");
   const [destination, setDestination] = useState("");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
   const [shareUrl, setShareUrl] = useState(CANONICAL_BOOK_TRAVEL_URL);
@@ -93,34 +94,6 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
   const [checkinText, setCheckinText] = useState<string>("");
   const [checkoutText, setCheckoutText] = useState<string>("");
   const [teamBlockOpen, setTeamBlockOpen] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const supabase = getSupabaseBrowserClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
-          if (!cancelled) setTier("explorer");
-          return;
-        }
-        const { data: profile } = await supabase
-          .from("ti_users" as any)
-          .select("plan,subscription_status,current_period_end,trial_ends_at")
-          .eq("id", user.id)
-          .maybeSingle();
-        const resolved = getTier(user, (profile as any) ?? null);
-        if (!cancelled) setTier(resolved);
-      } catch {
-        if (!cancelled) setTier("unknown");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     sourcePageRef.current = getPlannerSourcePage(window.location?.pathname) as "book_travel" | "weekend_planner";
@@ -184,15 +157,37 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
         }
       })();
 
-      void sendTiAnalytics("book_travel_viewed", {
-        page_path: pagePath,
-        source_page: sourcePage,
-        referrer_path: referrerPath,
-        has_destination: Boolean(initialDestination.trim()),
-        has_dates: Boolean(checkin && checkout),
-      });
+      if (sourcePage === "weekend_planner") {
+        void sendTiAnalytics("weekend_planner_viewed", {
+          surface: "planner",
+          source_page_type: "planner",
+          auth_state: props.initialAuthState,
+          entitlement: props.initialEntitlement,
+        });
+      } else {
+        void sendTiAnalytics("book_travel_viewed", {
+          page_path: pagePath,
+          source_page: sourcePage,
+          referrer_path: referrerPath,
+          has_destination: Boolean(initialDestination.trim()),
+          has_dates: Boolean(checkin && checkout),
+        });
+      }
     }
-  }, []);
+  }, [props.initialAuthState, props.initialEntitlement]);
+
+  useEffect(() => {
+    if (!isPlannerBeta || plannerTeamHotelViewedRef.current) return;
+    plannerTeamHotelViewedRef.current = true;
+    track("team_hotel_cta_viewed", {
+      surface: "team_hotel",
+      source_page_type: "planner",
+      cta_type: "team_hotel",
+      auth_state: props.initialAuthState,
+      entitlement: props.initialEntitlement,
+      context_type: "team_hotel",
+    });
+  }, [isPlannerBeta, props.initialAuthState, props.initialEntitlement]);
 
   function isoFromUserDate(value: string) {
     const raw = String(value ?? "").trim();
@@ -254,14 +249,6 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
       referrer_path: referrerPath,
       ts: Date.now(),
     });
-  }
-
-  function focusDestination() {
-    const el = document.getElementById("wp-destination-hotels");
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.focus();
-    }
   }
 
   async function copyShareUrl() {
@@ -516,7 +503,17 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
                 <button
                   type="button"
                   className={styles.ctaFull}
-                  onClick={() => setTeamBlockOpen((current) => !current)}
+                  onClick={() => {
+                    track("team_hotel_cta_clicked", {
+                      surface: "team_hotel",
+                      source_page_type: "planner",
+                      cta_type: "team_hotel",
+                      auth_state: props.initialAuthState,
+                      entitlement: props.initialEntitlement,
+                      context_type: "team_hotel",
+                    });
+                    setTeamBlockOpen((current) => !current);
+                  }}
                 >
                   Request team hotel options
                 </button>
@@ -571,7 +568,13 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
 
       {isPlannerBeta && teamBlockOpen ? (
         <div className={styles.inlineTeamBlockWrap}>
-          <BookTravelTeamBlockForm surface="weekend_planner" defaultOpen showToggle={false} />
+          <BookTravelTeamBlockForm
+            surface="weekend_planner"
+            defaultOpen
+            showToggle={false}
+            entitlement={props.initialEntitlement}
+            authState={props.initialAuthState}
+          />
         </div>
       ) : null}
 

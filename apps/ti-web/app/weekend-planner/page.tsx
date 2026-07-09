@@ -4,6 +4,7 @@ import PlannerClient from "../_components/planner/PlannerClient";
 import WeekendPlannerClient from "./WeekendPlannerClient";
 import PlannerGuestSharePanel from "./PlannerGuestSharePanel";
 import PlannerCalendarFeedPanel from "./PlannerCalendarFeedPanel";
+import WeekendPlannerEntryCtas from "./WeekendPlannerEntryCtas";
 import styles from "./WeekendPlanner.module.css";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
@@ -225,12 +226,7 @@ export default async function WeekendPlannerPage() {
 	                  </p>
 	                </div>
 	                <div className={styles.cardBody} style={{ display: "grid", gap: 10 }}>
-	                  <Link className={styles.ctaFull} href="/signup?returnTo=%2Fweekend-planner">
-	                    Create account to test beta
-	                  </Link>
-	                  <Link className="secondaryLink" href="/login?returnTo=%2Fweekend-planner">
-	                    Sign in
-	                  </Link>
+                    <WeekendPlannerEntryCtas />
 	                </div>
 	              </article>
 	            )}
@@ -290,7 +286,11 @@ export default async function WeekendPlannerPage() {
             </div>
           ) : null}
 
-	        <WeekendPlannerClient mode="planner_beta" />
+          <WeekendPlannerClient
+            mode="planner_beta"
+            initialAuthState={isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out"}
+            initialEntitlement={plannerEntitlement}
+          />
 
 	        <div className={styles.disclosure}>
 	          <AffiliateDisclosure />

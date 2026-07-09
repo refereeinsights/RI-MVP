@@ -616,6 +616,31 @@ Latest Step 2 API run (local `localhost:3001`) result:
   - Submit the existing TI team-block form there.
   - Confirm the venue-map flow still succeeds and still sends its hotel-anchored `propertyId`.
 
+### Stage 3.7A Weekend Planner Activation Analytics UAT
+
+- [ ] Entry funnel
+  - Open `http://localhost:3001/weekend-planner` while signed out.
+  - Confirm `weekend_planner_viewed` fires once.
+  - Confirm `weekend_planner_auth_required_viewed` fires for the signed-out entry state.
+  - Click `Create account to test beta` and confirm `weekend_planner_create_account_clicked`.
+  - Click `Sign in` and confirm `weekend_planner_sign_in_clicked`.
+- [ ] Logged-in planner load
+  - Sign in to a verified account and open `/weekend-planner`.
+  - Confirm `weekend_planner_loaded` fires once after initial event data resolves.
+  - Confirm payload uses safe buckets only and excludes raw IDs, titles, notes, URLs, and tokens.
+- [ ] Empty state
+  - On an account/lens with zero visible events, confirm `weekend_planner_empty_state_viewed` fires once per lens (`Upcoming`, `This Weekend`, `Season`).
+- [ ] Contextual CTAs
+  - On saved tournament actions inside `/weekend-planner`, confirm `weekend_planner_contextual_cta_viewed` fires on render.
+  - Click `Open tournament`, `Weekend plan`, `Venue map`, and `Travel` and confirm `weekend_planner_contextual_cta_clicked`.
+- [ ] Guest share + private calendar feed
+  - Confirm `planner_guest_share_panel_viewed` and `planner_calendar_feed_panel_viewed` fire once on render.
+  - Confirm create/copy/revoke/regenerate actions fire the matching events with no share/feed URL or token data.
+- [ ] Team hotel
+  - Confirm `/book-travel` fires `team_hotel_cta_viewed`, `team_hotel_cta_clicked`, `team_hotel_request_started`, and `team_hotel_request_submitted` from the existing TI-hosted form.
+  - Confirm the Weekend Planner team-hotel card fires `team_hotel_cta_viewed` and `team_hotel_cta_clicked`.
+  - Confirm analytics payloads omit contact info, dates, notes, provider IDs, request IDs, and destination text.
+
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 1 - Search Endpoint)
 
 - [ ] Environment + compile checks

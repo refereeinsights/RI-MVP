@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 
 import styles from "./WeekendPlanner.module.css";
 
@@ -33,11 +34,14 @@ function formatLastAccessed(value: string | null) {
 
 export default function PlannerCalendarFeedPanelClient(props: {
   initialState: PlannerCalendarFeedPanelState;
+  entitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
+  authState: "verified" | "unverified";
 }) {
   const [state, setState] = useState(props.initialState);
   const [revealedUrl, setRevealedUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<ActionStatus>("idle");
   const [errorText, setErrorText] = useState<string | null>(null);
+  const viewedRef = useRef(false);
 
   const detailsLabel = useMemo(() => {
     if (!state.hasFeed) return "No calendar subscription URL created yet.";
@@ -45,6 +49,18 @@ export default function PlannerCalendarFeedPanelClient(props: {
     if (state.feedActive) return "Active private family calendar subscription.";
     return "Calendar subscription is currently inactive.";
   }, [state]);
+
+  useEffect(() => {
+    if (viewedRef.current) return;
+    viewedRef.current = true;
+    void trackTiEvent("planner_calendar_feed_panel_viewed", {
+      surface: "calendar_feed",
+      source_page_type: "planner",
+      action_surface: "calendar_feed",
+      auth_state: props.authState,
+      entitlement: props.entitlement,
+    });
+  }, [props.authState, props.entitlement]);
 
   async function runAction(action: "create" | "reveal" | "regenerate" | "revoke") {
     setStatus("working");
@@ -67,8 +83,41 @@ export default function PlannerCalendarFeedPanelClient(props: {
       setState(payload.state);
       if (action === "revoke") {
         setRevealedUrl(null);
+        void trackTiEvent("planner_calendar_feed_disabled", {
+          surface: "calendar_feed",
+          source_page_type: "planner",
+          action_surface: "calendar_feed",
+          auth_state: props.authState,
+          entitlement: props.entitlement,
+        });
         setStatus("idle");
         return;
+      }
+
+      if (action === "create") {
+        void trackTiEvent("planner_calendar_feed_created", {
+          surface: "calendar_feed",
+          source_page_type: "planner",
+          action_surface: "calendar_feed",
+          auth_state: props.authState,
+          entitlement: props.entitlement,
+        });
+      } else if (action === "reveal") {
+        void trackTiEvent("planner_calendar_feed_revealed", {
+          surface: "calendar_feed",
+          source_page_type: "planner",
+          action_surface: "calendar_feed",
+          auth_state: props.authState,
+          entitlement: props.entitlement,
+        });
+      } else if (action === "regenerate") {
+        void trackTiEvent("planner_calendar_feed_regenerated", {
+          surface: "calendar_feed",
+          source_page_type: "planner",
+          action_surface: "calendar_feed",
+          auth_state: props.authState,
+          entitlement: props.entitlement,
+        });
       }
 
       const feedUrl = String(payload.feed_url ?? "").trim();
@@ -76,6 +125,13 @@ export default function PlannerCalendarFeedPanelClient(props: {
         setRevealedUrl(feedUrl);
         try {
           await navigator.clipboard.writeText(feedUrl);
+          void trackTiEvent("planner_calendar_feed_copied", {
+            surface: "calendar_feed",
+            source_page_type: "planner",
+            action_surface: "calendar_feed",
+            auth_state: props.authState,
+            entitlement: props.entitlement,
+          });
           setStatus("copied");
           window.setTimeout(() => setStatus("idle"), 1400);
           return;

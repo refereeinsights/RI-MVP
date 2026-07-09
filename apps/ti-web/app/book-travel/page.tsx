@@ -39,9 +39,11 @@ export default async function BookTravelPage() {
           </p>
         </div>
 
-        <BookTravelTeamBlockForm />
+        <BookTravelTeamBlockForm authState="signed_out" entitlement="unknown" />
 
         <WeekendPlannerClient
+          initialAuthState="signed_out"
+          initialEntitlement="unknown"
           fanaticsGear={{
             partnerLinkId: fanatics.link?.id ?? null,
             title: "Tournament Weekend Gear",

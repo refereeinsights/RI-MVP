@@ -467,16 +467,24 @@ export default function PlannerClient(props: Props) {
   function bucketFeedCount(count: number) {
     if (!Number.isFinite(count) || count <= 0) return "0" as const;
     if (count === 1) return "1" as const;
-    if (count <= 3) return "2_3" as const;
-    return "4_plus" as const;
+    if (count === 2) return "2" as const;
+    return "3_plus" as const;
   }
 
   function bucketLoadedEventCount(count: number) {
     if (!Number.isFinite(count) || count <= 0) return "0" as const;
-    if (count <= 10) return "1_10" as const;
-    if (count <= 50) return "11_50" as const;
-    if (count <= 100) return "51_100" as const;
-    return "101_plus" as const;
+    if (count === 1) return "1" as const;
+    if (count <= 5) return "2_5" as const;
+    if (count <= 10) return "6_10" as const;
+    if (count <= 25) return "11_25" as const;
+    return "26_plus" as const;
+  }
+
+  function bucketChildTeamCount(count: number) {
+    if (!Number.isFinite(count) || count <= 0) return "0" as const;
+    if (count === 1) return "1" as const;
+    if (count === 2) return "2" as const;
+    return "3_plus" as const;
   }
 
   function reasonCodeFromError(err: any) {
@@ -557,6 +565,10 @@ export default function PlannerClient(props: Props) {
   const [displayModeTouched, setDisplayModeTouched] = useState(false);
   const [seasonCalendarTimeZone, setSeasonCalendarTimeZone] = useState(() => browserTimeZone() || "UTC");
   const canUseCalendar = isWeekendPro;
+  const initialLoadSettledRef = useRef(false);
+  const plannerLoadedFiredRef = useRef(false);
+  const authRequiredViewedRef = useRef(false);
+  const emptyStateViewedKeysRef = useRef<Set<string>>(new Set());
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -1049,6 +1061,7 @@ export default function PlannerClient(props: Props) {
           .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)))
       );
     } finally {
+      if (!initialLoadSettledRef.current) initialLoadSettledRef.current = true;
       setEventsPagingBusy(false);
     }
   }
@@ -1207,6 +1220,17 @@ export default function PlannerClient(props: Props) {
       .map((childProfile) => String(childProfile.id))
       .filter(Boolean);
   }, [familyProfiles]);
+
+  const childTeamCount = useMemo(() => {
+    let count = 0;
+    for (const childProfile of familyProfiles) {
+      count += Array.isArray(childProfile.teams) ? childProfile.teams.length : 0;
+    }
+    return count;
+  }, [familyProfiles]);
+
+  const plannerAuthState = isUnverified ? "unverified" : "verified";
+  const plannerViewForAnalytics = scheduleView === "weekend" ? "this_weekend" : scheduleView;
 
   const filteredEventsForScheduleView = useMemo(() => {
     if (familyFilter === "all") return eventsForScheduleView;
@@ -1556,6 +1580,72 @@ export default function PlannerClient(props: Props) {
       gate_name: "multi_calendar",
     });
   }, [canConnectAnotherCalendar, entitlementForAnalytics, isUnverified, isInsider, sources.length]);
+
+  useEffect(() => {
+    if (authRequiredViewedRef.current) return;
+    if (!isExplorerOrUnverified) return;
+    authRequiredViewedRef.current = true;
+    trackPlannerEvent("weekend_planner_auth_required_viewed", {
+      surface: "planner",
+      source_page_type: "planner",
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      action_surface: "planner",
+    });
+  }, [entitlementForAnalytics, isExplorerOrUnverified, plannerAuthState]);
+
+  useEffect(() => {
+    if (plannerLoadedFiredRef.current) return;
+    if (!initialLoadSettledRef.current || eventsPagingBusy) return;
+    if (plannerAuthState !== "verified") return;
+    plannerLoadedFiredRef.current = true;
+    trackPlannerEvent("weekend_planner_loaded", {
+      surface: "planner",
+      source_page_type: "planner",
+      auth_state: "verified",
+      entitlement: entitlementForAnalytics,
+      view: plannerViewForAnalytics,
+      loaded_event_count_bucket: bucketLoadedEventCount(filteredEventsForScheduleView.length),
+      feed_count_bucket: bucketFeedCount(sources.length),
+      child_team_count_bucket: bucketChildTeamCount(childTeamCount),
+    });
+  }, [
+    childTeamCount,
+    entitlementForAnalytics,
+    eventsPagingBusy,
+    filteredEventsForScheduleView.length,
+    plannerAuthState,
+    plannerViewForAnalytics,
+    sources.length,
+  ]);
+
+  useEffect(() => {
+    if (!initialLoadSettledRef.current || eventsPagingBusy) return;
+    if (familyFilter !== "all") return;
+    if (filteredEventsForScheduleView.length !== 0) return;
+    const key = plannerViewForAnalytics;
+    if (emptyStateViewedKeysRef.current.has(key)) return;
+    emptyStateViewedKeysRef.current.add(key);
+    trackPlannerEvent("weekend_planner_empty_state_viewed", {
+      surface: "planner",
+      source_page_type: "planner",
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      view: plannerViewForAnalytics,
+      loaded_event_count_bucket: "0",
+      feed_count_bucket: bucketFeedCount(sources.length),
+      child_team_count_bucket: bucketChildTeamCount(childTeamCount),
+    });
+  }, [
+    childTeamCount,
+    entitlementForAnalytics,
+    eventsPagingBusy,
+    familyFilter,
+    filteredEventsForScheduleView.length,
+    plannerAuthState,
+    plannerViewForAnalytics,
+    sources.length,
+  ]);
 
   const duplicateCandidates = useMemo(() => {
     return computeDuplicateCandidates({

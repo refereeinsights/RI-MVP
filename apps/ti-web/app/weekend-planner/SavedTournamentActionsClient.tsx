@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 
 function isValidIsoDate(value: string | null | undefined) {
@@ -20,10 +21,9 @@ export default function SavedTournamentActionsClient(props: {
   tournamentState: string | null;
   tournamentStartDate: string | null;
   tournamentEndDate: string | null;
+  entitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
 }) {
   const slug = String(props.tournamentSlug ?? "").trim();
-  if (!slug) return null;
-
   const openTournamentHref = `/tournaments/${encodeURIComponent(slug)}`;
   const weekendPlanHref = `/weekend/${encodeURIComponent(slug)}`;
   const venueMapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
@@ -39,6 +39,26 @@ export default function SavedTournamentActionsClient(props: {
     const qs = qp.toString();
     return qs ? `/book-travel?${qs}` : "/book-travel";
   })();
+  const viewedRef = useRef(false);
+
+  useEffect(() => {
+    if (viewedRef.current) return;
+    if (!slug) return;
+    viewedRef.current = true;
+    const base = {
+      surface: "saved_tournament" as const,
+      source_page_type: "saved_tournament" as const,
+      auth_state: "verified" as const,
+      entitlement: props.entitlement,
+      context_type: "saved_tournament" as const,
+    };
+    void trackTiEvent("weekend_planner_contextual_cta_viewed", { ...base, cta_type: "open_tournament" });
+    void trackTiEvent("weekend_planner_contextual_cta_viewed", { ...base, cta_type: "weekend_plan" });
+    void trackTiEvent("weekend_planner_contextual_cta_viewed", { ...base, cta_type: "venue_map" });
+    void trackTiEvent("weekend_planner_contextual_cta_viewed", { ...base, cta_type: "travel" });
+  }, [props.entitlement, slug]);
+
+  if (!slug) return null;
 
   return (
     <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
@@ -46,6 +66,14 @@ export default function SavedTournamentActionsClient(props: {
         className="primaryLink"
         href={openTournamentHref}
         onClick={() => {
+          void trackTiEvent("weekend_planner_contextual_cta_clicked", {
+            surface: "saved_tournament",
+            source_page_type: "saved_tournament",
+            cta_type: "open_tournament",
+            auth_state: "verified",
+            entitlement: props.entitlement,
+            context_type: "saved_tournament",
+          });
           void trackTiEvent("weekend_planner_saved_tournament_clicked", {
             page_type: "weekend_planner",
             tournament_id: props.tournamentId,
@@ -64,6 +92,14 @@ export default function SavedTournamentActionsClient(props: {
           className="secondaryLink"
           href={weekendPlanHref}
           onClick={() => {
+            void trackTiEvent("weekend_planner_contextual_cta_clicked", {
+              surface: "saved_tournament",
+              source_page_type: "saved_tournament",
+              cta_type: "weekend_plan",
+              auth_state: "verified",
+              entitlement: props.entitlement,
+              context_type: "saved_tournament",
+            });
             void trackTiEvent("weekend_planner_saved_weekend_plan_clicked", {
               page_type: "weekend_planner",
               tournament_id: props.tournamentId,
@@ -80,6 +116,14 @@ export default function SavedTournamentActionsClient(props: {
           className="secondaryLink"
           href={venueMapHref}
           onClick={() => {
+            void trackTiEvent("weekend_planner_contextual_cta_clicked", {
+              surface: "saved_tournament",
+              source_page_type: "saved_tournament",
+              cta_type: "venue_map",
+              auth_state: "verified",
+              entitlement: props.entitlement,
+              context_type: "saved_tournament",
+            });
             void trackTiEvent("weekend_planner_saved_venue_map_clicked", {
               page_type: "weekend_planner",
               tournament_id: props.tournamentId,
@@ -96,6 +140,14 @@ export default function SavedTournamentActionsClient(props: {
           className="secondaryLink"
           href={travelHref}
           onClick={() => {
+            void trackTiEvent("weekend_planner_contextual_cta_clicked", {
+              surface: "saved_tournament",
+              source_page_type: "saved_tournament",
+              cta_type: "travel",
+              auth_state: "verified",
+              entitlement: props.entitlement,
+              context_type: "saved_tournament",
+            });
             void trackTiEvent("weekend_planner_saved_travel_clicked", {
               page_type: "weekend_planner",
               tournament_id: props.tournamentId,
@@ -112,4 +164,3 @@ export default function SavedTournamentActionsClient(props: {
     </div>
   );
 }
-

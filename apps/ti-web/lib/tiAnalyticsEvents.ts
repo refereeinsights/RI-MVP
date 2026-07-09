@@ -80,6 +80,33 @@ export type TiAnalyticsEventName =
   | "planner_weekend_pro_gate_clicked"
   | "planner_map_view_opened"
   | "planner_calendar_event_detail_opened"
+  | "weekend_planner_viewed"
+  | "weekend_planner_start_clicked"
+  | "weekend_planner_auth_required_viewed"
+  | "weekend_planner_create_account_clicked"
+  | "weekend_planner_sign_in_clicked"
+  | "weekend_planner_loaded"
+  | "weekend_planner_empty_state_viewed"
+  | "weekend_planner_contextual_cta_viewed"
+  | "weekend_planner_contextual_cta_clicked"
+  | "weekend_planner_prefill_started"
+  | "weekend_planner_prefill_saved"
+  | "weekend_planner_prefill_auth_required"
+  | "planner_guest_share_panel_viewed"
+  | "planner_guest_share_created"
+  | "planner_guest_share_copied"
+  | "planner_guest_share_disabled"
+  | "planner_guest_share_regenerated"
+  | "planner_calendar_feed_panel_viewed"
+  | "planner_calendar_feed_created"
+  | "planner_calendar_feed_revealed"
+  | "planner_calendar_feed_copied"
+  | "planner_calendar_feed_disabled"
+  | "planner_calendar_feed_regenerated"
+  | "team_hotel_cta_viewed"
+  | "team_hotel_cta_clicked"
+  | "team_hotel_request_started"
+  | "team_hotel_request_submitted"
   | "Tournament Save Clicked"
   | "Tournament Save Auth Redirect"
   | "Tournament Saved"
@@ -102,6 +129,27 @@ type PlannerEntitlement = "explorer" | "insider" | "weekend_pro" | "unknown";
 type PlannerSurface = "weekend_planner";
 type PlannerView = "upcoming" | "this_weekend" | "season" | "calendar" | "list";
 type PlannerGateName = "multi_calendar" | "visual_calendar" | "source_colors" | "conflicts" | "merge_cleanup" | "map";
+type PlannerActivationSurface =
+  | "planner"
+  | "travel"
+  | "saved_tournament"
+  | "guest_share"
+  | "calendar_feed"
+  | "team_hotel";
+type PlannerSourcePageType = "venue" | "tournament" | "travel" | "planner" | "book_travel" | "saved_tournament";
+type PlannerCtaType =
+  | "create_account"
+  | "sign_in"
+  | "open_tournament"
+  | "weekend_plan"
+  | "venue_map"
+  | "travel"
+  | "team_hotel"
+  | "add_first_event"
+  | "guest_share"
+  | "calendar_feed";
+type PlannerAuthState = "signed_out" | "unverified" | "verified";
+type PlannerContextType = "venue" | "tournament" | "travel" | "generic" | "team_hotel" | "saved_tournament";
 type PlannerReasonCode =
   | "unknown"
   | "email_verification_required"
@@ -110,8 +158,9 @@ type PlannerReasonCode =
   | "network_error"
   | "server_error";
 
-type FeedCountBucket = "0" | "1" | "2_3" | "4_plus";
-type LoadedEventCountBucket = "0" | "1_10" | "11_50" | "51_100" | "101_plus";
+type FeedCountBucket = "0" | "1" | "2" | "3_plus";
+type LoadedEventCountBucket = "0" | "1" | "2_5" | "6_10" | "11_25" | "26_plus";
+type ChildTeamCountBucket = "0" | "1" | "2" | "3_plus";
 
 export type TiAnalyticsEventPropertiesByName = {
   map_viewed: {
@@ -704,6 +753,206 @@ export type TiAnalyticsEventPropertiesByName = {
     surface: PlannerSurface;
     entitlement: PlannerEntitlement;
     event_source_type: "manual" | "ics" | "unknown";
+  };
+  weekend_planner_viewed: {
+    surface: "planner";
+    source_page_type: "planner";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+  };
+  weekend_planner_start_clicked: {
+    surface: "planner";
+    source_page_type: "planner";
+    cta_type: "add_first_event";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+  };
+  weekend_planner_auth_required_viewed: {
+    surface: "planner";
+    source_page_type: "planner";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    action_surface?: "entry_cta" | "planner";
+  };
+  weekend_planner_create_account_clicked: {
+    surface: "planner";
+    source_page_type: "planner";
+    cta_type: "create_account";
+    auth_state: "signed_out";
+    entitlement: "explorer";
+  };
+  weekend_planner_sign_in_clicked: {
+    surface: "planner";
+    source_page_type: "planner";
+    cta_type: "sign_in";
+    auth_state: "signed_out";
+    entitlement: "explorer";
+  };
+  weekend_planner_loaded: {
+    surface: "planner";
+    source_page_type: "planner";
+    auth_state: "verified";
+    entitlement: PlannerEntitlement;
+    view: Extract<PlannerView, "upcoming" | "this_weekend" | "season">;
+    loaded_event_count_bucket: LoadedEventCountBucket;
+    feed_count_bucket: FeedCountBucket;
+    child_team_count_bucket: ChildTeamCountBucket;
+  };
+  weekend_planner_empty_state_viewed: {
+    surface: "planner";
+    source_page_type: "planner";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    view: Extract<PlannerView, "upcoming" | "this_weekend" | "season">;
+    loaded_event_count_bucket: "0";
+    feed_count_bucket: FeedCountBucket;
+    child_team_count_bucket: ChildTeamCountBucket;
+  };
+  weekend_planner_contextual_cta_viewed: {
+    surface: PlannerActivationSurface;
+    source_page_type: PlannerSourcePageType;
+    cta_type: PlannerCtaType;
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    context_type: PlannerContextType;
+  };
+  weekend_planner_contextual_cta_clicked: {
+    surface: PlannerActivationSurface;
+    source_page_type: PlannerSourcePageType;
+    cta_type: PlannerCtaType;
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    context_type: PlannerContextType;
+  };
+  weekend_planner_prefill_started: {
+    surface: PlannerActivationSurface;
+    source_page_type: PlannerSourcePageType;
+    context_type: PlannerContextType;
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+  };
+  weekend_planner_prefill_saved: {
+    surface: PlannerActivationSurface;
+    source_page_type: PlannerSourcePageType;
+    context_type: PlannerContextType;
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+  };
+  weekend_planner_prefill_auth_required: {
+    surface: PlannerActivationSurface;
+    source_page_type: PlannerSourcePageType;
+    context_type: PlannerContextType;
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+  };
+  planner_guest_share_panel_viewed: {
+    surface: "guest_share";
+    source_page_type: "planner";
+    action_surface: "guest_share";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  planner_guest_share_created: {
+    surface: "guest_share";
+    source_page_type: "planner";
+    action_surface: "guest_share";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  planner_guest_share_copied: {
+    surface: "guest_share";
+    source_page_type: "planner";
+    action_surface: "guest_share";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  planner_guest_share_disabled: {
+    surface: "guest_share";
+    source_page_type: "planner";
+    action_surface: "guest_share";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  planner_guest_share_regenerated: {
+    surface: "guest_share";
+    source_page_type: "planner";
+    action_surface: "guest_share";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  planner_calendar_feed_panel_viewed: {
+    surface: "calendar_feed";
+    source_page_type: "planner";
+    action_surface: "calendar_feed";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  planner_calendar_feed_created: {
+    surface: "calendar_feed";
+    source_page_type: "planner";
+    action_surface: "calendar_feed";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  planner_calendar_feed_revealed: {
+    surface: "calendar_feed";
+    source_page_type: "planner";
+    action_surface: "calendar_feed";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  planner_calendar_feed_copied: {
+    surface: "calendar_feed";
+    source_page_type: "planner";
+    action_surface: "calendar_feed";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  planner_calendar_feed_disabled: {
+    surface: "calendar_feed";
+    source_page_type: "planner";
+    action_surface: "calendar_feed";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  planner_calendar_feed_regenerated: {
+    surface: "calendar_feed";
+    source_page_type: "planner";
+    action_surface: "calendar_feed";
+    auth_state: "verified" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  team_hotel_cta_viewed: {
+    surface: "team_hotel" | "travel";
+    source_page_type: "planner" | "book_travel" | "travel";
+    cta_type: "team_hotel";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    context_type: "team_hotel";
+  };
+  team_hotel_cta_clicked: {
+    surface: "team_hotel" | "travel";
+    source_page_type: "planner" | "book_travel" | "travel";
+    cta_type: "team_hotel";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    context_type: "team_hotel";
+  };
+  team_hotel_request_started: {
+    surface: "team_hotel";
+    source_page_type: "planner" | "book_travel";
+    action_surface: "team_hotel";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    context_type: "team_hotel";
+  };
+  team_hotel_request_submitted: {
+    surface: "team_hotel";
+    source_page_type: "planner" | "book_travel";
+    action_surface: "team_hotel";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    context_type: "team_hotel";
   };
   "Tournament Save Clicked": {
     tournamentId: string;

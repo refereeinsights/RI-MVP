@@ -90,12 +90,16 @@ type BookTravelTeamBlockFormProps = {
   surface?: "book_travel_page" | "weekend_planner";
   defaultOpen?: boolean;
   showToggle?: boolean;
+  entitlement?: "explorer" | "insider" | "weekend_pro" | "unknown";
+  authState?: "signed_out" | "unverified" | "verified";
 };
 
 export default function BookTravelTeamBlockForm({
   surface = "book_travel_page",
   defaultOpen = false,
   showToggle = true,
+  entitlement = "unknown",
+  authState = "signed_out",
 }: BookTravelTeamBlockFormProps = {}) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [form, setForm] = useState<TeamBlockFormState>(DEFAULT_FORM);
@@ -106,6 +110,7 @@ export default function BookTravelTeamBlockForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ requestId?: string | null } | null>(null);
   const startedRef = useRef(false);
+  const ctaViewedRef = useRef(false);
 
   const providerDestination = useMemo(
     () => buildProviderDestination(form.destination, matchedVenue),
@@ -116,24 +121,29 @@ export default function BookTravelTeamBlockForm({
     [form.destination, matchedVenue]
   );
 
+  useEffect(() => {
+    if (!showToggle || ctaViewedRef.current) return;
+    ctaViewedRef.current = true;
+    void sendTiAnalytics("team_hotel_cta_viewed", {
+      surface: surface === "weekend_planner" ? "team_hotel" : "travel",
+      source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",
+      cta_type: "team_hotel",
+      auth_state: authState,
+      entitlement,
+      context_type: "team_hotel",
+    });
+  }, [authState, entitlement, showToggle, surface]);
+
   function trackStart() {
     if (startedRef.current) return;
     startedRef.current = true;
-    void sendTiAnalytics("team_block_cta_click", {
-      page_type: surface === "weekend_planner" ? "weekend_planner" : "book_travel",
-      source: surface,
-      property_id: null,
-      checkin: form.checkin || null,
-      checkout: form.checkout || null,
-      destination: readableDestinationContext || form.destination || null,
-    });
-    void sendTiAnalytics("team_block_rfp_start", {
-      page_type: surface === "weekend_planner" ? "weekend_planner" : "book_travel",
-      source: surface,
-      property_id: null,
-      checkin: form.checkin || null,
-      checkout: form.checkout || null,
-      destination: readableDestinationContext || form.destination || null,
+    void sendTiAnalytics("team_hotel_request_started", {
+      surface: "team_hotel",
+      source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",
+      action_surface: "team_hotel",
+      auth_state: authState,
+      entitlement,
+      context_type: "team_hotel",
     });
   }
 
@@ -250,35 +260,17 @@ export default function BookTravelTeamBlockForm({
       }
 
       setSuccess({ requestId: payload.requestId ?? null });
-      void sendTiAnalytics("team_block_rfp_submit", {
-        page_type: surface === "weekend_planner" ? "weekend_planner" : "book_travel",
-        source: surface,
-        property_id: null,
-        checkin: formatDateToMmDdYyyy(checkInDate),
-        checkout: formatDateToMmDdYyyy(checkOutDate),
-        rooms: Number(form.rooms),
-        success: true,
-        request_id: payload.requestId ?? null,
-        error: null,
-        destination: readableDestinationContext || providerDestination,
+      void sendTiAnalytics("team_hotel_request_submitted", {
+        surface: "team_hotel",
+        source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",
+        action_surface: "team_hotel",
+        auth_state: authState,
+        entitlement,
+        context_type: "team_hotel",
       });
     } catch (submitError: any) {
       const message = submitError?.message || "Unable to submit the team hotel block request right now.";
-      const failedCheckIn = parseIsoDateInput(form.checkin);
-      const failedCheckOut = parseIsoDateInput(form.checkout);
       setError(message);
-      void sendTiAnalytics("team_block_rfp_submit", {
-        page_type: surface === "weekend_planner" ? "weekend_planner" : "book_travel",
-        source: surface,
-        property_id: null,
-        checkin: failedCheckIn ? formatDateToMmDdYyyy(failedCheckIn) : null,
-        checkout: failedCheckOut ? formatDateToMmDdYyyy(failedCheckOut) : null,
-        rooms: Number(form.rooms || 0),
-        success: false,
-        request_id: null,
-        error: message,
-        destination: readableDestinationContext || providerDestination || null,
-      });
     } finally {
       setSubmitting(false);
     }
@@ -299,6 +291,14 @@ export default function BookTravelTeamBlockForm({
             className={styles.toggleButton}
             aria-expanded={isOpen}
             onClick={() => {
+              void sendTiAnalytics("team_hotel_cta_clicked", {
+                surface: surface === "weekend_planner" ? "team_hotel" : "travel",
+                source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",
+                cta_type: "team_hotel",
+                auth_state: authState,
+                entitlement,
+                context_type: "team_hotel",
+              });
               setIsOpen((current) => !current);
               if (!isOpen) trackStart();
             }}

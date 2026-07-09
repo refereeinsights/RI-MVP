@@ -20,5 +20,11 @@ export default async function PlannerCalendarFeedPanel() {
     unverified: tierInfo.unverified,
   });
 
-  return <PlannerCalendarFeedPanelClient initialState={initialState} />;
+  return (
+    <PlannerCalendarFeedPanelClient
+      initialState={initialState}
+      entitlement={tierInfo.tier}
+      authState={tierInfo.unverified ? "unverified" : "verified"}
+    />
+  );
 }

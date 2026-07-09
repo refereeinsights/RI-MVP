@@ -122,6 +122,33 @@ const PLANNER_EVENTS = new Set([
   "planner_weekend_pro_gate_clicked",
   "planner_map_view_opened",
   "planner_calendar_event_detail_opened",
+  "weekend_planner_viewed",
+  "weekend_planner_start_clicked",
+  "weekend_planner_auth_required_viewed",
+  "weekend_planner_create_account_clicked",
+  "weekend_planner_sign_in_clicked",
+  "weekend_planner_loaded",
+  "weekend_planner_empty_state_viewed",
+  "weekend_planner_contextual_cta_viewed",
+  "weekend_planner_contextual_cta_clicked",
+  "weekend_planner_prefill_started",
+  "weekend_planner_prefill_saved",
+  "weekend_planner_prefill_auth_required",
+  "planner_guest_share_panel_viewed",
+  "planner_guest_share_created",
+  "planner_guest_share_copied",
+  "planner_guest_share_disabled",
+  "planner_guest_share_regenerated",
+  "planner_calendar_feed_panel_viewed",
+  "planner_calendar_feed_created",
+  "planner_calendar_feed_revealed",
+  "planner_calendar_feed_copied",
+  "planner_calendar_feed_disabled",
+  "planner_calendar_feed_regenerated",
+  "team_hotel_cta_viewed",
+  "team_hotel_cta_clicked",
+  "team_hotel_request_started",
+  "team_hotel_request_submitted",
 ]);
 
 function asText(value: unknown) {
@@ -383,27 +410,60 @@ export async function POST(request: Request) {
     const gateName = asTextWithLimit((props as any).gate_name, 32);
     const target = asTextWithLimit((props as any).target, 64);
     const reasonCode = asTextWithLimit((props as any).reason_code, 64);
+    const surface = asTextWithLimit((props as any).surface, 32);
+    const sourcePageType = asTextWithLimit((props as any).source_page_type, 32);
+    const ctaType = asTextWithLimit((props as any).cta_type, 64);
+    const authState = asTextWithLimit((props as any).auth_state, 32);
+    const actionSurface = asTextWithLimit((props as any).action_surface, 32);
+    const contextType = asTextWithLimit((props as any).context_type, 32);
+    const loadedEventCountBucket = asTextWithLimit((props as any).loaded_event_count_bucket, 16);
+    const feedCountBucket = asTextWithLimit((props as any).feed_count_bucket, 16);
+    const childTeamCountBucket = asTextWithLimit((props as any).child_team_count_bucket, 16);
 
-    const properties = {
-      ...(props as any),
-      ua: (props as any).ua ?? userAgent ?? null,
-      host: (props as any).host ?? host ?? null,
-      origin: (props as any).origin ?? origin ?? null,
-      referer: (props as any).referer ?? referer ?? null,
-    };
+    const hasPlannerActivationShape =
+      payload.event.startsWith("weekend_planner_") ||
+      payload.event.startsWith("planner_guest_share_") ||
+      payload.event.startsWith("planner_calendar_feed_") ||
+      payload.event.startsWith("team_hotel_");
+
+    const properties = hasPlannerActivationShape
+      ? {
+          surface,
+          source_page_type: sourcePageType,
+          cta_type: ctaType,
+          auth_state: authState,
+          entitlement,
+          action_surface: actionSurface,
+          context_type: contextType,
+          view,
+          loaded_event_count_bucket: loadedEventCountBucket,
+          feed_count_bucket: feedCountBucket,
+          child_team_count_bucket: childTeamCountBucket,
+          ua: userAgent ?? null,
+          host: host ?? null,
+          origin: origin ?? null,
+          referer: referer ?? null,
+        }
+      : {
+          ...(props as any),
+          ua: (props as any).ua ?? userAgent ?? null,
+          host: (props as any).host ?? host ?? null,
+          origin: (props as any).origin ?? origin ?? null,
+          referer: (props as any).referer ?? referer ?? null,
+        };
 
     try {
       await supabaseAdmin.from("ti_map_events" as any).insert({
         event_name: payload.event,
         properties,
-        page_type: "weekend_planner",
+        page_type: sourcePageType === "book_travel" ? "book_travel" : "weekend_planner",
         sport: null,
         state: null,
         href: pagePath ?? "/weekend-planner",
-        filter_name: view ?? gateName ?? null,
-        old_value: fromView ?? entitlement ?? null,
-        new_value: toView ?? reasonCode ?? null,
-        cta: target ?? null,
+        filter_name: view ?? gateName ?? contextType ?? null,
+        old_value: fromView ?? authState ?? entitlement ?? null,
+        new_value: toView ?? reasonCode ?? loadedEventCountBucket ?? null,
+        cta: ctaType ?? target ?? actionSurface ?? null,
       });
     } catch {
       // Ignore persistence failures; analytics must never block UX.
