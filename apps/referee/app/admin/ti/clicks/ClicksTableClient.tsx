@@ -26,7 +26,7 @@ const GROUPS: Array<{ label: string; match: (key: string) => boolean }> = [
       ["venue_page_viewed", "venue_select", "directions_click", "hotels_click", "venue_view_click", "nearest_airport_click", "venue_hotels_cta_clicked"].includes(key),
   },
   { label: "Weekend Share", match: (key) => key.startsWith("weekend_share_") || key === "weekend_share_clicked" },
-  { label: "Weekend Planner", match: (key) => key.startsWith("weekend_planner_") },
+  { label: "Weekend Planner", match: (key) => key.startsWith("weekend_planner_") || key.startsWith("weekend_plan_") },
   { label: "Conversion", match: (key) => key.startsWith("premium_") || key.startsWith("partner_") || key === "tier_gate_hit" },
   { label: "Owl's Eye", match: (key) => key.startsWith("owls_eye_") },
   { label: "Book Travel", match: (key) => key.startsWith("book_travel_") },

@@ -54,6 +54,7 @@ export default async function TiClicksPage() {
     { key: "homepage_sport_chip_clicked", label: "Homepage: sport chip clicked" },
     { key: "venue_page_viewed", label: "Venue page viewed" },
     { key: "weekend_page_opened", label: "Weekend page opened" },
+    { key: "weekend_plan_page_viewed", label: "Weekend plan page viewed" },
     // Tournament detail
     { key: "tournament_detail_page_viewed", label: "Tournament detail: page viewed" },
     { key: "tournament_detail_venue_map_clicked", label: "Tournament detail: venue map clicked" },
@@ -69,6 +70,8 @@ export default async function TiClicksPage() {
     { key: "tournament_map_back_to_tournament_clicked", label: "Tournament map: back to tournament clicked" },
     { key: "tournament_map_weekend_plan_clicked", label: "Tournament map: weekend plan clicked" },
     { key: "tournament_map_add_to_planner_clicked", label: "Tournament map: add to planner clicked" },
+    { key: "weekend_plan_save_clicked", label: "Weekend plan: save clicked" },
+    { key: "weekend_plan_saved", label: "Weekend plan: saved" },
     // Venue map
     { key: "venue_map_opened", label: "Venue map opened" },
     { key: "venue_map_loaded", label: "Venue map loaded" },

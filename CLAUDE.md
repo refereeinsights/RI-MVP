@@ -703,6 +703,41 @@ Latest Step 2 API run (local `localhost:3001`) result:
   - Confirm no Stripe checkout is triggered by any of these CTAs.
   - Confirm no user-facing copy says `RFP`.
 
+### Stage 3.7C Weekend Plan Funnel Analytics UAT
+
+- [ ] Tournament detail attribution
+  - Open a TI tournament detail page such as `/tournaments/puma-pro16-nxtpro-session-2-richmond-va`.
+  - Confirm `tournament_detail_page_viewed` still fires.
+  - Confirm `weekend_planner_contextual_cta_viewed` still fires for the planning block.
+  - Confirm the contextual CTA viewed payload now includes optional `tournament_id` and `tournament_slug`.
+  - Click `Plan this tournament` and confirm the link now includes `source=tournament_detail`.
+  - Confirm `tournament_detail_weekend_plan_clicked` and `weekend_planner_contextual_cta_clicked` still fire.
+- [ ] Weekend plan arrival
+  - After clicking `Plan this tournament`, confirm `/weekend/[slug]` fires `weekend_plan_page_viewed` once.
+  - Confirm the payload includes `page_type="weekend_plan"`, `tournament_id`, `tournament_slug`, `source_page="tournament_detail"`, and `has_existing_plan`.
+  - Reload the page and confirm the tracker does not double-fire from client re-renders within a single load.
+  - Open `/weekend/[slug]` directly without the source param and confirm `source_page` falls back to `direct` or `unknown`, not `tournament_detail`.
+- [ ] Share coexistence
+  - Open a shared weekend URL where `source=share` or `utm_source=share`.
+  - Confirm `weekend_page_opened` still fires.
+  - Confirm `weekend_plan_page_viewed` also fires on the same load.
+  - Confirm the two events can coexist without suppressing each other.
+- [ ] Save click + save success
+  - On `/weekend/[slug]`, click `Add to planner` or `Update planning anchor`.
+  - Confirm `weekend_plan_save_clicked` fires once per submit.
+  - Confirm the payload includes `tournament_id`, `tournament_slug`, `selected_venue_id_present`, and `save_mode`.
+  - Complete a successful save and confirm `weekend_plan_saved` fires once after success.
+  - Confirm `weekend_plan_saved` fires from the client after the server action resolves, not on initial render of an already-saved state.
+- [ ] Planner continuation
+  - Open `/weekend-planner` after saving.
+  - Confirm existing `weekend_planner_viewed` and `weekend_planner_loaded` still fire.
+  - Create a manual event and confirm `planner_manual_event_created`.
+  - Connect a calendar feed and confirm `planner_calendar_feed_connect_succeeded`.
+- [ ] Admin reporting + privacy
+  - Confirm `weekend_plan_page_viewed`, `weekend_plan_save_clicked`, and `weekend_plan_saved` appear on `/admin/ti/clicks`.
+  - Confirm these rows group under Weekend Planner rather than `Other`.
+  - Confirm payloads omit user IDs, email addresses, calendar/source IDs, share tokens, notes, event titles, and raw referrer URLs.
+
 ### Stage 3.5 HotelPlanner Provider-Only UAT (Step 1 - Search Endpoint)
 
 - [ ] Environment + compile checks

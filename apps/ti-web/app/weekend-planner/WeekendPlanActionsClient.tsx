@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useFormState } from "react-dom";
-import { archiveWeekendPlanAction, updateWeekendPlanLodgingAction, updateWeekendPlanNotesAction } from "./actions";
-import type { SavePlanState } from "@/app/weekend/[slug]/actions";
+import { archiveWeekendPlanAction, type PlannerEditorState, updateWeekendPlanLodgingAction, updateWeekendPlanNotesAction } from "./actions";
 
 function isValidIsoDate(value: string | null | undefined) {
   const raw = String(value ?? "").trim();
@@ -95,9 +94,9 @@ export default function WeekendPlanActionsClient(props: {
     return bound as any;
   }, [planId]);
 
-  const [notesState, notesDispatch] = useFormState<SavePlanState>(notesAction, { status: "idle" });
-  const [lodgingState, lodgingDispatch] = useFormState<SavePlanState>(lodgingAction, { status: "idle" });
-  const [archiveState, archiveDispatch] = useFormState<SavePlanState>(archiveAction, { status: "idle" });
+  const [notesState, notesDispatch] = useFormState<PlannerEditorState>(notesAction, { status: "idle" });
+  const [lodgingState, lodgingDispatch] = useFormState<PlannerEditorState>(lodgingAction, { status: "idle" });
+  const [archiveState, archiveDispatch] = useFormState<PlannerEditorState>(archiveAction, { status: "idle" });
 
   return (
     <div style={{ marginTop: 8, display: "grid", gap: 8 }}>

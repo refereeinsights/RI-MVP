@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import { archiveWeekendPlan, updateWeekendPlanLodging, updateWeekendPlanNotes } from "@/lib/weekendPlans";
-import type { SavePlanState } from "@/app/weekend/[slug]/actions";
+
+export type PlannerEditorState = { status: "idle" | "saved" | "error"; error?: string };
 
 const MAX_NOTES_CHARS = 3000;
 const MAX_LODGING_NOTES_CHARS = 3000;
@@ -41,9 +42,9 @@ async function requireVerifiedPlannerUser() {
 
 export async function updateWeekendPlanNotesAction(
   params: { planId: string },
-  _prevState: SavePlanState,
+  _prevState: PlannerEditorState,
   formData: FormData,
-): Promise<SavePlanState> {
+): Promise<PlannerEditorState> {
   const planId = String(params.planId ?? "").trim();
   if (!planId) return { status: "error", error: "Missing plan." };
 
@@ -65,9 +66,9 @@ export async function updateWeekendPlanNotesAction(
 
 export async function archiveWeekendPlanAction(
   params: { planId: string },
-  _prevState: SavePlanState,
+  _prevState: PlannerEditorState,
   _formData: FormData,
-): Promise<SavePlanState> {
+): Promise<PlannerEditorState> {
   const planId = String(params.planId ?? "").trim();
   if (!planId) return { status: "error", error: "Missing plan." };
 
@@ -83,9 +84,9 @@ export async function archiveWeekendPlanAction(
 
 export async function updateWeekendPlanLodgingAction(
   params: { planId: string },
-  _prevState: SavePlanState,
+  _prevState: PlannerEditorState,
   formData: FormData,
-): Promise<SavePlanState> {
+): Promise<PlannerEditorState> {
   const planId = String(params.planId ?? "").trim();
   if (!planId) return { status: "error", error: "Missing plan." };
 

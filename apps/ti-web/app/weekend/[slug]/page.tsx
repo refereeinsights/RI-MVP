@@ -6,6 +6,7 @@ import { parseVenueParam } from "@/lib/weekendShare";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import WeekendShareOpenTracker from "./WeekendShareOpenTracker";
+import WeekendPlanViewTracker from "./WeekendPlanViewTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import PrintButton from "@/components/PrintButton";
 import WeekendPlanningCtasClient from "./WeekendPlanningCtasClient";
@@ -364,6 +365,12 @@ export default async function WeekendPage({
     String(searchParams?.utm_source ?? "").trim().toLowerCase() === "share")
     ? "share"
     : "unknown";
+  const weekendPlanSourcePage = (() => {
+    const source = String(searchParams?.source ?? "").trim().toLowerCase();
+    if (source === "tournament_detail") return "tournament_detail" as const;
+    if (!source) return "direct" as const;
+    return "unknown" as const;
+  })();
 
   const returnTo = (() => {
     const qp = new URLSearchParams();
@@ -381,6 +388,12 @@ export default async function WeekendPage({
 
   return (
     <main className="ti-shell" style={{ paddingBottom: 40 }}>
+      <WeekendPlanViewTracker
+        tournamentId={tournament.id}
+        tournamentSlug={tournament.slug}
+        sourcePage={weekendPlanSourcePage}
+        hasExistingPlan={planExists}
+      />
       <WeekendShareOpenTracker
         tournamentSlug={tournament.slug}
         venue={resolvedVenueKey}
@@ -499,6 +512,7 @@ export default async function WeekendPage({
               initialSaved={initialSaved}
               planExists={planExists}
               tournamentId={tournament.id}
+              tournamentSlug={tournament.slug}
               selectedVenueId={selectedVenueId}
               canSave={canSaveWeekendPlan}
               isAuthed={isAuthed}
@@ -557,6 +571,7 @@ export default async function WeekendPage({
               initialSaved={initialSaved}
               planExists={planExists}
               tournamentId={tournament.id}
+              tournamentSlug={tournament.slug}
               selectedVenueId={null}
               canSave={canSaveWeekendPlan}
               isAuthed={isAuthed}

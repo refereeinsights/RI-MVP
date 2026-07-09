@@ -46,6 +46,7 @@ export type TiAnalyticsEventName =
   | "team_block_rfp_submit"
   | "weekend_share_clicked"
   | "weekend_page_opened"
+  | "weekend_plan_page_viewed"
   | "weekend_share_venue_map_clicked"
   | "weekend_share_travel_clicked"
   | "weekend_share_planner_hub_clicked"
@@ -55,6 +56,8 @@ export type TiAnalyticsEventName =
   | "tournament_map_weekend_plan_clicked"
   | "tournament_map_back_to_tournament_clicked"
   | "tournament_map_add_to_planner_clicked"
+  | "weekend_plan_save_clicked"
+  | "weekend_plan_saved"
   | "weekend_planner_saved_tournament_clicked"
   | "weekend_planner_saved_weekend_plan_clicked"
   | "weekend_planner_saved_venue_map_clicked"
@@ -532,6 +535,13 @@ export type TiAnalyticsEventPropertiesByName = {
     utm_source: string | null;
     utm_medium: string | null;
   };
+  weekend_plan_page_viewed: {
+    page_type: "weekend_plan";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "tournament_detail" | "direct" | "unknown";
+    has_existing_plan: boolean;
+  };
   weekend_share_venue_map_clicked: {
     page_type: "weekend_share";
     tournament_id: string;
@@ -624,6 +634,20 @@ export type TiAnalyticsEventPropertiesByName = {
     source_page: "tournament_map";
     cta: "add_to_planner";
     href: string;
+  };
+  weekend_plan_save_clicked: {
+    page_type: "weekend_plan";
+    tournament_id: string;
+    tournament_slug: string;
+    selected_venue_id_present: boolean;
+    save_mode: "create" | "update";
+  };
+  weekend_plan_saved: {
+    page_type: "weekend_plan";
+    tournament_id: string;
+    tournament_slug: string;
+    selected_venue_id_present: boolean;
+    save_mode: "create" | "update";
   };
   weekend_planner_saved_tournament_clicked: {
     page_type: "weekend_planner";
@@ -818,6 +842,8 @@ export type TiAnalyticsEventPropertiesByName = {
     auth_state?: PlannerAuthState;
     entitlement?: PlannerEntitlement;
     context_type: PlannerContextType;
+    tournament_id?: string;
+    tournament_slug?: string;
   };
   weekend_planner_contextual_cta_clicked: {
     surface: PlannerActivationSurface;
@@ -826,6 +852,8 @@ export type TiAnalyticsEventPropertiesByName = {
     auth_state?: PlannerAuthState;
     entitlement?: PlannerEntitlement;
     context_type: PlannerContextType;
+    tournament_id?: string;
+    tournament_slug?: string;
   };
   weekend_planner_prefill_started: {
     surface: PlannerActivationSurface;

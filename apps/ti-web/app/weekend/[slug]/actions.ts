@@ -5,13 +5,20 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import { saveWeekendPlanForTournament } from "@/lib/weekendPlans";
 
-export type SavePlanState = { status: "idle" | "saved" | "error"; error?: string };
+export type WeekendPlanSaveState =
+  | { status: "idle" }
+  | {
+      status: "saved";
+      saveMode: "create" | "update";
+      selectedVenueIdPresent: boolean;
+    }
+  | { status: "error"; error?: string };
 
 export async function saveWeekendPlanAction(
-  params: { tournamentId: string; selectedVenueId: string | null },
-  _prevState: SavePlanState,
+  params: { tournamentId: string; selectedVenueId: string | null; planExists: boolean },
+  _prevState: WeekendPlanSaveState,
   _formData: FormData,
-): Promise<SavePlanState> {
+): Promise<WeekendPlanSaveState> {
   const tournamentId = String(params.tournamentId ?? "").trim();
   const selectedVenueId = params.selectedVenueId ? String(params.selectedVenueId).trim() : null;
   if (!tournamentId) return { status: "error", error: "Missing tournament." };
@@ -36,5 +43,9 @@ export async function saveWeekendPlanAction(
 
   // Keep the Weekend Planner hub in sync with anchor updates.
   revalidatePath("/weekend-planner");
-  return { status: "saved" };
+  return {
+    status: "saved",
+    saveMode: params.planExists ? "update" : "create",
+    selectedVenueIdPresent: Boolean(selectedVenueId),
+  };
 }

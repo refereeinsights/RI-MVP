@@ -32,9 +32,12 @@ export default function TournamentPlanningCtasClient(props: {
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
   const weekendHref = (() => {
     const base = `/weekend/${encodeURIComponent(slug)}`;
+    const qp = new URLSearchParams();
     const primaryVenueId = String(props.primaryVenueId ?? "").trim();
-    if (!primaryVenueId) return base;
-    return `${base}?venue=${encodeURIComponent(primaryVenueId)}`;
+    if (primaryVenueId) qp.set("venue", primaryVenueId);
+    qp.set("source", "tournament_detail");
+    const qs = qp.toString();
+    return qs ? `${base}?${qs}` : base;
   })();
   const travelHref = (() => {
     const qp = new URLSearchParams();
@@ -63,6 +66,8 @@ export default function TournamentPlanningCtasClient(props: {
       auth_state: props.authState,
       entitlement: props.entitlement,
       context_type: "tournament",
+      tournament_id: props.tournamentId,
+      tournament_slug: slug,
     });
     void trackTiEvent("team_hotel_cta_viewed", {
       surface: "tournament",
@@ -97,6 +102,8 @@ export default function TournamentPlanningCtasClient(props: {
               auth_state: props.authState,
               entitlement: props.entitlement,
               context_type: "tournament",
+              tournament_id: props.tournamentId,
+              tournament_slug: slug,
             });
             void trackTiEvent("tournament_detail_weekend_plan_clicked", {
               page_type: "tournament_detail",
