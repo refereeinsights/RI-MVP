@@ -1769,7 +1769,7 @@
   margin: 0 auto;
   border-radius: 16px;
   border: 1px solid rgba(0,0,0,0.18);
-  background: rgba(6, 31, 20, 0.92);
+  background: rgba(6, 31, 20, 0.98);
   box-shadow: 0 18px 40px rgba(0,0,0,0.28);
   padding: 10px;
   display: grid;
@@ -1797,11 +1797,11 @@
   justify-content: center;
   min-height: 44px;
   border-radius: 14px;
-  background: rgba(255,255,255,0.10);
-  color: rgba(255,255,255,0.92);
+  background: #163827;
+  color: #f8fafc;
   text-decoration: none;
   font-weight: 900;
-  border: 1px solid rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.16);
 }
 
 @media (min-width: 721px) {

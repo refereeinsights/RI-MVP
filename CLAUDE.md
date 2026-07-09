@@ -2387,6 +2387,11 @@ Test by finding any tournament with a year in its slug and confirming sibling-ye
 
 - Event delete may use a native browser confirmation dialog (`window.confirm()`); this can interrupt automation flows. Note it if encountered.
 
+### Hotel / Travel CTA UAT
+- On `/weekend/[slug]`, the `Plan your stay` row should render as real buttons on mobile and desktop, not plain text links.
+- Verify `Find hotels near the venue`, `Find rentals`, `Open venue map →`, `Travel search →`, and `Weekend Planner →` all have visible button styling and remain tappable.
+- On tournament detail mobile, check the sticky CTA bar for visual bleed-through. The sticky container and `Hotels` button should appear solid enough that underlying content does not show through.
+
 ## What to Flag
 - Any page returning a 500 error or blank white screen
 - Broken images or missing assets

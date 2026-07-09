@@ -1,0 +1,53 @@
+.ctaRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.primaryCta,
+.secondaryCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  min-height: 40px;
+  font-size: 13px;
+}
+
+.primaryCta {
+  background: #0f6b4a;
+  color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+}
+
+.primaryCta:hover {
+  background: #0d5c40;
+  color: #fff;
+}
+
+.secondaryCta {
+  background: #fff;
+  color: #0b1f14;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.secondaryCta:hover {
+  background: #f8fafc;
+  color: #0b1f14;
+}
+
+@media (max-width: 760px) {
+  .ctaRow {
+    display: grid;
+  }
+
+  .primaryCta,
+  .secondaryCta {
+    width: 100%;
+  }
+}

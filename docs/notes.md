@@ -4390,3 +4390,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added `tournament_detail_hotel_cta_clicked` as a typed TI analytics event with privacy-safe placement fields only: `surface`, `source_page_type`, `cta_type`, `cta_location`, and `context_type`.
   - Added `apps/ti-web/app/tournaments/[slug]/TournamentDetailHotelCtaClient.tsx` so both stay-close hotel CTA variants on tournament detail pages emit the new event without changing the existing `/go/hotels` destination or blocking navigation.
   - Allowlisted the event for `public.ti_map_events` persistence in `apps/ti-web/app/api/analytics/route.ts` and surfaced it in `/admin/ti/clicks` via `apps/referee/app/admin/ti/clicks/page.tsx`; existing `/go/hotels` outbound logging to `ti_outbound_clicks` remains unchanged.
+- 2026-07-09: TI mobile-first UAT visual bug follow-up.
+  - Fixed the `/weekend/[slug]` “Plan your stay” CTA row so the hotel, rental, venue map, travel, and planner links render as actual buttons without relying on the global `.card .primaryLink/.secondaryLink` selector.
+  - Added a local CSS module for `apps/ti-web/app/weekend/[slug]/WeekendPlanningCtasClient.tsx` to keep the fix scoped and preserve mobile stacked button behavior.
+  - Increased the opacity/solidity of `.tournamentStickyCta__inner` and `.tournamentStickyCta__secondary` in `apps/ti-web/app/tournaments/tournaments.css` so the mobile sticky hotels CTA no longer visually bleeds into underlying tournament content.

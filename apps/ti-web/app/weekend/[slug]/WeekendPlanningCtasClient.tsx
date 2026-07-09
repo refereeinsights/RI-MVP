@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import styles from "./WeekendPlanningCtasClient.module.css";
 
 export default function WeekendPlanningCtasClient(props: {
   tournamentId: string;
@@ -17,10 +18,10 @@ export default function WeekendPlanningCtasClient(props: {
   if (!slug) return null;
 
   return (
-    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+    <div className={styles.ctaRow}>
       {props.hotelsHref ? (
         <a
-          className="primaryLink"
+          className={styles.primaryCta}
           href={props.hotelsHref}
           target="_blank"
           rel="noopener noreferrer sponsored"
@@ -42,7 +43,7 @@ export default function WeekendPlanningCtasClient(props: {
 
       {props.rentalsHref ? (
         <a
-          className="secondaryLink"
+          className={styles.secondaryCta}
           href={props.rentalsHref}
           target="_blank"
           rel="noopener noreferrer sponsored"
@@ -63,7 +64,7 @@ export default function WeekendPlanningCtasClient(props: {
       ) : null}
 
       <Link
-        className="secondaryLink"
+        className={styles.secondaryCta}
         href={props.venueMapHref}
         onClick={() => {
           void trackTiEvent("weekend_share_venue_map_clicked", {
@@ -80,7 +81,7 @@ export default function WeekendPlanningCtasClient(props: {
       </Link>
 
       <Link
-        className="secondaryLink"
+        className={styles.secondaryCta}
         href={props.bookTravelHref}
         onClick={() => {
           void trackTiEvent("weekend_share_travel_clicked", {
@@ -98,7 +99,7 @@ export default function WeekendPlanningCtasClient(props: {
       </Link>
 
       <Link
-        className="secondaryLink"
+        className={styles.secondaryCta}
         href={props.plannerHubHref}
         onClick={() => {
           void trackTiEvent("weekend_share_planner_hub_clicked", {
