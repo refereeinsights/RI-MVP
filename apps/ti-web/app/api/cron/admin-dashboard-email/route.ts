@@ -26,7 +26,15 @@ type PublicDirectoryBySportRow = {
 type TiMapEventRow = {
   event_name: string;
   properties: Record<string, unknown> | null;
+  created_at?: string;
 };
+
+type HotelOutboundClickRow = {
+  source_surface: string | null;
+};
+
+type HealthStatus = "ok" | "warn" | "neutral";
+type HealthItem = { status: HealthStatus; label: string; detail: string };
 
 type WeekendPlannerDailySummary =
   | {
@@ -93,6 +101,12 @@ type WeekendPlannerDailySummary =
         clicks: number;
         ctr: number | null;
       }>;
+      hotelHandoffs: {
+        total: number;
+        bySurface: Record<string, number>;
+      };
+      partialWindowNote: string | null;
+      healthSummary: HealthItem[];
       alerts: string[];
       missingTracking: string[];
     }
@@ -234,12 +248,21 @@ async function loadWeekendPlannerDailySummary(params: {
       "planner_weekend_pro_gate_clicked",
     ];
 
-    const { data, error } = await supabaseAdmin
-      .from("ti_map_events" as any)
-      .select("event_name,properties")
-      .in("event_name", trackedEventNames)
-      .gte("created_at", params.yesterdayStartUtcIso)
-      .lt("created_at", params.todayStartUtcIso);
+    const [{ data, error }, { data: hotelClickData }] = await Promise.all([
+      supabaseAdmin
+        .from("ti_map_events" as any)
+        .select("event_name,properties,created_at")
+        .in("event_name", trackedEventNames)
+        .gte("created_at", params.yesterdayStartUtcIso)
+        .lt("created_at", params.todayStartUtcIso),
+      supabaseAdmin
+        .from("ti_outbound_clicks" as any)
+        .select("source_surface")
+        .eq("destination_type", "hotels")
+        .eq("partner", "hotelplanner")
+        .gte("created_at", params.yesterdayStartUtcIso)
+        .lt("created_at", params.todayStartUtcIso),
+    ]);
 
     if (error) {
       return { ok: false, windowLabel, error: error.message || "Failed to load weekend planner analytics." };
@@ -276,6 +299,32 @@ async function loadWeekendPlannerDailySummary(params: {
     const plannerGateViews = countEvents(rows, "planner_weekend_pro_gate_viewed");
     const plannerGateClicks = countEvents(rows, "planner_weekend_pro_gate_clicked");
     const activations = manualEventsAdded + calendarFeedsConnected;
+
+    // Hotel outbound handoffs
+    const hotelClickRows = ((hotelClickData ?? []) as HotelOutboundClickRow[]);
+    const hotelHandoffsTotal = hotelClickRows.length;
+    const hotelBySurface: Record<string, number> = {};
+    for (const row of hotelClickRows) {
+      const surf = row.source_surface ?? "unknown";
+      hotelBySurface[surf] = (hotelBySurface[surf] ?? 0) + 1;
+    }
+
+    // Partial window detection: find earliest event timestamp in the window
+    const windowStartMs = new Date(params.yesterdayStartUtcIso).getTime();
+    let firstEventMs: number | null = null;
+    for (const row of rows) {
+      if (row.created_at) {
+        const ms = new Date(row.created_at).getTime();
+        if (firstEventMs === null || ms < firstEventMs) firstEventMs = ms;
+      }
+    }
+    const hoursUntilFirstEvent = firstEventMs !== null ? (firstEventMs - windowStartMs) / (1000 * 60 * 60) : null;
+    const partialWindowNote =
+      rows.length === 0
+        ? "No analytics events found in this window — tracking may not yet be active."
+        : hoursUntilFirstEvent !== null && hoursUntilFirstEvent > 6
+        ? `Analytics tracking started ~${Math.round(hoursUntilFirstEvent)}h into this window — counts are partial.`
+        : null;
 
     const arrivalsBySource: Record<"tournament_detail" | "direct" | "unknown", number> = {
       tournament_detail: 0,
@@ -325,7 +374,46 @@ async function loadWeekendPlannerDailySummary(params: {
       .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions || a.tournamentSlug.localeCompare(b.tournamentSlug))
       .slice(0, 5);
 
+    const healthSummary: HealthItem[] = [
+      {
+        status: detailViews > 0 ? "ok" : "warn",
+        label: "Tournament traffic",
+        detail: detailViews > 0 ? `${formatInt(detailViews)} detail views` : "No tournament detail views recorded",
+      },
+      {
+        status: plannerCtaImpressions > 0 ? "ok" : detailViews > 100 ? "warn" : "neutral",
+        label: "Planner CTA",
+        detail:
+          plannerCtaImpressions > 0
+            ? `${formatInt(plannerCtaImpressions)} impressions (${formatRatioPercent(plannerCtaImpressions, detailViews)} of detail views)`
+            : detailViews > 100
+            ? "Zero impressions despite healthy traffic — CTA may not be rendering"
+            : "No data",
+      },
+      {
+        status: activations > 0 ? "ok" : "warn",
+        label: "Planner activations",
+        detail: activations > 0 ? `${formatInt(activations)} (manual events + calendar connects)` : "Zero activations",
+      },
+      {
+        status: hotelHandoffsTotal > 0 ? "ok" : "neutral",
+        label: "Hotel handoffs",
+        detail: hotelHandoffsTotal > 0 ? `${formatInt(hotelHandoffsTotal)} /go/hotels clicks` : "Zero HotelPlanner handoffs",
+      },
+      {
+        status: teamHotelSubmitted > 0 ? "ok" : "neutral",
+        label: "Team hotel requests",
+        detail: teamHotelSubmitted > 0 ? `${formatInt(teamHotelSubmitted)} submitted` : "Zero team hotel block requests",
+      },
+    ];
+
     const alerts: string[] = [];
+    if (detailViews > 100 && plannerViews === 0) {
+      alerts.push("Tournament traffic is healthy but Weekend Planner views are zero — analytics may be partial or the page is inaccessible.");
+    }
+    if (detailViews > 100 && plannerCtaImpressions === 0) {
+      alerts.push("Tournament detail views are healthy but Planning CTA impressions are zero — the CTA may not be rendering.");
+    }
     if (plannerCtaImpressions >= 100 && plannerClicks / Math.max(plannerCtaImpressions, 1) < 0.005) {
       alerts.push("Planning CTA CTR is below 0.5% on 100+ impressions.");
     }
@@ -410,6 +498,9 @@ async function loadWeekendPlannerDailySummary(params: {
         premiumClicks,
       },
       topTournamentPages,
+      hotelHandoffs: { total: hotelHandoffsTotal, bySurface: hotelBySurface },
+      partialWindowNote,
+      healthSummary,
       alerts,
       missingTracking,
     };
@@ -436,6 +527,17 @@ function renderWeekendPlannerSummaryHtml(params: {
       `<div style="color:#b91c1c;font-weight:800;">Error loading Weekend Planner metrics: ${htmlEscape(summary.error)}</div>`,
     );
   }
+
+  const healthIcon: Record<HealthStatus, string> = { ok: "✅", warn: "⚠️", neutral: "—" };
+  const healthBlockHtml = `<div style="margin-bottom:8px;padding:10px 12px;background:#f1f5f9;border-radius:8px;font-size:13px;line-height:1.6;">
+    ${summary.healthSummary
+      .map(
+        (item) =>
+          `<div><span style="margin-right:6px;">${healthIcon[item.status]}</span><strong>${htmlEscape(item.label)}:</strong> ${htmlEscape(item.detail)}</div>`,
+      )
+      .join("")}
+    ${summary.partialWindowNote ? `<div style="margin-top:6px;color:#92400e;font-size:12px;">⚠️ ${htmlEscape(summary.partialWindowNote)}</div>` : ""}
+  </div>`;
 
   const snapshotHtml = renderMetricRows([
     { label: "Date window", value: summary.windowLabel },
@@ -510,6 +612,18 @@ function renderWeekendPlannerSummaryHtml(params: {
     { label: "Weekend arrivals unknown", value: summary.activationBySource.arrivalsBySource.unknown },
   ]);
 
+  const hotelHandoffRows: Array<{ label: string; value: number | string; note?: string }> = [
+    { label: "/go/hotels handoffs (HotelPlanner)", value: summary.hotelHandoffs.total },
+  ];
+  for (const [surface, count] of Object.entries(summary.hotelHandoffs.bySurface).sort((a, b) => b[1] - a[1])) {
+    hotelHandoffRows.push({
+      label: `  ↳ ${surface}`,
+      value: count,
+      note: formatRatioPercent(count, summary.hotelHandoffs.total),
+    });
+  }
+  const hotelHandoffsHtml = renderMetricRows(hotelHandoffRows);
+
   const teamHotelHtml = renderMetricRows([
     { label: "Team hotel CTA impressions", value: summary.teamHotel.ctaImpressions },
     {
@@ -558,12 +672,15 @@ function renderWeekendPlannerSummaryHtml(params: {
         </table>`
       : `<div style="color:#64748b;font-size:13px;">No public tournament slug attribution was available yesterday.</div>`;
 
+  const allZero = summary.snapshot.plannerViews === 0 && summary.tournamentFunnel.detailViews === 0;
   const alertsHtml =
     summary.alerts.length > 0
       ? `<ul style="margin:0;padding-left:18px;color:#92400e;font-size:13px;line-height:1.5;">${summary.alerts
           .map((alert) => `<li>${htmlEscape(alert)}</li>`)
           .join("")}</ul>`
-      : `<div style="color:#166534;font-size:13px;">No threshold alerts triggered yesterday.</div>`;
+      : allZero
+      ? `<div style="color:#92400e;font-size:13px;">All metrics are zero — analytics tracking may not yet be active for this window.</div>`
+      : `<div style="color:#166534;font-size:13px;">No threshold alerts triggered.</div>`;
 
   const missingTrackingHtml =
     summary.missingTracking.length > 0
@@ -576,11 +693,13 @@ function renderWeekendPlannerSummaryHtml(params: {
     "Weekend Planner",
     `Daily operator summary for ${summary.windowLabel}. Activation counts are event counts, not de-duplicated users.`,
     [
+      healthBlockHtml,
       renderSectionCard("Snapshot", null, snapshotHtml),
       renderSectionCard("Tournament → Weekend Planner Funnel", null, tournamentFunnelHtml),
       renderSectionCard("Direct Weekend Planner Entry Funnel", null, directEntryHtml),
       renderSectionCard("First Planner Actions", null, firstActionsHtml),
       renderSectionCard("Activation by Source", null, activationBySourceHtml),
+      renderSectionCard("Individual Hotel Handoffs (HotelPlanner)", null, hotelHandoffsHtml),
       renderSectionCard("Team Hotel Blocks", null, teamHotelHtml),
       renderSectionCard("Weekend Pro Interest", null, weekendProHtml),
       renderSectionCard("Top Tournament Pages by Planner Clicks", null, topPagesHtml),

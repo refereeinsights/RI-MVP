@@ -15,6 +15,14 @@ Maintenance rules:
 
 ## 2026-07-10
 
+- Admin dashboard email: four report improvements
+  - Updated: `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`
+  - Added daily health block at top of Weekend Planner section (5 status lines: tournament traffic, planner CTA, activations, hotel handoffs, team hotel requests).
+  - Added Individual Hotel Handoffs section querying `ti_outbound_clicks` for HotelPlanner `/go/hotels` clicks, broken down by source surface.
+  - Added partial-window detection: if first analytics event arrived >6h into the window, or no events exist, a note appears in the health block explaining counts are partial.
+  - Added two new alert conditions: healthy tournament traffic + zero planner views (analytics may be broken); healthy traffic + zero CTA impressions (CTA may not be rendering).
+  - Improved alerts empty state: distinguishes "all clear" from "all zeros — tracking may not be active yet".
+
 - Admin dashboard email: fix off-by-one date window bug
   - Updated: `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`
   - Bug: `startOfDayInTimeZone` used `timeZoneName: "shortOffset"` which returns `"GMT-7"` in Node.js. The regex `/GMT([+-]\d{2}):(\d{2})/` requires two-digit hours and a colon, so it failed to match. The function fell back to midnight UTC instead of midnight PT, causing the query window and label to be off by a full day (report showed Jul 8 instead of Jul 9).
