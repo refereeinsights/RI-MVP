@@ -694,7 +694,7 @@ function startOfDayInTimeZone(d: Date, timeZone: string) {
   const guessUtc = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
   const offsetParts = new Intl.DateTimeFormat("en-US", {
     timeZone,
-    timeZoneName: "shortOffset",
+    timeZoneName: "longOffset",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,

@@ -13,6 +13,13 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-07-10
+
+- Admin dashboard email: fix off-by-one date window bug
+  - Updated: `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`
+  - Bug: `startOfDayInTimeZone` used `timeZoneName: "shortOffset"` which returns `"GMT-7"` in Node.js. The regex `/GMT([+-]\d{2}):(\d{2})/` requires two-digit hours and a colon, so it failed to match. The function fell back to midnight UTC instead of midnight PT, causing the query window and label to be off by a full day (report showed Jul 8 instead of Jul 9).
+  - Fix: changed `"shortOffset"` to `"longOffset"`. `longOffset` consistently returns `"GMT-07:00"` format which the existing regex handles correctly.
+
 ## 2026-07-02
 
 - TI Weekend Planner nav discovery + team-travel bridge:
