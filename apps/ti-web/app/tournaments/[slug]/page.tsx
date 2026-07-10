@@ -1041,7 +1041,12 @@ async function TournamentVenueDetails({
 
   return (
     <>
-      <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={headerHotelsHref} />
+      <TournamentDetailStickyMapCta
+        mapHref={mapPreviewHref}
+        mapLabel={mapPrimaryLabel}
+        hotelsHref={headerHotelsHref}
+        offsetForSignup={showLoggedOut}
+      />
 
       {showLoggedOutUpsell ? (
         <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>

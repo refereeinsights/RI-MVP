@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { sendTiAnalytics } from "@/lib/analytics";
 
@@ -10,62 +10,94 @@ type Props = {
   mapHref: string;
   mapLabel: string;
   hotelsHref?: string | null;
+  offsetForSignup?: boolean;
 };
 
 const MOBILE_MAX_WIDTH_PX = 720;
+const MOBILE_QUERY = `(max-width: ${MOBILE_MAX_WIDTH_PX}px)`;
+const TEASER_PASSED_OFFSET_PX = 8;
+const FOOTER_HIDE_BUFFER_PX = 24;
 
-export default function TournamentDetailStickyMapCta({ mapHref, mapLabel, hotelsHref }: Props) {
+export default function TournamentDetailStickyMapCta({
+  mapHref,
+  mapLabel,
+  hotelsHref,
+  offsetForSignup = false,
+}: Props) {
   const pathname = usePathname();
+  const [isMobile, setIsMobile] = useState(false);
   const [enabled, setEnabled] = useState(false);
 
-  const isMobile = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches;
-    } catch {
-      return false;
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+
+    const mediaQuery = window.matchMedia(MOBILE_QUERY);
+    const updateIsMobile = () => setIsMobile(mediaQuery.matches);
+
+    updateIsMobile();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateIsMobile);
+      return () => mediaQuery.removeEventListener("change", updateIsMobile);
     }
+
+    mediaQuery.addListener(updateIsMobile);
+    return () => mediaQuery.removeListener(updateIsMobile);
   }, []);
 
   useEffect(() => {
-    if (!isMobile) return;
+    if (typeof window === "undefined") return;
+    if (!isMobile) {
+      setEnabled(false);
+      return;
+    }
+
     const teaser = document.getElementById("tournament-map-teaser");
     const footer = document.querySelector("footer.ti-legal-footer");
-    if (!teaser) return;
+    if (!teaser) {
+      setEnabled(false);
+      return;
+    }
 
-    let teaserInView = true;
-    let footerInView = false;
+    let frameId = 0;
 
-    const update = () => setEnabled(!teaserInView && !footerInView);
+    const evaluateVisibility = () => {
+      const teaserRect = teaser.getBoundingClientRect();
+      const footerRect = footer?.getBoundingClientRect();
+      const teaserPassed = teaserRect.bottom <= TEASER_PASSED_OFFSET_PX;
+      const footerInWay = footerRect ? footerRect.top <= window.innerHeight - FOOTER_HIDE_BUFFER_PX : false;
+      setEnabled(teaserPassed && !footerInWay);
+    };
 
-    const obs = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.target === teaser) teaserInView = e.isIntersecting;
-          if (footer && e.target === footer) footerInView = e.isIntersecting;
-        }
-        update();
-      },
-      { threshold: 0.01 }
-    );
+    const queueVisibilityCheck = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0;
+        evaluateVisibility();
+      });
+    };
 
-    obs.observe(teaser);
-    if (footer) obs.observe(footer);
-    update();
+    evaluateVisibility();
+    window.addEventListener("scroll", queueVisibilityCheck, { passive: true });
+    window.addEventListener("resize", queueVisibilityCheck);
+    window.addEventListener("orientationchange", queueVisibilityCheck);
 
     return () => {
-      try {
-        obs.disconnect();
-      } catch {
-        // ignore
-      }
+      if (frameId) window.cancelAnimationFrame(frameId);
+      window.removeEventListener("scroll", queueVisibilityCheck);
+      window.removeEventListener("resize", queueVisibilityCheck);
+      window.removeEventListener("orientationchange", queueVisibilityCheck);
     };
   }, [isMobile]);
 
   if (!isMobile || !enabled) return null;
 
   return (
-    <div className="tournamentStickyCta" role="region" aria-label="Quick actions">
+    <div
+      className={`tournamentStickyCta${offsetForSignup ? " tournamentStickyCta--withSignupOffset" : ""}`}
+      role="region"
+      aria-label="Quick actions"
+    >
       <div className="tournamentStickyCta__inner">
         <Link
           className="tournamentStickyCta__primary"
@@ -96,4 +128,3 @@ export default function TournamentDetailStickyMapCta({ mapHref, mapLabel, hotels
     </div>
   );
 }
-

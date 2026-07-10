@@ -12,6 +12,13 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-07-10
+
+- TI tournament detail mobile sticky quick-action restore:
+  - Reworked `apps/ti-web/components/tournaments/TournamentDetailStickyMapCta.tsx` to stop relying on fragile `IntersectionObserver` gating that left the sticky map/hotels bar permanently absent in logged-out mobile UAT.
+  - The sticky CTA now uses a direct mobile-only scroll/viewport rule based on the `#tournament-map-teaser` position and footer proximity, so it reliably appears after the teaser is scrolled past and hides again near the legal footer.
+  - Preserved the existing logged-out signup-bar offset behavior wired from `apps/ti-web/app/tournaments/[slug]/page.tsx`, so the restored sticky quick actions can coexist above the signup bar instead of sitting underneath it.
+
 ## 2026-07-09
 
 - TI Weekend Planner Stage `3.7B` implementation:

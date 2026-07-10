@@ -1713,6 +1713,10 @@
   pointer-events: none;
 }
 
+.tournamentStickyCta--withSignupOffset {
+  bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
 .ti-logged-out-sticky-signup {
   position: fixed;
   left: 0;
