@@ -2182,6 +2182,12 @@ Maintenance rules:
     - `buildHotelsHref()` now defaults to `provider=hotelplanner`.
     - Removed remaining visible Booking.com hotel copy from TI hotel surfaces (`Search hotels on Booking.com` -> `Search hotels`).
     - Updated UAT guidance so hotel fallback expectations are HotelPlanner + VRBO, not Booking.com + VRBO.
+- 2026-07-13: Venue map "View all nearby hotels" confirmed on root URL with city + dates (not /Search/).
+  - File: `apps/ti-web/app/go/hotels/route.ts`
+  - Tested /Search/ with lat/lng: HP's SPA overwrites dates from session state → "no hotels found" (wrong inventory window) + wrong dates shown. Not viable.
+  - Final decision: both venue map and book-travel "View all" use `buildHotelPlannerRootUrl` → `/?city=...&CheckIn=mm/dd/yyyy&CheckOut=mm/dd/yyyy` + `latitude`/`longitude` passed as hints. Correct tournament dates pre-filled. User clicks Search once. Results show correct inventory.
+  - There is no HP URL format that achieves both auto-loaded results AND correct dates simultaneously; correct dates win.
+
 - 2026-07-13: Venue map "View all nearby hotels" switched back to /Search/ URL with lat/lng for immediate results.
   - File: `apps/ti-web/app/go/hotels/route.ts`
   - Problem: previous fix sent venue map "View all" to HP root `/?city=...` which requires a second search click before any results appear.

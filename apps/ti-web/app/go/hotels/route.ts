@@ -590,16 +590,13 @@ export async function GET(request: Request) {
             });
           }
 
-          return buildHotelPlannerSearchUrl({
+          return buildHotelPlannerRootUrl({
             baseUrl: hotelPlannerWhiteLabelUrl,
-            destination: hotelPlannerDestination,
             latitude: hotelPlannerLat,
             longitude: hotelPlannerLng,
-            city: hotelPlannerCitySearch || null,
-            dates: {
-              checkin: hotelPlannerCheckin,
-              checkout: hotelPlannerCheckout,
-            },
+            city: (hotelPlannerCitySearch ?? String(bookingSearchString).trim()) || null,
+            checkin: hotelPlannerCheckin,
+            checkout: hotelPlannerCheckout,
             sc: querySc || "tournamentinsights",
             keyword: queryKeyword || queryKeywordLegacy || null,
             jobCode: queryJobCode || trackingDefaults.jobCode,
