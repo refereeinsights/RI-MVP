@@ -63,6 +63,7 @@ const RATE_LIMIT_WINDOWS: RateLimitWindow[] = [
 ];
 const REQUEST_QUERY_COLUMNS = "id";
 const IS_LODGING_DEBUG = process.env.TI_LODGING_DEBUG === "1" || process.env.TI_LODGING_DEBUG === "true";
+const MAPBOX_GEOCODE_BASE_URL = "https://api.mapbox.com/geocoding/v5/mapbox.places";
 
 function toText(value: unknown) {
   if (typeof value !== "string") return null;
@@ -289,6 +290,14 @@ function parseCoordinate(value: unknown, maxAbs: number): number | null {
   return numeric;
 }
 
+function getMapboxToken() {
+  return (
+    String(process.env.MAPBOX_SECRET_TOKEN ?? "").trim() ||
+    String(process.env.MAPBOX_ACCESS_TOKEN ?? "").trim() ||
+    String(process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim()
+  );
+}
+
 async function fetchTournamentDates(tournamentId: string) {
   const { data: tournament } = await supabaseAdmin
     .from("tournaments_search_public" as any)
@@ -424,6 +433,39 @@ function resolveGenericDestination(body: SearchRequestBody) {
   };
 }
 
+async function geocodeGenericDestination(destination: string): Promise<{ latitude: number; longitude: number; placeName?: string | null } | null> {
+  const token = getMapboxToken();
+  const trimmedDestination = String(destination ?? "").trim();
+  if (!token || !trimmedDestination) return null;
+
+  try {
+    const url = new URL(`${MAPBOX_GEOCODE_BASE_URL}/${encodeURIComponent(trimmedDestination)}.json`);
+    url.searchParams.set("access_token", token);
+    url.searchParams.set("country", "us");
+    url.searchParams.set("limit", "1");
+    url.searchParams.set("types", "place,postcode,locality,address,region,district");
+
+    const response = await fetch(url.toString(), { method: "GET" });
+    if (!response.ok) return null;
+    const payload = (await response.json().catch(() => null)) as
+      | { features?: Array<{ center?: [number, number]; place_name?: string | null }> }
+      | null;
+
+    const feature = Array.isArray(payload?.features) ? payload!.features[0] : null;
+    const lng = Array.isArray(feature?.center) ? Number(feature?.center?.[0]) : null;
+    const lat = Array.isArray(feature?.center) ? Number(feature?.center?.[1]) : null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+    return {
+      latitude: Number(lat),
+      longitude: Number(lng),
+      placeName: feature?.place_name ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function genericFallbackWindow() {
   const today = startOfTodayUtc();
   const checkIn = addDays(today, 14);
@@ -528,7 +570,7 @@ export async function POST(request: Request) {
 
   const venueId = parseUuid(body.venueId);
   const genericSource = toText(body.source);
-  const genericDestination = resolveGenericDestination(body);
+  let genericDestination = resolveGenericDestination(body);
   const isGenericSearch = !venueId;
 
   if (!venueId && !genericDestination.destination && (genericDestination.latitude === null || genericDestination.longitude === null)) {
@@ -552,6 +594,22 @@ export async function POST(request: Request) {
   const tournamentId = toText(body.tournamentId) ? parseUuid(body.tournamentId) : null;
   if (toText(body.tournamentId) && !tournamentId) {
     return asRequestError("Invalid tournamentId");
+  }
+
+  if (
+    isGenericSearch &&
+    genericDestination.destination &&
+    genericDestination.latitude === null &&
+    genericDestination.longitude === null
+  ) {
+    const geocoded = await geocodeGenericDestination(genericDestination.destination);
+    if (geocoded) {
+      genericDestination = {
+        destination: genericDestination.destination,
+        latitude: geocoded.latitude,
+        longitude: geocoded.longitude,
+      };
+    }
   }
 
   const requestedRooms = body.rooms;

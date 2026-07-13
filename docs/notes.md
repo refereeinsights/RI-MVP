@@ -4431,3 +4431,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Extended `apps/ti-web/app/api/lodging/search/route.ts` to support generic destination-based hotel searches from `/book-travel` and `/weekend-planner` without requiring a `venueId`, while preserving the existing venue-based map flow.
   - Added in-place hotel results to `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` so `/book-travel` now searches HotelPlanner through the TI API first, then opens a HotelPlanner property page only after the user chooses a hotel.
   - Preserved a fallback `Open HotelPlanner search` option when provider results fail or inventory is empty, and kept the existing direct map/property handoff behavior unchanged.
+- 2026-07-13: TI generic hotel results geocode fix for `/book-travel`.
+  - Updated `apps/ti-web/app/api/lodging/search/route.ts` so freeform destination searches like `Moscow, ID` are geocoded through Mapbox before the HotelPlanner provider search runs.
+  - This keeps the TI-native `/book-travel` and `/weekend-planner` hotel results path from sending ambiguous plain-text destinations into HotelPlanner, which had been returning hotels for the wrong city.
+  - Venue-based and map/property HotelPlanner flows remain unchanged; this only affects generic destination search without a TI `venueId`.
