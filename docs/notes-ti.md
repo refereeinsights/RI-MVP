@@ -2182,6 +2182,16 @@ Maintenance rules:
     - `buildHotelsHref()` now defaults to `provider=hotelplanner`.
     - Removed remaining visible Booking.com hotel copy from TI hotel surfaces (`Search hotels on Booking.com` -> `Search hotels`).
     - Updated UAT guidance so hotel fallback expectations are HotelPlanner + VRBO, not Booking.com + VRBO.
+- 2026-07-13: HotelPlanner "View all" handoff switched to root URL format — dates now preserved.
+  - File: `apps/ti-web/app/go/hotels/route.ts`
+  - Root cause: `/go/hotels` was redirecting to HP's `/Search/` page with dates embedded in the URL hash. HP's own JS rebuilds the hash from session state on load, replacing our dates with today's. Individual hotel property page clicks already worked because `HotelRoomTypes.htm` honors explicit `inDate`/`outDate` query params.
+  - Fix: Added `buildHotelPlannerRootUrl()` which targets HP's root `/` URL. The HP landing page honors `CheckIn`/`CheckOut` as query params directly.
+    - Venue map path: `/?latitude=...&longitude=...&CheckIn=mm/dd/yyyy&CheckOut=mm/dd/yyyy&sc=...`
+    - Book-travel path: `/?city=San+Diego%2C+CA&CheckIn=mm/dd/yyyy&CheckOut=mm/dd/yyyy&sc=...`
+  - `buildHotelPlannerSearchUrl` (the old `/Search/` builder) kept in file but no longer called; both `hotelPlannerTarget` paths now use `buildHotelPlannerRootUrl`.
+  - Both paths use `city=` (venue city/state or geocoded city) — HP root does not geo-search from `latitude`/`longitude` params. Lat/lng precision is traded for correct dates. Users land with city and dates pre-filled and need one search click.
+  - All tracking params (`sc`, `kw`, `jobCode`, `Custom1–8`) preserved unchanged.
+
 - 2026-06-30: RI admin hotel click reporting scoped to HotelPlanner partner only.
   - Files:
     - `apps/referee/app/admin/ti/outbound/page.tsx`

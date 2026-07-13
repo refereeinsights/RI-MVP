@@ -4,8 +4,6 @@ import { buildBookingSearchString, isValidZip5 } from "@/lib/booking/venueBookin
 
 export const runtime = "nodejs";
 
-type LodgingProvider = "hotelplanner";
-
 function isLocalHost(host: string | null) {
   const value = String(host ?? "").trim().toLowerCase();
   if (!value) return false;
@@ -66,10 +64,6 @@ function compareIso(a: string, b: string) {
   if (a < b) return -1;
   if (a > b) return 1;
   return 0;
-}
-
-function parseProvider(raw: string | null): LodgingProvider {
-  return "hotelplanner";
 }
 
 function parseLatLng(raw: string | null, maxAbs: number) {
@@ -151,6 +145,7 @@ function buildHotelPlannerSearchUrl(args: {
   latitude?: number | null;
   longitude?: number | null;
   city?: string | null;
+  includeHash?: boolean;
   sc?: string | null;
   keyword?: string | null;
   jobCode?: string | null;
@@ -203,7 +198,7 @@ function buildHotelPlannerSearchUrl(args: {
 
   const hashCheckin = toMmDdDashYyyy(args.dates.checkin);
   const hashCheckout = toMmDdDashYyyy(args.dates.checkout);
-  if (hashCheckin && hashCheckout) {
+  if (args.includeHash !== false && hashCheckin && hashCheckout) {
     const hashDestination = encodeURIComponent(destination);
     const hashLat = args.latitude !== null && args.latitude !== undefined ? String(args.latitude) : "";
     const hashLng = args.longitude !== null && args.longitude !== undefined ? String(args.longitude) : "";
@@ -213,10 +208,13 @@ function buildHotelPlannerSearchUrl(args: {
   return searchUrl.toString();
 }
 
-function buildHotelPlannerGenericLandingUrl(args: {
+function buildHotelPlannerRootUrl(args: {
   baseUrl: string;
-  destination: string;
-  dates: { checkin: string; checkout: string };
+  latitude?: number | null;
+  longitude?: number | null;
+  city?: string | null;
+  checkin: string; // mm/dd/yyyy
+  checkout: string; // mm/dd/yyyy
   sc?: string | null;
   keyword?: string | null;
   jobCode?: string | null;
@@ -230,29 +228,34 @@ function buildHotelPlannerGenericLandingUrl(args: {
   custom8?: string | null;
 }): string {
   const baseUrl = normalizeHotelPlannerBaseUrl(args.baseUrl);
-  const destination = String(args.destination ?? "").trim();
-  if (!baseUrl || !destination) return "";
+  if (!baseUrl || !args.checkin || !args.checkout) return "";
 
-  const landingUrl = new URL("/", baseUrl);
-  landingUrl.searchParams.set("sc", String(args.sc || "tournamentinsights").trim() || "tournamentinsights");
-  landingUrl.searchParams.set("city", destination);
-  if (args.dates.checkin) landingUrl.searchParams.set("CheckIn", args.dates.checkin);
-  if (args.dates.checkout) landingUrl.searchParams.set("CheckOut", args.dates.checkout);
+  const url = new URL("/", baseUrl);
+
+  if (args.latitude !== null && args.latitude !== undefined) url.searchParams.set("latitude", String(args.latitude));
+  if (args.longitude !== null && args.longitude !== undefined) url.searchParams.set("longitude", String(args.longitude));
+  const city = String(args.city ?? "").trim();
+  if (city) url.searchParams.set("city", city);
+
+  url.searchParams.set("CheckIn", args.checkin);
+  url.searchParams.set("CheckOut", args.checkout);
+  url.searchParams.set("sc", args.sc || "tournamentinsights");
 
   const keyword = String(args.keyword ?? "").trim();
-  if (keyword) landingUrl.searchParams.set("kw", keyword);
+  if (keyword) url.searchParams.set("kw", keyword);
   const jobCode = String(args.jobCode ?? "").trim();
-  if (jobCode) landingUrl.searchParams.set("jobCode", jobCode);
-  if (args.custom1) landingUrl.searchParams.set("Custom1", String(args.custom1).trim());
-  if (args.custom2) landingUrl.searchParams.set("Custom2", String(args.custom2).trim());
-  if (args.custom3) landingUrl.searchParams.set("Custom3", String(args.custom3).trim());
-  if (args.custom4) landingUrl.searchParams.set("Custom4", String(args.custom4).trim());
-  if (args.custom5) landingUrl.searchParams.set("Custom5", String(args.custom5).trim());
-  if (args.custom6) landingUrl.searchParams.set("Custom6", String(args.custom6).trim());
-  if (args.custom7) landingUrl.searchParams.set("Custom7", String(args.custom7).trim());
-  if (args.custom8) landingUrl.searchParams.set("Custom8", String(args.custom8).trim());
+  if (jobCode) url.searchParams.set("jobCode", jobCode);
 
-  return landingUrl.toString();
+  if (args.custom1) url.searchParams.set("Custom1", String(args.custom1).trim());
+  if (args.custom2) url.searchParams.set("Custom2", String(args.custom2).trim());
+  if (args.custom3) url.searchParams.set("Custom3", String(args.custom3).trim());
+  if (args.custom4) url.searchParams.set("Custom4", String(args.custom4).trim());
+  if (args.custom5) url.searchParams.set("Custom5", String(args.custom5).trim());
+  if (args.custom6) url.searchParams.set("Custom6", String(args.custom6).trim());
+  if (args.custom7) url.searchParams.set("Custom7", String(args.custom7).trim());
+  if (args.custom8) url.searchParams.set("Custom8", String(args.custom8).trim());
+
+  return url.toString();
 }
 
 function deriveHotelPlannerTrackingDefaults(args: {
@@ -310,7 +313,6 @@ export async function GET(request: Request) {
   const ssOverride = String(reqUrl.searchParams.get("ss") ?? "").trim();
   const checkinRaw = String(reqUrl.searchParams.get("checkin") ?? "").trim();
   const checkoutRaw = String(reqUrl.searchParams.get("checkout") ?? "").trim();
-  const provider = parseProvider(reqUrl.searchParams.get("provider"));
   const querySc = pickTrackingParam(reqUrl, "sc");
   const queryKeyword = pickTrackingParam(reqUrl, "kw");
   const queryKeywordLegacy = pickTrackingParam(reqUrl, "keyword");
@@ -567,11 +569,13 @@ export async function GET(request: Request) {
             tournamentSlug: tournament?.slug ?? null,
           });
 
-          if (!venueIdValid && !hasHotelPlannerLatLng && (source === "book_travel" || source === "weekend_planner")) {
-            return buildHotelPlannerGenericLandingUrl({
+          if (!venueIdValid && (source === "book_travel" || source === "weekend_planner")) {
+            const genericDestination = String(hotelPlannerCitySearch ?? bookingSearchString).trim();
+            return buildHotelPlannerRootUrl({
               baseUrl: hotelPlannerWhiteLabelUrl,
-              destination: String(hotelPlannerCitySearch ?? bookingSearchString).trim(),
-              dates: { checkin: hotelPlannerCheckin, checkout: hotelPlannerCheckout },
+              city: genericDestination,
+              checkin: hotelPlannerCheckin,
+              checkout: hotelPlannerCheckout,
               sc: querySc || "tournamentinsights",
               keyword: queryKeyword || queryKeywordLegacy || null,
               jobCode: queryJobCode || trackingDefaults.jobCode,
@@ -586,16 +590,11 @@ export async function GET(request: Request) {
             });
           }
 
-          return buildHotelPlannerSearchUrl({
+          return buildHotelPlannerRootUrl({
             baseUrl: hotelPlannerWhiteLabelUrl,
-            destination: hotelPlannerDestination,
-            latitude: hotelPlannerLat,
-            longitude: hotelPlannerLng,
-            dates: { checkin: hotelPlannerCheckin, checkout: hotelPlannerCheckout },
-            city:
-              hotelPlannerLat !== null && hotelPlannerLng !== null
-                ? null
-                : hotelPlannerCitySearch,
+            city: (hotelPlannerCitySearch ?? String(bookingSearchString).trim()) || null,
+            checkin: hotelPlannerCheckin,
+            checkout: hotelPlannerCheckout,
             sc: querySc || "tournamentinsights",
             keyword: queryKeyword || queryKeywordLegacy || null,
             jobCode: queryJobCode || trackingDefaults.jobCode,

@@ -4447,3 +4447,12 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Extended `apps/ti-web/app/api/lodging/search/route.ts` to return resolved generic-search coordinates (`resolvedLatitude` / `resolvedLongitude`) alongside the existing resolved stay window.
   - Updated `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` so TI-native hotel results now render only the first 8 cards, show a full result-count label, and expose `View all N hotels on HotelPlanner` only when resolved lat/lng are present.
   - Updated the broader HotelPlanner handoff to prefer the resolved TI search dates over raw form dates, and changed `apps/ti-web/app/go/hotels/route.ts` so `book_travel` / `weekend_planner` use direct HP `/Search/` results whenever valid lat/lng are supplied; generic landing fallback remains for degraded no-coordinate cases.
+- 2026-07-13: TI generic broader hotel search now skips the extra HotelPlanner click.
+  - Simplified `apps/ti-web/app/go/hotels/route.ts` so non-venue HotelPlanner searches now always build the direct HP `/Search/` URL instead of falling back to the white-label root landing page.
+  - This leaves venue-map and property-page handoffs unchanged; only the broader `/book-travel` and generic planner search flow is affected.
+- 2026-07-13: HotelPlanner “View all hotels” handoff switched to root URL with city + dates for both venue map and book-travel.
+  - File: `apps/ti-web/app/go/hotels/route.ts`
+  - Investigation: HP's `/Search/` page rebuilds its hash from session state on load, always overwriting our dates with today's. Root URL (`/?`) honors `CheckIn`/`CheckOut` query params but doesn't geo-search from `latitude`/`longitude`. No single HP URL supports both auto-search by coordinates and date pre-fill.
+  - Decision: use HP root URL with `city=` (venue city/state) + `CheckIn`/`CheckOut` for both venue map and book-travel “View all” CTAs. Correct tournament dates are more useful than lat/lng precision; user gets city pre-filled and dates pre-filled and needs one search click.
+  - Added `buildHotelPlannerRootUrl()` helper targeting `/?city=...&CheckIn=mm/dd/yyyy&CheckOut=mm/dd/yyyy&sc=...`.
+  - Individual hotel property page handoffs (`HotelRoomTypes.htm?inDate=...`) unchanged — those already worked correctly.
