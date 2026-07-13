@@ -14,6 +14,10 @@ Maintenance rules:
 
 ## 2026-07-13
 
+- TI HotelPlanner white-label search date param fix:
+  - Updated `apps/ti-web/app/go/hotels/route.ts` so TI now sends HotelPlanner’s camel-case `checkIn` / `checkOut` query parameters on generic hotel search handoffs, while preserving the older variants for compatibility.
+  - This fixes `/book-travel` and similar TI hotel redirects where valid user-entered dates were being normalized correctly inside TI but ignored by the HotelPlanner white-label `/Search/` page, causing HotelPlanner to fall back to its default today/tomorrow stay window.
+
 - TI `/book-travel` compact date normalization fix:
   - Updated `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` so individual hotel and rental searches now normalize compact user-entered dates like `092526` / `092626` into ISO before building `/go/hotels` and `/go/vrbo` handoff URLs.
   - Kept downstream partner routes strict (`YYYY-MM-DD`) and applied the fix at the booking UI input layer, which is the shared source for both HotelPlanner and Vrbo outbound handoffs.

@@ -99,15 +99,17 @@ export async function GET(request: Request) {
 
   const venueIdValid = Boolean(venueId && isUuid(venueId));
 
-  // Anti-abuse guardrail: allow generic mode only when invoked from /weekend-planner (or local dev).
+  // Anti-abuse guardrail: allow generic mode only when invoked from approved TI travel/planner surfaces (or local dev).
   const source = String(reqUrl.searchParams.get("source") ?? "").trim();
   const sourcePath = sourcePathFromReferer(referer);
   const genericAllowed =
     localDev ||
+    source === "book_travel" ||
     source === "weekend_planner" ||
     source === "tournament_directory" ||
     source === "tournament_detail" ||
-    (sourcePath ?? "").startsWith("/weekend-planner");
+    (sourcePath ?? "").startsWith("/weekend-planner") ||
+    (sourcePath ?? "").startsWith("/book-travel");
 
   if (!venueIdValid && !genericAllowed) {
     return new NextResponse("Missing or invalid venueId", { status: 400 });
