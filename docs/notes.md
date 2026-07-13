@@ -4423,3 +4423,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Fixed the `/weekend/[slug]` “Plan your stay” CTA row so the hotel, rental, venue map, travel, and planner links render as actual buttons without relying on the global `.card .primaryLink/.secondaryLink` selector.
   - Added a local CSS module for `apps/ti-web/app/weekend/[slug]/WeekendPlanningCtasClient.tsx` to keep the fix scoped and preserve mobile stacked button behavior.
   - Increased the opacity/solidity of `.tournamentStickyCta__inner` and `.tournamentStickyCta__secondary` in `apps/ti-web/app/tournaments/tournaments.css` so the mobile sticky hotels CTA no longer visually bleeds into underlying tournament content.
+- 2026-07-13: TI generic HotelPlanner search handoff simplification.
+  - Updated `apps/ti-web/app/go/hotels/route.ts` so generic hotel searches coming from `/book-travel` and `/weekend-planner` now use the simpler white-label root landing URL shape (`/?sc=...&city=...&CheckIn=...&CheckOut=...`) instead of the more brittle `/Search/` SPA handoff.
+  - Kept venue-based and map/venue HotelPlanner flows on the existing `/Search/` or `/Hotel/HotelRoomTypes.htm` paths; this change does not touch map/property handoff behavior.
+  - Preserved existing outbound logging and tracking params (`sc`, `jobCode`, `Custom1`, `Custom2`, etc.) for the generic search flow.

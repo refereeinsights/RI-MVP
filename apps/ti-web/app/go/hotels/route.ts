@@ -213,6 +213,48 @@ function buildHotelPlannerSearchUrl(args: {
   return searchUrl.toString();
 }
 
+function buildHotelPlannerGenericLandingUrl(args: {
+  baseUrl: string;
+  destination: string;
+  dates: { checkin: string; checkout: string };
+  sc?: string | null;
+  keyword?: string | null;
+  jobCode?: string | null;
+  custom1?: string | null;
+  custom2?: string | null;
+  custom3?: string | null;
+  custom4?: string | null;
+  custom5?: string | null;
+  custom6?: string | null;
+  custom7?: string | null;
+  custom8?: string | null;
+}): string {
+  const baseUrl = normalizeHotelPlannerBaseUrl(args.baseUrl);
+  const destination = String(args.destination ?? "").trim();
+  if (!baseUrl || !destination) return "";
+
+  const landingUrl = new URL("/", baseUrl);
+  landingUrl.searchParams.set("sc", String(args.sc || "tournamentinsights").trim() || "tournamentinsights");
+  landingUrl.searchParams.set("city", destination);
+  if (args.dates.checkin) landingUrl.searchParams.set("CheckIn", args.dates.checkin);
+  if (args.dates.checkout) landingUrl.searchParams.set("CheckOut", args.dates.checkout);
+
+  const keyword = String(args.keyword ?? "").trim();
+  if (keyword) landingUrl.searchParams.set("kw", keyword);
+  const jobCode = String(args.jobCode ?? "").trim();
+  if (jobCode) landingUrl.searchParams.set("jobCode", jobCode);
+  if (args.custom1) landingUrl.searchParams.set("Custom1", String(args.custom1).trim());
+  if (args.custom2) landingUrl.searchParams.set("Custom2", String(args.custom2).trim());
+  if (args.custom3) landingUrl.searchParams.set("Custom3", String(args.custom3).trim());
+  if (args.custom4) landingUrl.searchParams.set("Custom4", String(args.custom4).trim());
+  if (args.custom5) landingUrl.searchParams.set("Custom5", String(args.custom5).trim());
+  if (args.custom6) landingUrl.searchParams.set("Custom6", String(args.custom6).trim());
+  if (args.custom7) landingUrl.searchParams.set("Custom7", String(args.custom7).trim());
+  if (args.custom8) landingUrl.searchParams.set("Custom8", String(args.custom8).trim());
+
+  return landingUrl.toString();
+}
+
 function deriveHotelPlannerTrackingDefaults(args: {
   sourceSurface: string;
   venueId: string | null;
@@ -524,6 +566,25 @@ export async function GET(request: Request) {
             venueId: venueIdValid ? venueId : null,
             tournamentSlug: tournament?.slug ?? null,
           });
+
+          if (!venueIdValid && (source === "book_travel" || source === "weekend_planner")) {
+            return buildHotelPlannerGenericLandingUrl({
+              baseUrl: hotelPlannerWhiteLabelUrl,
+              destination: String(hotelPlannerCitySearch ?? bookingSearchString).trim(),
+              dates: { checkin: hotelPlannerCheckin, checkout: hotelPlannerCheckout },
+              sc: querySc || "tournamentinsights",
+              keyword: queryKeyword || queryKeywordLegacy || null,
+              jobCode: queryJobCode || trackingDefaults.jobCode,
+              custom1: queryCustom1 || trackingDefaults.custom1,
+              custom2: queryCustom2 || trackingDefaults.custom2,
+              custom3: queryCustom3,
+              custom4: queryCustom4,
+              custom5: queryCustom5,
+              custom6: queryCustom6,
+              custom7: queryCustom7,
+              custom8: queryCustom8,
+            });
+          }
 
           return buildHotelPlannerSearchUrl({
             baseUrl: hotelPlannerWhiteLabelUrl,
