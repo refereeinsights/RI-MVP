@@ -25,6 +25,39 @@ type FanaticsGearCard = {
 
 type WeekendPlannerClientMode = "planner_beta" | "book_travel";
 
+type BookTravelHotelResult = {
+  propertyId: string;
+  name: string;
+  addressLine1?: string | null;
+  city?: string | null;
+  state?: string | null;
+  distanceMiles?: number | null;
+  rating?: number | null;
+  reviewCount?: number | null;
+  thumbnailUrl?: string | null;
+  fromPrice?: number | null;
+  currency?: string | null;
+  hotelIDTypeID?: number | null;
+  detailUrl?: string | null;
+};
+
+type BookTravelHotelFallback = {
+  showHotelFallback: boolean;
+  showVrboFallback: boolean;
+  reason?: "provider_error" | "low_inventory" | "no_dates" | "no_venue_coordinates";
+};
+
+type BookTravelHotelSearchResponse = {
+  sessionId?: string;
+  provider?: string;
+  hotels?: unknown[];
+  fallback?: BookTravelHotelFallback | null;
+  resolvedCheckIn?: string | null;
+  resolvedCheckOut?: string | null;
+  error?: string;
+  code?: string;
+};
+
 function getPlannerSourcePage(pathname: string | null | undefined) {
   const path = String(pathname ?? "").trim().toLowerCase();
   if (path.startsWith("/weekend-planner")) return "weekend_planner";
@@ -99,6 +132,67 @@ function safeSetStoredDestination(value: string) {
   }
 }
 
+function formatCurrency(value: number | null | undefined, currency = "USD") {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  }
+}
+
+function getHotelAddress(hotel: BookTravelHotelResult) {
+  return [hotel.addressLine1, hotel.city, hotel.state].filter(Boolean).join(", ") || null;
+}
+
+function normalizeBookTravelHotel(raw: unknown): BookTravelHotelResult | null {
+  if (!raw || typeof raw !== "object") return null;
+  const property = raw as Record<string, unknown>;
+  const propertyId = typeof property.id === "string" ? property.id.trim() : "";
+  if (!propertyId) return null;
+
+  return {
+    propertyId,
+    name: String(property.name ?? "").trim() || "Hotel",
+    addressLine1: property.addressLine1 == null ? null : String(property.addressLine1),
+    city: property.city == null ? null : String(property.city),
+    state: property.state == null ? null : String(property.state),
+    distanceMiles: typeof property.distanceMiles === "number" && Number.isFinite(property.distanceMiles) ? property.distanceMiles : null,
+    rating: typeof property.rating === "number" && Number.isFinite(property.rating) ? property.rating : null,
+    reviewCount: typeof property.reviewCount === "number" && Number.isFinite(property.reviewCount) ? property.reviewCount : null,
+    thumbnailUrl: property.thumbnailUrl == null ? null : String(property.thumbnailUrl),
+    fromPrice: typeof property.fromPrice === "number" && Number.isFinite(property.fromPrice) ? property.fromPrice : null,
+    currency: property.currency == null ? null : String(property.currency),
+    hotelIDTypeID:
+      typeof property.hotelIDTypeID === "number" && Number.isFinite(property.hotelIDTypeID) && property.hotelIDTypeID >= 0
+        ? property.hotelIDTypeID
+        : 0,
+    detailUrl: property.detailUrl == null ? null : String(property.detailUrl),
+  };
+}
+
+function normalizeBookTravelHotels(hotels: unknown[]) {
+  const dedupe = new Map<string, BookTravelHotelResult>();
+  for (const item of hotels) {
+    const normalized = normalizeBookTravelHotel(item);
+    if (!normalized) continue;
+    if (dedupe.has(normalized.propertyId)) continue;
+    dedupe.set(normalized.propertyId, normalized);
+  }
+  return Array.from(dedupe.values()).sort((a, b) => {
+    const distanceDelta = (a.distanceMiles ?? Number.POSITIVE_INFINITY) - (b.distanceMiles ?? Number.POSITIVE_INFINITY);
+    if (Number.isFinite(distanceDelta) && distanceDelta !== 0) return distanceDelta;
+    const fromA = a.fromPrice ?? Number.POSITIVE_INFINITY;
+    const fromB = b.fromPrice ?? Number.POSITIVE_INFINITY;
+    if (fromA !== fromB) return fromA - fromB;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 export default function WeekendPlannerClient(props: {
   fanaticsGear?: FanaticsGearCard;
   mode?: WeekendPlannerClientMode;
@@ -117,6 +211,12 @@ export default function WeekendPlannerClient(props: {
   const [checkinText, setCheckinText] = useState<string>("");
   const [checkoutText, setCheckoutText] = useState<string>("");
   const [teamBlockOpen, setTeamBlockOpen] = useState(false);
+  const [hotelResultsLoading, setHotelResultsLoading] = useState(false);
+  const [hotelResultsError, setHotelResultsError] = useState<string | null>(null);
+  const [hotelResults, setHotelResults] = useState<BookTravelHotelResult[]>([]);
+  const [hotelResultsFallback, setHotelResultsFallback] = useState<BookTravelHotelFallback | null>(null);
+  const [hotelResolvedCheckIn, setHotelResolvedCheckIn] = useState<string | null>(null);
+  const [hotelResolvedCheckOut, setHotelResolvedCheckOut] = useState<string | null>(null);
 
   useEffect(() => {
     sourcePageRef.current = getPlannerSourcePage(window.location?.pathname) as "book_travel" | "weekend_planner";
@@ -246,6 +346,109 @@ export default function WeekendPlannerClient(props: {
     safeSetStoredDestination(trimmed.trim());
   }
 
+  function buildHotelSearchParams() {
+    const qp = new URLSearchParams();
+    qp.set("ss", destination.trim());
+    qp.set("source", sourcePageRef.current);
+    const checkinIso = isoFromUserDate(checkinText);
+    const checkoutIso = isoFromUserDate(checkoutText);
+    if (checkinIso) qp.set("checkin", checkinIso);
+    if (checkoutIso) qp.set("checkout", checkoutIso);
+    return qp;
+  }
+
+  function toHotelPlannerPropertyDate(value: string | null) {
+    const raw = String(value ?? "").trim();
+    const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return null;
+    const [, mm, dd, yyyy] = match;
+    return `${mm}/${dd}/${yyyy.slice(-2)}`;
+  }
+
+  function buildHotelPlannerPropertyUrl(hotel: BookTravelHotelResult) {
+    const baseUrl = String(process.env.NEXT_PUBLIC_HOTELPLANNER_WHITE_LABEL_URL ?? "").trim();
+    if (!baseUrl || !hotelResolvedCheckIn || !hotelResolvedCheckOut) return null;
+
+    const inDate = toHotelPlannerPropertyDate(hotelResolvedCheckIn);
+    const outDate = toHotelPlannerPropertyDate(hotelResolvedCheckOut);
+    if (!inDate || !outDate) return null;
+
+    const directUrl = hotel.detailUrl ? new URL(hotel.detailUrl, baseUrl) : new URL("/Hotel/HotelRoomTypes.htm", baseUrl);
+    directUrl.pathname = "/Hotel/HotelRoomTypes.htm";
+    directUrl.search = "";
+    directUrl.searchParams.delete("hotelID");
+    directUrl.searchParams.delete("hotelId");
+    directUrl.searchParams.delete("idtypeid");
+    directUrl.searchParams.delete("idTypeId");
+    directUrl.searchParams.set("hotelId", hotel.propertyId);
+    directUrl.searchParams.set("idTypeId", String(hotel.hotelIDTypeID ?? 0));
+    directUrl.searchParams.set("inDate", inDate);
+    directUrl.searchParams.set("outDate", outDate);
+    directUrl.searchParams.set("NumRooms", "1");
+    directUrl.searchParams.set("sc", "tournamentinsights");
+    directUrl.searchParams.set("source", sourcePageRef.current);
+    directUrl.searchParams.set("kw", "Tournament weekend stay");
+    directUrl.searchParams.set("jobCode", "TI-BOOK-TRAVEL");
+    directUrl.searchParams.set("Custom1", `src:${sourcePageRef.current}`);
+    directUrl.searchParams.set("Custom2", destination.trim() || sourcePageRef.current);
+    directUrl.hash = "content";
+    return directUrl.toString();
+  }
+
+  async function runBookTravelHotelSearch() {
+    const trimmedDestination = destination.trim();
+    if (!trimmedDestination || hotelResultsLoading) return;
+
+    setHotelResultsLoading(true);
+    setHotelResultsError(null);
+    setHotelResults([]);
+    setHotelResultsFallback(null);
+    setHotelResolvedCheckIn(null);
+    setHotelResolvedCheckOut(null);
+
+    try {
+      const response = await fetch(new URL("/api/lodging/search", window.location.origin), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destination: trimmedDestination,
+          source: sourcePageRef.current,
+          checkin: isoFromUserDate(checkinText),
+          checkout: isoFromUserDate(checkoutText),
+          sc: "tournamentinsights",
+          kw: "Tournament weekend stay",
+          jobCode: "TI-BOOK-TRAVEL",
+          custom1: `src:${sourcePageRef.current}`,
+          custom2: trimmedDestination,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as BookTravelHotelSearchResponse | null;
+      const data = payload ?? {};
+      if (!response.ok) {
+        setHotelResultsError(data.error ? String(data.error) : "Unable to load hotels right now.");
+        setHotelResultsFallback(data.fallback ?? { showHotelFallback: true, showVrboFallback: true, reason: "provider_error" });
+        setHotelResolvedCheckIn(data.resolvedCheckIn ?? null);
+        setHotelResolvedCheckOut(data.resolvedCheckOut ?? null);
+        return;
+      }
+
+      const normalizedHotels = normalizeBookTravelHotels(Array.isArray(data.hotels) ? data.hotels : []);
+      setHotelResults(normalizedHotels);
+      setHotelResultsFallback(data.fallback ?? null);
+      setHotelResolvedCheckIn(data.resolvedCheckIn ?? null);
+      setHotelResolvedCheckOut(data.resolvedCheckOut ?? null);
+      if (!normalizedHotels.length) {
+        setHotelResultsError("No hotel results returned for this search yet.");
+      }
+    } catch {
+      setHotelResultsError("Unable to load hotels right now.");
+      setHotelResultsFallback({ showHotelFallback: true, showVrboFallback: true, reason: "provider_error" });
+    } finally {
+      setHotelResultsLoading(false);
+    }
+  }
+
   function track(event: string, properties: Record<string, unknown> = {}) {
     const pagePath = (() => {
       try {
@@ -339,7 +542,8 @@ export default function WeekendPlannerClient(props: {
               method="get"
               action="/go/hotels"
               target="_blank"
-              onSubmit={() =>
+              onSubmit={async (e) => {
+                e.preventDefault();
                 track("book_travel_hotels_clicked", {
                   travel_type: "hotel",
                   cta_location: "hotels_card",
@@ -348,8 +552,9 @@ export default function WeekendPlannerClient(props: {
                   check_in: isoFromUserDate(checkinText),
                   check_out: isoFromUserDate(checkoutText),
                   has_dates: Boolean(isoFromUserDate(checkinText) && isoFromUserDate(checkoutText)),
-                })
-              }
+                });
+                await runBookTravelHotelSearch();
+              }}
             >
               <div className={styles.formGrid}>
                 <div>
@@ -399,24 +604,65 @@ export default function WeekendPlannerClient(props: {
               </div>
               <input type="hidden" name="source" value="book_travel" />
               <div style={{ paddingTop: "0.95rem" }}>
-                <button
-                  type="submit"
-                  className={styles.ctaFull}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const qp = new URLSearchParams();
-                    qp.set("ss", destination.trim());
-                    qp.set("source", sourcePageRef.current);
-                    const checkinIso = isoFromUserDate(checkinText);
-                    const checkoutIso = isoFromUserDate(checkoutText);
-                    if (checkinIso) qp.set("checkin", checkinIso);
-                    if (checkoutIso) qp.set("checkout", checkoutIso);
-                    openGoUrlInNewTab("/go/hotels", qp);
-                  }}
-                >
-                  Search hotels
+                <button type="submit" className={styles.ctaFull} disabled={hotelResultsLoading}>
+                  {hotelResultsLoading ? "Searching hotels..." : "Search hotels"}
                 </button>
               </div>
+              {hotelResultsError ? <div className={styles.hotelResultsError}>{hotelResultsError}</div> : null}
+              {hotelResolvedCheckIn || hotelResolvedCheckOut ? (
+                <div className={styles.hotelResultsMeta}>
+                  Searching stay window: {hotelResolvedCheckIn || "—"}{hotelResolvedCheckOut ? ` → ${hotelResolvedCheckOut}` : ""}
+                </div>
+              ) : null}
+              {hotelResults.length ? (
+                <div className={styles.hotelResultsList}>
+                  {hotelResults.map((hotel) => (
+                    <button
+                      key={hotel.propertyId}
+                      type="button"
+                      className={styles.hotelResultCard}
+                      onClick={() => {
+                        const propertyUrl = buildHotelPlannerPropertyUrl(hotel);
+                        if (!propertyUrl) {
+                          setHotelResultsError("Hotel details require valid dates before opening HotelPlanner.");
+                          return;
+                        }
+                        window.open(propertyUrl, "_blank", "noopener,noreferrer");
+                      }}
+                    >
+                      <div className={styles.hotelResultTitle}>{hotel.name}</div>
+                      <div className={styles.hotelResultMeta}>
+                        <span>{getHotelAddress(hotel) || "Address on file"}</span>
+                        {hotel.distanceMiles != null ? <span> • {hotel.distanceMiles.toFixed(1)} mi</span> : null}
+                      </div>
+                      <div className={styles.hotelResultMeta}>
+                        <span>
+                          {hotel.rating != null
+                            ? `${hotel.rating.toFixed(1)}★${hotel.reviewCount ? ` (${hotel.reviewCount})` : ""}`
+                            : "—"}
+                        </span>
+                        <span> • </span>
+                        <span>{formatCurrency(hotel.fromPrice, hotel.currency || "USD") || "Price on request"}</span>
+                      </div>
+                      <div className={styles.hotelResultOpen}>Open HotelPlanner property page</div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {hotelResultsFallback?.showHotelFallback ? (
+                <div className={styles.hotelFallbackBox}>
+                  <div className={styles.hotelFallbackCopy}>
+                    Prefer the full HotelPlanner search page? Open it with your current destination and dates.
+                  </div>
+                  <button
+                    type="button"
+                    className={`${styles.ctaFull} ${styles.ctaSecondary}`}
+                    onClick={() => openGoUrlInNewTab("/go/hotels", buildHotelSearchParams())}
+                  >
+                    Open HotelPlanner search
+                  </button>
+                </div>
+              ) : null}
             </form>
           </div>
         </article>

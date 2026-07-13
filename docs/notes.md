@@ -4427,3 +4427,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Updated `apps/ti-web/app/go/hotels/route.ts` so generic hotel searches coming from `/book-travel` and `/weekend-planner` now use the simpler white-label root landing URL shape (`/?sc=...&city=...&CheckIn=...&CheckOut=...`) instead of the more brittle `/Search/` SPA handoff.
   - Kept venue-based and map/venue HotelPlanner flows on the existing `/Search/` or `/Hotel/HotelRoomTypes.htm` paths; this change does not touch map/property handoff behavior.
   - Preserved existing outbound logging and tracking params (`sc`, `jobCode`, `Custom1`, `Custom2`, etc.) for the generic search flow.
+- 2026-07-13: TI-native `/book-travel` hotel results flow.
+  - Extended `apps/ti-web/app/api/lodging/search/route.ts` to support generic destination-based hotel searches from `/book-travel` and `/weekend-planner` without requiring a `venueId`, while preserving the existing venue-based map flow.
+  - Added in-place hotel results to `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` so `/book-travel` now searches HotelPlanner through the TI API first, then opens a HotelPlanner property page only after the user chooses a hotel.
+  - Preserved a fallback `Open HotelPlanner search` option when provider results fail or inventory is empty, and kept the existing direct map/property handoff behavior unchanged.

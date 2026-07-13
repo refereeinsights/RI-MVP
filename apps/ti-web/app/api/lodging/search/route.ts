@@ -16,6 +16,12 @@ export const runtime = "nodejs";
 type SearchRequestBody = {
   venueId?: unknown;
   tournamentId?: unknown;
+  destination?: unknown;
+  ss?: unknown;
+  latitude?: unknown;
+  longitude?: unknown;
+  lat?: unknown;
+  lng?: unknown;
   checkin?: unknown;
   checkout?: unknown;
   rooms?: unknown;
@@ -276,6 +282,13 @@ async function fetchVenueById(venueId: string) {
   return venue ?? null;
 }
 
+function parseCoordinate(value: unknown, maxAbs: number): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || Math.abs(numeric) > maxAbs) return null;
+  return numeric;
+}
+
 async function fetchTournamentDates(tournamentId: string) {
   const { data: tournament } = await supabaseAdmin
     .from("tournaments_search_public" as any)
@@ -389,6 +402,38 @@ function resolveDestination(venue: {
   return { destination, latitude: null, longitude: null };
 }
 
+function resolveGenericDestination(body: SearchRequestBody) {
+  const destination =
+    toText(body.destination) ||
+    toText(body.ss);
+  const latitude = parseCoordinate(body.latitude ?? body.lat, 90);
+  const longitude = parseCoordinate(body.longitude ?? body.lng, 180);
+
+  if (latitude !== null && longitude !== null) {
+    return {
+      destination: destination ?? null,
+      latitude,
+      longitude,
+    };
+  }
+
+  return {
+    destination,
+    latitude: null,
+    longitude: null,
+  };
+}
+
+function genericFallbackWindow() {
+  const today = startOfTodayUtc();
+  const checkIn = addDays(today, 14);
+  const checkOut = addDays(checkIn, 2);
+  return {
+    checkIn: formatDateToMmDdYyyy(checkIn),
+    checkOut: formatDateToMmDdYyyy(checkOut),
+  };
+}
+
 function buildSearchInput(params: {
   roomCount: number;
   adultCount: number;
@@ -482,13 +527,25 @@ export async function POST(request: Request) {
   }
 
   const venueId = parseUuid(body.venueId);
-  if (!venueId) {
-    return asRequestError("Invalid venueId");
+  const genericSource = toText(body.source);
+  const genericDestination = resolveGenericDestination(body);
+  const isGenericSearch = !venueId;
+
+  if (!venueId && !genericDestination.destination && (genericDestination.latitude === null || genericDestination.longitude === null)) {
+    return asRequestError("Missing destination");
+  }
+
+  if (
+    isGenericSearch &&
+    genericSource !== "book_travel" &&
+    genericSource !== "weekend_planner"
+  ) {
+    return asRequestError("Generic destination search is not allowed for this source");
   }
 
   const providerName = getLodgingProviderName();
-  const venue = await fetchVenueById(venueId);
-  if (!venue) {
+  const venue = venueId ? await fetchVenueById(venueId) : null;
+  if (venueId && !venue) {
     return NextResponse.json({ ok: false, error: "Venue not found" }, { status: 400 });
   }
 
@@ -522,14 +579,14 @@ export async function POST(request: Request) {
   const userAgent = request.headers.get("user-agent") || "unknown";
   const tournament = tournamentId ? await fetchTournamentDates(tournamentId) : null;
 
-  const destination = resolveDestination(venue);
+  const destination = venue ? resolveDestination(venue) : genericDestination;
   if (!destination.destination && (destination.latitude === null || destination.longitude === null)) {
     return NextResponse.json(
       {
         sessionId: randomUUID(),
         provider: providerName,
         hotels: [],
-        fallback: fallbackPayload("no_venue_coordinates"),
+        fallback: fallbackPayload(venue ? "no_venue_coordinates" : "no_dates"),
         resolvedCheckIn: null,
         resolvedCheckOut: null,
       },
@@ -539,6 +596,128 @@ export async function POST(request: Request) {
 
   const resolvedWindow = resolveSearchWindow(body, tournament ? { startDate: tournament.startDate, endDate: tournament.endDate } : null);
   if (!resolvedWindow.window) {
+    if (isGenericSearch) {
+      const fallbackWindow = genericFallbackWindow();
+      const rateCheck = await ensureRateLimitAllowed({ clientIp, userAgent });
+      if (rateCheck.limited) {
+        return NextResponse.json({ ok: false, error: "Rate limit exceeded" }, { status: 429 });
+      }
+
+      const provider = createLodgingProvider(providerName);
+      const sessionId = randomUUID();
+      const providerInput = buildSearchInput({
+        roomCount,
+        adultCount,
+        checkin: fallbackWindow.checkIn,
+        checkout: fallbackWindow.checkOut,
+        destination: destination.destination,
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+        body,
+        correlationId: sessionId,
+        clientIp,
+        userAgent,
+      });
+
+      const searchQuery = {
+        venueId: null,
+        tournamentId: tournamentId || null,
+        genericDestination: destination.destination,
+        requestedWindow: {
+          source: "generic_fallback",
+          checkin: fallbackWindow.checkIn,
+          checkout: fallbackWindow.checkOut,
+        },
+        rooms: roomCount,
+        adults: adultCount,
+        source: providerInput.sc,
+        destinationUsed:
+          destination.latitude !== null && destination.longitude !== null ? "coordinates" : "destination",
+      };
+
+      await insertStartedSession({
+        sessionId,
+        provider: providerName,
+        searchQuery,
+        clientIp,
+        userAgent,
+      });
+
+      const startedAt = Date.now();
+      try {
+        const result = await provider.searchHotels(providerInput);
+        const fallback = result.fallback ?? { showHotelFallback: false, showVrboFallback: false };
+        const count = Array.isArray(result.hotels) ? result.hotels.length : 0;
+        const latencyMs = Date.now() - startedAt;
+        const fallbackReason = fallback.showHotelFallback ? "low_inventory" : null;
+        await updateSessionLifecycle({
+          sessionId,
+          status: "succeeded",
+          resultCount: count,
+          latencyMs,
+          fallbackReason,
+        });
+        return NextResponse.json({
+          sessionId,
+          provider: result.provider,
+          hotels: result.hotels,
+          fallback,
+          resolvedCheckIn: fallbackWindow.checkIn,
+          resolvedCheckOut: fallbackWindow.checkOut,
+        });
+      } catch (error: unknown) {
+        const { statusCode, errorCode, errorMessage } = classifyProviderFailure(error);
+        const latencyMs = Date.now() - startedAt;
+        const providerError = errorMessage;
+        const fallback = fallbackPayload("provider_error");
+        await updateSessionLifecycle({
+          sessionId,
+          status: "failed",
+          resultCount: 0,
+          latencyMs,
+          fallbackReason: "provider_error",
+          errorCode,
+          responseSnapshot:
+            errorCode || statusCode === 502
+              ? { message: providerError, type: (error instanceof Error ? error.name : "Error") }
+              : null,
+        });
+
+        if (statusCode === 502) {
+          return NextResponse.json(
+            {
+              sessionId,
+              provider: providerName,
+              hotels: [],
+              fallback,
+              error: "Provider failure",
+              code: errorCode,
+              resolvedCheckIn: fallbackWindow.checkIn,
+              resolvedCheckOut: fallbackWindow.checkOut,
+              ...(IS_LODGING_DEBUG
+                ? { providerFailure: buildProviderFailureDebug(error) }
+                : {}),
+            },
+            { status: 502 }
+          );
+        }
+
+        return NextResponse.json(
+          {
+            sessionId,
+            provider: providerName,
+            error: providerError,
+            resolvedCheckIn: fallbackWindow.checkIn,
+            resolvedCheckOut: fallbackWindow.checkOut,
+            ...(IS_LODGING_DEBUG
+              ? { providerFailure: buildProviderFailureDebug(error) }
+              : {}),
+          },
+          { status: statusCode }
+        );
+      }
+    }
+
     return NextResponse.json(
       {
         sessionId: randomUUID(),
@@ -576,6 +755,7 @@ export async function POST(request: Request) {
   const searchQuery = {
     venueId,
     tournamentId: tournamentId || null,
+    genericDestination: isGenericSearch ? destination.destination : null,
     requestedWindow: {
       source: resolvedWindow.source,
       checkin: resolvedWindow.window.checkIn,

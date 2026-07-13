@@ -295,6 +295,85 @@
   color: rgba(255, 255, 255, 0.84);
 }
 
+.hotelResultsError {
+  margin-top: 0.85rem;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(127, 29, 29, 0.2);
+  border: 1px solid rgba(252, 165, 165, 0.28);
+  color: #fee2e2;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.hotelResultsMeta {
+  margin-top: 0.85rem;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.hotelResultsList {
+  margin-top: 0.95rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.hotelResultCard {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  padding: 12px 13px;
+  display: grid;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.hotelResultCard:hover,
+.hotelResultCard:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.hotelResultTitle {
+  font-size: 14px;
+  font-weight: 900;
+  color: #fff;
+}
+
+.hotelResultMeta {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.hotelResultOpen {
+  margin-top: 0.2rem;
+  font-size: 12px;
+  font-weight: 900;
+  color: #d1fae5;
+}
+
+.hotelFallbackBox {
+  margin-top: 0.95rem;
+  display: grid;
+  gap: 0.75rem;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hotelFallbackCopy {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .faqBlock {
   margin-top: 1.1rem;
   display: grid;
