@@ -16,6 +16,7 @@ Maintenance rules:
 
 - TI HotelPlanner search-page hash handoff fix:
   - Updated `apps/ti-web/app/go/hotels/route.ts` so generic TI hotel search handoffs now set the HotelPlanner SPA `#search/...` hash with destination and `MM-DD-YYYY` date segments in addition to the existing query-string tracking fields.
+  - Restored the full trailing HotelPlanner hash state tail used by the hosted `search.js` parser instead of truncating the fragment after `default/`, which had caused blank results and today/tomorrow fallback dates even when TI passed correct query-string and hash dates.
   - Scoped this fix to the `/Search/` handoff only; venue-map property-page handoffs to `/Hotel/HotelRoomTypes.htm` remain unchanged.
   - This addresses the remaining `/book-travel` issue where HotelPlanner was rendering today/tomorrow from its default client-side state even though TI was already sending correct `checkIn` / `checkOut` query parameters.
 
