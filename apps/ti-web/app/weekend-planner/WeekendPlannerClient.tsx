@@ -473,8 +473,7 @@ export default function WeekendPlannerClient(props: {
   }
 
   const hotelResultsPreview = hotelResults.slice(0, 8);
-  const showViewAllHotelsCta =
-    hotelResults.length > 8 && hotelResolvedLatitude !== null && hotelResolvedLongitude !== null;
+  const showViewAllHotelsCta = hotelResults.length > 8 && Boolean(destination.trim());
   const showFallbackHotelSearchCta = hotelResults.length === 0 && hotelResultsFallback?.showHotelFallback;
 
   function track(event: string, properties: Record<string, unknown> = {}) {
