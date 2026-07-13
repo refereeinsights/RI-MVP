@@ -1507,6 +1507,8 @@ export default function TournamentVenueMapClient({
           counts: null,
         }
       : null);
+  const hotelLoadingFallbackVenue = selectedVenue?.id === hotelVenueId ? selectedVenue : null;
+  const hotelLoadingFallbackVisible = hotelPinsLoading && Boolean(hotelLoadingFallbackVenue);
   const hotelFallbackCardVisible =
     (hotelPinsFallback?.showHotelFallback || hotelPinsFallback?.showVrboFallback || filteredHotelPins.length === 0) && Boolean(hotelPinsFallback);
   const hotelPanelSummary = hotelPinsLoading
@@ -2965,10 +2967,62 @@ export default function TournamentVenueMapClient({
 
                       {!isHotelResultsCollapsed ? (
                         <>
-                          {hotelPinsLoading ? <div className={styles.lodgingNotice}>Searching HotelPlanner results…</div> : null}
+                          {hotelPinsLoading ? (
+                            <div className={styles.hotelLoadingState}>
+                              <div className={styles.lodgingNoticeSrOnly} aria-live="polite">
+                                Searching HotelPlanner results…
+                              </div>
+                              <div className={styles.hotelSkeletonList} aria-hidden="true">
+                                {Array.from({ length: 3 }).map((_, index) => (
+                                  <div key={`hotel-skeleton-${index}`} className={styles.hotelSkeletonCard}>
+                                    <div className={`${styles.hotelSkeletonLine} ${styles.hotelSkeletonTitle}`} />
+                                    <div className={`${styles.hotelSkeletonLine} ${styles.hotelSkeletonMeta}`} />
+                                    <div className={`${styles.hotelSkeletonLine} ${styles.hotelSkeletonMetaShort}`} />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
                           {!hotelPinsLoading && hotelPinsError ? <div className={styles.lodgingError}>{hotelPinsError}</div> : null}
 
-                          {hotelFallbackCardVisible ? (
+                          {hotelLoadingFallbackVisible ? (
+                            <div className={styles.lodgingFallback}>
+                              <div className={styles.lodgingFallbackReason}>
+                                HotelPlanner and rental links are available while nearby hotel results load.
+                              </div>
+                              <div className={styles.lodgingFallbackActions}>
+                                <a
+                                  className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
+                                  href={buildVenueHotelsHref({
+                                    venue: hotelLoadingFallbackVenue!,
+                                    tournamentId: tournament.id,
+                                  })}
+                                  target="_blank"
+                                  rel="noopener noreferrer sponsored"
+                                  onClick={() => {
+                                    void trackTiEvent("venue_map_hotels_clicked", {
+                                      page_type: "venue_map",
+                                      tournament_id: tournament.id,
+                                      tournament_slug: tournament.slug,
+                                      venue_id: hotelVenueId,
+                                    });
+                                  }}
+                                >
+                                  View HotelPlanner results
+                                </a>
+                                <a
+                                  className={styles.affiliateCta}
+                                  href={`/go/vrbo?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer sponsored"
+                                >
+                                  Rentals nearby
+                                </a>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {!hotelPinsLoading && hotelFallbackCardVisible ? (
                             <div className={styles.lodgingFallback}>
                               <div className={styles.lodgingFallbackReason}>
                                 {hotelPinsFallback?.reason === "no_dates"

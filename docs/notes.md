@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-07-13
 
+- TI venue-map lodging loading polish:
+  - Updated `apps/ti-web/app/api/lodging/search/route.ts` so venue lookup and optional tournament-date lookup now run in parallel after synchronous `tournamentId` validation, reducing avoidable latency before HotelPlanner venue-map searches begin.
+  - Updated `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx` and `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css` so the venue hotel panel now shows loading skeleton cards plus direct HotelPlanner / VRBO fallback CTAs while nearby hotels are still loading, but only when the current venue redirect context is ready.
+  - Preserved the existing loaded-results, no-results fallback, error handling, analytics payloads, and venue/property handoff behavior; this change only improves perceived speed and the usefulness of the loading state.
+
 - TI HotelPlanner search-page hash handoff fix:
   - Updated `apps/ti-web/app/go/hotels/route.ts` so generic TI hotel search handoffs now set the HotelPlanner SPA `#search/...` hash with destination and `MM-DD-YYYY` date segments in addition to the existing query-string tracking fields.
   - Restored the full trailing HotelPlanner hash state tail used by the hosted `search.js` parser instead of truncating the fragment after `default/`, which had caused blank results and today/tomorrow fallback dates even when TI passed correct query-string and hash dates.

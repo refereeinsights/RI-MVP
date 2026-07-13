@@ -585,15 +585,19 @@ export async function POST(request: Request) {
     return asRequestError("Generic destination search is not allowed for this source");
   }
 
-  const providerName = getLodgingProviderName();
-  const venue = venueId ? await fetchVenueById(venueId) : null;
-  if (venueId && !venue) {
-    return NextResponse.json({ ok: false, error: "Venue not found" }, { status: 400 });
-  }
-
   const tournamentId = toText(body.tournamentId) ? parseUuid(body.tournamentId) : null;
   if (toText(body.tournamentId) && !tournamentId) {
     return asRequestError("Invalid tournamentId");
+  }
+
+  const providerName = getLodgingProviderName();
+  const [venue, tournament] = await Promise.all([
+    venueId ? fetchVenueById(venueId) : Promise.resolve(null),
+    tournamentId ? fetchTournamentDates(tournamentId) : Promise.resolve(null),
+  ]);
+
+  if (venueId && !venue) {
+    return NextResponse.json({ ok: false, error: "Venue not found" }, { status: 400 });
   }
 
   if (
@@ -635,7 +639,6 @@ export async function POST(request: Request) {
 
   const clientIp = firstIpFromHeader(request.headers.get("x-forwarded-for")) || "unknown";
   const userAgent = request.headers.get("user-agent") || "unknown";
-  const tournament = tournamentId ? await fetchTournamentDates(tournamentId) : null;
 
   const destination = venue ? resolveDestination(venue) : genericDestination;
   if (!destination.destination && (destination.latitude === null || destination.longitude === null)) {
