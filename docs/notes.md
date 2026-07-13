@@ -12,6 +12,18 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-07-13
+
+- TI `/book-travel` compact date normalization fix:
+  - Updated `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` so individual hotel and rental searches now normalize compact user-entered dates like `092526` / `092626` into ISO before building `/go/hotels` and `/go/vrbo` handoff URLs.
+  - Kept downstream partner routes strict (`YYYY-MM-DD`) and applied the fix at the booking UI input layer, which is the shared source for both HotelPlanner and Vrbo outbound handoffs.
+  - Updated the visible date placeholders to advertise the newly supported compact `MMDDYY` entry format alongside the existing delimited format.
+
+- TI `/book-travel` generic individual travel search fix:
+  - Updated `apps/ti-web/app/go/hotels/route.ts` and `apps/ti-web/app/go/vrbo/route.ts` so generic destination-only searches from `/book-travel` are allowed without a TI `venueId`.
+  - Preserved the anti-abuse guardrail by allowing generic handoffs only for approved TI-origin surfaces (`book_travel`, `weekend_planner`, `tournament_directory`, `tournament_detail`) plus matching same-origin referrer paths.
+  - Avoided introducing any fake TI venue or synthetic venue tracking for `/book-travel`; generic booking-page traffic remains tracked by source/surface fields instead of fabricated venue records.
+
 ## 2026-07-10
 
 - TI tournament detail mobile sticky quick-action restore:

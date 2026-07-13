@@ -60,6 +60,29 @@ function compareIso(a: string, b: string) {
   return 0;
 }
 
+function isoFromCompactUserDate(raw: string) {
+  const digitsOnly = raw.replace(/\D/g, "");
+
+  if (/^\d{8}$/.test(digitsOnly)) {
+    const mm = digitsOnly.slice(0, 2);
+    const dd = digitsOnly.slice(2, 4);
+    const yyyy = digitsOnly.slice(4, 8);
+    const iso = `${yyyy}-${mm}-${dd}`;
+    return isValidIsoDate(iso) ? iso : null;
+  }
+
+  if (/^\d{6}$/.test(digitsOnly)) {
+    const mm = digitsOnly.slice(0, 2);
+    const dd = digitsOnly.slice(2, 4);
+    const yy = Number(digitsOnly.slice(4, 6));
+    const yyyy = String(2000 + yy);
+    const iso = `${yyyy}-${mm}-${dd}`;
+    return isValidIsoDate(iso) ? iso : null;
+  }
+
+  return null;
+}
+
 function safeGetStoredDestination() {
   try {
     return String(window.localStorage.getItem(DESTINATION_STORAGE_KEY) ?? "").trim();
@@ -195,6 +218,10 @@ export default function WeekendPlannerClient(props: {
 
     // Accept ISO if user pasted it.
     if (isValidIsoDate(raw)) return raw;
+
+    // Accept compact MMDDYY / MMDDYYYY input with no separators.
+    const compactIso = isoFromCompactUserDate(raw);
+    if (compactIso) return compactIso;
 
     // Accept MM-DD-YYYY or M/D/YYYY and normalize.
     const m = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
@@ -349,7 +376,7 @@ export default function WeekendPlannerClient(props: {
                       id="wp-checkin-hotels"
                       name="checkin"
                       className={`input ${styles.inputDark}`}
-                      placeholder="MM-DD-YYYY"
+                      placeholder="MM-DD-YYYY or MMDDYY"
                       value={checkinText}
                       onChange={(e) => setCheckinText(e.target.value)}
                     />
@@ -362,7 +389,7 @@ export default function WeekendPlannerClient(props: {
                       id="wp-checkout-hotels"
                       name="checkout"
                       className={`input ${styles.inputDark}`}
-                      placeholder="MM-DD-YYYY"
+                      placeholder="MM-DD-YYYY or MMDDYY"
                       value={checkoutText}
                       onChange={(e) => setCheckoutText(e.target.value)}
                     />
@@ -443,7 +470,7 @@ export default function WeekendPlannerClient(props: {
                       id="wp-checkin-vrbo"
                       name="checkin"
                       className={`input ${styles.inputDark}`}
-                      placeholder="MM-DD-YYYY"
+                      placeholder="MM-DD-YYYY or MMDDYY"
                       value={checkinText}
                       onChange={(e) => setCheckinText(e.target.value)}
                     />
@@ -456,7 +483,7 @@ export default function WeekendPlannerClient(props: {
                       id="wp-checkout-vrbo"
                       name="checkout"
                       className={`input ${styles.inputDark}`}
-                      placeholder="MM-DD-YYYY"
+                      placeholder="MM-DD-YYYY or MMDDYY"
                       value={checkoutText}
                       onChange={(e) => setCheckoutText(e.target.value)}
                     />
