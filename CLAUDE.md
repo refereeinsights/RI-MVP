@@ -521,6 +521,42 @@ Optional targeted UAT for handoff compatibility:
    - `Custom1=...`
    - Tracking params should not be dropped for lowercase variants (`custom1`, `jobcode`) passed in from URL query.
 
+### TI `/book-travel` Native Results → Direct HotelPlanner Search UAT
+
+- [ ] Local native hotel results flow
+  - Open `http://localhost:3001/book-travel`.
+  - Enter a destination that should return more than 8 hotels, plus valid dates.
+  - Submit `Search hotels`.
+  - Confirm TI stays on `/book-travel` and renders native hotel results inline.
+  - Confirm a result-count label appears above the list and reflects the full hotel count.
+  - Confirm only the first 8 hotel cards are rendered in the TI list.
+- [ ] Direct broader HotelPlanner handoff
+  - When results exceed 8, confirm a CTA appears:
+    - `View all N hotels on HotelPlanner`
+  - Click it and confirm the new tab lands directly on a HotelPlanner `/Search/` results URL, not the generic white-label root landing page.
+  - Confirm the broader handoff preserves:
+    - `ss`
+    - `source`
+    - `checkin`
+    - `checkout`
+    - `lat`
+    - `lng`
+  - Confirm the HP search reflects the same stay window TI displayed in `Searching stay window: ...`.
+- [ ] Individual hotel property clicks unchanged
+  - Click one TI hotel result card.
+  - Confirm it still opens the direct HotelPlanner property page (`/Hotel/HotelRoomTypes.htm`) in a new tab.
+  - Confirm property-page dates still match the resolved TI stay window.
+- [ ] Eight-or-fewer results behavior
+  - Search a destination that returns 8 or fewer hotels.
+  - Confirm all TI hotel cards render.
+  - Confirm no `View all N hotels on HotelPlanner` CTA appears.
+  - Confirm the generic `Open HotelPlanner search` CTA does not appear when TI results are already present.
+- [ ] Degraded / fallback behavior
+  - Search with an input that fails geocoding or otherwise produces TI fallback behavior.
+  - Confirm no broken `View all` CTA appears.
+  - Confirm the existing fallback `Open HotelPlanner search` CTA still appears when no TI hotel results are available.
+  - Confirm the degraded path still preserves `source` tracking into `/go/hotels`.
+
 ### Step 3 TI Lodging Map UI UAT (local)
 
 Run after Step 3 implementation is deployed to local server.

@@ -54,6 +54,8 @@ type BookTravelHotelSearchResponse = {
   fallback?: BookTravelHotelFallback | null;
   resolvedCheckIn?: string | null;
   resolvedCheckOut?: string | null;
+  resolvedLatitude?: number | null;
+  resolvedLongitude?: number | null;
   error?: string;
   code?: string;
 };
@@ -114,6 +116,15 @@ function isoFromCompactUserDate(raw: string) {
   }
 
   return null;
+}
+
+function mmDdYyyyToIso(value: string | null) {
+  if (!value) return null;
+  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+  const [, mm, dd, yyyy] = match;
+  const iso = `${yyyy}-${mm}-${dd}`;
+  return isValidIsoDate(iso) ? iso : null;
 }
 
 function safeGetStoredDestination() {
@@ -217,6 +228,8 @@ export default function WeekendPlannerClient(props: {
   const [hotelResultsFallback, setHotelResultsFallback] = useState<BookTravelHotelFallback | null>(null);
   const [hotelResolvedCheckIn, setHotelResolvedCheckIn] = useState<string | null>(null);
   const [hotelResolvedCheckOut, setHotelResolvedCheckOut] = useState<string | null>(null);
+  const [hotelResolvedLatitude, setHotelResolvedLatitude] = useState<number | null>(null);
+  const [hotelResolvedLongitude, setHotelResolvedLongitude] = useState<number | null>(null);
 
   useEffect(() => {
     sourcePageRef.current = getPlannerSourcePage(window.location?.pathname) as "book_travel" | "weekend_planner";
@@ -350,10 +363,12 @@ export default function WeekendPlannerClient(props: {
     const qp = new URLSearchParams();
     qp.set("ss", destination.trim());
     qp.set("source", sourcePageRef.current);
-    const checkinIso = isoFromUserDate(checkinText);
-    const checkoutIso = isoFromUserDate(checkoutText);
+    const checkinIso = mmDdYyyyToIso(hotelResolvedCheckIn) ?? isoFromUserDate(checkinText);
+    const checkoutIso = mmDdYyyyToIso(hotelResolvedCheckOut) ?? isoFromUserDate(checkoutText);
     if (checkinIso) qp.set("checkin", checkinIso);
     if (checkoutIso) qp.set("checkout", checkoutIso);
+    if (hotelResolvedLatitude !== null) qp.set("lat", String(hotelResolvedLatitude));
+    if (hotelResolvedLongitude !== null) qp.set("lng", String(hotelResolvedLongitude));
     return qp;
   }
 
@@ -405,6 +420,8 @@ export default function WeekendPlannerClient(props: {
     setHotelResultsFallback(null);
     setHotelResolvedCheckIn(null);
     setHotelResolvedCheckOut(null);
+    setHotelResolvedLatitude(null);
+    setHotelResolvedLongitude(null);
 
     try {
       const response = await fetch(new URL("/api/lodging/search", window.location.origin), {
@@ -430,6 +447,8 @@ export default function WeekendPlannerClient(props: {
         setHotelResultsFallback(data.fallback ?? { showHotelFallback: true, showVrboFallback: true, reason: "provider_error" });
         setHotelResolvedCheckIn(data.resolvedCheckIn ?? null);
         setHotelResolvedCheckOut(data.resolvedCheckOut ?? null);
+        setHotelResolvedLatitude(typeof data.resolvedLatitude === "number" ? data.resolvedLatitude : null);
+        setHotelResolvedLongitude(typeof data.resolvedLongitude === "number" ? data.resolvedLongitude : null);
         return;
       }
 
@@ -438,16 +457,25 @@ export default function WeekendPlannerClient(props: {
       setHotelResultsFallback(data.fallback ?? null);
       setHotelResolvedCheckIn(data.resolvedCheckIn ?? null);
       setHotelResolvedCheckOut(data.resolvedCheckOut ?? null);
+      setHotelResolvedLatitude(typeof data.resolvedLatitude === "number" ? data.resolvedLatitude : null);
+      setHotelResolvedLongitude(typeof data.resolvedLongitude === "number" ? data.resolvedLongitude : null);
       if (!normalizedHotels.length) {
         setHotelResultsError("No hotel results returned for this search yet.");
       }
     } catch {
       setHotelResultsError("Unable to load hotels right now.");
       setHotelResultsFallback({ showHotelFallback: true, showVrboFallback: true, reason: "provider_error" });
+      setHotelResolvedLatitude(null);
+      setHotelResolvedLongitude(null);
     } finally {
       setHotelResultsLoading(false);
     }
   }
+
+  const hotelResultsPreview = hotelResults.slice(0, 8);
+  const showViewAllHotelsCta =
+    hotelResults.length > 8 && hotelResolvedLatitude !== null && hotelResolvedLongitude !== null;
+  const showFallbackHotelSearchCta = hotelResults.length === 0 && hotelResultsFallback?.showHotelFallback;
 
   function track(event: string, properties: Record<string, unknown> = {}) {
     const pagePath = (() => {
@@ -615,41 +643,55 @@ export default function WeekendPlannerClient(props: {
                 </div>
               ) : null}
               {hotelResults.length ? (
-                <div className={styles.hotelResultsList}>
-                  {hotelResults.map((hotel) => (
+                <>
+                  <div className={styles.hotelResultsCount}>
+                    {hotelResults.length} hotel{hotelResults.length !== 1 ? "s" : ""} found
+                  </div>
+                  <div className={styles.hotelResultsList}>
+                    {hotelResultsPreview.map((hotel) => (
+                      <button
+                        key={hotel.propertyId}
+                        type="button"
+                        className={styles.hotelResultCard}
+                        onClick={() => {
+                          const propertyUrl = buildHotelPlannerPropertyUrl(hotel);
+                          if (!propertyUrl) {
+                            setHotelResultsError("Hotel details require valid dates before opening HotelPlanner.");
+                            return;
+                          }
+                          window.open(propertyUrl, "_blank", "noopener,noreferrer");
+                        }}
+                      >
+                        <div className={styles.hotelResultTitle}>{hotel.name}</div>
+                        <div className={styles.hotelResultMeta}>
+                          <span>{getHotelAddress(hotel) || "Address on file"}</span>
+                          {hotel.distanceMiles != null ? <span> • {hotel.distanceMiles.toFixed(1)} mi</span> : null}
+                        </div>
+                        <div className={styles.hotelResultMeta}>
+                          <span>
+                            {hotel.rating != null
+                              ? `${hotel.rating.toFixed(1)}★${hotel.reviewCount ? ` (${hotel.reviewCount})` : ""}`
+                              : "—"}
+                          </span>
+                          <span> • </span>
+                          <span>{formatCurrency(hotel.fromPrice, hotel.currency || "USD") || "Price on request"}</span>
+                        </div>
+                        <div className={styles.hotelResultOpen}>Open HotelPlanner property page</div>
+                      </button>
+                    ))}
+                  </div>
+                  {showViewAllHotelsCta ? (
                     <button
-                      key={hotel.propertyId}
                       type="button"
-                      className={styles.hotelResultCard}
-                      onClick={() => {
-                        const propertyUrl = buildHotelPlannerPropertyUrl(hotel);
-                        if (!propertyUrl) {
-                          setHotelResultsError("Hotel details require valid dates before opening HotelPlanner.");
-                          return;
-                        }
-                        window.open(propertyUrl, "_blank", "noopener,noreferrer");
-                      }}
+                      className={`${styles.ctaFull} ${styles.ctaSecondary}`}
+                      onClick={() => openGoUrlInNewTab("/go/hotels", buildHotelSearchParams())}
                     >
-                      <div className={styles.hotelResultTitle}>{hotel.name}</div>
-                      <div className={styles.hotelResultMeta}>
-                        <span>{getHotelAddress(hotel) || "Address on file"}</span>
-                        {hotel.distanceMiles != null ? <span> • {hotel.distanceMiles.toFixed(1)} mi</span> : null}
-                      </div>
-                      <div className={styles.hotelResultMeta}>
-                        <span>
-                          {hotel.rating != null
-                            ? `${hotel.rating.toFixed(1)}★${hotel.reviewCount ? ` (${hotel.reviewCount})` : ""}`
-                            : "—"}
-                        </span>
-                        <span> • </span>
-                        <span>{formatCurrency(hotel.fromPrice, hotel.currency || "USD") || "Price on request"}</span>
-                      </div>
-                      <div className={styles.hotelResultOpen}>Open HotelPlanner property page</div>
+                      View all {hotelResults.length} hotels on HotelPlanner
                     </button>
-                  ))}
-                </div>
+                  ) : null}
+                </>
               ) : null}
-              {hotelResultsFallback?.showHotelFallback ? (
+              {showFallbackHotelSearchCta ? (
                 <div className={styles.hotelFallbackBox}>
                   <div className={styles.hotelFallbackCopy}>
                     Prefer the full HotelPlanner search page? Open it with your current destination and dates.

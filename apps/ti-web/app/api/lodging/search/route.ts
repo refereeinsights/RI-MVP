@@ -189,6 +189,17 @@ function fallbackPayload(reason: FallbackReason) {
   };
 }
 
+function resolvedCoordinatesPayload(args: {
+  isGenericSearch: boolean;
+  latitude: number | null;
+  longitude: number | null;
+}) {
+  return {
+    resolvedLatitude: args.isGenericSearch ? (args.latitude ?? null) : null,
+    resolvedLongitude: args.isGenericSearch ? (args.longitude ?? null) : null,
+  };
+}
+
 async function ensureRateLimitAllowed(input: { clientIp: string | null; userAgent: string | null }) {
   const ip = input.clientIp || "unknown";
   const ua = input.userAgent || "unknown";
@@ -725,6 +736,11 @@ export async function POST(request: Request) {
           fallback,
           resolvedCheckIn: fallbackWindow.checkIn,
           resolvedCheckOut: fallbackWindow.checkOut,
+          ...resolvedCoordinatesPayload({
+            isGenericSearch,
+            latitude: destination.latitude,
+            longitude: destination.longitude,
+          }),
         });
       } catch (error: unknown) {
         const { statusCode, errorCode, errorMessage } = classifyProviderFailure(error);
@@ -755,6 +771,11 @@ export async function POST(request: Request) {
               code: errorCode,
               resolvedCheckIn: fallbackWindow.checkIn,
               resolvedCheckOut: fallbackWindow.checkOut,
+              ...resolvedCoordinatesPayload({
+                isGenericSearch,
+                latitude: destination.latitude,
+                longitude: destination.longitude,
+              }),
               ...(IS_LODGING_DEBUG
                 ? { providerFailure: buildProviderFailureDebug(error) }
                 : {}),
@@ -770,6 +791,11 @@ export async function POST(request: Request) {
             error: providerError,
             resolvedCheckIn: fallbackWindow.checkIn,
             resolvedCheckOut: fallbackWindow.checkOut,
+            ...resolvedCoordinatesPayload({
+              isGenericSearch,
+              latitude: destination.latitude,
+              longitude: destination.longitude,
+            }),
             ...(IS_LODGING_DEBUG
               ? { providerFailure: buildProviderFailureDebug(error) }
               : {}),
@@ -787,6 +813,11 @@ export async function POST(request: Request) {
         fallback: fallbackPayload(resolvedWindow.reason),
         resolvedCheckIn: null,
         resolvedCheckOut: null,
+        ...resolvedCoordinatesPayload({
+          isGenericSearch,
+          latitude: destination.latitude,
+          longitude: destination.longitude,
+        }),
       },
       { status: 200 }
     );
@@ -858,6 +889,11 @@ export async function POST(request: Request) {
       fallback,
       resolvedCheckIn: resolvedWindow.window.checkIn,
       resolvedCheckOut: resolvedWindow.window.checkOut,
+      ...resolvedCoordinatesPayload({
+        isGenericSearch,
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+      }),
     });
   } catch (error: unknown) {
     const { statusCode, errorCode, errorMessage } = classifyProviderFailure(error);
@@ -888,6 +924,11 @@ export async function POST(request: Request) {
           code: errorCode,
           resolvedCheckIn: resolvedWindow.window.checkIn,
           resolvedCheckOut: resolvedWindow.window.checkOut,
+          ...resolvedCoordinatesPayload({
+            isGenericSearch,
+            latitude: destination.latitude,
+            longitude: destination.longitude,
+          }),
           ...(IS_LODGING_DEBUG
             ? { providerFailure: buildProviderFailureDebug(error) }
             : {}),
@@ -903,6 +944,11 @@ export async function POST(request: Request) {
         error: providerError,
         resolvedCheckIn: resolvedWindow.window.checkIn,
         resolvedCheckOut: resolvedWindow.window.checkOut,
+        ...resolvedCoordinatesPayload({
+          isGenericSearch,
+          latitude: destination.latitude,
+          longitude: destination.longitude,
+        }),
         ...(IS_LODGING_DEBUG
           ? { providerFailure: buildProviderFailureDebug(error) }
           : {}),

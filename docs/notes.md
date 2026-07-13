@@ -4443,3 +4443,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
 - 2026-07-13: TI venue-map hotel pin loading status.
   - Added a map-level `Loading nearby hotels on map…` badge in `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx` so users get immediate feedback after the map is ready but before HotelPlanner pins finish loading.
   - Scoped the visual treatment to `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css` and hide the badge automatically as soon as the current venue’s hotel-pin load completes.
+- 2026-07-13: TI direct HotelPlanner broader-search handoff from native `/book-travel` results.
+  - Extended `apps/ti-web/app/api/lodging/search/route.ts` to return resolved generic-search coordinates (`resolvedLatitude` / `resolvedLongitude`) alongside the existing resolved stay window.
+  - Updated `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` so TI-native hotel results now render only the first 8 cards, show a full result-count label, and expose `View all N hotels on HotelPlanner` only when resolved lat/lng are present.
+  - Updated the broader HotelPlanner handoff to prefer the resolved TI search dates over raw form dates, and changed `apps/ti-web/app/go/hotels/route.ts` so `book_travel` / `weekend_planner` use direct HP `/Search/` results whenever valid lat/lng are supplied; generic landing fallback remains for degraded no-coordinate cases.

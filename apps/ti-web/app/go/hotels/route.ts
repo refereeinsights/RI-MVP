@@ -567,7 +567,7 @@ export async function GET(request: Request) {
             tournamentSlug: tournament?.slug ?? null,
           });
 
-          if (!venueIdValid && (source === "book_travel" || source === "weekend_planner")) {
+          if (!venueIdValid && !hasHotelPlannerLatLng && (source === "book_travel" || source === "weekend_planner")) {
             return buildHotelPlannerGenericLandingUrl({
               baseUrl: hotelPlannerWhiteLabelUrl,
               destination: String(hotelPlannerCitySearch ?? bookingSearchString).trim(),
