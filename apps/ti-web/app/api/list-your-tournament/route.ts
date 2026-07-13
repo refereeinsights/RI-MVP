@@ -10,6 +10,17 @@ import {
   findTournamentDuplicateMatchByName,
   getTournamentDuplicateMatchById,
 } from "@/lib/tournamentDuplicateMatch";
+import { sendEmail } from "@/lib/email";
+import { parseRecipients } from "@/lib/adminDashboardEmail";
+
+function esc(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 type TournamentInsertResult = {
   id: string;
@@ -309,6 +320,52 @@ export async function POST(request: Request) {
     }
 
     await syncTournamentSponsors(tournamentId, validation.value.sponsors);
+
+    const { tournament: t, venues } = validation.value;
+    const firstVenueCity = venues[0]?.city ?? "";
+    const firstVenueState = venues[0]?.state ?? "";
+    const adminUrl = `https://www.refereeinsights.com/admin?tab=tournament-listings&q=${encodeURIComponent(t.name)}#tournament-listings`;
+
+    // Notify admin — best-effort, never blocks the response.
+    try {
+      const adminRecipients = parseRecipients(process.env.TI_ADMIN_DASHBOARD_EMAILS);
+      if (adminRecipients.length > 0) {
+        const action = shouldUpdateExisting ? "verified / updated" : "submitted for listing";
+        await sendEmail({
+          to: adminRecipients,
+          subject: `Tournament ${action}: ${t.name}`,
+          html: `<p>A tournament was ${action} via the public form.</p>
+<ul>
+  <li><strong>Name:</strong> ${esc(t.name)}</li>
+  <li><strong>Sport:</strong> ${esc(t.sport)}</li>
+  <li><strong>Dates:</strong> ${esc(t.startDate)} – ${esc(t.endDate)}</li>
+  <li><strong>Location:</strong> ${esc(firstVenueCity)}, ${esc(firstVenueState)}</li>
+  <li><strong>Director:</strong> ${esc(t.tournamentDirector)} (${esc(t.tournamentDirectorEmail)})</li>
+</ul>
+<p><a href="${adminUrl}">Review in admin →</a></p>`,
+        });
+      }
+    } catch {
+      // best-effort
+    }
+
+    // Confirm receipt to the submitter — new submissions only, best-effort.
+    if (!shouldUpdateExisting && t.tournamentDirectorEmail) {
+      try {
+        await sendEmail({
+          to: t.tournamentDirectorEmail,
+          subject: `We received your tournament submission — ${t.name}`,
+          html: `<p>Hi ${esc(t.tournamentDirector)},</p>
+<p>Thanks for submitting <strong>${esc(t.name)}</strong> to TournamentInsights. We received your submission and will review it shortly.</p>
+<p>Once published, it will appear in search results and on venue map pages so families and teams can find dates, locations, and key details in one place.</p>
+<p>If you have questions, reply to this email.</p>
+<p>— The TournamentInsights Team</p>`,
+          replyTo: "hello@tournamentinsights.com",
+        });
+      } catch {
+        // best-effort
+      }
+    }
 
     return NextResponse.json({ ok: true, tournamentId, venueCount: desiredVenueIds.length, slug: tournament.slug });
   } catch (error) {
