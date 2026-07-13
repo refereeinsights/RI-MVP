@@ -94,6 +94,14 @@ function toMmDdYyyy(iso: string) {
   return `${mm}/${dd}/${y}`;
 }
 
+function toMmDdDashYyyy(value: string) {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+  const [, mm, dd, yyyy] = match;
+  return `${mm}-${dd}-${yyyy}`;
+}
+
 function isZipOnly(raw: string) {
   return /^\d{5}$/.test(String(raw ?? "").trim());
 }
@@ -189,6 +197,16 @@ function buildHotelPlannerSearchUrl(args: {
   if (args.custom6) searchUrl.searchParams.set("Custom6", String(args.custom6).trim());
   if (args.custom7) searchUrl.searchParams.set("Custom7", String(args.custom7).trim());
   if (args.custom8) searchUrl.searchParams.set("Custom8", String(args.custom8).trim());
+
+  const hashCheckin = toMmDdDashYyyy(args.dates.checkin);
+  const hashCheckout = toMmDdDashYyyy(args.dates.checkout);
+  if (hashCheckin && hashCheckout) {
+    const hashDestination = encodeURIComponent(destination);
+    const hashLat = args.latitude !== null && args.latitude !== undefined ? String(args.latitude) : "";
+    const hashLng = args.longitude !== null && args.longitude !== undefined ? String(args.longitude) : "";
+    searchUrl.hash = `search/${hashDestination}/${hashLat}/${hashLng}/${hashCheckin}/${hashCheckout}/default/`;
+  }
+
   return searchUrl.toString();
 }
 
