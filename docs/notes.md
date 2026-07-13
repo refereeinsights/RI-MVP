@@ -4447,6 +4447,12 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Extended `apps/ti-web/app/api/lodging/search/route.ts` to return resolved generic-search coordinates (`resolvedLatitude` / `resolvedLongitude`) alongside the existing resolved stay window.
   - Updated `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` so TI-native hotel results now render only the first 8 cards, show a full result-count label, and expose `View all N hotels on HotelPlanner` only when resolved lat/lng are present.
   - Updated the broader HotelPlanner handoff to prefer the resolved TI search dates over raw form dates, and changed `apps/ti-web/app/go/hotels/route.ts` so `book_travel` / `weekend_planner` use direct HP `/Search/` results whenever valid lat/lng are supplied; generic landing fallback remains for degraded no-coordinate cases.
+- 2026-07-13: TI venue map "View all nearby hotels" switched back to /Search/ URL for immediate results.
+  - File: `apps/ti-web/app/go/hotels/route.ts`
+  - Problem: the root URL fix (`/?city=...`) made venue map "View all" land on HP's blank search form requiring a second click. Book-travel had no lat/lng so root URL was acceptable there.
+  - Fix: venue map path (venueId + lat/lng present) reverted to `buildHotelPlannerSearchUrl` → `/Search/?latitude=...&longitude=...&CheckIn=...&CheckOut=...`. HP auto-loads results from coordinates. Book-travel stays on `buildHotelPlannerRootUrl` (city + dates, one search click).
+  - Map pins and individual hotel property handoffs unchanged.
+
 - 2026-07-13: TI generic broader hotel search now skips the extra HotelPlanner click.
   - Simplified `apps/ti-web/app/go/hotels/route.ts` so non-venue HotelPlanner searches now always build the direct HP `/Search/` URL instead of falling back to the white-label root landing page.
   - This leaves venue-map and property-page handoffs unchanged; only the broader `/book-travel` and generic planner search flow is affected.
