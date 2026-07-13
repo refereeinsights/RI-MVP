@@ -1509,6 +1509,7 @@ export default function TournamentVenueMapClient({
       : null);
   const hotelLoadingFallbackVenue = selectedVenue?.id === hotelVenueId ? selectedVenue : null;
   const hotelLoadingFallbackVisible = hotelPinsLoading && Boolean(hotelLoadingFallbackVenue);
+  const mapHotelLoadingVisible = mapReady && hotelPinsLoading && selectedVenue?.id === hotelVenueId;
   const hotelFallbackCardVisible =
     (hotelPinsFallback?.showHotelFallback || hotelPinsFallback?.showVrboFallback || filteredHotelPins.length === 0) && Boolean(hotelPinsFallback);
   const hotelPanelSummary = hotelPinsLoading
@@ -3442,6 +3443,11 @@ export default function TournamentVenueMapClient({
               <div className={styles.mapInner}>
                 <div className={styles.mapCanvas} ref={containerRef} />
               </div>
+              {mapHotelLoadingVisible ? (
+                <div className={styles.mapHotelLoadingBadge} aria-live="polite">
+                  Loading nearby hotels on map…
+                </div>
+              ) : null}
               {mapError ? (
                 <div className={styles.mapFallback}>
                   <div style={{ fontWeight: 900 }}>Map failed to load.</div>

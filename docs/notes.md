@@ -4440,3 +4440,6 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Updated `apps/ti-web/app/api/lodging/search/route.ts` so freeform destination searches like `Moscow, ID` are geocoded through Mapbox before the HotelPlanner provider search runs.
   - This keeps the TI-native `/book-travel` and `/weekend-planner` hotel results path from sending ambiguous plain-text destinations into HotelPlanner, which had been returning hotels for the wrong city.
   - Venue-based and map/property HotelPlanner flows remain unchanged; this only affects generic destination search without a TI `venueId`.
+- 2026-07-13: TI venue-map hotel pin loading status.
+  - Added a map-level `Loading nearby hotels on map…` badge in `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx` so users get immediate feedback after the map is ready but before HotelPlanner pins finish loading.
+  - Scoped the visual treatment to `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css` and hide the badge automatically as soon as the current venue’s hotel-pin load completes.
