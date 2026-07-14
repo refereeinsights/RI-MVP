@@ -168,16 +168,6 @@ function buildHotelPlannerSearchUrl(args: {
   if (args.longitude !== null && args.longitude !== undefined) searchUrl.searchParams.set("longitude", String(args.longitude));
   const city = String(args.city ?? "").trim();
   if (city) searchUrl.searchParams.set("city", city);
-  if (args.dates.checkin) {
-    searchUrl.searchParams.set("checkIn", args.dates.checkin);
-    searchUrl.searchParams.set("CheckIn", args.dates.checkin);
-    searchUrl.searchParams.set("checkin", args.dates.checkin);
-  }
-  if (args.dates.checkout) {
-    searchUrl.searchParams.set("checkOut", args.dates.checkout);
-    searchUrl.searchParams.set("CheckOut", args.dates.checkout);
-    searchUrl.searchParams.set("checkout", args.dates.checkout);
-  }
   searchUrl.searchParams.set("rooms", "1");
   searchUrl.searchParams.set("adults", "2");
   searchUrl.searchParams.set("source", args.sc || "tournamentinsights");
@@ -205,7 +195,12 @@ function buildHotelPlannerSearchUrl(args: {
     searchUrl.hash = `search/${hashDestination}/${hashLat}/${hashLng}/${hashCheckin}/${hashCheckout}/${HOTELPLANNER_SEARCH_HASH_TAIL}`;
   }
 
-  return searchUrl.toString();
+  // Append dates without encoding slashes — HP requires literal mm/dd/yyyy, not %2F-encoded
+  const base = searchUrl.toString();
+  const dateSuffix = args.dates.checkin && args.dates.checkout
+    ? `&CheckIn=${args.dates.checkin}&CheckOut=${args.dates.checkout}`
+    : "";
+  return `${base}${dateSuffix}`;
 }
 
 function buildHotelPlannerRootUrl(args: {
@@ -590,13 +585,16 @@ export async function GET(request: Request) {
             });
           }
 
-          return buildHotelPlannerRootUrl({
+          return buildHotelPlannerSearchUrl({
             baseUrl: hotelPlannerWhiteLabelUrl,
+            destination: hotelPlannerDestination,
             latitude: hotelPlannerLat,
             longitude: hotelPlannerLng,
-            city: (hotelPlannerCitySearch ?? String(bookingSearchString).trim()) || null,
-            checkin: hotelPlannerCheckin,
-            checkout: hotelPlannerCheckout,
+            city: hotelPlannerCitySearch || null,
+            dates: {
+              checkin: hotelPlannerCheckin,
+              checkout: hotelPlannerCheckout,
+            },
             sc: querySc || "tournamentinsights",
             keyword: queryKeyword || queryKeywordLegacy || null,
             jobCode: queryJobCode || trackingDefaults.jobCode,
