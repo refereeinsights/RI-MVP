@@ -203,56 +203,6 @@ function buildHotelPlannerSearchUrl(args: {
   return `${base}${dateSuffix}`;
 }
 
-function buildHotelPlannerRootUrl(args: {
-  baseUrl: string;
-  latitude?: number | null;
-  longitude?: number | null;
-  city?: string | null;
-  checkin: string; // mm/dd/yyyy
-  checkout: string; // mm/dd/yyyy
-  sc?: string | null;
-  keyword?: string | null;
-  jobCode?: string | null;
-  custom1?: string | null;
-  custom2?: string | null;
-  custom3?: string | null;
-  custom4?: string | null;
-  custom5?: string | null;
-  custom6?: string | null;
-  custom7?: string | null;
-  custom8?: string | null;
-}): string {
-  const baseUrl = normalizeHotelPlannerBaseUrl(args.baseUrl);
-  if (!baseUrl || !args.checkin || !args.checkout) return "";
-
-  const url = new URL("/", baseUrl);
-
-  if (args.latitude !== null && args.latitude !== undefined) url.searchParams.set("latitude", String(args.latitude));
-  if (args.longitude !== null && args.longitude !== undefined) url.searchParams.set("longitude", String(args.longitude));
-  const city = String(args.city ?? "").trim();
-  if (city) url.searchParams.set("city", city);
-
-  url.searchParams.set("sc", args.sc || "tournamentinsights");
-
-  const keyword = String(args.keyword ?? "").trim();
-  if (keyword) url.searchParams.set("kw", keyword);
-  const jobCode = String(args.jobCode ?? "").trim();
-  if (jobCode) url.searchParams.set("jobCode", jobCode);
-
-  if (args.custom1) url.searchParams.set("Custom1", String(args.custom1).trim());
-  if (args.custom2) url.searchParams.set("Custom2", String(args.custom2).trim());
-  if (args.custom3) url.searchParams.set("Custom3", String(args.custom3).trim());
-  if (args.custom4) url.searchParams.set("Custom4", String(args.custom4).trim());
-  if (args.custom5) url.searchParams.set("Custom5", String(args.custom5).trim());
-  if (args.custom6) url.searchParams.set("Custom6", String(args.custom6).trim());
-  if (args.custom7) url.searchParams.set("Custom7", String(args.custom7).trim());
-  if (args.custom8) url.searchParams.set("Custom8", String(args.custom8).trim());
-
-  // Append dates without encoding slashes — HP's date parser requires literal mm/dd/yyyy
-  // and cannot handle %2F-encoded slashes, causing it to fall back to session-state dates.
-  return `${url.toString()}&CheckIn=${args.checkin}&CheckOut=${args.checkout}`;
-}
-
 function deriveHotelPlannerTrackingDefaults(args: {
   sourceSurface: string;
   venueId: string | null;
@@ -566,11 +516,17 @@ export async function GET(request: Request) {
 
           if (!venueIdValid && (source === "book_travel" || source === "weekend_planner")) {
             const genericDestination = String(hotelPlannerCitySearch ?? bookingSearchString).trim();
-            return buildHotelPlannerRootUrl({
+            return buildHotelPlannerSearchUrl({
               baseUrl: hotelPlannerWhiteLabelUrl,
+              destination: genericDestination,
+              latitude: null,
+              longitude: null,
               city: genericDestination,
-              checkin: hotelPlannerCheckin,
-              checkout: hotelPlannerCheckout,
+              includeHash: false,
+              dates: {
+                checkin: hotelPlannerCheckin,
+                checkout: hotelPlannerCheckout,
+              },
               sc: querySc || "tournamentinsights",
               keyword: queryKeyword || queryKeywordLegacy || null,
               jobCode: queryJobCode || trackingDefaults.jobCode,

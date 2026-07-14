@@ -4453,6 +4453,12 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Fix: venue map path (venueId + lat/lng present) reverted to `buildHotelPlannerSearchUrl` → `/Search/?latitude=...&longitude=...&CheckIn=...&CheckOut=...`. HP auto-loads results from coordinates. Book-travel stays on `buildHotelPlannerRootUrl` (city + dates, one search click).
   - Map pins and individual hotel property handoffs unchanged.
 
+- 2026-07-13: TI generic `/book-travel` “View all hotels” now uses direct HP `/Search/` with city + dates.
+  - File: `apps/ti-web/app/go/hotels/route.ts`
+  - Updated the generic non-venue branch (`book_travel` / `weekend_planner`) to open HotelPlanner `/Search/` directly with `destination`, `city`, `CheckIn`, `CheckOut`, `rooms`, `adults`, and existing tracking params.
+  - The generic branch no longer uses the HP root landing URL and no longer emits a hash or raw lat/lng for broader city searches.
+  - Venue-map and property-page handoffs remain unchanged.
+
 - 2026-07-13: TI generic broader hotel search now skips the extra HotelPlanner click.
   - Simplified `apps/ti-web/app/go/hotels/route.ts` so non-venue HotelPlanner searches now always build the direct HP `/Search/` URL instead of falling back to the white-label root landing page.
   - This leaves venue-map and property-page handoffs unchanged; only the broader `/book-travel` and generic planner search flow is affected.
