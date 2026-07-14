@@ -237,8 +237,6 @@ function buildHotelPlannerRootUrl(args: {
   const city = String(args.city ?? "").trim();
   if (city) url.searchParams.set("city", city);
 
-  url.searchParams.set("CheckIn", args.checkin);
-  url.searchParams.set("CheckOut", args.checkout);
   url.searchParams.set("sc", args.sc || "tournamentinsights");
 
   const keyword = String(args.keyword ?? "").trim();
@@ -255,7 +253,9 @@ function buildHotelPlannerRootUrl(args: {
   if (args.custom7) url.searchParams.set("Custom7", String(args.custom7).trim());
   if (args.custom8) url.searchParams.set("Custom8", String(args.custom8).trim());
 
-  return url.toString();
+  // Append dates without encoding slashes — HP's date parser requires literal mm/dd/yyyy
+  // and cannot handle %2F-encoded slashes, causing it to fall back to session-state dates.
+  return `${url.toString()}&CheckIn=${args.checkin}&CheckOut=${args.checkout}`;
 }
 
 function deriveHotelPlannerTrackingDefaults(args: {
