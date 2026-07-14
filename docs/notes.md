@@ -12,6 +12,14 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-07-14
+
+- TI venue-map "View all nearby hotels" redirect fix (hash + date encoding):
+  - Updated `apps/ti-web/app/go/hotels/route.ts` with two fixes:
+  - Fix 1 — date encoding: `URLSearchParams.set()` encodes `/` as `%2F` in `mm/dd/yyyy` strings; HP's `/Search/` parser cannot handle `%2F`-encoded slashes and falls back to session-state dates, causing "Whoops, no hotels found" or wrong dates. Fixed by building the query string base first, then appending `&CheckIn=...&CheckOut=...` as raw strings so slashes are literal.
+  - Fix 2 — hash placement: the initial encoding fix appended date params after `searchUrl.toString()` which already contained the `#search/...` fragment, placing them inside the hash instead of the query string (HP's server never sees hash content). Fixed by capturing the query string portion before setting the hash, then assembling `queryBase + dateQs + hashSuffix` in the correct order.
+  - Fix 3 — hash removal: even with dates correctly in the query string, HP's SPA router was reading the `#search/...` hash and overriding the query-string dates with hash-path dates. Fixed by passing `includeHash: false` on the venue-map path so the redirect URL matches the known-good format HP uses (query string only, no hash fragment).
+
 ## 2026-07-13
 
 - TI venue-map lodging loading polish:

@@ -13,6 +13,14 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-07-14
+
+- TI venue-map "View all nearby hotels" redirect fix (hash + date encoding):
+  - Updated `apps/ti-web/app/go/hotels/route.ts` with three layered fixes to the venue-map HP `/Search/` handoff:
+  - Fix 1 — date encoding: `URLSearchParams.set()` encodes `/` as `%2F`; HP cannot parse encoded slashes in `mm/dd/yyyy` date params and falls back to wrong dates. Fixed by appending `&CheckIn=...&CheckOut=...` as raw strings instead of using `searchParams.set()`.
+  - Fix 2 — hash placement: raw date suffix was appended after `searchUrl.toString()` (which already included `#search/...`), placing dates inside the hash instead of the query string. Fixed by building `queryBase + dateQs + hashSuffix` in the correct order.
+  - Fix 3 — hash removal: HP's SPA reads `#search/...` to initialize its state and overrides query-string dates with hash-path dates. Fixed by passing `includeHash: false` on the venue-map call so the final URL has no hash — matching the known-good format that produces populated search results.
+
 ## 2026-07-10
 
 - Admin dashboard email: four report improvements

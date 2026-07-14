@@ -186,21 +186,24 @@ function buildHotelPlannerSearchUrl(args: {
   if (args.custom7) searchUrl.searchParams.set("Custom7", String(args.custom7).trim());
   if (args.custom8) searchUrl.searchParams.set("Custom8", String(args.custom8).trim());
 
+  // Append dates as query string params before the hash — HP cannot parse %2F-encoded slashes,
+  // and appending after hash.toString() would place them inside the fragment instead of the query.
+  const queryBase = `${searchUrl.origin}${searchUrl.pathname}?${searchUrl.searchParams.toString()}`;
+  const dateQs = args.dates.checkin && args.dates.checkout
+    ? `&CheckIn=${args.dates.checkin}&CheckOut=${args.dates.checkout}`
+    : "";
+
   const hashCheckin = toMmDdDashYyyy(args.dates.checkin);
   const hashCheckout = toMmDdDashYyyy(args.dates.checkout);
+  let hashSuffix = "";
   if (args.includeHash !== false && hashCheckin && hashCheckout) {
     const hashDestination = encodeURIComponent(destination);
     const hashLat = args.latitude !== null && args.latitude !== undefined ? String(args.latitude) : "";
     const hashLng = args.longitude !== null && args.longitude !== undefined ? String(args.longitude) : "";
-    searchUrl.hash = `search/${hashDestination}/${hashLat}/${hashLng}/${hashCheckin}/${hashCheckout}/${HOTELPLANNER_SEARCH_HASH_TAIL}`;
+    hashSuffix = `#search/${hashDestination}/${hashLat}/${hashLng}/${hashCheckin}/${hashCheckout}/${HOTELPLANNER_SEARCH_HASH_TAIL}`;
   }
 
-  // Append dates without encoding slashes — HP requires literal mm/dd/yyyy, not %2F-encoded
-  const base = searchUrl.toString();
-  const dateSuffix = args.dates.checkin && args.dates.checkout
-    ? `&CheckIn=${args.dates.checkin}&CheckOut=${args.dates.checkout}`
-    : "";
-  return `${base}${dateSuffix}`;
+  return `${queryBase}${dateQs}${hashSuffix}`;
 }
 
 function deriveHotelPlannerTrackingDefaults(args: {
@@ -547,6 +550,7 @@ export async function GET(request: Request) {
             latitude: hotelPlannerLat,
             longitude: hotelPlannerLng,
             city: hotelPlannerCitySearch || null,
+            includeHash: false,
             dates: {
               checkin: hotelPlannerCheckin,
               checkout: hotelPlannerCheckout,
