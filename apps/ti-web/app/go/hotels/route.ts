@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildBookingSearchString, isValidZip5 } from "@/lib/booking/venueBooking";
+import {
+  parseVenueHotelUuid,
+  sanitizePageUrl,
+  sanitizeText,
+  resolveDeviceTypeFromUserAgent,
+} from "@/lib/venueHotelFunnel";
 
 export const runtime = "nodejs";
 
@@ -282,6 +288,19 @@ export async function GET(request: Request) {
   const localDev = isLocalDevelopment(host);
   const referer = request.headers.get("referer");
   const userAgent = request.headers.get("user-agent");
+  const ctaInstanceId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "cta_instance_id"));
+  const ctaInteractionId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "cta_interaction_id"));
+  const outboundRequestId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "outbound_request_id"));
+  const lodgingSearchId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "lodging_search_id"));
+  const sessionId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "session_id"));
+  const ctaType = sanitizeText(pickTrackingParam(reqUrl, "cta_type"), 32);
+  const ctaPlacement = sanitizeText(pickTrackingParam(reqUrl, "cta_placement"), 64);
+  const flowType = sanitizeText(pickTrackingParam(reqUrl, "flow_type"), 32);
+  const pageType = sanitizeText(pickTrackingParam(reqUrl, "page_type"), 32);
+  const pageUrl = sanitizePageUrl(pickTrackingParam(reqUrl, "page_url"));
+  const trafficSource = sanitizeText(pickTrackingParam(reqUrl, "traffic_source"), 64);
+  const deviceType =
+    sanitizeText(pickTrackingParam(reqUrl, "device_type"), 32) ?? resolveDeviceTypeFromUserAgent(userAgent);
 
   const venueIdValid = Boolean(venueId && isUuid(venueId));
 
@@ -587,20 +606,36 @@ export async function GET(request: Request) {
 
   if (!local && !bot) {
     try {
-      await supabaseAdmin.from("ti_outbound_clicks" as any).insert({
+      await supabaseAdmin.from("ti_outbound_clicks" as any).upsert({
         destination_type: "hotels",
         partner: "hotelplanner",
+        outbound_partner: "hotelplanner",
         source_surface: sourceSurface,
         venue_id: venueIdValid ? venueId : null,
         tournament_id: tournament?.id ?? null,
         tournament_slug: tournament?.slug ?? null,
         target_url: targetUrl,
         redirect_url: redirectTarget,
-        source_path: sourcePath,
+        source_path: sourcePath ?? pageUrl,
         referer,
         host,
         user_agent: userAgent?.slice(0, 300) ?? null,
         is_localhost: false,
+        session_id: sessionId,
+        cta_instance_id: ctaInstanceId,
+        cta_interaction_id: ctaInteractionId,
+        cta_type: ctaType,
+        cta_placement: ctaPlacement,
+        flow_type: flowType,
+        page_type: pageType,
+        page_url: pageUrl,
+        device_type: deviceType,
+        traffic_source: trafficSource,
+        lodging_search_id: lodgingSearchId,
+        outbound_request_id: outboundRequestId,
+      }, {
+        onConflict: "outbound_request_id",
+        ignoreDuplicates: true,
       });
     } catch {
       // Don't block redirects on logging failures.

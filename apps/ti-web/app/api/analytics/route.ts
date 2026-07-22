@@ -18,6 +18,8 @@ const QUICK_CHECK_EVENTS = new Set([
 ]);
 
 const MAP_EVENTS = new Set([
+  "hotel_cta_impression",
+  "hotel_cta_clicked",
   "map_viewed",
   "map_filter_changed",
   "map_state_clicked",
@@ -314,11 +316,11 @@ export async function POST(request: Request) {
     const pageType = asTextWithLimit((props as any).page_type, 32);
     const sport = asTextWithLimit((props as any).sport, 32);
     const state = asTextWithLimit((props as any).state, 8);
-    const href = asTextWithLimit((props as any).href, 512);
+    const href = asTextWithLimit((props as any).href ?? (props as any).page_url, 512);
     const filterName = asTextWithLimit((props as any).filter_name, 32);
     const oldValue = asTextWithLimit((props as any).old_value, 64);
     const newValue = asTextWithLimit((props as any).new_value, 64);
-    const cta = asTextWithLimit((props as any).cta, 64);
+    const cta = asTextWithLimit((props as any).cta ?? (props as any).cta_placement, 64);
 
     const properties = {
       ...(props as any),

@@ -10,6 +10,7 @@ import {
 import { formatDateToMmDdYyyy } from "@/lib/lodging/lodging-dates";
 import { HotelPlannerApiError } from "@/lib/lodging/hotelPlannerProvider";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { sanitizePageUrl, sanitizeText } from "@/lib/venueHotelFunnel";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,18 @@ type SearchRequestBody = {
   customField7?: unknown;
   customField8?: unknown;
   groupTypeCode?: unknown;
+  session_id?: unknown;
+  cta_instance_id?: unknown;
+  cta_interaction_id?: unknown;
+  cta_type?: unknown;
+  cta_placement?: unknown;
+  flow_type?: unknown;
+  page_type?: unknown;
+  page_url?: unknown;
+  device_type?: unknown;
+  traffic_source?: unknown;
+  referrer?: unknown;
+  lodging_search_id?: unknown;
 };
 
 type RateLimitWindow = {
@@ -227,13 +240,28 @@ async function insertStartedSession(input: {
   searchQuery: Record<string, unknown>;
   clientIp: string | null;
   userAgent: string | null;
+  tracking: {
+    sessionId: string | null;
+    ctaInstanceId: string | null;
+    ctaInteractionId: string | null;
+    ctaType: string | null;
+    ctaPlacement: string | null;
+    flowType: string | null;
+    pageType: string | null;
+    pageUrl: string | null;
+    deviceType: string | null;
+    trafficSource: string | null;
+    referrer: string | null;
+    venueId: string | null;
+    tournamentId: string | null;
+  };
 }) {
   try {
     const payload = {
       id: input.sessionId,
       provider: input.provider,
       correlation_id: input.sessionId,
-      session_id: input.sessionId,
+      session_id: input.tracking.sessionId ?? input.sessionId,
       search_query: input.searchQuery,
       status: "started" as const,
       endpoint: SEARCH_ENDPOINT,
@@ -242,6 +270,18 @@ async function insertStartedSession(input: {
       started_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      cta_instance_id: input.tracking.ctaInstanceId,
+      cta_interaction_id: input.tracking.ctaInteractionId,
+      cta_type: input.tracking.ctaType,
+      cta_placement: input.tracking.ctaPlacement,
+      flow_type: input.tracking.flowType,
+      page_type: input.tracking.pageType,
+      page_url: input.tracking.pageUrl,
+      device_type: input.tracking.deviceType,
+      traffic_source: input.tracking.trafficSource,
+      referrer: input.tracking.referrer,
+      venue_id: input.tracking.venueId,
+      tournament_id: input.tracking.tournamentId,
     };
     await (supabaseAdmin.from("lodging_search_session" as any) as any).insert(payload);
   } catch {
@@ -580,6 +620,19 @@ export async function POST(request: Request) {
   }
 
   const venueId = parseUuid(body.venueId);
+  const tracking = {
+    sessionId: parseUuid(body.session_id),
+    ctaInstanceId: parseUuid(body.cta_instance_id),
+    ctaInteractionId: parseUuid(body.cta_interaction_id),
+    ctaType: sanitizeText(toText(body.cta_type), 32),
+    ctaPlacement: sanitizeText(toText(body.cta_placement), 64),
+    flowType: sanitizeText(toText(body.flow_type), 32),
+    pageType: sanitizeText(toText(body.page_type), 32),
+    pageUrl: sanitizePageUrl(toText(body.page_url)),
+    deviceType: sanitizeText(toText(body.device_type), 32),
+    trafficSource: sanitizeText(toText(body.traffic_source), 64),
+    referrer: sanitizeText(toText(body.referrer), 512),
+  };
   const genericSource = toText(body.source);
   let genericDestination = resolveGenericDestination(body);
   const isGenericSearch = !venueId;
@@ -676,7 +729,7 @@ export async function POST(request: Request) {
       }
 
       const provider = createLodgingProvider(providerName);
-      const sessionId = randomUUID();
+      const sessionId = parseUuid(body.lodging_search_id) ?? randomUUID();
       const providerInput = buildSearchInput({
         roomCount,
         adultCount,
@@ -705,6 +758,10 @@ export async function POST(request: Request) {
         source: providerInput.sc,
         destinationUsed:
           destination.latitude !== null && destination.longitude !== null ? "coordinates" : "destination",
+        ctaInstanceId: tracking.ctaInstanceId,
+        ctaInteractionId: tracking.ctaInteractionId,
+        ctaPlacement: tracking.ctaPlacement,
+        pageType: tracking.pageType,
       };
 
       await insertStartedSession({
@@ -713,6 +770,11 @@ export async function POST(request: Request) {
         searchQuery,
         clientIp,
         userAgent,
+        tracking: {
+          ...tracking,
+          venueId: null,
+          tournamentId: tournamentId || null,
+        },
       });
 
       const startedAt = Date.now();
@@ -829,7 +891,7 @@ export async function POST(request: Request) {
   }
 
   const provider = createLodgingProvider(providerName);
-  const sessionId = randomUUID();
+  const sessionId = parseUuid(body.lodging_search_id) ?? randomUUID();
   const providerInput = buildSearchInput({
     roomCount,
     adultCount,
@@ -858,6 +920,10 @@ export async function POST(request: Request) {
     source: providerInput.sc,
     destinationUsed:
       destination.latitude !== null && destination.longitude !== null ? "coordinates" : "destination",
+    ctaInstanceId: tracking.ctaInstanceId,
+    ctaInteractionId: tracking.ctaInteractionId,
+    ctaPlacement: tracking.ctaPlacement,
+    pageType: tracking.pageType,
   };
 
   await insertStartedSession({
@@ -866,6 +932,11 @@ export async function POST(request: Request) {
     searchQuery,
     clientIp,
     userAgent,
+    tracking: {
+      ...tracking,
+      venueId,
+      tournamentId: tournamentId || null,
+    },
   });
 
   const startedAt = Date.now();

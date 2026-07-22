@@ -12,6 +12,12 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-07-22
+
+- TI venue hotel funnel Phase 2: repaired the high-volume venue hotel CTA path to emit canonical `hotel_cta_impression` and `hotel_cta_clicked` events with shared `cta_instance_id`, guarded click lifecycle, canonical placement/flow values, and `/go/hotels` propagation of `cta_interaction_id` plus an outbound idempotency key: `apps/ti-web/components/venues/VenueHotelLink.tsx`, `apps/ti-web/components/venues/VenueCard.tsx`, `apps/ti-web/components/venues/HotelBookingCta.tsx`, `apps/ti-web/lib/venueHotelFunnel.ts`, `apps/ti-web/app/go/hotels/route.ts`, `apps/ti-web/app/api/analytics/route.ts`.
+- TI lodging search attribution: added additive lodging-search persistence fields so optional search flows can carry the same CTA identifiers and canonical placement/page context without changing existing search behavior: `apps/ti-web/app/api/lodging/search/route.ts`, `supabase/migrations/20260722_ti_venue_hotel_funnel_phase2.sql`.
+- TI analytics repeatability: added helper tests plus repeatable SQL/report artifacts for chain inspection and placement-level reporting: `apps/ti-web/lib/venueHotelFunnel.test.ts`, `scripts/analysis/ti_venue_hotel_funnel_queries.sql`, `docs/reports/ti-venue-hotel-phase2-2026-07-22.md`.
+
 ## 2026-07-14
 
 - TI venue-map "View all nearby hotels" redirect fix (hash + date encoding):

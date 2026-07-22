@@ -5,6 +5,8 @@ import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
 import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 import { buildPlanningMapUrl } from "@/lib/planningMapUrl";
 import VenueCardCtasClient from "@/components/venues/VenueCardCtasClient";
+import VenueHotelLink from "@/components/venues/VenueHotelLink";
+import { VENUE_HOTEL_PLACEMENTS } from "@/lib/venueHotelFunnel";
 import styles from "./VenueCard.module.css";
 
 type MapLinks = {
@@ -197,22 +199,31 @@ export default function VenueCard({
       </div>
 
       <div className={styles.hotelsTextRow}>
-        <a
+        <VenueHotelLink
           href={hotelsHrefWithSource}
+          venueId={venueId}
+          ctaPlacement={VENUE_HOTEL_PLACEMENTS.venueDirectoryTextLink}
+          className={styles.hotelsTextLink}
           target="_blank"
           rel="noopener noreferrer sponsored"
-          className={styles.hotelsTextLink}
         >
           Find hotels →
-        </a>
+        </VenueHotelLink>
       </div>
 
       {showPlanningCtas ? (
         <div className={styles.planningRow}>
           {showBooking ? (
-            <a href={hotelsHref} target="_blank" rel="noopener noreferrer sponsored" className={`secondaryLink ${styles.planningLink}`}>
+            <VenueHotelLink
+              href={hotelsHref}
+              venueId={venueId}
+              ctaPlacement={VENUE_HOTEL_PLACEMENTS.venueDirectoryPlanningLink}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              className={`secondaryLink ${styles.planningLink}`}
+            >
               🏨 Find Hotels
-            </a>
+            </VenueHotelLink>
           ) : null}
           {showVrbo ? (
             <a href={vrboHref} target="_blank" rel="noopener noreferrer sponsored" className={`secondaryLink ${styles.planningLink}`}>
@@ -223,9 +234,16 @@ export default function VenueCard({
         </div>
       ) : showBooking ? (
         <div className={styles.bookingRow}>
-          <a href={hotelsHref} target="_blank" rel="noopener noreferrer sponsored" className={`secondaryLink ${styles.bookingLink}`}>
+          <VenueHotelLink
+            href={hotelsHref}
+            venueId={venueId}
+            ctaPlacement={VENUE_HOTEL_PLACEMENTS.venueDirectoryCardLink}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            className={`secondaryLink ${styles.bookingLink}`}
+          >
             🏨 Check hotel availability
-          </a>
+          </VenueHotelLink>
         </div>
       ) : null}
     </article>

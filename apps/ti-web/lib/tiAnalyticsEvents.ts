@@ -1,4 +1,6 @@
 export type TiAnalyticsEventName =
+  | "hotel_cta_impression"
+  | "hotel_cta_clicked"
   | "map_viewed"
   | "map_filter_changed"
   | "map_state_clicked"
@@ -231,6 +233,52 @@ export type TiAnalyticsEventPropertiesByName = {
     cta_type: "hotels";
     cta_location: "stay_close";
     context_type: "tournament";
+  };
+  hotel_cta_impression: {
+    session_id: string | null;
+    cta_instance_id: string;
+    cta_type: "hotel";
+    cta_placement: string;
+    flow_type: "direct_outbound" | "search_then_outbound";
+    page_type: "venue" | "tournament" | "planner" | "other";
+    page_url: string | null;
+    device_type: "mobile" | "desktop" | null;
+    traffic_source: string | null;
+    venue_id: string;
+    tournament_id: string | null;
+    referrer: string | null;
+  };
+  hotel_cta_clicked: {
+    session_id: string | null;
+    cta_instance_id: string;
+    cta_interaction_id: string;
+    cta_type: "hotel";
+    cta_placement: string;
+    flow_type: "direct_outbound" | "search_then_outbound";
+    page_type: "venue" | "tournament" | "planner" | "other";
+    page_url: string | null;
+    device_type: "mobile" | "desktop" | null;
+    traffic_source: string | null;
+    venue_id: string;
+    tournament_id: string | null;
+    referrer: string | null;
+    outbound_request_id: string;
+  };
+  venue_hotels_cta_clicked: {
+    session_id: string | null;
+    cta_instance_id: string;
+    cta_interaction_id: string | null;
+    cta_type: "hotel";
+    cta_placement: string;
+    flow_type: "direct_outbound" | "search_then_outbound";
+    page_type: "venue" | "tournament" | "planner" | "other";
+    page_url: string | null;
+    device_type: "mobile" | "desktop" | null;
+    traffic_source: string | null;
+    venue_id: string;
+    tournament_id: string | null;
+    href: string;
+    referrer: string | null;
   };
   tournament_detail_page_viewed: {
     page_type: "tournament_detail";

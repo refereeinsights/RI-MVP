@@ -1,6 +1,7 @@
 "use client";
 
-import { sendTiAnalytics } from "@/lib/analytics";
+import VenueHotelLink from "@/components/venues/VenueHotelLink";
+import { VENUE_HOTEL_PLACEMENTS } from "@/lib/venueHotelFunnel";
 
 export default function HotelBookingCta({
   href,
@@ -15,24 +16,18 @@ export default function HotelBookingCta({
 }) {
   return (
     <div className="detailLinksRow" style={{ justifyContent: "center" }}>
-      <a
+      <VenueHotelLink
         className="secondaryLink hotelBookingCta"
         href={href}
+        ctaPlacement={VENUE_HOTEL_PLACEMENTS.venueDetailsBookingCta}
+        venueId={venueId}
+        tournamentId={tournamentId ?? null}
         target="_blank"
         rel="noopener noreferrer sponsored"
         style={{ minWidth: 260 }}
-        onClick={() => {
-          // Client-side analytics only; never block navigation.
-          void sendTiAnalytics("venue_hotels_cta_clicked", {
-            venue_id: venueId,
-            tournament_id: tournamentId ?? null,
-            href,
-          });
-        }}
       >
         🏨 {label}
-      </a>
+      </VenueHotelLink>
     </div>
   );
 }
-
