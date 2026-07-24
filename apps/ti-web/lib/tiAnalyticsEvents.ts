@@ -87,11 +87,16 @@ export type TiAnalyticsEventName =
   | "planner_map_view_opened"
   | "planner_calendar_event_detail_opened"
   | "weekend_planner_viewed"
+  | "weekend_planner_entry_viewed"
+  | "weekend_planner_auth_gate_viewed"
+  | "weekend_planner_auth_started"
+  | "weekend_planner_auth_completed"
   | "weekend_planner_start_clicked"
   | "weekend_planner_auth_required_viewed"
   | "weekend_planner_create_account_clicked"
   | "weekend_planner_sign_in_clicked"
   | "weekend_planner_loaded"
+  | "weekend_planner_first_action"
   | "weekend_planner_empty_state_viewed"
   | "weekend_planner_contextual_cta_viewed"
   | "weekend_planner_contextual_cta_clicked"
@@ -170,6 +175,27 @@ type PlannerReasonCode =
 type FeedCountBucket = "0" | "1" | "2" | "3_plus";
 type LoadedEventCountBucket = "0" | "1" | "2_5" | "6_10" | "11_25" | "26_plus";
 type ChildTeamCountBucket = "0" | "1" | "2" | "3_plus";
+type CanonicalPlannerPageType = "tournament" | "planner_entry" | "planner" | "auth" | "other";
+type PlannerFirstActionType =
+  | "save_weekend_plan"
+  | "manual_event_created"
+  | "guest_share_created"
+  | "calendar_feed_created"
+  | "team_hotel_clicked"
+  | "view_toggle";
+
+type PlannerCanonicalContext = {
+  planner_session_id?: string;
+  tournament_id?: string;
+  tournament_slug?: string;
+  venue_id?: string | null;
+  entry_source?: string | null;
+  entry_page_type?: CanonicalPlannerPageType | null;
+  entry_path?: string | null;
+  entry_placement?: string | null;
+  current_page_type?: CanonicalPlannerPageType | null;
+  current_page_path?: string | null;
+};
 
 export type TiAnalyticsEventPropertiesByName = {
   map_viewed: {
@@ -837,10 +863,38 @@ export type TiAnalyticsEventPropertiesByName = {
     entitlement: PlannerEntitlement;
     event_source_type: "manual" | "ics" | "unknown";
   };
-  weekend_planner_viewed: {
+  weekend_planner_viewed: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "planner";
     auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+  };
+  weekend_planner_entry_viewed: PlannerCanonicalContext & {
+    surface: "tournament";
+    source_page_type: "tournament";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    cta_type: "weekend_plan";
+    context_type: "tournament";
+  };
+  weekend_planner_auth_gate_viewed: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    action_surface?: "entry_cta" | "planner" | "weekend_plan";
+  };
+  weekend_planner_auth_started: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    cta_type: "create_account" | "sign_in";
+    auth_state: "signed_out" | "unverified";
+    entitlement: PlannerEntitlement;
+  };
+  weekend_planner_auth_completed: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: "verified";
     entitlement: PlannerEntitlement;
   };
   weekend_planner_start_clicked: {
@@ -850,7 +904,7 @@ export type TiAnalyticsEventPropertiesByName = {
     auth_state: PlannerAuthState;
     entitlement: PlannerEntitlement;
   };
-  weekend_planner_auth_required_viewed: {
+  weekend_planner_auth_required_viewed: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "planner";
     auth_state: PlannerAuthState;
@@ -871,7 +925,7 @@ export type TiAnalyticsEventPropertiesByName = {
     auth_state: "signed_out";
     entitlement: "explorer";
   };
-  weekend_planner_loaded: {
+  weekend_planner_loaded: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "planner";
     auth_state: "verified";
@@ -881,7 +935,14 @@ export type TiAnalyticsEventPropertiesByName = {
     feed_count_bucket: FeedCountBucket;
     child_team_count_bucket: ChildTeamCountBucket;
   };
-  weekend_planner_empty_state_viewed: {
+  weekend_planner_first_action: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    first_action_type: PlannerFirstActionType;
+  };
+  weekend_planner_empty_state_viewed: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "planner";
     auth_state: PlannerAuthState;
@@ -891,7 +952,7 @@ export type TiAnalyticsEventPropertiesByName = {
     feed_count_bucket: FeedCountBucket;
     child_team_count_bucket: ChildTeamCountBucket;
   };
-  weekend_planner_contextual_cta_viewed: {
+  weekend_planner_contextual_cta_viewed: PlannerCanonicalContext & {
     surface: PlannerActivationSurface;
     source_page_type: PlannerSourcePageType;
     cta_type: PlannerCtaType;
@@ -901,7 +962,7 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_id?: string;
     tournament_slug?: string;
   };
-  weekend_planner_contextual_cta_clicked: {
+  weekend_planner_contextual_cta_clicked: PlannerCanonicalContext & {
     surface: PlannerActivationSurface;
     source_page_type: PlannerSourcePageType;
     cta_type: PlannerCtaType;
@@ -1009,7 +1070,7 @@ export type TiAnalyticsEventPropertiesByName = {
     auth_state: "verified" | "unverified";
     entitlement: PlannerEntitlement;
   };
-  team_hotel_cta_viewed: {
+  team_hotel_cta_viewed: PlannerCanonicalContext & {
     surface: "team_hotel" | "travel" | "tournament";
     source_page_type: "planner" | "book_travel" | "travel" | "tournament";
     cta_type: "team_hotel";
@@ -1017,7 +1078,7 @@ export type TiAnalyticsEventPropertiesByName = {
     entitlement: PlannerEntitlement;
     context_type: "team_hotel";
   };
-  team_hotel_cta_clicked: {
+  team_hotel_cta_clicked: PlannerCanonicalContext & {
     surface: "team_hotel" | "travel" | "tournament";
     source_page_type: "planner" | "book_travel" | "travel" | "tournament";
     cta_type: "team_hotel";
@@ -1025,7 +1086,7 @@ export type TiAnalyticsEventPropertiesByName = {
     entitlement: PlannerEntitlement;
     context_type: "team_hotel";
   };
-  team_hotel_request_started: {
+  team_hotel_request_started: PlannerCanonicalContext & {
     surface: "team_hotel";
     source_page_type: "planner" | "book_travel";
     action_surface: "team_hotel";
@@ -1033,7 +1094,7 @@ export type TiAnalyticsEventPropertiesByName = {
     entitlement: PlannerEntitlement;
     context_type: "team_hotel";
   };
-  team_hotel_request_submitted: {
+  team_hotel_request_submitted: PlannerCanonicalContext & {
     surface: "team_hotel";
     source_page_type: "planner" | "book_travel";
     action_surface: "team_hotel";

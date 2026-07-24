@@ -62,6 +62,14 @@ type SearchRequestBody = {
   traffic_source?: unknown;
   referrer?: unknown;
   lodging_search_id?: unknown;
+  planner_session_id?: unknown;
+  entry_source?: unknown;
+  entry_page_type?: unknown;
+  entry_path?: unknown;
+  entry_placement?: unknown;
+  current_page_type?: unknown;
+  current_page_path?: unknown;
+  request_source?: unknown;
 };
 
 type RateLimitWindow = {
@@ -254,6 +262,14 @@ async function insertStartedSession(input: {
     referrer: string | null;
     venueId: string | null;
     tournamentId: string | null;
+    plannerSessionId: string | null;
+    entrySource: string | null;
+    entryPageType: string | null;
+    entryPath: string | null;
+    entryPlacement: string | null;
+    currentPageType: string | null;
+    currentPagePath: string | null;
+    requestSource: string | null;
   };
 }) {
   try {
@@ -282,6 +298,14 @@ async function insertStartedSession(input: {
       referrer: input.tracking.referrer,
       venue_id: input.tracking.venueId,
       tournament_id: input.tracking.tournamentId,
+      planner_session_id: input.tracking.plannerSessionId,
+      entry_source: input.tracking.entrySource,
+      entry_page_type: input.tracking.entryPageType,
+      entry_path: input.tracking.entryPath,
+      entry_placement: input.tracking.entryPlacement,
+      current_page_type: input.tracking.currentPageType,
+      current_page_path: input.tracking.currentPagePath,
+      request_source: input.tracking.requestSource,
     };
     await (supabaseAdmin.from("lodging_search_session" as any) as any).insert(payload);
   } catch {
@@ -562,7 +586,7 @@ function buildSearchInput(params: {
     checkOut: checkout,
     roomCount,
     adultCount,
-    sc: asTrackingString(body, ["sc", "source"]),
+    sc: asTrackingString(body, ["sc"]),
     keyword: asTrackingString(body, ["keyword", "kw"]),
     jobCode: asTrackingString(body, ["jobCode", "jobcode"]),
     customField1: asTrackingString(body, ["customField1", "custom1"]),
@@ -632,6 +656,14 @@ export async function POST(request: Request) {
     deviceType: sanitizeText(toText(body.device_type), 32),
     trafficSource: sanitizeText(toText(body.traffic_source), 64),
     referrer: sanitizeText(toText(body.referrer), 512),
+    plannerSessionId: parseUuid(body.planner_session_id),
+    entrySource: sanitizeText(toText(body.entry_source), 64),
+    entryPageType: sanitizeText(toText(body.entry_page_type), 32),
+    entryPath: sanitizePageUrl(toText(body.entry_path)),
+    entryPlacement: sanitizeText(toText(body.entry_placement), 64),
+    currentPageType: sanitizeText(toText(body.current_page_type) ?? toText(body.page_type), 32),
+    currentPagePath: sanitizePageUrl(toText(body.current_page_path) ?? toText(body.page_url)),
+    requestSource: sanitizeText(toText(body.request_source) ?? toText(body.source), 64),
   };
   const genericSource = toText(body.source);
   let genericDestination = resolveGenericDestination(body);
@@ -755,13 +787,22 @@ export async function POST(request: Request) {
         },
         rooms: roomCount,
         adults: adultCount,
-        source: providerInput.sc,
+        source: toText(body.source),
+        sc: providerInput.sc,
         destinationUsed:
           destination.latitude !== null && destination.longitude !== null ? "coordinates" : "destination",
         ctaInstanceId: tracking.ctaInstanceId,
         ctaInteractionId: tracking.ctaInteractionId,
         ctaPlacement: tracking.ctaPlacement,
         pageType: tracking.pageType,
+        planner_session_id: tracking.plannerSessionId,
+        entry_source: tracking.entrySource,
+        entry_page_type: tracking.entryPageType,
+        entry_path: tracking.entryPath,
+        entry_placement: tracking.entryPlacement,
+        current_page_type: tracking.currentPageType,
+        current_page_path: tracking.currentPagePath,
+        request_source: tracking.requestSource,
       };
 
       await insertStartedSession({
@@ -917,13 +958,22 @@ export async function POST(request: Request) {
     },
     rooms: roomCount,
     adults: adultCount,
-    source: providerInput.sc,
+    source: toText(body.source),
+    sc: providerInput.sc,
     destinationUsed:
       destination.latitude !== null && destination.longitude !== null ? "coordinates" : "destination",
     ctaInstanceId: tracking.ctaInstanceId,
     ctaInteractionId: tracking.ctaInteractionId,
     ctaPlacement: tracking.ctaPlacement,
     pageType: tracking.pageType,
+    planner_session_id: tracking.plannerSessionId,
+    entry_source: tracking.entrySource,
+    entry_page_type: tracking.entryPageType,
+    entry_path: tracking.entryPath,
+    entry_placement: tracking.entryPlacement,
+    current_page_type: tracking.currentPageType,
+    current_page_path: tracking.currentPagePath,
+    request_source: tracking.requestSource,
   };
 
   await insertStartedSession({

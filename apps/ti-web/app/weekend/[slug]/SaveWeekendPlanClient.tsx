@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { markPlannerSessionEventSeen, wasPlannerSessionEventSeen } from "@/lib/planner/plannerSession";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import { saveWeekendPlanAction, type WeekendPlanSaveState } from "./actions";
 
@@ -15,7 +16,9 @@ type Props = {
   canSave: boolean;
   isAuthed: boolean;
   isUnverified: boolean;
-  plannerHref: string;
+  plannerHubHref: string;
+  authReturnTo: string;
+  plannerSessionId: string;
 };
 
 const IDLE: WeekendPlanSaveState = { status: "idle" };
@@ -39,10 +42,52 @@ export default function SaveWeekendPlanClient(props: Props) {
         </div>
         <div style={{ marginTop: 8 }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Link className="secondaryLink" href={`/login?returnTo=${encodeURIComponent(props.plannerHref)}`}>
+            <Link
+              className="secondaryLink"
+              href={`/login?returnTo=${encodeURIComponent(props.authReturnTo)}`}
+              onClick={() => {
+                void trackTiEvent("weekend_planner_auth_started", {
+                  planner_session_id: props.plannerSessionId,
+                  surface: "planner",
+                  source_page_type: "tournament",
+                  current_page_type: "auth",
+                  current_page_path: "/login",
+                  entry_source: "tournament_detail",
+                  entry_page_type: "tournament",
+                  entry_placement: "tournament_detail_planner_cta",
+                  auth_state: "signed_out",
+                  entitlement: "explorer",
+                  cta_type: "sign_in",
+                  tournament_id: props.tournamentId,
+                  tournament_slug: props.tournamentSlug,
+                  venue_id: props.selectedVenueId,
+                });
+              }}
+            >
               Sign in →
             </Link>
-            <Link className="secondaryLink" href={`/signup?returnTo=${encodeURIComponent(props.plannerHref)}`}>
+            <Link
+              className="secondaryLink"
+              href={`/signup?returnTo=${encodeURIComponent(props.authReturnTo)}`}
+              onClick={() => {
+                void trackTiEvent("weekend_planner_auth_started", {
+                  planner_session_id: props.plannerSessionId,
+                  surface: "planner",
+                  source_page_type: "tournament",
+                  current_page_type: "auth",
+                  current_page_path: "/signup",
+                  entry_source: "tournament_detail",
+                  entry_page_type: "tournament",
+                  entry_placement: "tournament_detail_planner_cta",
+                  auth_state: "signed_out",
+                  entitlement: "explorer",
+                  cta_type: "create_account",
+                  tournament_id: props.tournamentId,
+                  tournament_slug: props.tournamentSlug,
+                  venue_id: props.selectedVenueId,
+                });
+              }}
+            >
               Create account →
             </Link>
           </div>
@@ -88,18 +133,37 @@ export default function SaveWeekendPlanClient(props: Props) {
         selected_venue_id_present: state.selectedVenueIdPresent,
         save_mode: state.saveMode,
       });
+      if (!wasPlannerSessionEventSeen(props.plannerSessionId, "weekend_planner_first_action")) {
+        markPlannerSessionEventSeen(props.plannerSessionId, "weekend_planner_first_action");
+        void trackTiEvent("weekend_planner_first_action", {
+          planner_session_id: props.plannerSessionId,
+          surface: "planner",
+          source_page_type: "tournament",
+          current_page_type: "planner_entry",
+          current_page_path: typeof window !== "undefined" ? window.location.pathname : "/weekend",
+          entry_source: "tournament_detail",
+          entry_page_type: "tournament",
+          entry_placement: "tournament_detail_planner_cta",
+          auth_state: props.isUnverified ? "unverified" : "verified",
+          entitlement: props.canSave ? "insider" : "explorer",
+          tournament_id: props.tournamentId,
+          tournament_slug: props.tournamentSlug,
+          venue_id: props.selectedVenueId,
+          first_action_type: "save_weekend_plan",
+        });
+      }
       return;
     }
     if (state.status === "error") {
       saveAttemptRef.current = false;
     }
-  }, [props.tournamentId, props.tournamentSlug, state]);
+  }, [props.canSave, props.isUnverified, props.plannerSessionId, props.selectedVenueId, props.tournamentId, props.tournamentSlug, state]);
 
   if (state.status === "saved") {
     return (
       <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ color: "#166534", fontWeight: 900, fontSize: 13 }}>Weekend plan saved</div>
-        <Link className="secondaryLink" href={props.plannerHref}>
+        <Link className="secondaryLink" href={props.plannerHubHref}>
           View in Weekend Planner →
         </Link>
       </div>

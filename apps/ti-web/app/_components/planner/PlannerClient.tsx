@@ -25,12 +25,14 @@ import type {
 import type { TiTier } from "@/lib/entitlements";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import styles from "./Planner.module.css";
+import { markPlannerSessionEventSeen, type PlannerSessionContext, wasPlannerSessionEventSeen } from "@/lib/planner/plannerSession";
 
 type Props = {
   initialEvents: PlannerEventRow[];
   plannerEntitlement: TiTier;
   isUnverified?: boolean;
   hideHeader?: boolean;
+  plannerSessionContext?: PlannerSessionContext | null;
 };
 
 type PlannerLens = "weekend" | "season";
@@ -502,10 +504,40 @@ export default function PlannerClient(props: Props) {
   function trackPlannerEvent<E extends Parameters<typeof trackTiEvent>[0]>(event: E, properties: any) {
     try {
       const pagePath = typeof window !== "undefined" ? window.location?.pathname ?? "" : "";
-      trackTiEvent(event, { page_path: pagePath || "/weekend-planner", ...properties } as any);
+      trackTiEvent(
+        event,
+        {
+          page_path: pagePath || "/weekend-planner",
+          planner_session_id: props.plannerSessionContext?.planner_session_id ?? undefined,
+          entry_source: props.plannerSessionContext?.entry_source ?? undefined,
+          entry_page_type: props.plannerSessionContext?.entry_page_type ?? undefined,
+          entry_path: props.plannerSessionContext?.entry_path ?? undefined,
+          entry_placement: props.plannerSessionContext?.entry_placement ?? undefined,
+          current_page_type: "planner",
+          current_page_path: pagePath || "/weekend-planner",
+          tournament_id: props.plannerSessionContext?.tournament_id ?? undefined,
+          tournament_slug: props.plannerSessionContext?.tournament_slug ?? undefined,
+          venue_id: props.plannerSessionContext?.venue_id ?? undefined,
+          ...properties,
+        } as any,
+      );
     } catch {
       // analytics must fail open
     }
+  }
+
+  function trackPlannerFirstAction(firstActionType: "manual_event_created" | "guest_share_created" | "calendar_feed_created" | "team_hotel_clicked" | "view_toggle") {
+    const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
+    if (!plannerSessionId) return;
+    if (wasPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action")) return;
+    markPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action");
+    trackPlannerEvent("weekend_planner_first_action", {
+      surface: "planner",
+      source_page_type: "planner",
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      first_action_type: firstActionType,
+    });
   }
 
   function plannerWriteBlockedCopy() {
@@ -1609,6 +1641,18 @@ export default function PlannerClient(props: Props) {
       feed_count_bucket: bucketFeedCount(sources.length),
       child_team_count_bucket: bucketChildTeamCount(childTeamCount),
     });
+    const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
+    if (plannerSessionId && !wasPlannerSessionEventSeen(plannerSessionId, "weekend_planner_auth_completed")) {
+      if (props.plannerSessionContext?.planner_auth) {
+        markPlannerSessionEventSeen(plannerSessionId, "weekend_planner_auth_completed");
+        trackPlannerEvent("weekend_planner_auth_completed", {
+          surface: "planner",
+          source_page_type: props.plannerSessionContext?.entry_page_type === "tournament" ? "tournament" : "planner",
+          auth_state: "verified",
+          entitlement: entitlementForAnalytics,
+        });
+      }
+    }
   }, [
     childTeamCount,
     entitlementForAnalytics,
@@ -1616,6 +1660,7 @@ export default function PlannerClient(props: Props) {
     filteredEventsForScheduleView.length,
     plannerAuthState,
     plannerViewForAnalytics,
+    props.plannerSessionContext,
     sources.length,
   ]);
 
@@ -2149,6 +2194,7 @@ export default function PlannerClient(props: Props) {
           entitlement: entitlementForAnalytics,
           event_type: String(createType),
         });
+        trackPlannerFirstAction("manual_event_created");
 	      setEvents((prev) => [...prev, res.event].sort((a, b) => a.starts_at.localeCompare(b.starts_at)));
 	      resetCreateForm();
 	      setCreateOpen(false);
@@ -3168,6 +3214,7 @@ export default function PlannerClient(props: Props) {
                       from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
                       to_view: "upcoming",
                     });
+                    trackPlannerFirstAction("view_toggle");
 		                setScheduleView("upcoming");
                   }}
 		                disabled={busy}
@@ -3185,6 +3232,7 @@ export default function PlannerClient(props: Props) {
                       from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
                       to_view: "this_weekend",
                     });
+                    trackPlannerFirstAction("view_toggle");
 		                setScheduleView("weekend");
                   }}
 		                disabled={busy}
@@ -3202,6 +3250,7 @@ export default function PlannerClient(props: Props) {
                       from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
                       to_view: "season",
                     });
+                    trackPlannerFirstAction("view_toggle");
 		                setScheduleView("season");
                   }}
 		                disabled={busy}

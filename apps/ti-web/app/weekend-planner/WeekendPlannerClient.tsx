@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import BookTravelTeamBlockForm from "../book-travel/BookTravelTeamBlockForm";
 import { sendTiAnalytics } from "@/lib/analytics";
+import { markPlannerSessionEventSeen, type PlannerSessionContext, wasPlannerSessionEventSeen } from "@/lib/planner/plannerSession";
 import styles from "./WeekendPlanner.module.css";
 
 const DESTINATION_STORAGE_KEY = "ti_weekend_planner_destination";
@@ -209,6 +210,7 @@ export default function WeekendPlannerClient(props: {
   mode?: WeekendPlannerClientMode;
   initialAuthState: "signed_out" | "unverified" | "verified";
   initialEntitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
+  plannerSessionContext?: PlannerSessionContext | null;
 }) {
   const mode = props.mode ?? "book_travel";
   const isPlannerBeta = mode === "planner_beta";
@@ -299,6 +301,16 @@ export default function WeekendPlannerClient(props: {
           source_page_type: "planner",
           auth_state: props.initialAuthState,
           entitlement: props.initialEntitlement,
+          planner_session_id: props.plannerSessionContext?.planner_session_id ?? undefined,
+          entry_source: props.plannerSessionContext?.entry_source ?? undefined,
+          entry_page_type: props.plannerSessionContext?.entry_page_type ?? undefined,
+          entry_path: props.plannerSessionContext?.entry_path ?? undefined,
+          entry_placement: props.plannerSessionContext?.entry_placement ?? undefined,
+          current_page_type: "planner",
+          current_page_path: pagePath,
+          tournament_id: props.plannerSessionContext?.tournament_id ?? undefined,
+          tournament_slug: props.plannerSessionContext?.tournament_slug ?? undefined,
+          venue_id: props.plannerSessionContext?.venue_id ?? undefined,
         });
       } else {
         void sendTiAnalytics("book_travel_viewed", {
@@ -310,7 +322,7 @@ export default function WeekendPlannerClient(props: {
         });
       }
     }
-  }, [props.initialAuthState, props.initialEntitlement]);
+  }, [props.initialAuthState, props.initialEntitlement, props.plannerSessionContext]);
 
   useEffect(() => {
     if (!isPlannerBeta || plannerTeamHotelViewedRef.current) return;
@@ -437,6 +449,16 @@ export default function WeekendPlannerClient(props: {
           jobCode: "TI-BOOK-TRAVEL",
           custom1: `src:${sourcePageRef.current}`,
           custom2: trimmedDestination,
+          planner_session_id: props.plannerSessionContext?.planner_session_id ?? undefined,
+          tournamentId: props.plannerSessionContext?.tournament_id ?? undefined,
+          venueId: props.plannerSessionContext?.venue_id ?? undefined,
+          entry_source: props.plannerSessionContext?.entry_source ?? undefined,
+          entry_page_type: props.plannerSessionContext?.entry_page_type ?? undefined,
+          entry_path: props.plannerSessionContext?.entry_path ?? undefined,
+          entry_placement: props.plannerSessionContext?.entry_placement ?? undefined,
+          page_type: "planner",
+          page_url: window.location.pathname,
+          request_source: sourcePageRef.current,
         }),
       });
 
@@ -500,6 +522,16 @@ export default function WeekendPlannerClient(props: {
 
     void sendTiAnalytics(event, {
       ...properties,
+      planner_session_id: props.plannerSessionContext?.planner_session_id ?? undefined,
+      entry_source: props.plannerSessionContext?.entry_source ?? undefined,
+      entry_page_type: props.plannerSessionContext?.entry_page_type ?? undefined,
+      entry_path: props.plannerSessionContext?.entry_path ?? undefined,
+      entry_placement: props.plannerSessionContext?.entry_placement ?? undefined,
+      current_page_type: sourcePage === "weekend_planner" ? "planner" : "other",
+      current_page_path: pagePath,
+      tournament_id: props.plannerSessionContext?.tournament_id ?? undefined,
+      tournament_slug: props.plannerSessionContext?.tournament_slug ?? undefined,
+      venue_id: props.plannerSessionContext?.venue_id ?? undefined,
       source: sourcePage,
       source_page: sourcePage,
       page_path: pagePath,
@@ -826,6 +858,17 @@ export default function WeekendPlannerClient(props: {
                       entitlement: props.initialEntitlement,
                       context_type: "team_hotel",
                     });
+                    const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
+                    if (plannerSessionId && !wasPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action")) {
+                      markPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action");
+                      track("weekend_planner_first_action", {
+                        surface: "planner",
+                        source_page_type: "planner",
+                        auth_state: props.initialAuthState,
+                        entitlement: props.initialEntitlement,
+                        first_action_type: "team_hotel_clicked",
+                      });
+                    }
                     setTeamBlockOpen((current) => !current);
                   }}
                 >
@@ -888,6 +931,17 @@ export default function WeekendPlannerClient(props: {
             showToggle={false}
             entitlement={props.initialEntitlement}
             authState={props.initialAuthState}
+            plannerTrackingContext={{
+              planner_session_id: props.plannerSessionContext?.planner_session_id ?? null,
+              tournament_id: props.plannerSessionContext?.tournament_id ?? null,
+              venue_id: props.plannerSessionContext?.venue_id ?? null,
+              entry_source: props.plannerSessionContext?.entry_source ?? null,
+              entry_page_type: props.plannerSessionContext?.entry_page_type ?? null,
+              entry_path: props.plannerSessionContext?.entry_path ?? null,
+              entry_placement: props.plannerSessionContext?.entry_placement ?? null,
+              current_page_type: "planner",
+              current_page_path: "/weekend-planner",
+            }}
           />
         </div>
       ) : null}

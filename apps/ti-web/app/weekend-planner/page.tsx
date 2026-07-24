@@ -12,10 +12,11 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import { getSavedTournamentIdsForUser } from "@/lib/savedTournaments";
 import SavedTournamentActionsClient from "./SavedTournamentActionsClient";
-import { getActivePlansForUser } from "@/lib/weekendPlans";
+import { getActivePlansForUser, saveWeekendPlanForTournament } from "@/lib/weekendPlans";
 import WeekendPlanActionsClient from "./WeekendPlanActionsClient";
 import type { PlannerEventRow } from "@/lib/planner/types";
 import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
+import { buildPlannerHref, createPlannerSessionId, parsePlannerSessionContext, type PlannerSessionContext } from "@/lib/planner/plannerSession";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,7 +69,11 @@ export async function generateMetadata() {
   };
 }
 
-export default async function WeekendPlannerPage() {
+export default async function WeekendPlannerPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -79,6 +84,32 @@ export default async function WeekendPlannerPage() {
   const isUnverified = Boolean(isAuthed && tierInfo.unverified);
   const canUseSavedPlanning = tierInfo.tier === "insider" || tierInfo.tier === "weekend_pro";
   const plannerEntitlement = tierInfo.tier;
+  const rawSearchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams ?? {})) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "string") rawSearchParams.append(key, item);
+      }
+      continue;
+    }
+    if (typeof value === "string") rawSearchParams.set(key, value);
+  }
+  const parsedPlannerContext = parsePlannerSessionContext(rawSearchParams);
+  const plannerContext: PlannerSessionContext =
+    parsedPlannerContext ?? {
+      planner_session_id: createPlannerSessionId(),
+      entry_page_type: "other",
+      current_page_type: "planner",
+      current_page_path: "/weekend-planner",
+    };
+
+  if (user?.id && canUseSavedPlanning && plannerContext.tournament_id) {
+    await saveWeekendPlanForTournament({
+      userId: user.id,
+      tournamentId: plannerContext.tournament_id,
+      selectedVenueId: plannerContext.venue_id ?? null,
+    });
+  }
 
   let plannerEvents: PlannerEventRow[] = [];
   if (user) {
@@ -195,6 +226,12 @@ export default async function WeekendPlannerPage() {
 
   const plannerCalendarFeedPanel = user ? await PlannerCalendarFeedPanel() : null;
   const plannerGuestSharePanel = user ? await PlannerGuestSharePanel() : null;
+  const plannerAuthReturnTo = buildPlannerHref("/weekend-planner", { ...plannerContext, planner_auth: true, current_page_type: "planner", current_page_path: "/weekend-planner" });
+  const resumeLabel = String(plannerContext.tournament_name ?? "").trim();
+  const resumeDateLabel =
+    plannerContext.tournament_start_date || plannerContext.tournament_end_date
+      ? [formatDate(plannerContext.tournament_start_date ?? null), formatDate(plannerContext.tournament_end_date ?? null)].filter(Boolean).join(" - ")
+      : null;
 
 	  return (
 	    <div className={`pitchWrap tournamentsWrap ${styles.standaloneShell}`} data-weekend-planner-root="true">
@@ -212,7 +249,24 @@ export default async function WeekendPlannerPage() {
 	          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
 	            {isAuthed ? (
 	              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto", display: "grid", gap: 12 }}>
-                  <PlannerClient initialEvents={plannerEvents} plannerEntitlement={plannerEntitlement} isUnverified={isUnverified} hideHeader />
+                  {resumeLabel ? (
+                    <article className={styles.panelCard}>
+                      <div className={styles.panelHeader}>
+                        <h2 className={styles.panelTitle}>Continuing your tournament plan</h2>
+                        <p className={styles.panelSub}>
+                          {resumeLabel}
+                          {resumeDateLabel ? ` • ${resumeDateLabel}` : ""}
+                        </p>
+                      </div>
+                    </article>
+                  ) : null}
+                  <PlannerClient
+                    initialEvents={plannerEvents}
+                    plannerEntitlement={plannerEntitlement}
+                    isUnverified={isUnverified}
+                    hideHeader
+                    plannerSessionContext={plannerContext}
+                  />
                   {plannerCalendarFeedPanel}
                   {plannerGuestSharePanel}
 	              </div>
@@ -226,7 +280,7 @@ export default async function WeekendPlannerPage() {
 	                  </p>
 	                </div>
 	                <div className={styles.cardBody} style={{ display: "grid", gap: 10 }}>
-                    <WeekendPlannerEntryCtas />
+                    <WeekendPlannerEntryCtas plannerContext={plannerContext} authReturnTo={plannerAuthReturnTo} />
 	                </div>
 	              </article>
 	            )}
@@ -290,6 +344,7 @@ export default async function WeekendPlannerPage() {
             mode="planner_beta"
             initialAuthState={isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out"}
             initialEntitlement={plannerEntitlement}
+            plannerSessionContext={plannerContext}
           />
 
 	        <div className={styles.disclosure}>

@@ -62,6 +62,8 @@ export default function TournamentPlanningCtasClient(props: {
     void trackTiEvent("weekend_planner_contextual_cta_viewed", {
       surface: "tournament",
       source_page_type: "tournament",
+      current_page_type: "tournament",
+      current_page_path: typeof window !== "undefined" ? window.location.pathname : undefined,
       cta_type: "weekend_plan",
       auth_state: props.authState,
       entitlement: props.entitlement,
@@ -72,6 +74,8 @@ export default function TournamentPlanningCtasClient(props: {
     void trackTiEvent("team_hotel_cta_viewed", {
       surface: "tournament",
       source_page_type: "tournament",
+      current_page_type: "tournament",
+      current_page_path: typeof window !== "undefined" ? window.location.pathname : undefined,
       cta_type: "team_hotel",
       auth_state: props.authState,
       entitlement: props.entitlement,
@@ -98,6 +102,8 @@ export default function TournamentPlanningCtasClient(props: {
             void trackTiEvent("weekend_planner_contextual_cta_clicked", {
               surface: "tournament",
               source_page_type: "tournament",
+              current_page_type: "tournament",
+              current_page_path: typeof window !== "undefined" ? window.location.pathname : undefined,
               cta_type: "weekend_plan",
               auth_state: props.authState,
               entitlement: props.entitlement,
@@ -159,6 +165,8 @@ export default function TournamentPlanningCtasClient(props: {
             void trackTiEvent("team_hotel_cta_clicked", {
               surface: "tournament",
               source_page_type: "tournament",
+              current_page_type: "tournament",
+              current_page_path: typeof window !== "undefined" ? window.location.pathname : undefined,
               cta_type: "team_hotel",
               auth_state: props.authState,
               entitlement: props.entitlement,

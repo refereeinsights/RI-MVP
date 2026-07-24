@@ -63,6 +63,15 @@ type GroupRequestBody = {
   customField7?: unknown;
   customField8?: unknown;
   groupTypeCode?: unknown;
+  planner_session_id?: unknown;
+  tournament_id?: unknown;
+  venue_id?: unknown;
+  entry_source?: unknown;
+  entry_page_type?: unknown;
+  entry_path?: unknown;
+  entry_placement?: unknown;
+  current_page_type?: unknown;
+  current_page_path?: unknown;
 };
 
 const GROUP_REQUEST_ENDPOINT = "/api/lodging/group-request";
@@ -231,6 +240,17 @@ async function insertStartedSession(input: {
   groupRequestQuery: Record<string, unknown>;
   clientIp: string | null;
   userAgent: string | null;
+  plannerTracking: {
+    plannerSessionId: string | null;
+    tournamentId: string | null;
+    venueId: string | null;
+    entrySource: string | null;
+    entryPageType: string | null;
+    entryPath: string | null;
+    entryPlacement: string | null;
+    currentPageType: string | null;
+    currentPagePath: string | null;
+  };
 }) {
   try {
     await (supabaseAdmin.from("lodging_search_session" as any) as any).insert({
@@ -246,6 +266,15 @@ async function insertStartedSession(input: {
       started_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      planner_session_id: input.plannerTracking.plannerSessionId,
+      tournament_id: input.plannerTracking.tournamentId,
+      venue_id: input.plannerTracking.venueId,
+      entry_source: input.plannerTracking.entrySource,
+      entry_page_type: input.plannerTracking.entryPageType,
+      entry_path: input.plannerTracking.entryPath,
+      entry_placement: input.plannerTracking.entryPlacement,
+      current_page_type: input.plannerTracking.currentPageType,
+      current_page_path: input.plannerTracking.currentPagePath,
     });
   } catch {
     // Best-effort telemetry only.
@@ -388,7 +417,7 @@ export async function POST(request: Request) {
     itinerary: toText(body.itinerary) ?? undefined,
     locale: toText(body.locale) || undefined,
     currency: toText(body.currency) || undefined,
-    sc: asTrackingString(body, ["sc", "source"]),
+    sc: asTrackingString(body, ["sc"]),
     keyword: asTrackingString(body, ["keyword", "kw"]),
     jobCode: asTrackingString(body, ["jobCode", "jobcode"]),
     customField1: asTrackingString(body, ["customField1", "custom1"]),
@@ -406,6 +435,17 @@ export async function POST(request: Request) {
 
   const provider = createLodgingProvider(providerName);
   const sessionId = randomUUID();
+  const plannerTracking = {
+    plannerSessionId: toText(body.planner_session_id),
+    tournamentId: toText(body.tournament_id),
+    venueId: toText(body.venue_id),
+    entrySource: toText(body.entry_source),
+    entryPageType: toText(body.entry_page_type),
+    entryPath: toText(body.entry_path),
+    entryPlacement: toText(body.entry_placement),
+    currentPageType: toText(body.current_page_type),
+    currentPagePath: toText(body.current_page_path),
+  };
 
   await insertStartedSession({
     sessionId,
@@ -426,7 +466,8 @@ export async function POST(request: Request) {
       groupName,
       phone,
       groupTypeCode: providerInput.groupTypeCode,
-      source: providerInput.sc,
+      source: toText(body.source),
+      sc: providerInput.sc,
       keyword: providerInput.keyword,
       jobCode: providerInput.jobCode,
       customField1: providerInput.customField1,
@@ -439,9 +480,19 @@ export async function POST(request: Request) {
       customField8: providerInput.customField8,
       locale: providerInput.locale,
       currency: providerInput.currency,
+      planner_session_id: plannerTracking.plannerSessionId,
+      tournament_id: plannerTracking.tournamentId,
+      venue_id: plannerTracking.venueId,
+      entry_source: plannerTracking.entrySource,
+      entry_page_type: plannerTracking.entryPageType,
+      entry_path: plannerTracking.entryPath,
+      entry_placement: plannerTracking.entryPlacement,
+      current_page_type: plannerTracking.currentPageType,
+      current_page_path: plannerTracking.currentPagePath,
     },
     clientIp: providerInput.customerIPAddress ?? "unknown",
     userAgent: providerInput.customerUserAgent ?? "unknown",
+    plannerTracking,
   });
 
   const startedAt = Date.now();

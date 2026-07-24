@@ -129,11 +129,16 @@ const PLANNER_EVENTS = new Set([
   "planner_map_view_opened",
   "planner_calendar_event_detail_opened",
   "weekend_planner_viewed",
+  "weekend_planner_entry_viewed",
+  "weekend_planner_auth_gate_viewed",
+  "weekend_planner_auth_started",
+  "weekend_planner_auth_completed",
   "weekend_planner_start_clicked",
   "weekend_planner_auth_required_viewed",
   "weekend_planner_create_account_clicked",
   "weekend_planner_sign_in_clicked",
   "weekend_planner_loaded",
+  "weekend_planner_first_action",
   "weekend_planner_empty_state_viewed",
   "weekend_planner_contextual_cta_viewed",
   "weekend_planner_contextual_cta_clicked",
@@ -167,6 +172,15 @@ function asTextWithLimit(value: unknown, maxLen: number) {
   const text = asText(value);
   if (!text) return null;
   return text.length > maxLen ? text.slice(0, maxLen) : text;
+}
+
+function normalizePlannerPageType(value: string | null) {
+  if (value === "tournament") return "tournament";
+  if (value === "planner") return "weekend_planner";
+  if (value === "planner_entry") return "weekend_planner";
+  if (value === "auth") return "auth";
+  if (value === "book_travel") return "book_travel";
+  return "other";
 }
 
 function isLocalhostHost(host: string) {
@@ -418,6 +432,17 @@ export async function POST(request: Request) {
     const reasonCode = asTextWithLimit((props as any).reason_code, 64);
     const surface = asTextWithLimit((props as any).surface, 32);
     const sourcePageType = asTextWithLimit((props as any).source_page_type, 32);
+    const currentPageType = asTextWithLimit((props as any).current_page_type, 32);
+    const currentPagePath = asTextWithLimit((props as any).current_page_path, 128);
+    const plannerSessionId = asTextWithLimit((props as any).planner_session_id, 64);
+    const entrySource = asTextWithLimit((props as any).entry_source, 64);
+    const entryPageType = asTextWithLimit((props as any).entry_page_type, 32);
+    const entryPath = asTextWithLimit((props as any).entry_path, 128);
+    const entryPlacement = asTextWithLimit((props as any).entry_placement, 64);
+    const tournamentId = asTextWithLimit((props as any).tournament_id, 64);
+    const tournamentSlug = asTextWithLimit((props as any).tournament_slug, 128);
+    const venueId = asTextWithLimit((props as any).venue_id, 64);
+    const firstActionType = asTextWithLimit((props as any).first_action_type, 64);
     const ctaType = asTextWithLimit((props as any).cta_type, 64);
     const authState = asTextWithLimit((props as any).auth_state, 32);
     const actionSurface = asTextWithLimit((props as any).action_surface, 32);
@@ -437,6 +462,17 @@ export async function POST(request: Request) {
           surface,
           source_page_type: sourcePageType,
           cta_type: ctaType,
+          planner_session_id: plannerSessionId,
+          entry_source: entrySource,
+          entry_page_type: entryPageType,
+          entry_path: entryPath,
+          entry_placement: entryPlacement,
+          current_page_type: currentPageType,
+          current_page_path: currentPagePath,
+          tournament_id: tournamentId,
+          tournament_slug: tournamentSlug,
+          venue_id: venueId,
+          first_action_type: firstActionType,
           auth_state: authState,
           entitlement,
           action_surface: actionSurface,
@@ -462,13 +498,13 @@ export async function POST(request: Request) {
       await supabaseAdmin.from("ti_map_events" as any).insert({
         event_name: payload.event,
         properties,
-        page_type: sourcePageType === "book_travel" ? "book_travel" : "weekend_planner",
+        page_type: normalizePlannerPageType(currentPageType ?? sourcePageType),
         sport: null,
         state: null,
-        href: pagePath ?? "/weekend-planner",
-        filter_name: view ?? gateName ?? contextType ?? null,
-        old_value: fromView ?? authState ?? entitlement ?? null,
-        new_value: toView ?? reasonCode ?? loadedEventCountBucket ?? null,
+        href: currentPagePath ?? pagePath ?? "/weekend-planner",
+        filter_name: view ?? gateName ?? contextType ?? entryPlacement ?? null,
+        old_value: fromView ?? authState ?? entitlement ?? entrySource ?? null,
+        new_value: toView ?? reasonCode ?? loadedEventCountBucket ?? firstActionType ?? null,
         cta: ctaType ?? target ?? actionSurface ?? null,
       });
     } catch {

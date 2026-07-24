@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildHotelsHref } from "@/lib/booking/venueBooking";
 import { parseVenueParam } from "@/lib/weekendShare";
@@ -16,6 +17,7 @@ import DirectionsChooserClient from "./DirectionsChooserClient";
 import WeekendNearestAirportClient from "./WeekendNearestAirportClient";
 import SaveWeekendPlanClient from "./SaveWeekendPlanClient";
 import { getWeekendPlanForTournament } from "@/lib/weekendPlans";
+import { buildPlannerHref, normalizePlannerSessionId, withPlannerAuthFlag } from "@/lib/planner/plannerSession";
 
 export const runtime = "nodejs";
 // Tier-aware page: avoid caching Weekend Pro content across users.
@@ -187,7 +189,13 @@ export default async function WeekendPage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams?: { venue?: string; source?: string; utm_source?: string; utm_medium?: string };
+  searchParams?: {
+    venue?: string;
+    source?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    planner_session_id?: string;
+  };
 }) {
   const slug = String(params.slug ?? "").trim();
   if (!slug) notFound();
@@ -376,15 +384,47 @@ export default async function WeekendPage({
     return "unknown" as const;
   })();
 
+  const plannerSessionId = normalizePlannerSessionId(searchParams?.planner_session_id ?? null) ?? randomUUID();
+  const plannerEntryPath = (() => {
+    const qp = new URLSearchParams();
+    if (searchParams?.venue) qp.set("venue", String(searchParams.venue));
+    if (searchParams?.source) qp.set("source", String(searchParams.source));
+    if (searchParams?.utm_source) qp.set("utm_source", String(searchParams.utm_source));
+    if (searchParams?.utm_medium) qp.set("utm_medium", String(searchParams.utm_medium));
+    qp.set("planner_session_id", plannerSessionId);
+    const qs = qp.toString();
+    return qs ? `/weekend/${encodeURIComponent(tournament.slug)}?${qs}` : `/weekend/${encodeURIComponent(tournament.slug)}`;
+  })();
+
   const returnTo = (() => {
     const qp = new URLSearchParams();
     if (searchParams?.venue) qp.set("venue", String(searchParams.venue));
     if (searchParams?.source) qp.set("source", String(searchParams.source));
     if (searchParams?.utm_source) qp.set("utm_source", String(searchParams.utm_source));
     if (searchParams?.utm_medium) qp.set("utm_medium", String(searchParams.utm_medium));
+    qp.set("planner_session_id", plannerSessionId);
     const qs = qp.toString();
     return encodeURIComponent(qs ? `/weekend/${encodeURIComponent(tournament.slug)}?${qs}` : `/weekend/${encodeURIComponent(tournament.slug)}`);
   })();
+
+  const plannerContext = {
+    planner_session_id: plannerSessionId,
+    tournament_id: tournament.id,
+    tournament_slug: tournament.slug,
+    tournament_name: tournament.name,
+    tournament_start_date: tournament.start_date,
+    tournament_end_date: tournament.end_date,
+    venue_id: selectedVenueId,
+    entry_source: weekendPlanSourcePage,
+    entry_page_type: "tournament" as const,
+    entry_path: plannerEntryPath,
+    entry_placement: "tournament_detail_planner_cta",
+    current_page_type: "planner" as const,
+    current_page_path: "/weekend-planner",
+    request_source: "planner_resume",
+  };
+  const plannerHubHref = buildPlannerHref("/weekend-planner", plannerContext);
+  const plannerAuthReturnTo = buildPlannerHref("/weekend-planner", withPlannerAuthFlag(plannerContext) ?? plannerContext);
 
   const googleSearchHref = selectedVenueDirectionsQuery
     ? `https://www.google.com/search?q=${encodeURIComponent(selectedVenueDirectionsQuery)}`
@@ -393,10 +433,16 @@ export default async function WeekendPage({
   return (
     <main className="ti-shell" style={{ paddingBottom: 40 }}>
       <WeekendPlanViewTracker
+        plannerSessionId={plannerSessionId}
         tournamentId={tournament.id}
         tournamentSlug={tournament.slug}
+        venueId={selectedVenueId}
         sourcePage={weekendPlanSourcePage}
         hasExistingPlan={planExists}
+        authState={isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out"}
+        entitlement={tierInfo.tier}
+        entryPath={plannerEntryPath}
+        entryPlacement="tournament_detail_planner_cta"
       />
       <WeekendShareOpenTracker
         tournamentSlug={tournament.slug}
@@ -521,7 +567,9 @@ export default async function WeekendPage({
               canSave={canSaveWeekendPlan}
               isAuthed={isAuthed}
               isUnverified={isUnverified}
-              plannerHref="/weekend-planner"
+              plannerHubHref={plannerHubHref}
+              authReturnTo={plannerAuthReturnTo}
+              plannerSessionId={plannerSessionId}
             />
 
             {canSaveWeekendPlan && planExists ? (
@@ -550,7 +598,7 @@ export default async function WeekendPage({
                   </div>
                 )}
                 <div>
-                  <Link className="secondaryLink" href="/weekend-planner">
+                  <Link className="secondaryLink" href={plannerHubHref}>
                     Edit in Weekend Planner →
                   </Link>
                 </div>
@@ -580,7 +628,9 @@ export default async function WeekendPage({
               canSave={canSaveWeekendPlan}
               isAuthed={isAuthed}
               isUnverified={isUnverified}
-              plannerHref="/weekend-planner"
+              plannerHubHref={plannerHubHref}
+              authReturnTo={plannerAuthReturnTo}
+              plannerSessionId={plannerSessionId}
             />
 
             {canSaveWeekendPlan && planExists ? (
@@ -609,7 +659,7 @@ export default async function WeekendPage({
                   </div>
                 )}
                 <div>
-                  <Link className="secondaryLink" href="/weekend-planner">
+                  <Link className="secondaryLink" href={plannerHubHref}>
                     Edit in Weekend Planner →
                   </Link>
                 </div>
@@ -634,7 +684,7 @@ export default async function WeekendPage({
               hotelsHref={hotelsHref ? `${hotelsHref}&source=weekend_share` : null}
               hotelsLabel={hotelsLabel}
               rentalsHref={vrboHrefBase}
-              plannerHubHref="/weekend-planner"
+              plannerHubHref={plannerHubHref}
             />
           </div>
           <div className="ti-print-hide">

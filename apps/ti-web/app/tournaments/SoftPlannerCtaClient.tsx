@@ -14,6 +14,8 @@ export default function SoftPlannerCtaClient() {
     void trackTiEvent("weekend_planner_contextual_cta_viewed", {
       surface: "tournament_directory",
       source_page_type: "tournament",
+      current_page_type: "tournament",
+      current_page_path: typeof window !== "undefined" ? window.location.pathname : undefined,
       cta_type: "open_planner_beta",
       context_type: "generic",
     });
@@ -33,6 +35,8 @@ export default function SoftPlannerCtaClient() {
             void trackTiEvent("weekend_planner_contextual_cta_clicked", {
               surface: "tournament_directory",
               source_page_type: "tournament",
+              current_page_type: "tournament",
+              current_page_path: typeof window !== "undefined" ? window.location.pathname : undefined,
               cta_type: "open_planner_beta",
               context_type: "generic",
             });

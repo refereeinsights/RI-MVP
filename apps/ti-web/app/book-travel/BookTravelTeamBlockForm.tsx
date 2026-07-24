@@ -92,6 +92,17 @@ type BookTravelTeamBlockFormProps = {
   showToggle?: boolean;
   entitlement?: "explorer" | "insider" | "weekend_pro" | "unknown";
   authState?: "signed_out" | "unverified" | "verified";
+  plannerTrackingContext?: {
+    planner_session_id?: string | null;
+    tournament_id?: string | null;
+    venue_id?: string | null;
+    entry_source?: string | null;
+    entry_page_type?: string | null;
+    entry_path?: string | null;
+    entry_placement?: string | null;
+    current_page_type?: string | null;
+    current_page_path?: string | null;
+  } | null;
 };
 
 export default function BookTravelTeamBlockForm({
@@ -100,6 +111,7 @@ export default function BookTravelTeamBlockForm({
   showToggle = true,
   entitlement = "unknown",
   authState = "signed_out",
+  plannerTrackingContext = null,
 }: BookTravelTeamBlockFormProps = {}) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [form, setForm] = useState<TeamBlockFormState>(DEFAULT_FORM);
@@ -131,8 +143,17 @@ export default function BookTravelTeamBlockForm({
       auth_state: authState,
       entitlement,
       context_type: "team_hotel",
+      planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+      entry_source: plannerTrackingContext?.entry_source ?? undefined,
+      entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
+      entry_path: plannerTrackingContext?.entry_path ?? undefined,
+      entry_placement: plannerTrackingContext?.entry_placement ?? undefined,
+      current_page_type: plannerTrackingContext?.current_page_type ?? undefined,
+      current_page_path: plannerTrackingContext?.current_page_path ?? undefined,
+      tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
+      venue_id: plannerTrackingContext?.venue_id ?? undefined,
     });
-  }, [authState, entitlement, showToggle, surface]);
+  }, [authState, entitlement, plannerTrackingContext, showToggle, surface]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -150,6 +171,15 @@ export default function BookTravelTeamBlockForm({
       auth_state: authState,
       entitlement,
       context_type: "team_hotel",
+      planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+      entry_source: plannerTrackingContext?.entry_source ?? undefined,
+      entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
+      entry_path: plannerTrackingContext?.entry_path ?? undefined,
+      entry_placement: plannerTrackingContext?.entry_placement ?? undefined,
+      current_page_type: plannerTrackingContext?.current_page_type ?? undefined,
+      current_page_path: plannerTrackingContext?.current_page_path ?? undefined,
+      tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
+      venue_id: plannerTrackingContext?.venue_id ?? undefined,
     });
   }
 
@@ -253,6 +283,15 @@ export default function BookTravelTeamBlockForm({
           jobCode: "TI-TEAM-BLOCK",
           custom1: readableDestinationContext || providerDestination,
           custom2: surface,
+          planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+          tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
+          venue_id: plannerTrackingContext?.venue_id ?? undefined,
+          entry_source: plannerTrackingContext?.entry_source ?? undefined,
+          entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
+          entry_path: plannerTrackingContext?.entry_path ?? undefined,
+          entry_placement: plannerTrackingContext?.entry_placement ?? undefined,
+          current_page_type: plannerTrackingContext?.current_page_type ?? undefined,
+          current_page_path: plannerTrackingContext?.current_page_path ?? undefined,
         }),
       });
 
@@ -273,6 +312,15 @@ export default function BookTravelTeamBlockForm({
         auth_state: authState,
         entitlement,
         context_type: "team_hotel",
+        planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+        entry_source: plannerTrackingContext?.entry_source ?? undefined,
+        entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
+        entry_path: plannerTrackingContext?.entry_path ?? undefined,
+        entry_placement: plannerTrackingContext?.entry_placement ?? undefined,
+        current_page_type: plannerTrackingContext?.current_page_type ?? undefined,
+        current_page_path: plannerTrackingContext?.current_page_path ?? undefined,
+        tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
+        venue_id: plannerTrackingContext?.venue_id ?? undefined,
       });
     } catch (submitError: any) {
       const message = submitError?.message || "Unable to submit the team hotel block request right now.";
@@ -304,6 +352,15 @@ export default function BookTravelTeamBlockForm({
                 auth_state: authState,
                 entitlement,
                 context_type: "team_hotel",
+                planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+                entry_source: plannerTrackingContext?.entry_source ?? undefined,
+                entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
+                entry_path: plannerTrackingContext?.entry_path ?? undefined,
+                entry_placement: plannerTrackingContext?.entry_placement ?? undefined,
+                current_page_type: plannerTrackingContext?.current_page_type ?? undefined,
+                current_page_path: plannerTrackingContext?.current_page_path ?? undefined,
+                tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
+                venue_id: plannerTrackingContext?.venue_id ?? undefined,
               });
               setIsOpen((current) => !current);
               if (!isOpen) trackStart();
