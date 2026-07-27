@@ -13,6 +13,25 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-07-27
+
+- TI tournament search-history implementation prompt finalized (v3):
+  - Prompt stored at scratchpad `tournament-search-history-prompt-v2.md`.
+  - Covers three tables (`tournament_search_runs`, `tournament_search_run_scopes`, `tournament_search_run_findings`), five MCP write tools, four MCP read tools, and a full test matrix.
+  - Key design decisions settled through iterative review:
+    - Normalized scope table prevents run-level metrics from being repeated across state-and-sport combinations.
+    - Finding supersession model (`supersedes_finding_id`, `is_current`, partial unique index `where is_current = true`) preserves research history without overwriting.
+    - Three-stage `get_search_coverage` aggregation: eligible runs → scope metrics → run-level arrays separately, to prevent organizer-domain fan-out.
+    - `window_from`/`window_to` filter names throughout all read tools to avoid SQL ambiguity with `date_from`/`date_to` column names; one-sided window behavior fully specified for all four cases with correct SQL for runs (`date_from`/`date_to`) and findings (`start_date`/`end_date`) separately.
+    - `completed_at` idempotency rule: first finalization establishes the canonical timestamp; repeated finalization preserves it; a conflicting supplied timestamp is rejected rather than silently accepted or swapped.
+    - Finalization blocked for `planned` and `paused` runs; idempotent for `completed` and `needs_follow_up`.
+    - Unscoped findings (missing state/sport or no matching scope) are reported with typed reasons and do not abort finalization.
+    - `source_batch_id` concurrency-safe idempotency via partial unique index + `ON CONFLICT DO NOTHING` + fallback select.
+    - Organizer-domain arrays: all-or-nothing validation; one invalid element rejects the full input.
+    - Prompt hashing: hash computed from full untruncated prompt; 64 KB storage cap; `search_prompt_truncated` flag.
+  - Southern California backfill sequence documented: run → scope → findings → finalize; venue_names (18 entries) and organizer_domains included; numeric metrics deferred to finalization.
+  - Not yet implemented; prompt is ready to hand to an implementation agent.
+
 ## 2026-07-14
 
 - TI venue-map "View all nearby hotels" redirect fix (hash + date encoding):
