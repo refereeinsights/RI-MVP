@@ -3,6 +3,10 @@
 Date: 2026-07-24  
 Scope: Phase 2 implementation from `docs/reports/ti-weekend-planner-activation-phase1-audit-2026-07-23.md`
 
+Update: 2026-07-27
+- Follow-up patch added a canonical redirect on `/weekend/[slug]` so the visible entry-route URL always includes `planner_session_id`.
+- This closes the browser verification gap where the planner session was generated and propagated downstream but was not visible on the entry-route address bar.
+
 ## Executive summary
 
 - Implemented a narrow planner activation repair centered on one stable `planner_session_id`
@@ -195,6 +199,7 @@ Not fully verified locally:
 - `weekend_planner_first_action` still uses `view_toggle` as a fallback when stronger actions do not occur
 - planner-origin hotel outbounds are still limited by the current client-side direct-detail flow
 - no production controlled trace was completed in this implementation pass
+- bare `/weekend-planner` navigation still behaves like a generic planner load rather than a resumed tournament flow; that is acceptable in this narrow repair because the canonical funnel depends on the preserved query-string handoff
 
 ## Production verification still required
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildHotelsHref } from "@/lib/booking/venueBooking";
@@ -384,7 +384,8 @@ export default async function WeekendPage({
     return "unknown" as const;
   })();
 
-  const plannerSessionId = normalizePlannerSessionId(searchParams?.planner_session_id ?? null) ?? randomUUID();
+  const requestedPlannerSessionId = normalizePlannerSessionId(searchParams?.planner_session_id ?? null);
+  const plannerSessionId = requestedPlannerSessionId ?? randomUUID();
   const plannerEntryPath = (() => {
     const qp = new URLSearchParams();
     if (searchParams?.venue) qp.set("venue", String(searchParams.venue));
@@ -395,6 +396,10 @@ export default async function WeekendPage({
     const qs = qp.toString();
     return qs ? `/weekend/${encodeURIComponent(tournament.slug)}?${qs}` : `/weekend/${encodeURIComponent(tournament.slug)}`;
   })();
+
+  if (!requestedPlannerSessionId) {
+    redirect(plannerEntryPath);
+  }
 
   const returnTo = (() => {
     const qp = new URLSearchParams();
