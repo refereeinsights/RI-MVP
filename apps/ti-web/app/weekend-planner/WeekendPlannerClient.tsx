@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import BookTravelTeamBlockForm from "../book-travel/BookTravelTeamBlockForm";
 import { sendTiAnalytics } from "@/lib/analytics";
+import {
+  buildHotelPlannerBookingAttribution,
+  createOutboundAttributionId,
+  HOTEL_PLANNER_BOOKING_PLACEMENTS,
+} from "@/lib/hotelPlannerAttribution";
 import { markPlannerSessionEventSeen, type PlannerSessionContext, wasPlannerSessionEventSeen } from "@/lib/planner/plannerSession";
 import styles from "./WeekendPlanner.module.css";
 
@@ -366,6 +371,14 @@ export default function WeekendPlannerClient(props: {
     if (w) w.opener = null;
   }
 
+  function createBookingHandoffIds() {
+    const outboundRequestId = globalThis.crypto?.randomUUID?.() ?? null;
+    return {
+      outboundRequestId,
+      outboundAttributionId: createOutboundAttributionId(() => outboundRequestId ?? globalThis.crypto?.randomUUID?.() ?? ""),
+    };
+  }
+
   function handleDestinationChange(value: string) {
     const trimmed = value.replace(/\s+/g, " ");
     setDestination(trimmed);
@@ -374,14 +387,45 @@ export default function WeekendPlannerClient(props: {
 
   function buildHotelSearchParams() {
     const qp = new URLSearchParams();
+    const handoff = createBookingHandoffIds();
+    const sourcePageType = sourcePageRef.current;
+    const placement =
+      sourcePageType === "weekend_planner"
+        ? HOTEL_PLANNER_BOOKING_PLACEMENTS.weekendPlannerViewAllHotels
+        : HOTEL_PLANNER_BOOKING_PLACEMENTS.bookTravelViewAllHotels;
+    const attribution = buildHotelPlannerBookingAttribution({
+      outboundAttributionId: handoff.outboundAttributionId,
+      sourcePageType,
+      placement,
+      plannerSessionId: props.plannerSessionContext?.planner_session_id ?? null,
+      keyword: "Tournament weekend stay",
+      jobCode: "TI-BOOK-TRAVEL",
+      custom1: `src:${sourcePageType}`,
+      custom2: destination.trim() || sourcePageType,
+    });
     qp.set("ss", destination.trim());
-    qp.set("source", sourcePageRef.current);
+    qp.set("source", sourcePageType);
     const checkinIso = mmDdYyyyToIso(hotelResolvedCheckIn) ?? isoFromUserDate(checkinText);
     const checkoutIso = mmDdYyyyToIso(hotelResolvedCheckOut) ?? isoFromUserDate(checkoutText);
     if (checkinIso) qp.set("checkin", checkinIso);
     if (checkoutIso) qp.set("checkout", checkoutIso);
     if (hotelResolvedLatitude !== null) qp.set("lat", String(hotelResolvedLatitude));
     if (hotelResolvedLongitude !== null) qp.set("lng", String(hotelResolvedLongitude));
+    if (handoff.outboundRequestId) qp.set("outbound_request_id", handoff.outboundRequestId);
+    qp.set("outbound_attribution_id", handoff.outboundAttributionId);
+    qp.set("page_type", sourcePageType);
+    qp.set("cta_placement", placement);
+    if (props.plannerSessionContext?.planner_session_id) qp.set("planner_session_id", props.plannerSessionContext.planner_session_id);
+    qp.set("sc", attribution.sc);
+    if (attribution.keyword) qp.set("kw", attribution.keyword);
+    qp.set("jobCode", attribution.jobCode);
+    if (attribution.custom1) qp.set("custom1", attribution.custom1);
+    if (attribution.custom2) qp.set("custom2", attribution.custom2);
+    if (attribution.custom3) qp.set("custom3", attribution.custom3);
+    if (attribution.custom4) qp.set("custom4", attribution.custom4);
+    if (attribution.custom5) qp.set("custom5", attribution.custom5);
+    if (attribution.custom6) qp.set("custom6", attribution.custom6);
+    if (attribution.custom7) qp.set("custom7", attribution.custom7);
     return qp;
   }
 
@@ -394,32 +438,53 @@ export default function WeekendPlannerClient(props: {
   }
 
   function buildHotelPlannerPropertyUrl(hotel: BookTravelHotelResult) {
-    const baseUrl = String(process.env.NEXT_PUBLIC_HOTELPLANNER_WHITE_LABEL_URL ?? "").trim();
-    if (!baseUrl || !hotelResolvedCheckIn || !hotelResolvedCheckOut) return null;
+    if (!hotelResolvedCheckIn || !hotelResolvedCheckOut) return null;
 
     const inDate = toHotelPlannerPropertyDate(hotelResolvedCheckIn);
     const outDate = toHotelPlannerPropertyDate(hotelResolvedCheckOut);
     if (!inDate || !outDate) return null;
 
-    const directUrl = hotel.detailUrl ? new URL(hotel.detailUrl, baseUrl) : new URL("/Hotel/HotelRoomTypes.htm", baseUrl);
-    directUrl.pathname = "/Hotel/HotelRoomTypes.htm";
-    directUrl.search = "";
-    directUrl.searchParams.delete("hotelID");
-    directUrl.searchParams.delete("hotelId");
-    directUrl.searchParams.delete("idtypeid");
-    directUrl.searchParams.delete("idTypeId");
+    const handoff = createBookingHandoffIds();
+    const sourcePageType = sourcePageRef.current;
+    const placement =
+      sourcePageType === "weekend_planner"
+        ? HOTEL_PLANNER_BOOKING_PLACEMENTS.weekendPlannerPropertyCard
+        : HOTEL_PLANNER_BOOKING_PLACEMENTS.bookTravelPropertyCard;
+    const attribution = buildHotelPlannerBookingAttribution({
+      outboundAttributionId: handoff.outboundAttributionId,
+      sourcePageType,
+      placement,
+      plannerSessionId: props.plannerSessionContext?.planner_session_id ?? null,
+      keyword: "Tournament weekend stay",
+      jobCode: "TI-BOOK-TRAVEL",
+      custom1: `src:${sourcePageType}`,
+      custom2: destination.trim() || sourcePageType,
+    });
+    const directUrl = new URL("/go/hotels/property", window.location.origin);
     directUrl.searchParams.set("hotelId", hotel.propertyId);
     directUrl.searchParams.set("idTypeId", String(hotel.hotelIDTypeID ?? 0));
     directUrl.searchParams.set("inDate", inDate);
     directUrl.searchParams.set("outDate", outDate);
-    directUrl.searchParams.set("NumRooms", "1");
-    directUrl.searchParams.set("sc", "tournamentinsights");
-    directUrl.searchParams.set("source", sourcePageRef.current);
-    directUrl.searchParams.set("kw", "Tournament weekend stay");
-    directUrl.searchParams.set("jobCode", "TI-BOOK-TRAVEL");
-    directUrl.searchParams.set("Custom1", `src:${sourcePageRef.current}`);
-    directUrl.searchParams.set("Custom2", destination.trim() || sourcePageRef.current);
-    directUrl.hash = "content";
+    directUrl.searchParams.set("source", sourcePageType);
+    directUrl.searchParams.set("page_type", sourcePageType);
+    directUrl.searchParams.set("cta_placement", placement);
+    directUrl.searchParams.set("outbound_attribution_id", handoff.outboundAttributionId);
+    if (handoff.outboundRequestId) directUrl.searchParams.set("outbound_request_id", handoff.outboundRequestId);
+    if (props.plannerSessionContext?.planner_session_id) directUrl.searchParams.set("planner_session_id", props.plannerSessionContext.planner_session_id);
+    directUrl.searchParams.set("sc", attribution.sc);
+    if (attribution.keyword) directUrl.searchParams.set("kw", attribution.keyword);
+    directUrl.searchParams.set("jobCode", attribution.jobCode);
+    if (attribution.custom1) directUrl.searchParams.set("custom1", attribution.custom1);
+    if (attribution.custom2) directUrl.searchParams.set("custom2", attribution.custom2);
+    if (attribution.custom3) directUrl.searchParams.set("custom3", attribution.custom3);
+    if (attribution.custom4) directUrl.searchParams.set("custom4", attribution.custom4);
+    if (attribution.custom5) directUrl.searchParams.set("custom5", attribution.custom5);
+    if (attribution.custom6) directUrl.searchParams.set("custom6", attribution.custom6);
+    if (attribution.custom7) directUrl.searchParams.set("custom7", attribution.custom7);
+    if (props.plannerSessionContext?.tournament_slug) directUrl.searchParams.set("tournament_slug", props.plannerSessionContext.tournament_slug);
+    if (props.plannerSessionContext?.tournament_id) directUrl.searchParams.set("tournamentId", props.plannerSessionContext.tournament_id);
+    if (props.plannerSessionContext?.venue_id) directUrl.searchParams.set("venueId", props.plannerSessionContext.venue_id);
+    directUrl.searchParams.set("page_url", window.location.pathname);
     return directUrl.toString();
   }
 
@@ -450,6 +515,8 @@ export default function WeekendPlannerClient(props: {
           jobCode: "TI-BOOK-TRAVEL",
           custom1: `src:${sourcePageRef.current}`,
           custom2: trimmedDestination,
+          custom4: `srcp:${sourcePageRef.current}`,
+          custom5: `place:${sourcePageRef.current === "weekend_planner" ? HOTEL_PLANNER_BOOKING_PLACEMENTS.weekendPlannerViewAllHotels : HOTEL_PLANNER_BOOKING_PLACEMENTS.bookTravelViewAllHotels}`,
           planner_session_id: props.plannerSessionContext?.planner_session_id ?? undefined,
           tournamentId: props.plannerSessionContext?.tournament_id ?? undefined,
           venueId: props.plannerSessionContext?.venue_id ?? undefined,

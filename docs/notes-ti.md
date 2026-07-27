@@ -15,6 +15,16 @@ Maintenance rules:
 
 ## 2026-07-27
 
+- TI HotelPlanner attribution Phase 2A implemented locally for hotel-booking flows:
+  - Added `apps/ti-web/lib/hotelPlannerAttribution.ts` plus `apps/ti-web/lib/hotelPlannerAttribution.test.ts` to centralize canonical source-page typing, compact outbound token generation, legacy field preservation, and canonical `Custom3` / `Custom4` / `Custom5` mapping.
+  - Updated `apps/ti-web/app/go/hotels/route.ts` so generic Book Travel traffic no longer collapses into Weekend Planner defaults, canonical `outbound_attribution_id` is persisted on `ti_outbound_clicks`, and the same token is forwarded to HotelPlanner as `Custom3`.
+  - Added authoritative direct-property handoff route `apps/ti-web/app/go/hotels/property/route.ts` so Book Travel and venue-map property clicks now persist one canonical TI outbound row before redirecting to the HotelPlanner property page.
+  - Updated `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` and `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx` so search-context payloads now send canonical source/placement fields and property/view-all handoffs send canonical outbound attribution fields.
+  - Added additive migration `supabase/migrations/20260727_ti_hotel_booking_attribution_phase2a.sql`, reconciliation SQL `scripts/analysis/ti_hotel_booking_attribution_reconciliation.sql`, and implementation report `docs/reports/ti-hotel-booking-attribution-phase2a-2026-07-27.md`.
+  - Local validation passed:
+    - `node --import tsx --test apps/ti-web/lib/hotelPlannerAttribution.test.ts apps/ti-web/lib/venueHotelFunnel.test.ts apps/ti-web/lib/hotelPlannerProvider.test.ts apps/ti-web/lib/booking/venueBooking.test.ts`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+  - External HotelPlanner booking-report return of the canonical token remains unverified; current verdict is `PASS WITH LIMITATIONS`.
 - TI tournament search-history implementation prompt finalized (v3):
   - Prompt stored at scratchpad `tournament-search-history-prompt-v2.md`.
   - Covers three tables (`tournament_search_runs`, `tournament_search_run_scopes`, `tournament_search_run_findings`), five MCP write tools, four MCP read tools, and a full test matrix.

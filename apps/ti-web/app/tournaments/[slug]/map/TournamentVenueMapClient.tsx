@@ -11,6 +11,11 @@ import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { DEMO_STARFIRE_VENUE_ID } from "@/lib/owlsEyeScores";
 import { isPremiumPreviewTournamentSlug } from "@/lib/premiumPreview";
 import { buildHotelsHref } from "@/lib/booking/venueBooking";
+import {
+  buildHotelPlannerBookingAttribution,
+  createOutboundAttributionId,
+  HOTEL_PLANNER_BOOKING_PLACEMENTS,
+} from "@/lib/hotelPlannerAttribution";
 import NavigationChooser, { type NavProvider } from "./NavigationChooser";
 import styles from "./TournamentVenueMap.module.css";
 
@@ -130,7 +135,7 @@ function buildVenueHotelsHref(args: {
   tournamentId: string;
   source?: "venue_map" | "venue_card" | "preview_card";
 }) {
-  return buildHotelsHref({
+  const href = buildHotelsHref({
     venueId: args.venue.id,
     tournamentId: args.tournamentId,
     source: String(args.source ?? "venue_map").trim() || "venue_map",
@@ -138,6 +143,10 @@ function buildVenueHotelsHref(args: {
     latitude: args.venue.latitude,
     longitude: args.venue.longitude,
   });
+  const url = new URL(href, "https://www.tournamentinsights.com");
+  url.searchParams.set("page_type", "venue_map");
+  url.searchParams.set("cta_placement", HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapViewAllHotels);
+  return `${url.pathname}${url.search}`;
 }
 
 type NavSheetState = {
@@ -979,6 +988,12 @@ export default function TournamentVenueMapClient({
           source: "venue_map",
           kw: "Tournament weekend stay",
           sc: "tournamentinsights",
+          jobCode: "TI-VENUE-MAP",
+          custom1: `ven:${venue.id}`,
+          custom2: tournament.slug,
+          custom4: "srcp:venue_map",
+          custom5: `place:${HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapViewAllHotels}`,
+          page_type: "venue_map",
         }),
       }).then(async (r) => {
         const payload = await r.json().catch(() => null);
@@ -1213,8 +1228,6 @@ export default function TournamentVenueMapClient({
   };
 
   const buildHotelPlannerPropertyUrl = (pin: HotelPin) => {
-    const baseUrl = String(process.env.NEXT_PUBLIC_HOTELPLANNER_WHITE_LABEL_URL ?? "").trim();
-    if (!baseUrl) return null;
     const dateRange = getCurrentPropertyHandoffDates(pin);
     if (!dateRange) return null;
     const inDate = formatHotelPlannerPropertyDate(dateRange.checkIn);
@@ -1222,25 +1235,42 @@ export default function TournamentVenueMapClient({
     if (!inDate || !outDate) return null;
 
     const directUrl = extractHotelDetailUrl(pin);
-    const url = directUrl ? new URL(directUrl, baseUrl) : new URL("/Hotel/HotelRoomTypes.htm", baseUrl);
-    url.pathname = "/Hotel/HotelRoomTypes.htm";
-    url.search = "";
-    url.searchParams.delete("hotelID");
-    url.searchParams.delete("hotelId");
-    url.searchParams.delete("idtypeid");
-    url.searchParams.delete("idTypeId");
+    const outboundRequestId = globalThis.crypto?.randomUUID?.() ?? null;
+    const outboundAttributionId = createOutboundAttributionId(() => outboundRequestId ?? globalThis.crypto?.randomUUID?.() ?? "");
+    const attribution = buildHotelPlannerBookingAttribution({
+      outboundAttributionId,
+      sourcePageType: "venue_map",
+      placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapPropertyCard,
+      venueId: selectedVenue?.id ?? hotelVenueId ?? null,
+      tournamentRef: tournament.slug,
+      keyword: "Tournament weekend stay",
+      jobCode: "TI-VENUE-MAP",
+      custom1: `ven:${selectedVenue?.id ?? hotelVenueId ?? ""}`,
+      custom2: tournament.slug,
+    });
+    const url = new URL("/go/hotels/property", window.location.origin);
     url.searchParams.set("hotelId", pin.propertyId);
     url.searchParams.set("idTypeId", String(pin.hotelIDTypeID ?? 0));
     url.searchParams.set("inDate", inDate);
     url.searchParams.set("outDate", outDate);
-    url.searchParams.set("NumRooms", "1");
-    url.searchParams.set("sc", "tournamentinsights");
     url.searchParams.set("source", "venue_map");
-    url.searchParams.set("kw", "Tournament weekend stay");
-    url.searchParams.set("jobCode", "TI-VENUE-MAP");
-    url.searchParams.set("Custom1", `ven:${selectedVenue?.id ?? hotelVenueId ?? ""}`);
-    url.searchParams.set("Custom2", tournament.slug);
-    url.hash = "content";
+    url.searchParams.set("page_type", "venue_map");
+    url.searchParams.set("cta_placement", HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapPropertyCard);
+    if (directUrl) url.searchParams.set("detail_url", directUrl);
+    if (selectedVenue?.id ?? hotelVenueId) url.searchParams.set("venueId", selectedVenue?.id ?? hotelVenueId ?? "");
+    url.searchParams.set("tournamentId", tournament.id);
+    url.searchParams.set("tournament_slug", tournament.slug);
+    url.searchParams.set("page_url", window.location.pathname);
+    if (outboundRequestId) url.searchParams.set("outbound_request_id", outboundRequestId);
+    url.searchParams.set("outbound_attribution_id", outboundAttributionId);
+    url.searchParams.set("sc", attribution.sc);
+    if (attribution.keyword) url.searchParams.set("kw", attribution.keyword);
+    url.searchParams.set("jobCode", attribution.jobCode);
+    if (attribution.custom1) url.searchParams.set("custom1", attribution.custom1);
+    if (attribution.custom2) url.searchParams.set("custom2", attribution.custom2);
+    if (attribution.custom3) url.searchParams.set("custom3", attribution.custom3);
+    if (attribution.custom4) url.searchParams.set("custom4", attribution.custom4);
+    if (attribution.custom5) url.searchParams.set("custom5", attribution.custom5);
     return {
       url: url.toString(),
       checkIn: dateRange.checkIn,

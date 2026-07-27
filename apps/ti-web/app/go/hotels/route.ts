@@ -1,6 +1,14 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildBookingSearchString, isValidZip5 } from "@/lib/booking/venueBooking";
+import {
+  buildHotelPlannerBookingAttribution,
+  createOutboundAttributionId,
+  deriveHotelPlannerSourcePageType,
+  formatOutboundAttributionToken,
+  isValidOutboundAttributionId,
+} from "@/lib/hotelPlannerAttribution";
 import {
   parseVenueHotelUuid,
   sanitizePageUrl,
@@ -144,6 +152,20 @@ function pickTrackingParam(reqUrl: URL, key: string) {
   return trimmed ? trimmed : null;
 }
 
+function pickOutboundAttributionId(reqUrl: URL) {
+  const direct = pickTrackingParam(reqUrl, "outbound_attribution_id");
+  if (isValidOutboundAttributionId(direct)) return direct;
+  return null;
+}
+
+function deriveStableAttributionId(args: { outboundAttributionId: string | null; outboundRequestId: string | null }) {
+  if (args.outboundAttributionId) return args.outboundAttributionId;
+  if (args.outboundRequestId) {
+    return createHash("sha256").update(`ti-hp:${args.outboundRequestId}`).digest("hex").slice(0, 32);
+  }
+  return createOutboundAttributionId();
+}
+
 function buildHotelPlannerSearchUrl(args: {
   baseUrl: string;
   destination: string;
@@ -212,22 +234,6 @@ function buildHotelPlannerSearchUrl(args: {
   return `${queryBase}${dateQs}${hashSuffix}`;
 }
 
-function deriveHotelPlannerTrackingDefaults(args: {
-  sourceSurface: string;
-  venueId: string | null;
-  tournamentSlug: string | null;
-}) {
-  const normalizedSurface = String(args.sourceSurface ?? "").trim() || "weekend_planner";
-  const venueId = String(args.venueId ?? "").trim();
-  const tournamentSlug = String(args.tournamentSlug ?? "").trim();
-
-  return {
-    jobCode: "TI-HOTELS",
-    custom1: venueId ? `ven:${venueId}` : `src:${normalizedSurface}`,
-    custom2: tournamentSlug || normalizedSurface,
-  };
-}
-
 function logWeakHotelPlannerDestination(args: {
   reason: "generic_destination" | "missing_location_context" | "invalid_tournament_context" | "invalid_venue_context";
   sourceSurface: string;
@@ -293,12 +299,14 @@ export async function GET(request: Request) {
   const outboundRequestId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "outbound_request_id"));
   const lodgingSearchId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "lodging_search_id"));
   const sessionId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "session_id"));
+  const plannerSessionId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "planner_session_id"));
   const ctaType = sanitizeText(pickTrackingParam(reqUrl, "cta_type"), 32);
   const ctaPlacement = sanitizeText(pickTrackingParam(reqUrl, "cta_placement"), 64);
   const flowType = sanitizeText(pickTrackingParam(reqUrl, "flow_type"), 32);
   const pageType = sanitizeText(pickTrackingParam(reqUrl, "page_type"), 32);
   const pageUrl = sanitizePageUrl(pickTrackingParam(reqUrl, "page_url"));
   const trafficSource = sanitizeText(pickTrackingParam(reqUrl, "traffic_source"), 64);
+  const outboundAttributionId = pickOutboundAttributionId(reqUrl);
   const deviceType =
     sanitizeText(pickTrackingParam(reqUrl, "device_type"), 32) ?? resolveDeviceTypeFromUserAgent(userAgent);
 
@@ -375,14 +383,13 @@ export async function GET(request: Request) {
   const hotelPlannerLat = (latitude ?? latitudeAlt ?? venueLat) ?? null;
   const hotelPlannerLng = (longitude ?? longitudeAlt ?? venueLng) ?? null;
   const hasHotelPlannerLatLng = hotelPlannerLat !== null && hotelPlannerLng !== null;
-  const sourceSurface =
-    venueIdValid
-      ? "venue_page"
-      : source === "tournament_directory"
-      ? "tournament_directory"
-      : source === "tournament_detail"
-      ? "tournament_detail"
-      : "weekend_planner";
+  const sourcePageType = deriveHotelPlannerSourcePageType({
+    source,
+    pageType,
+    sourcePath,
+    hasVenueId: venueIdValid,
+  });
+  const sourceSurface = sourcePageType;
   const hasCityState = Boolean(String(venue?.city ?? "").trim() && String(venue?.state ?? "").trim());
 
   if (!ss && !hasHotelPlannerLatLng) {
@@ -497,6 +504,30 @@ export async function GET(request: Request) {
     hotelPlannerLat !== null && hotelPlannerLng !== null
       ? `${hotelPlannerLat},${hotelPlannerLng}`
       : String(hotelPlannerCitySearch ?? bookingSearchString).trim();
+  const stableOutboundAttributionId = deriveStableAttributionId({
+    outboundAttributionId,
+    outboundRequestId,
+  });
+  const attributionFields = buildHotelPlannerBookingAttribution({
+    outboundAttributionId: stableOutboundAttributionId,
+    sourcePageType,
+    placement: ctaPlacement,
+    venueId: venueIdValid ? venueId : null,
+    tournamentRef: tournament?.slug ?? null,
+    plannerSessionId,
+    ctaInteractionId,
+    sc: querySc || "tournamentinsights",
+    keyword: queryKeyword || queryKeywordLegacy || null,
+    jobCode: queryJobCode || null,
+    custom1: queryCustom1,
+    custom2: queryCustom2,
+    custom3: queryCustom3,
+    custom4: queryCustom4,
+    custom5: queryCustom5,
+    custom6: queryCustom6,
+    custom7: queryCustom7,
+    custom8: queryCustom8,
+  });
 
   if (venueIdValid && !venue?.id) {
     logWeakHotelPlannerDestination({
@@ -530,12 +561,6 @@ export async function GET(request: Request) {
   const hotelPlannerTarget =
     hotelPlannerWhiteLabelUrl && hotelPlannerCheckin && hotelPlannerCheckout && hotelPlannerDestination
       ? (() => {
-          const trackingDefaults = deriveHotelPlannerTrackingDefaults({
-            sourceSurface,
-            venueId: venueIdValid ? venueId : null,
-            tournamentSlug: tournament?.slug ?? null,
-          });
-
           if (!venueIdValid && (source === "book_travel" || source === "weekend_planner")) {
             const genericDestination = String(hotelPlannerCitySearch ?? bookingSearchString).trim();
             return buildHotelPlannerSearchUrl({
@@ -549,17 +574,17 @@ export async function GET(request: Request) {
                 checkin: hotelPlannerCheckin,
                 checkout: hotelPlannerCheckout,
               },
-              sc: querySc || "tournamentinsights",
-              keyword: queryKeyword || queryKeywordLegacy || null,
-              jobCode: queryJobCode || trackingDefaults.jobCode,
-              custom1: queryCustom1 || trackingDefaults.custom1,
-              custom2: queryCustom2 || trackingDefaults.custom2,
-              custom3: queryCustom3,
-              custom4: queryCustom4,
-              custom5: queryCustom5,
-              custom6: queryCustom6,
-              custom7: queryCustom7,
-              custom8: queryCustom8,
+              sc: attributionFields.sc,
+              keyword: attributionFields.keyword,
+              jobCode: attributionFields.jobCode,
+              custom1: attributionFields.custom1,
+              custom2: attributionFields.custom2,
+              custom3: attributionFields.custom3,
+              custom4: attributionFields.custom4,
+              custom5: attributionFields.custom5,
+              custom6: attributionFields.custom6,
+              custom7: attributionFields.custom7,
+              custom8: attributionFields.custom8,
             });
           }
 
@@ -574,17 +599,17 @@ export async function GET(request: Request) {
               checkin: hotelPlannerCheckin,
               checkout: hotelPlannerCheckout,
             },
-            sc: querySc || "tournamentinsights",
-            keyword: queryKeyword || queryKeywordLegacy || null,
-            jobCode: queryJobCode || trackingDefaults.jobCode,
-            custom1: queryCustom1 || trackingDefaults.custom1,
-            custom2: queryCustom2 || trackingDefaults.custom2,
-            custom3: queryCustom3,
-            custom4: queryCustom4,
-            custom5: queryCustom5,
-            custom6: queryCustom6,
-            custom7: queryCustom7,
-            custom8: queryCustom8,
+            sc: attributionFields.sc,
+            keyword: attributionFields.keyword,
+            jobCode: attributionFields.jobCode,
+            custom1: attributionFields.custom1,
+            custom2: attributionFields.custom2,
+            custom3: attributionFields.custom3,
+            custom4: attributionFields.custom4,
+            custom5: attributionFields.custom5,
+            custom6: attributionFields.custom6,
+            custom7: attributionFields.custom7,
+            custom8: attributionFields.custom8,
           });
         })()
       : "";
@@ -633,6 +658,19 @@ export async function GET(request: Request) {
         traffic_source: trafficSource,
         lodging_search_id: lodgingSearchId,
         outbound_request_id: outboundRequestId,
+        outbound_attribution_id: stableOutboundAttributionId,
+        source_page_type: sourcePageType,
+        job_code: attributionFields.jobCode,
+        keyword: attributionFields.keyword,
+        partner_source_code: attributionFields.sc,
+        custom_field1: attributionFields.custom1,
+        custom_field2: attributionFields.custom2,
+        custom_field3: attributionFields.custom3,
+        custom_field4: attributionFields.custom4,
+        custom_field5: attributionFields.custom5,
+        custom_field6: attributionFields.custom6,
+        custom_field7: attributionFields.custom7,
+        custom_field8: attributionFields.custom8,
       }, {
         onConflict: "outbound_request_id",
         ignoreDuplicates: true,
