@@ -6,6 +6,7 @@ Scope: Phase 2 implementation from `docs/reports/ti-weekend-planner-activation-p
 Update: 2026-07-27
 - Follow-up patch added a canonical redirect on `/weekend/[slug]` so the visible entry-route URL always includes `planner_session_id`.
 - This closes the browser verification gap where the planner session was generated and propagated downstream but was not visible on the entry-route address bar.
+- Controlled browser re-verification on Monday, July 27, 2026 passed end-to-end after the follow-up patch.
 
 ## Executive summary
 
@@ -172,6 +173,40 @@ Not fully verified locally:
 - controlled tournament-detail click → auth → planner load trace
 - production analytics rows
 
+## Browser re-verification results
+
+Verification date: Monday, July 27, 2026
+
+- Starting URL: `http://localhost:3001/tournaments/california-state-games-basketball-championship-san-diego-ca`
+- Post-CTA URL: `http://localhost:3001/weekend/california-state-games-basketball-championship-san-diego-ca?venue=e607118b-250b-4d98-b5d6-e0fb1f9f233f&source=tournament_detail&planner_session_id=5cf584d2-39ae-4e56-bdf5-78518ce20be1`
+- Result: `planner_session_id` is now visible on the canonical `/weekend/[slug]` entry route
+- Captured `planner_session_id`: `5cf584d2-39ae-4e56-bdf5-78518ce20be1`
+- Auth `returnTo` preserved full planner context, including:
+  - `planner_session_id`
+  - `tournament_id`
+  - `tournament_slug`
+  - `tournament_name`
+  - `tournament_start_date`
+  - `tournament_end_date`
+  - `venue_id`
+  - `entry_source=tournament_detail`
+  - `entry_page_type=tournament`
+  - `entry_placement=tournament_detail_planner_cta`
+  - `current_page_type=planner`
+  - `current_page_path=/weekend-planner`
+  - `request_source=planner_resume`
+- Post-auth route loaded directly on `/weekend-planner` with the same preserved planner context
+- UI banner confirmed resumed context: `Continuing your tournament plan — California State Games Basketball Championship · Jul 1–31, 2026`
+- Planner rendered the full authenticated dashboard, not an auth shell or partial load
+- First meaningful action passed:
+  - created manual event `UAT re-verification event`
+  - date/time save succeeded on first attempt
+  - no duplicate event creation observed
+- Cleanup passed:
+  - test manual event deleted successfully
+  - no redirect loop or context loss observed during cleanup
+- Final browser verdict: `PASS`
+
 ## SQL created
 
 - `scripts/analysis/ti_weekend_planner_activation_funnel.sql`
@@ -198,11 +233,9 @@ Not fully verified locally:
 
 - `weekend_planner_first_action` still uses `view_toggle` as a fallback when stronger actions do not occur
 - planner-origin hotel outbounds are still limited by the current client-side direct-detail flow
-- no production controlled trace was completed in this implementation pass
 - bare `/weekend-planner` navigation still behaves like a generic planner load rather than a resumed tournament flow; that is acceptable in this narrow repair because the canonical funnel depends on the preserved query-string handoff
 
 ## Production verification still required
 
-- one controlled tournament-detail → auth → `/weekend-planner` journey
 - confirmation that `weekend_planner_auth_completed`, `weekend_planner_loaded`, and `weekend_planner_first_action` join on the same `planner_session_id`
 - confirmation that planner-origin lodging/group rows retain preserved source context in production

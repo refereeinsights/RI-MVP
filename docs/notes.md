@@ -12,6 +12,10 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-07-27
+
+- TI Weekend Planner activation repair: follow-up browser re-verification passed on Monday, July 27, 2026 after exposing `planner_session_id` on the canonical `/weekend/[slug]` entry URL; the full local flow now holds context across tournament detail → planner entry → auth `returnTo` → `/weekend-planner` → first manual-event action with no observed loops, dropped context, or duplicate action behavior: `apps/ti-web/app/weekend/[slug]/page.tsx`, `docs/reports/ti-weekend-planner-activation-repair-2026-07-23.md`.
+
 ## 2026-07-22
 
 - TI venue hotel funnel Phase 2: repaired the high-volume venue hotel CTA path to emit canonical `hotel_cta_impression` and `hotel_cta_clicked` events with shared `cta_instance_id`, guarded click lifecycle, canonical placement/flow values, and `/go/hotels` propagation of `cta_interaction_id` plus an outbound idempotency key: `apps/ti-web/components/venues/VenueHotelLink.tsx`, `apps/ti-web/components/venues/VenueCard.tsx`, `apps/ti-web/components/venues/HotelBookingCta.tsx`, `apps/ti-web/lib/venueHotelFunnel.ts`, `apps/ti-web/app/go/hotels/route.ts`, `apps/ti-web/app/api/analytics/route.ts`.
