@@ -7,6 +7,7 @@ Update: 2026-07-27
 - Follow-up patch added a canonical redirect on `/weekend/[slug]` so the visible entry-route URL always includes `planner_session_id`.
 - This closes the browser verification gap where the planner session was generated and propagated downstream but was not visible on the entry-route address bar.
 - Controlled browser re-verification on Monday, July 27, 2026 passed end-to-end after the follow-up patch.
+- Production SQL verification on Monday, July 27, 2026 confirmed one authoritative canonical chain with `request_source=planner_resume` persisted across all six canonical planner events.
 
 ## Executive summary
 
@@ -207,6 +208,35 @@ Verification date: Monday, July 27, 2026
   - no redirect loop or context loss observed during cleanup
 - Final browser verdict: `PASS`
 
+## Production verification results
+
+Verification date: Monday, July 27, 2026
+
+- Production browser trace passed on `https://www.tournamentinsights.com`
+- Verified tournament detail → `/weekend/[slug]` → auth → `/weekend-planner` → first-action flow with:
+  - stable `planner_session_id`
+  - preserved tournament and venue context
+  - no loop or dropped context
+- Final verified production session:
+  - `planner_session_id`: `81a8f2ec-ff65-4fea-8676-026268d263ab`
+  - verification timestamp: Monday, July 27, 2026, 10:23 AM PDT
+- Production SQL verification confirmed exactly one row each for:
+  - `weekend_planner_entry_viewed`
+  - `weekend_planner_auth_gate_viewed`
+  - `weekend_planner_auth_started`
+  - `weekend_planner_loaded`
+  - `weekend_planner_auth_completed`
+  - `weekend_planner_first_action`
+- Canonical joinability passed:
+  - all six events persisted the same `planner_session_id`
+  - `first_action_type` persisted as `manual_event_created`
+- `request_source` persistence passed after the follow-up analytics fix:
+  - `request_source=planner_resume` on all six canonical events
+- One minor non-blocking data note remains:
+  - `weekend_planner_auth_started` persisted `entry_path = null` on the verified run
+  - this does not block funnel joinability or attribution for the repaired flow
+- Final production verdict: `PASS`
+
 ## SQL created
 
 - `scripts/analysis/ti_weekend_planner_activation_funnel.sql`
@@ -235,7 +265,6 @@ Verification date: Monday, July 27, 2026
 - planner-origin hotel outbounds are still limited by the current client-side direct-detail flow
 - bare `/weekend-planner` navigation still behaves like a generic planner load rather than a resumed tournament flow; that is acceptable in this narrow repair because the canonical funnel depends on the preserved query-string handoff
 
-## Production verification still required
+## Production verification still open
 
-- confirmation that `weekend_planner_auth_completed`, `weekend_planner_loaded`, and `weekend_planner_first_action` join on the same `planner_session_id`
-- confirmation that planner-origin lodging/group rows retain preserved source context in production
+- planner-origin lodging/group rows still need a separate production trace if full lodging/group attribution proof is required

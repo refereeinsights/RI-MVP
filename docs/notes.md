@@ -15,6 +15,7 @@ Maintenance rules:
 ## 2026-07-27
 
 - TI Weekend Planner activation repair: follow-up browser re-verification passed on Monday, July 27, 2026 after exposing `planner_session_id` on the canonical `/weekend/[slug]` entry URL; the full local flow now holds context across tournament detail → planner entry → auth `returnTo` → `/weekend-planner` → first manual-event action with no observed loops, dropped context, or duplicate action behavior: `apps/ti-web/app/weekend/[slug]/page.tsx`, `docs/reports/ti-weekend-planner-activation-repair-2026-07-23.md`.
+- TI Weekend Planner activation repair: final production verification passed on Monday, July 27, 2026. Browser trace and SQL both confirmed one clean canonical chain on a single `planner_session_id`, and the follow-up fix now persists `request_source=planner_resume` across all six canonical planner events in `ti_map_events`: `apps/ti-web/app/api/analytics/route.ts`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerEntryCtas.tsx`, `apps/ti-web/app/weekend/[slug]/{page.tsx,SaveWeekendPlanClient.tsx,WeekendPlanViewTracker.tsx}`, `apps/ti-web/lib/tiAnalyticsEvents.ts`, `docs/reports/ti-weekend-planner-activation-repair-2026-07-23.md`.
 
 ## 2026-07-22
 
