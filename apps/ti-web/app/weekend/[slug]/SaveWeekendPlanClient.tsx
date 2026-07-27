@@ -19,6 +19,7 @@ type Props = {
   plannerHubHref: string;
   authReturnTo: string;
   plannerSessionId: string;
+  requestSource: string;
 };
 
 const IDLE: WeekendPlanSaveState = { status: "idle" };
@@ -55,6 +56,7 @@ export default function SaveWeekendPlanClient(props: Props) {
                   entry_source: "tournament_detail",
                   entry_page_type: "tournament",
                   entry_placement: "tournament_detail_planner_cta",
+                  request_source: props.requestSource,
                   auth_state: "signed_out",
                   entitlement: "explorer",
                   cta_type: "sign_in",
@@ -79,6 +81,7 @@ export default function SaveWeekendPlanClient(props: Props) {
                   entry_source: "tournament_detail",
                   entry_page_type: "tournament",
                   entry_placement: "tournament_detail_planner_cta",
+                  request_source: props.requestSource,
                   auth_state: "signed_out",
                   entitlement: "explorer",
                   cta_type: "create_account",
@@ -144,6 +147,7 @@ export default function SaveWeekendPlanClient(props: Props) {
           entry_source: "tournament_detail",
           entry_page_type: "tournament",
           entry_placement: "tournament_detail_planner_cta",
+          request_source: props.requestSource,
           auth_state: props.isUnverified ? "unverified" : "verified",
           entitlement: props.canSave ? "insider" : "explorer",
           tournament_id: props.tournamentId,

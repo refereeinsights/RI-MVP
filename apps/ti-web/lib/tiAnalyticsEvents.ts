@@ -195,6 +195,7 @@ type PlannerCanonicalContext = {
   entry_placement?: string | null;
   current_page_type?: CanonicalPlannerPageType | null;
   current_page_path?: string | null;
+  request_source?: string | null;
 };
 
 export type TiAnalyticsEventPropertiesByName = {

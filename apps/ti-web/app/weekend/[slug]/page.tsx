@@ -448,6 +448,7 @@ export default async function WeekendPage({
         entitlement={tierInfo.tier}
         entryPath={plannerEntryPath}
         entryPlacement="tournament_detail_planner_cta"
+        requestSource={plannerContext.request_source}
       />
       <WeekendShareOpenTracker
         tournamentSlug={tournament.slug}
@@ -575,6 +576,7 @@ export default async function WeekendPage({
               plannerHubHref={plannerHubHref}
               authReturnTo={plannerAuthReturnTo}
               plannerSessionId={plannerSessionId}
+              requestSource={plannerContext.request_source}
             />
 
             {canSaveWeekendPlan && planExists ? (
@@ -636,6 +638,7 @@ export default async function WeekendPage({
               plannerHubHref={plannerHubHref}
               authReturnTo={plannerAuthReturnTo}
               plannerSessionId={plannerSessionId}
+              requestSource={plannerContext.request_source}
             />
 
             {canSaveWeekendPlan && planExists ? (

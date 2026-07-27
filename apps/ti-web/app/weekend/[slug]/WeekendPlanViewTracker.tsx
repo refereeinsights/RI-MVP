@@ -15,6 +15,7 @@ type Props = {
   entitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
   entryPath: string;
   entryPlacement: string;
+  requestSource: string;
 };
 
 export default function WeekendPlanViewTracker(props: Props) {
@@ -43,6 +44,7 @@ export default function WeekendPlanViewTracker(props: Props) {
         entry_page_type: "tournament",
         entry_path: props.entryPath,
         entry_placement: props.entryPlacement,
+        request_source: props.requestSource,
         cta_type: "weekend_plan",
         context_type: "tournament",
         auth_state: props.authState,
@@ -65,6 +67,7 @@ export default function WeekendPlanViewTracker(props: Props) {
         entry_page_type: "tournament",
         entry_path: props.entryPath,
         entry_placement: props.entryPlacement,
+        request_source: props.requestSource,
         auth_state: props.authState,
         entitlement: props.entitlement,
         tournament_id: props.tournamentId,

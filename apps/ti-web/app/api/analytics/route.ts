@@ -439,6 +439,7 @@ export async function POST(request: Request) {
     const entryPageType = asTextWithLimit((props as any).entry_page_type, 32);
     const entryPath = asTextWithLimit((props as any).entry_path, 128);
     const entryPlacement = asTextWithLimit((props as any).entry_placement, 64);
+    const requestSource = asTextWithLimit((props as any).request_source, 64);
     const tournamentId = asTextWithLimit((props as any).tournament_id, 64);
     const tournamentSlug = asTextWithLimit((props as any).tournament_slug, 128);
     const venueId = asTextWithLimit((props as any).venue_id, 64);
@@ -467,6 +468,7 @@ export async function POST(request: Request) {
           entry_page_type: entryPageType,
           entry_path: entryPath,
           entry_placement: entryPlacement,
+          request_source: requestSource,
           current_page_type: currentPageType,
           current_page_path: currentPagePath,
           tournament_id: tournamentId,

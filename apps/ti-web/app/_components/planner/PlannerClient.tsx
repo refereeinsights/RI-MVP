@@ -513,6 +513,7 @@ export default function PlannerClient(props: Props) {
           entry_page_type: props.plannerSessionContext?.entry_page_type ?? undefined,
           entry_path: props.plannerSessionContext?.entry_path ?? undefined,
           entry_placement: props.plannerSessionContext?.entry_placement ?? undefined,
+          request_source: props.plannerSessionContext?.request_source ?? undefined,
           current_page_type: "planner",
           current_page_path: pagePath || "/weekend-planner",
           tournament_id: props.plannerSessionContext?.tournament_id ?? undefined,
