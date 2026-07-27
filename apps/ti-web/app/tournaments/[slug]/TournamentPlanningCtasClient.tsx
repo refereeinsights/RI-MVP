@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import { buildTournamentPlannerEntryHref, createPlannerSessionId } from "@/lib/planner/plannerSession";
 import styles from "./TournamentPlanningCtasClient.module.css";
 
 function isValidIsoDate(value: string | null | undefined) {
@@ -28,17 +29,17 @@ export default function TournamentPlanningCtasClient(props: {
 }) {
   const slug = String(props.tournamentSlug ?? "").trim();
   const viewedRef = useRef(false);
+  const plannerSessionIdRef = useRef<string>("");
+  if (!plannerSessionIdRef.current) plannerSessionIdRef.current = createPlannerSessionId();
 
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
-  const weekendHref = (() => {
-    const base = `/weekend/${encodeURIComponent(slug)}`;
-    const qp = new URLSearchParams();
-    const primaryVenueId = String(props.primaryVenueId ?? "").trim();
-    if (primaryVenueId) qp.set("venue", primaryVenueId);
-    qp.set("source", "tournament_detail");
-    const qs = qp.toString();
-    return qs ? `${base}?${qs}` : base;
-  })();
+  const plannerEntry = buildTournamentPlannerEntryHref(`/weekend/${encodeURIComponent(slug)}`, {
+    planner_session_id: plannerSessionIdRef.current,
+    venue_id: props.primaryVenueId,
+    source: "tournament_detail",
+  });
+  const weekendHref = plannerEntry.href;
+  const plannerSessionId = plannerEntry.plannerSessionId;
   const travelHref = (() => {
     const qp = new URLSearchParams();
     const city = String(props.city ?? "").trim();
@@ -104,6 +105,7 @@ export default function TournamentPlanningCtasClient(props: {
               source_page_type: "tournament",
               current_page_type: "tournament",
               current_page_path: typeof window !== "undefined" ? window.location.pathname : undefined,
+              planner_session_id: plannerSessionId,
               cta_type: "weekend_plan",
               auth_state: props.authState,
               entitlement: props.entitlement,

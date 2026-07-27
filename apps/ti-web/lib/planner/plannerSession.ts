@@ -116,6 +116,36 @@ export function buildPlannerHref(pathname: string, context: Partial<PlannerSessi
   return qs ? `${pathname}?${qs}` : pathname;
 }
 
+type TournamentPlannerEntryOptions = {
+  planner_session_id?: string | null;
+  venue_id?: string | null;
+  source?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+};
+
+export function buildTournamentPlannerEntryHref(pathname: string, options: TournamentPlannerEntryOptions) {
+  const plannerSessionId = normalizePlannerSessionId(options.planner_session_id) ?? createPlannerSessionId();
+  const params = new URLSearchParams();
+
+  const venueId = safeTrim(options.venue_id);
+  const source = safeTrim(options.source);
+  const utmSource = safeTrim(options.utm_source);
+  const utmMedium = safeTrim(options.utm_medium);
+
+  if (venueId) params.set("venue", venueId);
+  if (source) params.set("source", source);
+  if (utmSource) params.set("utm_source", utmSource);
+  if (utmMedium) params.set("utm_medium", utmMedium);
+  params.set("planner_session_id", plannerSessionId);
+
+  const qs = params.toString();
+  return {
+    plannerSessionId,
+    href: qs ? `${pathname}?${qs}` : pathname,
+  };
+}
+
 export function withPlannerAuthFlag(context: Partial<PlannerSessionContext>): PlannerSessionContext | null {
   const plannerSessionId = normalizePlannerSessionId(context.planner_session_id);
   if (!plannerSessionId) return null;

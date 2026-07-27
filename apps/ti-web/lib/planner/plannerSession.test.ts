@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildTournamentPlannerEntryHref,
   buildPlannerHref,
   buildPlannerSessionParams,
   normalizePlannerSessionId,
@@ -40,4 +41,19 @@ test("plannerSession params omit invalid session ids", () => {
   });
   assert.equal(params.toString(), "");
   assert.equal(normalizePlannerSessionId("bad-id"), null);
+});
+
+test("tournament planner entry href preserves a provided planner session id", () => {
+  const result = buildTournamentPlannerEntryHref("/weekend/summer-classic", {
+    planner_session_id: SESSION_ID,
+    venue_id: "v-1",
+    source: "tournament_detail",
+  });
+
+  assert.equal(result.plannerSessionId, SESSION_ID);
+  const parsed = new URL(result.href, "https://www.tournamentinsights.com");
+  assert.equal(parsed.pathname, "/weekend/summer-classic");
+  assert.equal(parsed.searchParams.get("planner_session_id"), SESSION_ID);
+  assert.equal(parsed.searchParams.get("venue"), "v-1");
+  assert.equal(parsed.searchParams.get("source"), "tournament_detail");
 });
