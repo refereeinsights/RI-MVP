@@ -7,7 +7,14 @@ import {
   LODGING_SEARCH_DEFAULTS,
 } from "@/lib/lodging/lodging-provider";
 import { formatDateToMmDdYyyy } from "@/lib/lodging/lodging-dates";
-import { HotelPlannerApiError } from "@/lib/lodging/hotelPlannerProvider";
+import { buildGroupRequestBody, HotelPlannerApiError } from "@/lib/lodging/hotelPlannerProvider";
+import {
+  buildHotelPlannerGroupRequestAttribution,
+  createOutboundAttributionId,
+  deriveHotelPlannerSourcePageType,
+  isValidOutboundAttributionId,
+  type HotelPlannerSourcePageType,
+} from "@/lib/hotelPlannerAttribution";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -72,6 +79,48 @@ type GroupRequestBody = {
   entry_placement?: unknown;
   current_page_type?: unknown;
   current_page_path?: unknown;
+  source_page_type?: unknown;
+  source_path?: unknown;
+  cta_placement?: unknown;
+  page_url?: unknown;
+  request_source?: unknown;
+  traffic_source?: unknown;
+  referrer?: unknown;
+  device_type?: unknown;
+  outbound_attribution_id?: unknown;
+};
+
+type GroupRequestTracking = {
+  outboundAttributionId: string;
+  sourcePageType: HotelPlannerSourcePageType;
+  sourcePath: string | null;
+  ctaPlacement: string | null;
+  pageType: string | null;
+  pageUrl: string | null;
+  deviceType: string | null;
+  trafficSource: string | null;
+  referrer: string | null;
+  plannerSessionId: string | null;
+  tournamentId: string | null;
+  venueId: string | null;
+  entrySource: string | null;
+  entryPageType: string | null;
+  entryPath: string | null;
+  entryPlacement: string | null;
+  currentPageType: string | null;
+  currentPagePath: string | null;
+  requestSource: string | null;
+  jobCode: string | null;
+  keyword: string | null;
+  partnerSourceCode: string | null;
+  customField1: string | null;
+  customField2: string | null;
+  customField3: string | null;
+  customField4: string | null;
+  customField5: string | null;
+  customField6: string | null;
+  customField7: string | null;
+  customField8: string | null;
 };
 
 const GROUP_REQUEST_ENDPOINT = "/api/lodging/group-request";
@@ -82,12 +131,36 @@ function toText(value: unknown): string | null {
   return trimmed || null;
 }
 
+function sanitizeText(value: string | null, maxLength: number) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return null;
+  return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed;
+}
+
+function sanitizePageUrl(value: string | null) {
+  const trimmed = sanitizeText(value, 512);
+  if (!trimmed) return null;
+  if (trimmed.startsWith("/")) return trimmed;
+  try {
+    const parsed = new URL(trimmed);
+    return sanitizeText(`${parsed.pathname}${parsed.search}` || "/", 512);
+  } catch {
+    return null;
+  }
+}
+
 function parsePropertyId(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   if (typeof value === "number" && Number.isFinite(value)) return String(Math.trunc(value));
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed || null;
+}
+
+function parseOutboundAttributionId(value: unknown): string | null {
+  const text = toText(value)?.toLowerCase().replace(/-/g, "") ?? null;
+  if (!text) return null;
+  return isValidOutboundAttributionId(text) ? text : null;
 }
 
 function parseInteger(
@@ -238,47 +311,91 @@ async function insertStartedSession(input: {
   sessionId: string;
   provider: string;
   groupRequestQuery: Record<string, unknown>;
+  providerRequestSnapshot: Record<string, unknown>;
   clientIp: string | null;
   userAgent: string | null;
-  plannerTracking: {
-    plannerSessionId: string | null;
-    tournamentId: string | null;
-    venueId: string | null;
-    entrySource: string | null;
-    entryPageType: string | null;
-    entryPath: string | null;
-    entryPlacement: string | null;
-    currentPageType: string | null;
-    currentPagePath: string | null;
-  };
-}) {
+  tracking: GroupRequestTracking;
+}): Promise<{ sessionId: string; duplicateSuccess: { requestId: string | null } | null }> {
   try {
-    await (supabaseAdmin.from("lodging_search_session" as any) as any).insert({
-      id: input.sessionId,
+    const now = new Date().toISOString();
+    const basePayload = {
       provider: input.provider,
       correlation_id: input.sessionId,
       session_id: input.sessionId,
       search_query: input.groupRequestQuery,
-      status: "started",
+      provider_request_snapshot: input.providerRequestSnapshot,
+      status: "started" as const,
       endpoint: GROUP_REQUEST_ENDPOINT,
       client_ip: input.clientIp || "unknown",
       user_agent: input.userAgent || "unknown",
-      started_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      planner_session_id: input.plannerTracking.plannerSessionId,
-      tournament_id: input.plannerTracking.tournamentId,
-      venue_id: input.plannerTracking.venueId,
-      entry_source: input.plannerTracking.entrySource,
-      entry_page_type: input.plannerTracking.entryPageType,
-      entry_path: input.plannerTracking.entryPath,
-      entry_placement: input.plannerTracking.entryPlacement,
-      current_page_type: input.plannerTracking.currentPageType,
-      current_page_path: input.plannerTracking.currentPagePath,
+      started_at: now,
+      updated_at: now,
+      outbound_attribution_id: input.tracking.outboundAttributionId,
+      source_page_type: input.tracking.sourcePageType,
+      source_path: input.tracking.sourcePath,
+      cta_placement: input.tracking.ctaPlacement,
+      page_type: input.tracking.pageType,
+      page_url: input.tracking.pageUrl,
+      device_type: input.tracking.deviceType,
+      traffic_source: input.tracking.trafficSource,
+      referrer: input.tracking.referrer,
+      planner_session_id: input.tracking.plannerSessionId,
+      tournament_id: input.tracking.tournamentId,
+      venue_id: input.tracking.venueId,
+      entry_source: input.tracking.entrySource,
+      entry_page_type: input.tracking.entryPageType,
+      entry_path: input.tracking.entryPath,
+      entry_placement: input.tracking.entryPlacement,
+      current_page_type: input.tracking.currentPageType,
+      current_page_path: input.tracking.currentPagePath,
+      request_source: input.tracking.requestSource,
+      job_code: input.tracking.jobCode,
+      keyword: input.tracking.keyword,
+      partner_source_code: input.tracking.partnerSourceCode,
+      custom_field1: input.tracking.customField1,
+      custom_field2: input.tracking.customField2,
+      custom_field3: input.tracking.customField3,
+      custom_field4: input.tracking.customField4,
+      custom_field5: input.tracking.customField5,
+      custom_field6: input.tracking.customField6,
+      custom_field7: input.tracking.customField7,
+      custom_field8: input.tracking.customField8,
+      outbound_partner: "hotelplanner",
+      destination_type: "group_request",
+    };
+
+    const existing = await (supabaseAdmin.from("lodging_search_session" as any) as any)
+      .select("id,status,group_request_id")
+      .eq("endpoint", GROUP_REQUEST_ENDPOINT)
+      .eq("outbound_attribution_id", input.tracking.outboundAttributionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const existingRow = existing?.data as { id?: string | null; status?: string | null; group_request_id?: string | null } | null;
+    if (existingRow?.id && existingRow.status === "succeeded") {
+      return {
+        sessionId: existingRow.id,
+        duplicateSuccess: { requestId: existingRow.group_request_id ?? null },
+      };
+    }
+
+    if (existingRow?.id) {
+      await (supabaseAdmin.from("lodging_search_session" as any) as any)
+        .update(basePayload)
+        .eq("id", existingRow.id);
+      return { sessionId: existingRow.id, duplicateSuccess: null };
+    }
+
+    await (supabaseAdmin.from("lodging_search_session" as any) as any).insert({
+      id: input.sessionId,
+      created_at: now,
+      ...basePayload,
     });
   } catch {
     // Best-effort telemetry only.
   }
+  return { sessionId: input.sessionId, duplicateSuccess: null };
 }
 
 async function updateSessionLifecycle(input: {
@@ -288,6 +405,7 @@ async function updateSessionLifecycle(input: {
   latencyMs: number;
   fallbackReason?: string | null;
   errorCode?: string | null;
+  groupRequestId?: string | null;
   responseSnapshot?: unknown;
 }) {
   if (!input.sessionId) return;
@@ -301,6 +419,7 @@ async function updateSessionLifecycle(input: {
       result_count: input.resultCount ?? 0,
       fallback_reason: input.fallbackReason ?? null,
       error_code: input.errorCode ?? null,
+      group_request_id: input.groupRequestId ?? null,
     };
 
     if (input.responseSnapshot !== undefined) {
@@ -351,13 +470,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    rooms = parseInteger(
-      body.rooms,
-      5,
-      LODGING_SEARCH_DEFAULTS.maxRooms,
-      5,
-      true
-    );
+    rooms = parseInteger(body.rooms, 5, LODGING_SEARCH_DEFAULTS.maxRooms, 5, true);
     adultsPerRoom = parseInteger(
       body.adults ?? body.adultsPerRoom,
       LODGING_SEARCH_DEFAULTS.minAdultCount,
@@ -394,6 +507,51 @@ export async function POST(request: Request) {
 
   const groupName = asTrackingString(body, ["groupName", "teamName"]);
   const phone = toText(body.phone);
+  const sourcePageType = (() => {
+    const direct = sanitizeText(toText(body.source_page_type), 32);
+    if (direct) return direct as HotelPlannerSourcePageType;
+    return deriveHotelPlannerSourcePageType({
+      source: toText(body.source),
+      pageType: toText(body.current_page_type) ?? toText(body.entry_page_type),
+      sourcePath: toText(body.current_page_path) ?? toText(body.entry_path),
+      hasVenueId: Boolean(toText(body.venue_id)),
+    });
+  })();
+  const ctaPlacement = sanitizeText(toText(body.cta_placement) ?? toText(body.entry_placement), 64);
+  const trackingBase = {
+    outboundAttributionId: parseOutboundAttributionId(body.outbound_attribution_id) ?? createOutboundAttributionId(),
+    sourcePageType,
+    sourcePath: sanitizePageUrl(toText(body.source_path) ?? toText(body.current_page_path) ?? toText(body.entry_path)),
+    ctaPlacement,
+    pageType: sanitizeText(toText(body.current_page_type) ?? sourcePageType, 32),
+    pageUrl: sanitizePageUrl(toText(body.page_url) ?? toText(body.current_page_path) ?? toText(body.entry_path)),
+    deviceType: sanitizeText(toText(body.device_type), 32),
+    trafficSource: sanitizeText(toText(body.traffic_source), 64),
+    referrer: sanitizeText(toText(body.referrer), 512),
+    plannerSessionId: toText(body.planner_session_id),
+    tournamentId: toText(body.tournament_id),
+    venueId: toText(body.venue_id),
+    entrySource: toText(body.entry_source),
+    entryPageType: toText(body.entry_page_type),
+    entryPath: sanitizePageUrl(toText(body.entry_path)),
+    entryPlacement: sanitizeText(toText(body.entry_placement), 64),
+    currentPageType: sanitizeText(toText(body.current_page_type), 32),
+    currentPagePath: sanitizePageUrl(toText(body.current_page_path)),
+    requestSource: sanitizeText(toText(body.request_source) ?? toText(body.source), 64),
+  };
+
+  const attributionFields = buildHotelPlannerGroupRequestAttribution({
+    outboundAttributionId: trackingBase.outboundAttributionId,
+    sourcePageType,
+    placement: ctaPlacement,
+    venueId: trackingBase.venueId,
+    tournamentId: trackingBase.tournamentId,
+    plannerSessionId: trackingBase.plannerSessionId,
+    sc: "tournamentinsights",
+    keyword: asTrackingString(body, ["keyword", "kw"]) ?? "Team hotel block",
+    jobCode: asTrackingString(body, ["jobCode", "jobcode"]) ?? "TI-TEAM-BLOCK",
+    custom8: asTrackingString(body, ["customField1", "custom1"]),
+  });
 
   const providerInput: GroupRequestInput = {
     propertyId,
@@ -417,46 +575,50 @@ export async function POST(request: Request) {
     itinerary: toText(body.itinerary) ?? undefined,
     locale: toText(body.locale) || undefined,
     currency: toText(body.currency) || undefined,
-    sc: asTrackingString(body, ["sc"]),
-    keyword: asTrackingString(body, ["keyword", "kw"]),
-    jobCode: asTrackingString(body, ["jobCode", "jobcode"]),
-    customField1: asTrackingString(body, ["customField1", "custom1"]),
-    customField2: asTrackingString(body, ["customField2", "custom2"]),
-    customField3: asTrackingString(body, ["customField3", "custom3"]),
-    customField4: asTrackingString(body, ["customField4", "custom4"]),
-    customField5: asTrackingString(body, ["customField5", "custom5"]),
-    customField6: asTrackingString(body, ["customField6", "custom6"]),
-    customField7: asTrackingString(body, ["customField7", "custom7"]),
-    customField8: asTrackingString(body, ["customField8", "custom8"]),
+    sc: attributionFields.sc,
+    keyword: attributionFields.keyword ?? undefined,
+    jobCode: attributionFields.jobCode,
+    customField1: attributionFields.custom1 ?? undefined,
+    customField2: attributionFields.custom2 ?? undefined,
+    customField3: attributionFields.custom3 ?? undefined,
+    customField4: attributionFields.custom4 ?? undefined,
+    customField5: attributionFields.custom5 ?? undefined,
+    customField6: attributionFields.custom6 ?? undefined,
+    customField7: attributionFields.custom7 ?? undefined,
+    customField8: attributionFields.custom8 ?? undefined,
     groupTypeCode: toText(body.groupTypeCode) || "143",
     customerIPAddress: firstIpFromHeader(request.headers.get("x-forwarded-for")) || request.headers.get("x-real-ip") || "unknown",
     customerUserAgent: request.headers.get("user-agent") || "unknown",
   };
-
-  const provider = createLodgingProvider(providerName);
-  const sessionId = randomUUID();
-  const plannerTracking = {
-    plannerSessionId: toText(body.planner_session_id),
-    tournamentId: toText(body.tournament_id),
-    venueId: toText(body.venue_id),
-    entrySource: toText(body.entry_source),
-    entryPageType: toText(body.entry_page_type),
-    entryPath: toText(body.entry_path),
-    entryPlacement: toText(body.entry_placement),
-    currentPageType: toText(body.current_page_type),
-    currentPagePath: toText(body.current_page_path),
+  const providerRequestSnapshot = buildGroupRequestBody(providerInput);
+  const tracking: GroupRequestTracking = {
+    ...trackingBase,
+    jobCode: attributionFields.jobCode,
+    keyword: attributionFields.keyword,
+    partnerSourceCode: attributionFields.sc,
+    customField1: attributionFields.custom1,
+    customField2: attributionFields.custom2,
+    customField3: attributionFields.custom3,
+    customField4: attributionFields.custom4,
+    customField5: attributionFields.custom5,
+    customField6: attributionFields.custom6,
+    customField7: attributionFields.custom7,
+    customField8: attributionFields.custom8,
   };
 
-  await insertStartedSession({
-    sessionId,
+  const provider = createLodgingProvider(providerName);
+  const startedSession = await insertStartedSession({
+    sessionId: randomUUID(),
     provider: providerName,
     groupRequestQuery: {
+      outbound_attribution_id: tracking.outboundAttributionId,
       propertyId,
       destination,
       checkIn,
       checkOut,
       rooms,
       adultsPerRoom,
+      childrenPerRoom,
       roomTypeCode,
       rating: ratingText,
       split,
@@ -465,36 +627,61 @@ export async function POST(request: Request) {
       email,
       groupName,
       phone,
+      comments: toText(body.comments) ?? undefined,
+      targetRate: parseNonNegativeInteger(body.targetRate),
+      minRate: parseNonNegativeInteger(body.minRate),
       groupTypeCode: providerInput.groupTypeCode,
       source: toText(body.source),
-      sc: providerInput.sc,
-      keyword: providerInput.keyword,
-      jobCode: providerInput.jobCode,
-      customField1: providerInput.customField1,
-      customField2: providerInput.customField2,
-      customField3: providerInput.customField3,
-      customField4: providerInput.customField4,
-      customField5: providerInput.customField5,
-      customField6: providerInput.customField6,
-      customField7: providerInput.customField7,
-      customField8: providerInput.customField8,
+      source_page_type: tracking.sourcePageType,
+      source_path: tracking.sourcePath,
+      cta_placement: tracking.ctaPlacement,
+      legacy_custom1: asTrackingString(body, ["customField1", "custom1"]),
+      legacy_custom2: asTrackingString(body, ["customField2", "custom2"]),
+      sc: attributionFields.sc,
+      keyword: attributionFields.keyword,
+      jobCode: attributionFields.jobCode,
+      customField1: attributionFields.custom1,
+      customField2: attributionFields.custom2,
+      customField3: attributionFields.custom3,
+      customField4: attributionFields.custom4,
+      customField5: attributionFields.custom5,
+      customField6: attributionFields.custom6,
+      customField7: attributionFields.custom7,
+      customField8: attributionFields.custom8,
       locale: providerInput.locale,
       currency: providerInput.currency,
-      planner_session_id: plannerTracking.plannerSessionId,
-      tournament_id: plannerTracking.tournamentId,
-      venue_id: plannerTracking.venueId,
-      entry_source: plannerTracking.entrySource,
-      entry_page_type: plannerTracking.entryPageType,
-      entry_path: plannerTracking.entryPath,
-      entry_placement: plannerTracking.entryPlacement,
-      current_page_type: plannerTracking.currentPageType,
-      current_page_path: plannerTracking.currentPagePath,
+      page_url: tracking.pageUrl,
+      device_type: tracking.deviceType,
+      traffic_source: tracking.trafficSource,
+      referrer: tracking.referrer,
+      planner_session_id: tracking.plannerSessionId,
+      tournament_id: tracking.tournamentId,
+      venue_id: tracking.venueId,
+      entry_source: tracking.entrySource,
+      entry_page_type: tracking.entryPageType,
+      entry_path: tracking.entryPath,
+      entry_placement: tracking.entryPlacement,
+      current_page_type: tracking.currentPageType,
+      current_page_path: tracking.currentPagePath,
+      request_source: tracking.requestSource,
     },
+    providerRequestSnapshot,
     clientIp: providerInput.customerIPAddress ?? "unknown",
     userAgent: providerInput.customerUserAgent ?? "unknown",
-    plannerTracking,
+    tracking,
   });
 
+  if (startedSession.duplicateSuccess) {
+    return NextResponse.json({
+      sessionId: startedSession.sessionId,
+      provider: providerName,
+      propertyId,
+      success: true,
+      ...(startedSession.duplicateSuccess.requestId ? { requestId: startedSession.duplicateSuccess.requestId } : {}),
+    });
+  }
+
+  const sessionId = startedSession.sessionId;
   const startedAt = Date.now();
   try {
     const result = await provider.createGroupRequest(providerInput);
@@ -505,6 +692,8 @@ export async function POST(request: Request) {
       status: "succeeded",
       resultCount: 1,
       latencyMs,
+      groupRequestId: result.requestId ?? null,
+      responseSnapshot: result.raw ?? { requestId: result.requestId ?? null, success: result.success },
     });
 
     const responseBody = {

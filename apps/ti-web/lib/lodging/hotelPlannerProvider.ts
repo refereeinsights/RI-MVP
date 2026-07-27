@@ -247,7 +247,7 @@ function buildAvailabilityBody(input: HotelAvailabilityInput): Record<string, un
   };
 }
 
-function buildGroupRequestBody(input: GroupRequestInput): Record<string, unknown> {
+export function buildGroupRequestBody(input: GroupRequestInput): Record<string, unknown> {
   const propertyId = pickText(input.propertyId);
   const derivedDestination = pickText(input.destination) ?? propertyId;
   if (!derivedDestination) {

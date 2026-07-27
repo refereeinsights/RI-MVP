@@ -15,6 +15,7 @@ import {
   buildHotelPlannerBookingAttribution,
   createOutboundAttributionId,
   HOTEL_PLANNER_BOOKING_PLACEMENTS,
+  HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS,
 } from "@/lib/hotelPlannerAttribution";
 import NavigationChooser, { type NavProvider } from "./NavigationChooser";
 import styles from "./TournamentVenueMap.module.css";
@@ -257,6 +258,7 @@ export default function TournamentVenueMapClient({
   const [teamBlockError, setTeamBlockError] = useState<string | null>(null);
   const [teamBlockSuccess, setTeamBlockSuccess] = useState<TeamBlockSuccessState | null>(null);
   const [teamBlockForm, setTeamBlockForm] = useState<TeamBlockFormState>(DEFAULT_TEAM_BLOCK_FORM);
+  const teamBlockAttributionIdRef = useRef<string | null>(null);
   const [entitlementTier, setEntitlementTier] = useState<TiTier>("unknown");
   const [navSheet, setNavSheet] = useState<NavSheetState>(() => ({
     open: false,
@@ -1587,6 +1589,7 @@ export default function TournamentVenueMapClient({
     setTeamBlockError(null);
     setTeamBlockSuccess(null);
     setTeamBlockOpen(true);
+    teamBlockAttributionIdRef.current = teamBlockAttributionIdRef.current ?? createOutboundAttributionId();
     trackLodgingEvent("team_block_rfp_start", {
       page_type: "venue_map",
       tournament_id: tournament.id,
@@ -1643,6 +1646,8 @@ export default function TournamentVenueMapClient({
     setTeamBlockSuccess(null);
 
     try {
+      const outboundAttributionId = teamBlockAttributionIdRef.current ?? createOutboundAttributionId();
+      teamBlockAttributionIdRef.current = outboundAttributionId;
       const response = await fetch(new URL("/api/lodging/group-request", window.location.origin), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1664,12 +1669,15 @@ export default function TournamentVenueMapClient({
           phone: teamBlockForm.phone,
           comments: buildTeamBlockComments(),
           source: "venue_map",
-          sc: "tournamentinsights",
-          kw: "Team hotel block",
-          jobCode: "TI-TEAM-BLOCK",
-          custom1: `ven:${selectedVenue?.id ?? hotelVenueId ?? ""}`,
-          custom2: tournament.slug,
           groupTypeCode: "143",
+          source_page_type: "venue_map",
+          source_path: `${window.location.pathname}${window.location.search}`,
+          cta_placement: HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS.venueMapTeamBlock,
+          page_url: `${window.location.pathname}${window.location.search}`,
+          request_source: "venue_map",
+          tournament_id: tournament.id,
+          venue_id: selectedVenue?.id ?? hotelVenueId ?? undefined,
+          outbound_attribution_id: outboundAttributionId,
         }),
       });
 
@@ -1699,6 +1707,7 @@ export default function TournamentVenueMapClient({
       setTeamBlockSuccess({ requestId: payload.requestId ?? null });
       setTeamBlockOpen(false);
       setTeamBlockForm(DEFAULT_TEAM_BLOCK_FORM);
+      teamBlockAttributionIdRef.current = null;
       trackLodgingEvent("team_block_rfp_submit", {
         page_type: "venue_map",
         tournament_id: tournament.id,

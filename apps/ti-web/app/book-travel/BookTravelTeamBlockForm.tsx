@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { sendTiAnalytics } from "@/lib/analytics";
+import {
+  createOutboundAttributionId,
+  HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS,
+} from "@/lib/hotelPlannerAttribution";
 import { formatDateToMmDdYyyy } from "@/lib/lodging/lodging-dates";
 import styles from "./BookTravelTeamBlockForm.module.css";
 
@@ -123,6 +127,7 @@ export default function BookTravelTeamBlockForm({
   const [success, setSuccess] = useState<{ requestId?: string | null } | null>(null);
   const startedRef = useRef(false);
   const ctaViewedRef = useRef(false);
+  const outboundAttributionIdRef = useRef<string | null>(null);
 
   const providerDestination = useMemo(
     () => buildProviderDestination(form.destination, matchedVenue),
@@ -164,6 +169,7 @@ export default function BookTravelTeamBlockForm({
   function trackStart() {
     if (startedRef.current) return;
     startedRef.current = true;
+    outboundAttributionIdRef.current = outboundAttributionIdRef.current ?? createOutboundAttributionId();
     void sendTiAnalytics("team_hotel_request_started", {
       surface: "team_hotel",
       source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",
@@ -257,6 +263,14 @@ export default function BookTravelTeamBlockForm({
 
     setSubmitting(true);
     try {
+      const outboundAttributionId = outboundAttributionIdRef.current ?? createOutboundAttributionId();
+      outboundAttributionIdRef.current = outboundAttributionId;
+      const sourcePageType = surface === "weekend_planner" ? "weekend_planner" : "book_travel";
+      const ctaPlacement =
+        surface === "weekend_planner"
+          ? HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS.weekendPlannerTeamBlock
+          : HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS.bookTravelTeamBlock;
+      const matchedVenueId = matchedVenue?.id ?? null;
       const response = await fetch("/api/lodging/group-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -278,20 +292,24 @@ export default function BookTravelTeamBlockForm({
           roomTypeCode: "8",
           groupTypeCode: "143",
           source: surface,
-          sc: "tournamentinsights",
-          kw: "Team hotel block",
-          jobCode: "TI-TEAM-BLOCK",
-          custom1: readableDestinationContext || providerDestination,
-          custom2: surface,
           planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
           tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
-          venue_id: plannerTrackingContext?.venue_id ?? undefined,
+          venue_id: matchedVenueId ?? plannerTrackingContext?.venue_id ?? undefined,
           entry_source: plannerTrackingContext?.entry_source ?? undefined,
           entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
           entry_path: plannerTrackingContext?.entry_path ?? undefined,
           entry_placement: plannerTrackingContext?.entry_placement ?? undefined,
-          current_page_type: plannerTrackingContext?.current_page_type ?? undefined,
-          current_page_path: plannerTrackingContext?.current_page_path ?? undefined,
+          current_page_type:
+            plannerTrackingContext?.current_page_type ?? (surface === "weekend_planner" ? "planner" : "book_travel"),
+          current_page_path:
+            plannerTrackingContext?.current_page_path ??
+            (typeof window !== "undefined" ? window.location.pathname + window.location.search : "/book-travel"),
+          source_page_type: sourcePageType,
+          source_path: typeof window !== "undefined" ? window.location.pathname + window.location.search : "/book-travel",
+          cta_placement: ctaPlacement,
+          page_url: typeof window !== "undefined" ? window.location.pathname + window.location.search : "/book-travel",
+          request_source: surface,
+          outbound_attribution_id: outboundAttributionId,
         }),
       });
 
@@ -305,6 +323,7 @@ export default function BookTravelTeamBlockForm({
       }
 
       setSuccess({ requestId: payload.requestId ?? null });
+      outboundAttributionIdRef.current = null;
       void sendTiAnalytics("team_hotel_request_submitted", {
         surface: "team_hotel",
         source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",

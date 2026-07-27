@@ -4489,3 +4489,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Decision: use HP root URL with `city=` (venue city/state) + `CheckIn`/`CheckOut` for both venue map and book-travel “View all” CTAs. Correct tournament dates are more useful than lat/lng precision; user gets city pre-filled and dates pre-filled and needs one search click.
   - Added `buildHotelPlannerRootUrl()` helper targeting `/?city=...&CheckIn=mm/dd/yyyy&CheckOut=mm/dd/yyyy&sc=...`.
   - Individual hotel property page handoffs (`HotelRoomTypes.htm?inDate=...`) unchanged — those already worked correctly.
+
+- 2026-07-27: TI HotelPlanner group-request attribution phase 2B.1.
+  - Added a canonical group-request attribution contract to `apps/ti-web/app/api/lodging/group-request/route.ts` using `Custom3=attr:<token>`, `Custom4=srcp:<source_page_type>`, `Custom5=place:<cta_placement>`, and `Custom6=plan:<planner_session_id>` when available.
+  - Book Travel / Weekend Planner shared form and venue-map team block now mint one `outbound_attribution_id` per in-progress journey and reuse it for retries; duplicate successful submissions now short-circuit to the existing TI record.
+  - Extended `lodging_search_session` via `supabase/migrations/20260727_ti_group_request_attribution_phase2b1.sql` so TI persists canonical group-request attribution fields plus the final TI-generated HotelPlanner request payload for later reconciliation.

@@ -20,8 +20,16 @@ export const HOTEL_PLANNER_BOOKING_PLACEMENTS = {
   weekendPlannerViewAllHotels: "weekend_planner_view_all_hotels",
 } as const;
 
+export const HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS = {
+  bookTravelTeamBlock: "book_travel_team_block",
+  weekendPlannerTeamBlock: "weekend_planner_team_block",
+  venueMapTeamBlock: "venue_map_team_block",
+} as const;
+
 export type HotelPlannerBookingPlacement =
   (typeof HOTEL_PLANNER_BOOKING_PLACEMENTS)[keyof typeof HOTEL_PLANNER_BOOKING_PLACEMENTS];
+export type HotelPlannerGroupRequestPlacement =
+  (typeof HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS)[keyof typeof HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS];
 
 export const HOTEL_PLANNER_PARTNER_SOURCE = "tournamentinsights";
 export const HOTEL_PLANNER_TOKEN_CUSTOM_FIELD = 3;
@@ -36,6 +44,26 @@ type BookingAttributionInput = {
   tournamentRef?: string | null;
   plannerSessionId?: string | null;
   ctaInteractionId?: string | null;
+  sc?: string | null;
+  keyword?: string | null;
+  jobCode?: string | null;
+  custom1?: string | null;
+  custom2?: string | null;
+  custom3?: string | null;
+  custom4?: string | null;
+  custom5?: string | null;
+  custom6?: string | null;
+  custom7?: string | null;
+  custom8?: string | null;
+};
+
+type GroupRequestAttributionInput = {
+  outboundAttributionId?: string | null;
+  sourcePageType: HotelPlannerSourcePageType;
+  placement?: string | null;
+  venueId?: string | null;
+  tournamentId?: string | null;
+  plannerSessionId?: string | null;
   sc?: string | null;
   keyword?: string | null;
   jobCode?: string | null;
@@ -136,6 +164,10 @@ function defaultKeyword() {
   return "Tournament weekend stay";
 }
 
+function defaultGroupRequestKeyword() {
+  return "Team hotel block";
+}
+
 function defaultLegacyCustom1(args: Pick<BookingAttributionInput, "sourcePageType" | "venueId">) {
   const venueId = sanitizeText(args.venueId, 64);
   if (venueId) return `ven:${venueId}`;
@@ -145,6 +177,21 @@ function defaultLegacyCustom1(args: Pick<BookingAttributionInput, "sourcePageTyp
 function defaultLegacyCustom2(args: Pick<BookingAttributionInput, "sourcePageType" | "tournamentRef">) {
   const tournamentRef = sanitizeText(args.tournamentRef, 96);
   return tournamentRef || args.sourcePageType;
+}
+
+function defaultGroupRequestCustom1(args: Pick<GroupRequestAttributionInput, "venueId" | "tournamentId">) {
+  const venueId = sanitizeText(args.venueId, 64);
+  if (venueId) return `ven:${venueId}`;
+  const tournamentId = sanitizeText(args.tournamentId, 64);
+  if (tournamentId) return `tour:${tournamentId}`;
+  return null;
+}
+
+function defaultGroupRequestCustom2(args: Pick<GroupRequestAttributionInput, "venueId" | "tournamentId">) {
+  const venueId = sanitizeText(args.venueId, 64);
+  const tournamentId = sanitizeText(args.tournamentId, 64);
+  if (venueId && tournamentId) return `tour:${tournamentId}`;
+  return null;
 }
 
 export function buildHotelPlannerBookingAttribution(input: BookingAttributionInput): HotelPlannerAttributionFields {
@@ -166,6 +213,30 @@ export function buildHotelPlannerBookingAttribution(input: BookingAttributionInp
     custom7:
       sanitizeText(input.custom7, 128) ||
       (isUuidLike(input.ctaInteractionId) ? `cta:${String(input.ctaInteractionId).trim().toLowerCase()}` : null),
+    custom8: sanitizeText(input.custom8, 128),
+  };
+}
+
+export function buildHotelPlannerGroupRequestAttribution(
+  input: GroupRequestAttributionInput
+): HotelPlannerAttributionFields {
+  const token = formatOutboundAttributionToken(input.outboundAttributionId);
+
+  return {
+    sc: sanitizeText(input.sc, 64) || HOTEL_PLANNER_PARTNER_SOURCE,
+    keyword: sanitizeText(input.keyword, 96) || defaultGroupRequestKeyword(),
+    jobCode: sanitizeText(input.jobCode, 64) || "TI-TEAM-BLOCK",
+    custom1: sanitizeText(input.custom1, 128) || defaultGroupRequestCustom1(input),
+    custom2: sanitizeText(input.custom2, 128) || defaultGroupRequestCustom2(input),
+    custom3: token || sanitizeText(input.custom3, 128),
+    custom4: sanitizeText(input.custom4, 128) || `srcp:${input.sourcePageType}`,
+    custom5:
+      sanitizeText(input.custom5, 128) ||
+      (sanitizeText(input.placement, 96) ? `place:${sanitizeText(input.placement, 96)}` : null),
+    custom6:
+      sanitizeText(input.custom6, 128) ||
+      (isUuidLike(input.plannerSessionId) ? `plan:${String(input.plannerSessionId).trim().toLowerCase()}` : null),
+    custom7: sanitizeText(input.custom7, 128),
     custom8: sanitizeText(input.custom8, 128),
   };
 }

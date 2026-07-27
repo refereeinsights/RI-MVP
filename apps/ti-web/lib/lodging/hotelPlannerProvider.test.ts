@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 
 import {
   buildHotelPlannerAuthorizationToken,
+  buildGroupRequestBody,
   buildHotelPlannerQuery,
   createHotelPlannerProvider,
 } from "./hotelPlannerProvider";
@@ -307,6 +308,53 @@ test("searchHotels accepts HotelPlanner payload without success/code when hotels
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test("buildGroupRequestBody preserves canonical attribution and operational fields", () => {
+  const payload = buildGroupRequestBody({
+    propertyId: "12345",
+    destination: "San Diego, CA",
+    checkIn: "08/01/2026",
+    checkOut: "08/03/2026",
+    rooms: 12,
+    adultsPerRoom: 2,
+    childrenPerRoom: 1,
+    firstName: "Casey",
+    lastName: "Coach",
+    email: "casey@example.com",
+    groupName: "Blue Hawks",
+    phone: "555-0100",
+    split: 1,
+    rating: "5",
+    roomTypeCode: "8",
+    comments: "Near venue please",
+    targetRate: 199,
+    minRate: 149,
+    sc: "tournamentinsights",
+    keyword: "Team hotel block",
+    jobCode: "TI-TEAM-BLOCK",
+    customField1: "ven:33333333-3333-4333-8333-333333333333",
+    customField2: "tour:44444444-4444-4444-8444-444444444444",
+    customField3: "attr:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    customField4: "srcp:venue_map",
+    customField5: "place:venue_map_team_block",
+    customField6: "plan:55555555-5555-4555-8555-555555555555",
+    customField8: "San Diego Convention Center — San Diego, CA",
+    groupTypeCode: "143",
+  });
+
+  assert.equal(payload.hotelID, "12345");
+  assert.equal(payload.numRooms, 12);
+  assert.equal(payload.adultsPerRoom, 2);
+  assert.equal(payload.firstName, "Casey");
+  assert.equal(payload.groupName, "Blue Hawks");
+  assert.equal(payload.phone, "555-0100");
+  assert.equal(payload.destination, undefined);
+  assert.equal(payload.jobCode, "TI-TEAM-BLOCK");
+  assert.equal(payload.keyword, "Team hotel block");
+  assert.equal(payload.customField3, "attr:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+  assert.equal(payload.customField4, "srcp:venue_map");
+  assert.equal(payload.customField5, "place:venue_map_team_block");
 });
 
 test("searchHotels accepts provider payload with code 200 and message", async () => {
