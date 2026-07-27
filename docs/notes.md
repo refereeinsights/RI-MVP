@@ -4494,3 +4494,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added a canonical group-request attribution contract to `apps/ti-web/app/api/lodging/group-request/route.ts` using `Custom3=attr:<token>`, `Custom4=srcp:<source_page_type>`, `Custom5=place:<cta_placement>`, and `Custom6=plan:<planner_session_id>` when available.
   - Book Travel / Weekend Planner shared form and venue-map team block now mint one `outbound_attribution_id` per in-progress journey and reuse it for retries; duplicate successful submissions now short-circuit to the existing TI record.
   - Extended `lodging_search_session` via `supabase/migrations/20260727_ti_group_request_attribution_phase2b1.sql` so TI persists canonical group-request attribution fields plus the final TI-generated HotelPlanner request payload for later reconciliation.
+
+- 2026-07-27: TI HotelPlanner group-request attribution phase 2B.2 local verification.
+  - Added `docs/reports/ti-hotel-group-request-attribution-phase2b2-verification-2026-07-27.md` documenting TI-side verification at commit `45824534` and explicitly marking HotelPlanner response/report evidence as still external and unverified.
+  - Local verification confirms the canonical token contract, provider payload construction, and duplicate-success TI behavior; it does not claim end-to-end HotelPlanner report proof.

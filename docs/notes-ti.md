@@ -2254,3 +2254,7 @@ Maintenance rules:
 - 2026-07-27: TI HotelPlanner group-request attribution phase 2B.1.
   - Files: `apps/ti-web/app/api/lodging/group-request/route.ts`, `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/lib/hotelPlannerAttribution.ts`, `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`, `supabase/migrations/20260727_ti_group_request_attribution_phase2b1.sql`.
   - Changes: canonical group-request token transport now uses `Custom3` for the token, `Custom4` for source page type, `Custom5` for placement, and `Custom6` for planner session; TI now persists provider-request snapshots and dedupes successful repeated submissions by `outbound_attribution_id`.
+
+- 2026-07-27: TI HotelPlanner group-request attribution phase 2B.2 local verification.
+  - Report: `docs/reports/ti-hotel-group-request-attribution-phase2b2-verification-2026-07-27.md`
+  - Result: local TI-side verification passes, but HotelPlanner response and RFP/report-row preservation of `Custom3`–`Custom6` remain unverified pending controlled external testing.
