@@ -241,10 +241,17 @@ Verification date: Monday, July 27, 2026
 
 - `scripts/analysis/ti_weekend_planner_activation_funnel.sql`
   - funnel counts and rates
+  - exact server-side filter by `planner_session_id`
   - full chain by `planner_session_id`
   - duplicate diagnostics
   - missing-context diagnostics
   - planner-origin lodging/group source-preservation diagnostics
+
+### Verification query hygiene
+
+- Exact production verification should query `ti_map_events` by `properties->>'planner_session_id'` in SQL.
+- Do **not** fetch a broad limited set and then filter client-side.
+- That pattern can miss the target session and create a false negative even when the rows exist.
 
 ## Deployment order
 

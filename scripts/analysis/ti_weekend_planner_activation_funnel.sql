@@ -1,6 +1,10 @@
 -- TournamentInsights Weekend Planner activation funnel
 -- Usage:
 --   Replace the params CTE values before running.
+-- Notes:
+-- - For exact production verification, set `planner_session_filter`.
+-- - This script filters by `planner_session_id` in SQL.
+-- - Do not fetch a broad limited set and filter client-side; that can produce false negatives.
 
 with params as (
   select
@@ -26,7 +30,12 @@ planner_events as (
   from ti_map_events
   where created_at >= (select start_ts from params)
     and created_at < (select end_ts from params)
+    and (
+      (select planner_session_filter from params) is null
+      or nullif(properties->>'planner_session_id', '')::uuid = (select planner_session_filter from params)
+    )
     and event_name in (
+      'weekend_planner_contextual_cta_clicked',
       'weekend_planner_entry_viewed',
       'weekend_planner_auth_gate_viewed',
       'weekend_planner_auth_started',
@@ -38,12 +47,11 @@ planner_events as (
 filtered_events as (
   select *
   from planner_events
-  where (select planner_session_filter from params) is null
-     or planner_session_id = (select planner_session_filter from params)
 ),
 funnel as (
   select
     planner_session_id,
+    min(created_at) filter (where event_name = 'weekend_planner_contextual_cta_clicked') as click_ts,
     min(created_at) filter (where event_name = 'weekend_planner_entry_viewed') as entry_ts,
     min(created_at) filter (where event_name = 'weekend_planner_auth_gate_viewed') as auth_gate_ts,
     min(created_at) filter (where event_name = 'weekend_planner_auth_started') as auth_started_ts,
@@ -62,6 +70,7 @@ funnel as (
 ),
 metrics as (
   select
+    count(*) filter (where click_ts is not null) as planner_clicks,
     count(*) filter (where entry_ts is not null) as planner_entries,
     count(*) filter (where auth_gate_ts is not null) as auth_gate_views,
     count(*) filter (where auth_started_ts is not null) as auth_starts,
@@ -71,18 +80,38 @@ metrics as (
   from funnel
 )
 select
+  planner_clicks,
   planner_entries,
   auth_gate_views,
   auth_starts,
   auth_completions,
   planner_loads,
   first_actions,
+  case when planner_clicks = 0 then null else round(planner_entries::numeric / planner_clicks, 4) end as click_to_entry_rate,
   case when planner_entries = 0 then null else round(auth_starts::numeric / planner_entries, 4) end as entry_to_auth_start_rate,
   case when auth_starts = 0 then null else round(auth_completions::numeric / auth_starts, 4) end as auth_start_to_completion_rate,
   case when auth_completions = 0 then null else round(planner_loads::numeric / auth_completions, 4) end as auth_completion_to_load_rate,
   case when planner_loads = 0 then null else round(first_actions::numeric / planner_loads, 4) end as load_to_first_action_rate,
   case when planner_entries = 0 then null else round(first_actions::numeric / planner_entries, 4) end as entry_to_first_action_rate
 from metrics;
+
+-- Exact-ID verification helper
+select
+  created_at,
+  event_name,
+  planner_session_id,
+  entry_source,
+  entry_page_type,
+  entry_path,
+  entry_placement,
+  current_page_type,
+  current_page_path,
+  tournament_id,
+  venue_id,
+  first_action_type
+from filtered_events
+where planner_session_id is not null
+order by created_at, event_name;
 
 -- Full chain by planner session
 select *
