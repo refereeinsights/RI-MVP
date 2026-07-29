@@ -54,7 +54,10 @@ type WeekendPlannerDailySummary =
         detailViews: number;
         plannerCtaImpressions: number;
         plannerClicks: number;
-        weekendArrivals: number;
+        plannerEntries: number;
+        plannerAuthGateViews: number;
+        plannerAuthStarts: number;
+        plannerAuthCompletions: number;
         weekendSaveClicks: number;
         weekendSaved: number;
         plannerOpensFromWeekendFlow: "not tracked";
@@ -66,6 +69,8 @@ type WeekendPlannerDailySummary =
         createAccountClicks: number;
         signInClicks: number;
         authRequiredViews: number;
+        authStarted: number;
+        authCompleted: number;
         plannerLoaded: number;
         emptyStateViewed: number;
         calendarConnectStarts: "not tracked";
@@ -80,7 +85,7 @@ type WeekendPlannerDailySummary =
         privateCalendarFeedsCreated: number;
       };
       activationBySource: {
-        tracked: false;
+        tracked: true;
         arrivalsBySource: Record<"tournament_detail" | "direct" | "unknown", number>;
       };
       teamHotel: {
@@ -228,11 +233,17 @@ async function loadWeekendPlannerDailySummary(params: {
       "weekend_plan_page_viewed",
       "weekend_plan_save_clicked",
       "weekend_plan_saved",
+      "weekend_planner_contextual_cta_clicked",
       "weekend_planner_viewed",
+      "weekend_planner_entry_viewed",
+      "weekend_planner_auth_gate_viewed",
+      "weekend_planner_auth_started",
+      "weekend_planner_auth_completed",
       "weekend_planner_auth_required_viewed",
       "weekend_planner_create_account_clicked",
       "weekend_planner_sign_in_clicked",
       "weekend_planner_loaded",
+      "weekend_planner_first_action",
       "weekend_planner_empty_state_viewed",
       "planner_manual_event_created",
       "planner_calendar_feed_connect_succeeded",
@@ -274,16 +285,26 @@ async function loadWeekendPlannerDailySummary(params: {
       "weekend_planner_contextual_cta_viewed",
       (row) => eventPropertyText(row, "source_page_type") === "tournament" && eventPropertyText(row, "cta_type") === "weekend_plan",
     );
-    const plannerClicks = countEvents(rows, "tournament_detail_weekend_plan_clicked");
+    const plannerClicks = countEvents(
+      rows,
+      "weekend_planner_contextual_cta_clicked",
+      (row) => eventPropertyText(row, "source_page_type") === "tournament" && eventPropertyText(row, "cta_type") === "weekend_plan",
+    );
     const detailViews = countEvents(rows, "tournament_detail_page_viewed");
-    const weekendArrivals = countEvents(rows, "weekend_plan_page_viewed");
+    const plannerEntries = countEvents(
+      rows,
+      "weekend_planner_entry_viewed",
+      (row) => eventPropertyText(row, "entry_page_type") === "tournament" && eventPropertyText(row, "cta_type") === "weekend_plan",
+    );
     const weekendSaveClicks = countEvents(rows, "weekend_plan_save_clicked");
     const weekendSaved = countEvents(rows, "weekend_plan_saved");
     const plannerViews = countEvents(rows, "weekend_planner_viewed");
     const loggedOutViews = countEvents(rows, "weekend_planner_viewed", (row) => eventPropertyText(row, "auth_state") === "signed_out");
     const createAccountClicks = countEvents(rows, "weekend_planner_create_account_clicked");
     const signInClicks = countEvents(rows, "weekend_planner_sign_in_clicked");
-    const authRequiredViews = countEvents(rows, "weekend_planner_auth_required_viewed");
+    const authRequiredViews = countEvents(rows, "weekend_planner_auth_gate_viewed");
+    const authStarted = countEvents(rows, "weekend_planner_auth_started");
+    const authCompleted = countEvents(rows, "weekend_planner_auth_completed");
     const plannerLoaded = countEvents(rows, "weekend_planner_loaded");
     const emptyStateViewed = countEvents(rows, "weekend_planner_empty_state_viewed");
     const manualEventsAdded = countEvents(rows, "planner_manual_event_created");
@@ -335,10 +356,10 @@ async function loadWeekendPlannerDailySummary(params: {
     const clicksBySlug = new Map<string, number>();
 
     for (const row of rows) {
-      if (row.event_name === "weekend_plan_page_viewed") {
-        const sourcePage = eventPropertyText(row, "source_page");
-        if (sourcePage === "tournament_detail" || sourcePage === "direct" || sourcePage === "unknown") {
-          arrivalsBySource[sourcePage] += 1;
+      if (row.event_name === "weekend_planner_entry_viewed") {
+        const entrySource = eventPropertyText(row, "entry_source");
+        if (entrySource === "tournament_detail" || entrySource === "direct" || entrySource === "unknown") {
+          arrivalsBySource[entrySource] += 1;
         } else {
           arrivalsBySource.unknown += 1;
         }
@@ -353,7 +374,11 @@ async function loadWeekendPlannerDailySummary(params: {
         if (slug) impressionsBySlug.set(slug, (impressionsBySlug.get(slug) ?? 0) + 1);
       }
 
-      if (row.event_name === "tournament_detail_weekend_plan_clicked") {
+      if (
+        row.event_name === "weekend_planner_contextual_cta_clicked" &&
+        eventPropertyText(row, "source_page_type") === "tournament" &&
+        eventPropertyText(row, "cta_type") === "weekend_plan"
+      ) {
         const slug = eventPropertyText(row, "tournament_slug");
         if (slug) clicksBySlug.set(slug, (clicksBySlug.get(slug) ?? 0) + 1);
       }
@@ -408,8 +433,8 @@ async function loadWeekendPlannerDailySummary(params: {
     ];
 
     const alerts: string[] = [];
-    if (detailViews > 100 && plannerViews === 0) {
-      alerts.push("Tournament traffic is healthy but Weekend Planner views are zero — analytics may be partial or the page is inaccessible.");
+    if (detailViews > 100 && plannerEntries === 0) {
+      alerts.push("Tournament traffic is healthy but canonical Weekend Planner entries are zero — analytics may be partial or the entry route may be inaccessible.");
     }
     if (detailViews > 100 && plannerCtaImpressions === 0) {
       alerts.push("Tournament detail views are healthy but Planning CTA impressions are zero — the CTA may not be rendering.");
@@ -426,8 +451,8 @@ async function loadWeekendPlannerDailySummary(params: {
     if (teamHotelClicks > 0 && teamHotelStarts === 0) {
       alerts.push("Team hotel CTA clicks occurred but no team hotel form starts were tracked.");
     }
-    if (plannerViews > 0 && authRequiredViews >= Math.ceil(plannerViews * 0.5)) {
-      alerts.push("Auth-required planner views are high relative to planner views.");
+    if (plannerEntries > 0 && authRequiredViews >= Math.ceil(plannerEntries * 0.5)) {
+      alerts.push("Planner auth-gate views are high relative to canonical planner entries.");
     }
 
     const missingTracking = [
@@ -456,7 +481,10 @@ async function loadWeekendPlannerDailySummary(params: {
         detailViews,
         plannerCtaImpressions,
         plannerClicks,
-        weekendArrivals,
+        plannerEntries,
+        plannerAuthGateViews: authRequiredViews,
+        plannerAuthStarts: authStarted,
+        plannerAuthCompletions: authCompleted,
         weekendSaveClicks,
         weekendSaved,
         plannerOpensFromWeekendFlow: "not tracked",
@@ -468,6 +496,8 @@ async function loadWeekendPlannerDailySummary(params: {
         createAccountClicks,
         signInClicks,
         authRequiredViews,
+        authStarted,
+        authCompleted,
         plannerLoaded,
         emptyStateViewed,
         calendarConnectStarts: "not tracked",
@@ -482,7 +512,7 @@ async function loadWeekendPlannerDailySummary(params: {
         privateCalendarFeedsCreated,
       },
       activationBySource: {
-        tracked: false,
+        tracked: true,
         arrivalsBySource,
       },
       teamHotel: {
@@ -542,7 +572,7 @@ function renderWeekendPlannerSummaryHtml(params: {
   const snapshotHtml = renderMetricRows([
     { label: "Date window", value: summary.windowLabel },
     { label: "Activation events", value: summary.snapshot.totalActivations, note: "manual event + calendar connect" },
-    { label: "Weekend Planner views", value: summary.snapshot.plannerViews },
+    { label: "Weekend Planner route views", value: summary.snapshot.plannerViews },
     { label: "Planner loaded", value: summary.snapshot.plannerLoaded },
     { label: "New planner users", value: summary.snapshot.newPlannerUsers },
     { label: "Returning planner users", value: summary.snapshot.returningPlannerUsers },
@@ -556,12 +586,31 @@ function renderWeekendPlannerSummaryHtml(params: {
       value: summary.tournamentFunnel.plannerClicks,
       note: formatRatioPercent(summary.tournamentFunnel.plannerClicks, summary.tournamentFunnel.plannerCtaImpressions),
     },
-    { label: "`/weekend/[slug]` arrivals", value: summary.tournamentFunnel.weekendArrivals },
+    {
+      label: "Canonical planner entries",
+      value: summary.tournamentFunnel.plannerEntries,
+      note: formatRatioPercent(summary.tournamentFunnel.plannerEntries, summary.tournamentFunnel.plannerClicks),
+    },
+    {
+      label: "Planner auth-gate views",
+      value: summary.tournamentFunnel.plannerAuthGateViews,
+      note: formatRatioPercent(summary.tournamentFunnel.plannerAuthGateViews, summary.tournamentFunnel.plannerEntries),
+    },
+    {
+      label: "Planner auth starts",
+      value: summary.tournamentFunnel.plannerAuthStarts,
+      note: formatRatioPercent(summary.tournamentFunnel.plannerAuthStarts, summary.tournamentFunnel.plannerAuthGateViews),
+    },
+    {
+      label: "Planner auth completions",
+      value: summary.tournamentFunnel.plannerAuthCompletions,
+      note: formatRatioPercent(summary.tournamentFunnel.plannerAuthCompletions, summary.tournamentFunnel.plannerAuthStarts),
+    },
     { label: "Weekend plan save clicks", value: summary.tournamentFunnel.weekendSaveClicks },
     {
       label: "Weekend plan saves",
       value: summary.tournamentFunnel.weekendSaved,
-      note: formatRatioPercent(summary.tournamentFunnel.weekendSaved, summary.tournamentFunnel.weekendArrivals),
+      note: formatRatioPercent(summary.tournamentFunnel.weekendSaved, summary.tournamentFunnel.plannerEntries),
     },
     { label: "Planner opens from weekend flow", value: summary.tournamentFunnel.plannerOpensFromWeekendFlow },
     { label: "Activated after weekend flow", value: summary.tournamentFunnel.activatedAfterWeekendFlow },
@@ -577,11 +626,13 @@ function renderWeekendPlannerSummaryHtml(params: {
     { label: "Logged-out planner views", value: summary.directEntry.loggedOutViews },
     { label: "Create account clicks", value: summary.directEntry.createAccountClicks },
     { label: "Sign in clicks", value: summary.directEntry.signInClicks },
-    { label: "Auth-required views", value: summary.directEntry.authRequiredViews },
+    { label: "Canonical auth-gate views", value: summary.directEntry.authRequiredViews },
+    { label: "Canonical auth starts", value: summary.directEntry.authStarted },
+    { label: "Canonical auth completions", value: summary.directEntry.authCompleted },
     {
       label: "Planner loaded",
       value: summary.directEntry.plannerLoaded,
-      note: formatRatioPercent(summary.directEntry.plannerLoaded, summary.directEntry.plannerViews),
+      note: formatRatioPercent(summary.directEntry.plannerLoaded, summary.directEntry.authCompleted),
     },
     { label: "Empty planner state viewed", value: summary.directEntry.emptyStateViewed },
     { label: "Calendar feed connect starts", value: summary.directEntry.calendarConnectStarts },
@@ -606,10 +657,10 @@ function renderWeekendPlannerSummaryHtml(params: {
   ]);
 
   const activationBySourceHtml = renderMetricRows([
-    { label: "Activation by source", value: "not tracked", note: "completion events do not carry source attribution yet" },
-    { label: "Weekend arrivals from tournament detail", value: summary.activationBySource.arrivalsBySource.tournament_detail },
-    { label: "Weekend arrivals direct", value: summary.activationBySource.arrivalsBySource.direct },
-    { label: "Weekend arrivals unknown", value: summary.activationBySource.arrivalsBySource.unknown },
+    { label: "Activation by source", value: "entry tracked", note: "based on canonical planner entry attribution" },
+    { label: "Planner entries from tournament detail", value: summary.activationBySource.arrivalsBySource.tournament_detail },
+    { label: "Planner entries direct", value: summary.activationBySource.arrivalsBySource.direct },
+    { label: "Planner entries unknown", value: summary.activationBySource.arrivalsBySource.unknown },
   ]);
 
   const hotelHandoffRows: Array<{ label: string; value: number | string; note?: string }> = [
