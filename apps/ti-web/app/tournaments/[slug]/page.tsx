@@ -31,6 +31,7 @@ import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { buildHotelsHref, canShowBookingCta, isValidZip5 } from "@/lib/booking/venueBooking";
+import { createPlannerSessionId } from "@/lib/planner/plannerSession";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import { mapStateCodeToName, mapStateCodeToSlug, normalizeSportSlug, sportDisplayName } from "@/lib/seoHub";
 import "../tournaments.css";
@@ -293,6 +294,10 @@ async function TournamentUserActions({
 
   return (
     <>
+      {(() => {
+        const plannerSessionId = createPlannerSessionId();
+        return (
+          <>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" as any }}>
         <SaveTournamentButton
           tournamentId={tournament.id}
@@ -307,6 +312,7 @@ async function TournamentUserActions({
         tournamentId={tournament.id}
         tournamentSlug={tournament.slug ?? paramsSlug}
         tournamentName={tournament.name ?? null}
+        plannerSessionId={plannerSessionId}
         primaryVenueId={primaryVenueIdForPlan}
         city={tournament.city ?? null}
         state={tournament.state ?? null}
@@ -319,6 +325,9 @@ async function TournamentUserActions({
             : "unknown"
         }
       />
+          </>
+        );
+      })()}
 
       {showSavedNotice ? (
         <div

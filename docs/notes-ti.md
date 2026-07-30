@@ -21,8 +21,11 @@ Maintenance rules:
   - Updated `apps/ti-web/app/weekend-planner/page.tsx` so signed-out tournament-intent traffic mounts the real `PlannerClient` instead of the old auth-only entry card, while preserving `/weekend/[slug]` as the public/shared weekend route.
   - Added `apps/ti-web/lib/planner/anonymousPlanner.ts` for local-first 14-day temporary planner storage and seeded tournament context support.
   - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so signed-out direct-entry users can create, edit, and delete one temporary local planner item, see a save/auth prompt, and emit direct-entry activation telemetry without touching planner backend state.
+  - Follow-up fix: moved tournament CTA `planner_session_id` generation to the server render path to eliminate the proven SSR/CSR hydration mismatch that caused non-deterministic CTA clicks and session drift during browser UAT.
+  - Follow-up fix: delayed anonymous local-storage writes until after local snapshot hydration so signed-out temporary manual events no longer get overwritten by the seeded tournament-only initial render on refresh.
+  - Follow-up fix: replaced stray Explorer upgrade copy in the signed-out Phase 2 planner path with auth/account messaging for calendar-connection surfaces.
   - Extended typed analytics in `apps/ti-web/lib/tiAnalyticsEvents.ts` with `weekend_planner_ready` and `weekend_planner_save_prompt_viewed`.
-  - Updated `CLAUDE.md` with a dedicated Phase 2 browser UAT checklist and copy/paste validation prompt.
+  - Updated `CLAUDE.md` with a dedicated Phase 2 browser UAT checklist, copy/paste validation prompt, and local-env placement note for the feature flag.
   - Local validation passed:
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
 

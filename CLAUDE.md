@@ -193,6 +193,10 @@ If Smoke UAT fails, stop and report the first failure precisely (page + action +
 
 Use this when validating the tournament-detail CTA repair behind `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY=true`.
 
+Local dev note:
+- Put `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY=true` in `apps/ti-web/.env.local`, not just the repo-root `.env.local`.
+- Restart the TI dev server after changing the flag.
+
 - [ ] Starting point:
   - [ ] Open a tournament detail page while signed out.
   - [ ] Click `Plan this tournament`.

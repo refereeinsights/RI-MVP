@@ -635,6 +635,7 @@ export default function PlannerClient(props: Props) {
   const savePromptViewedRef = useRef(false);
   const authRequiredViewedRef = useRef(false);
   const emptyStateViewedKeysRef = useRef<Set<string>>(new Set());
+  const [anonymousStorageReady, setAnonymousStorageReady] = useState(false);
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -1323,17 +1324,20 @@ export default function PlannerClient(props: Props) {
   useEffect(() => {
     if (!allowAnonymousPlanner) return;
     const storedEvents = loadAnonymousPlannerEvents(props.plannerSessionContext);
-    if (!storedEvents.length) return;
-    const merged = new Map<string, PlannerEventRow>();
-    for (const event of props.initialEvents ?? []) merged.set(String(event.id), event);
-    for (const event of storedEvents) merged.set(String(event.id), event);
-    setEvents(sortPlannerEvents(Array.from(merged.values())));
+    if (storedEvents.length) {
+      const merged = new Map<string, PlannerEventRow>();
+      for (const event of props.initialEvents ?? []) merged.set(String(event.id), event);
+      for (const event of storedEvents) merged.set(String(event.id), event);
+      setEvents(sortPlannerEvents(Array.from(merged.values())));
+    }
+    setAnonymousStorageReady(true);
   }, [allowAnonymousPlanner, props.initialEvents, props.plannerSessionContext]);
 
   useEffect(() => {
     if (!allowAnonymousPlanner) return;
+    if (!anonymousStorageReady) return;
     saveAnonymousPlannerEvents(props.plannerSessionContext, events);
-  }, [allowAnonymousPlanner, events, props.plannerSessionContext]);
+  }, [allowAnonymousPlanner, anonymousStorageReady, events, props.plannerSessionContext]);
 
   const filteredEventsForScheduleView = useMemo(() => {
     if (familyFilter === "all") return eventsForScheduleView;
@@ -3060,25 +3064,33 @@ export default function PlannerClient(props: Props) {
               </div>
             ) : importGate === "explorer" ? (
               <div className={styles.card} style={{ marginTop: 0, marginBottom: 12, textAlign: "center" }}>
-                <div className={styles.cardTitle}>Upgrade to unlock planner actions</div>
+                <div className={styles.cardTitle}>{allowAnonymousPlanner ? "Sign in to connect calendars" : "Upgrade to unlock planner actions"}</div>
                 <div className={styles.muted} style={{ marginBottom: 10 }}>
-                  Insider allows manual events, up to 2 connected calendars, and calendar assignment tools.
+                  {allowAnonymousPlanner
+                    ? "Calendar connections are account-based. Sign in or create an account to attach calendars to this planner."
+                    : "Insider allows manual events, up to 2 connected calendars, and calendar assignment tools."}
                 </div>
                 <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
-                  <Link
-                    href="/premium"
-                    className={styles.primaryBtn}
-                    style={{ display: "inline-flex", justifyContent: "center" }}
-                    onClick={() =>
-                      trackPlannerEvent("planner_weekend_pro_gate_clicked", {
-                        surface: "weekend_planner",
-                        entitlement: entitlementForAnalytics,
-                        gate_name: "multi_calendar",
-                      })
-                    }
-                  >
-                    Upgrade to Insider
-                  </Link>
+                  {allowAnonymousPlanner ? (
+                    <Link href={`/signup?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`} className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
+                      Create account
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/premium"
+                      className={styles.primaryBtn}
+                      style={{ display: "inline-flex", justifyContent: "center" }}
+                      onClick={() =>
+                        trackPlannerEvent("planner_weekend_pro_gate_clicked", {
+                          surface: "weekend_planner",
+                          entitlement: entitlementForAnalytics,
+                          gate_name: "multi_calendar",
+                        })
+                      }
+                    >
+                      Upgrade to Insider
+                    </Link>
+                  )}
                   <button
                     className={styles.secondaryBtn}
                     type="button"
@@ -3846,13 +3858,17 @@ export default function PlannerClient(props: Props) {
                       .
                     </>
                   ) : isExplorer ? (
-                    <>
-                      Upgrade to Insider to unlock planner actions, calendar connections, and saved weekend planning.{" "}
-                      <Link href="/premium" className="secondaryLink">
-                        Upgrade now
-                      </Link>
-                      .
-                    </>
+                    allowAnonymousPlanner ? (
+                      <>No upcoming events yet. Add a temporary event above or sign in to connect a calendar.</>
+                    ) : (
+                      <>
+                        Upgrade to Insider to unlock planner actions, calendar connections, and saved weekend planning.{" "}
+                        <Link href="/premium" className="secondaryLink">
+                          Upgrade now
+                        </Link>
+                        .
+                      </>
+                    )
                   ) : !sources.length ? (
                     <>No upcoming events yet. Connect your first calendar or add a manual event to start planning.</>
                   ) : upcomingFocus === "today" ? (
@@ -3876,7 +3892,11 @@ export default function PlannerClient(props: Props) {
                   isUnverified ? (
                     <>Verify your email to start building your season schedule.</>
                   ) : isExplorer ? (
-                    <>Upgrade to Insider to build and save a season schedule.</>
+                    allowAnonymousPlanner ? (
+                      <>No season events yet. Add a temporary event above or sign in to connect a calendar.</>
+                    ) : (
+                      <>Upgrade to Insider to build and save a season schedule.</>
+                    )
                   ) : !sources.length ? (
                     <>No season events yet. Connect your first calendar or add events manually to build your planner.</>
                   ) : (
@@ -4748,7 +4768,11 @@ export default function PlannerClient(props: Props) {
                   {isUnverified ? (
                     <>Verify your email first, then connect your first team calendar.</>
                   ) : isExplorer ? (
-                    <>Upgrade to Insider to unlock calendar connections and manual-event planning.</>
+                    allowAnonymousPlanner ? (
+                      <>Sign in or create an account to connect calendars to this planner.</>
+                    ) : (
+                      <>Upgrade to Insider to unlock calendar connections and manual-event planning.</>
+                    )
                   ) : isInsider ? (
                     <>Connect your first calendar to make <b>Upcoming</b>, <b>This Weekend</b>, and <b>Season</b> useful immediately.</>
                   ) : (
@@ -4808,23 +4832,33 @@ export default function PlannerClient(props: Props) {
 			                </>
 			              )
 			              ) : isExplorer ? (
-			                <>
-			                  Upgrade to Insider to unlock planner actions including calendar connections and manual events.{" "}
-			                <Link
-			                  href="/premium"
-			                  className="secondaryLink"
-			                  onClick={() =>
-			                    trackPlannerEvent("planner_weekend_pro_gate_clicked", {
-			                      surface: "weekend_planner",
-			                      entitlement: entitlementForAnalytics,
-			                      gate_name: "multi_calendar",
-			                    })
-			                  }
-			                  >
-			                  Upgrade now
-			                  </Link>
-			                .
-			              </>
+			                allowAnonymousPlanner ? (
+                        <>
+                          Sign in or create an account to connect calendars.{" "}
+                          <Link href={`/login?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`} className="secondaryLink">
+                            Sign in
+                          </Link>
+                          .
+                        </>
+                      ) : (
+                        <>
+                          Upgrade to Insider to unlock planner actions including calendar connections and manual events.{" "}
+                        <Link
+                          href="/premium"
+                          className="secondaryLink"
+                          onClick={() =>
+                            trackPlannerEvent("planner_weekend_pro_gate_clicked", {
+                              surface: "weekend_planner",
+                              entitlement: entitlementForAnalytics,
+                              gate_name: "multi_calendar",
+                            })
+                          }
+                          >
+                          Upgrade now
+                          </Link>
+                        .
+                      </>
+                      )
 			            ) : null}
 			          </div>
 			        ) : null}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY } from "@/lib/featureFlags";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
-import { buildPlannerHref, buildTournamentPlannerEntryHref, createPlannerSessionId } from "@/lib/planner/plannerSession";
+import { buildPlannerHref, buildTournamentPlannerEntryHref } from "@/lib/planner/plannerSession";
 import styles from "./TournamentPlanningCtasClient.module.css";
 
 function isValidIsoDate(value: string | null | undefined) {
@@ -21,6 +21,7 @@ export default function TournamentPlanningCtasClient(props: {
   tournamentId: string;
   tournamentSlug: string;
   tournamentName?: string | null;
+  plannerSessionId: string;
   primaryVenueId?: string | null;
   city: string | null;
   state: string | null;
@@ -31,12 +32,10 @@ export default function TournamentPlanningCtasClient(props: {
 }) {
   const slug = String(props.tournamentSlug ?? "").trim();
   const viewedRef = useRef(false);
-  const plannerSessionIdRef = useRef<string>("");
-  if (!plannerSessionIdRef.current) plannerSessionIdRef.current = createPlannerSessionId();
 
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
   const legacyPlannerEntry = buildTournamentPlannerEntryHref(`/weekend/${encodeURIComponent(slug)}`, {
-    planner_session_id: plannerSessionIdRef.current,
+    planner_session_id: props.plannerSessionId,
     venue_id: props.primaryVenueId,
     source: "tournament_detail",
   });
