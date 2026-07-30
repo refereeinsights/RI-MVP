@@ -100,6 +100,11 @@ export type TiAnalyticsEventName =
   | "weekend_planner_first_action"
   | "weekend_planner_empty_state_viewed"
   | "weekend_planner_save_prompt_viewed"
+  | "weekend_planner_anonymous_claim_started"
+  | "weekend_planner_anonymous_claim_succeeded"
+  | "weekend_planner_anonymous_claim_failed"
+  | "weekend_planner_anonymous_claim_skipped"
+  | "weekend_planner_first_authenticated_action_after_claim"
   | "weekend_planner_contextual_cta_viewed"
   | "weekend_planner_contextual_cta_clicked"
   | "weekend_planner_prefill_started"
@@ -185,6 +190,7 @@ type PlannerFirstActionType =
   | "calendar_feed_created"
   | "team_hotel_clicked"
   | "view_toggle";
+type PlannerClaimSkippedReason = "no_snapshot" | "already_claimed" | "not_authenticated" | "no_manual_items";
 
 type PlannerCanonicalContext = {
   planner_session_id?: string;
@@ -970,6 +976,42 @@ export type TiAnalyticsEventPropertiesByName = {
     source_page_type: "planner" | "tournament";
     auth_state: "signed_out";
     entitlement: PlannerEntitlement;
+  };
+  weekend_planner_anonymous_claim_started: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "tournament" | "planner";
+    auth_state: "verified";
+    entitlement: PlannerEntitlement;
+  };
+  weekend_planner_anonymous_claim_succeeded: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "tournament" | "planner";
+    auth_state: "verified";
+    entitlement: PlannerEntitlement;
+    imported_count: number;
+    skipped_duplicate_count: number;
+    had_existing_weekend_plan: boolean;
+  };
+  weekend_planner_anonymous_claim_failed: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "tournament" | "planner";
+    auth_state: "verified";
+    entitlement: PlannerEntitlement;
+    failure_reason: string;
+  };
+  weekend_planner_anonymous_claim_skipped: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "tournament" | "planner";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    reason: PlannerClaimSkippedReason;
+  };
+  weekend_planner_first_authenticated_action_after_claim: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "tournament" | "planner";
+    auth_state: "verified";
+    entitlement: PlannerEntitlement;
+    first_action_type: PlannerFirstActionType;
   };
   weekend_planner_contextual_cta_viewed: PlannerCanonicalContext & {
     surface: PlannerActivationSurface;

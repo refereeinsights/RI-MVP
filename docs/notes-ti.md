@@ -26,6 +26,15 @@ Maintenance rules:
   - Follow-up fix: delayed anonymous local-storage writes until after local snapshot hydration so signed-out temporary manual events no longer get overwritten by the seeded tournament-only initial render on refresh.
   - Follow-up fix: replaced stray Explorer upgrade copy in the signed-out Phase 2 planner path with auth/account messaging for calendar-connection surfaces.
   - Follow-up verification: browser automation re-check confirmed the remaining multi-click symptom is tooling-only, not app-side — synthetic pointer clicks can fail to focus/activate the healthy tournament CTA while direct `element.click()` succeeds immediately on the same stable DOM node with no overlay, no layout shift, and no console errors.
+  - TI Weekend Planner Phase 3 anonymous-claim flow implemented locally:
+    - Added `apps/ti-web/app/api/planner/anonymous-claim/route.ts` to import local anonymous manual planner items into authenticated `planner_events`, reuse the existing `ti_weekend_plans` tournament anchor, and skip deterministic duplicates without overwriting saved data.
+    - Added `apps/ti-web/lib/planner/anonymousClaim.ts` plus `apps/ti-web/lib/planner/anonymousClaim.test.ts` to formalize claimable-item filtering and exact duplicate signatures for Phase 3.
+    - Extended `apps/ti-web/lib/planner/anonymousPlanner.ts` so the client can read full anonymous snapshots, clear them after successful claim, and mark claimed planner sessions to avoid repeated imports.
+    - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so authenticated planner boot now detects resumable anonymous state after auth return, calls the authoritative claim endpoint once, merges imported rows into live planner state, preserves local state on failure, and emits claim telemetry.
+    - Extended `apps/ti-web/lib/tiAnalyticsEvents.ts` with the new anonymous-claim event family plus first-authenticated-action-after-claim tracking.
+    - Local validation passed:
+      - `node --import tsx --test apps/ti-web/lib/planner/anonymousClaim.test.ts`
+      - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
   - Extended typed analytics in `apps/ti-web/lib/tiAnalyticsEvents.ts` with `weekend_planner_ready` and `weekend_planner_save_prompt_viewed`.
   - Updated `CLAUDE.md` with a dedicated Phase 2 browser UAT checklist, copy/paste validation prompt, and local-env placement note for the feature flag.
   - Local validation passed:

@@ -7,10 +7,15 @@ import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import ChildTeamManager from "./ChildTeamManager";
 import {
   buildAnonymousPlannerEvent,
+  clearAnonymousPlannerSnapshot,
+  loadAnonymousPlannerSnapshot,
   loadAnonymousPlannerEvents,
+  markAnonymousPlannerClaimed,
   saveAnonymousPlannerEvents,
   updateAnonymousPlannerEvent,
+  wasAnonymousPlannerClaimed,
 } from "@/lib/planner/anonymousPlanner";
+import { filterAnonymousClaimablePlannerEvents } from "@/lib/planner/anonymousClaim";
 import {
   computeDuplicateCandidates,
   type PlannerDuplicateCandidate,
@@ -561,6 +566,16 @@ export default function PlannerClient(props: Props) {
       entitlement: entitlementForAnalytics,
       first_action_type: firstActionType,
     });
+    if (claimedAnonymousState && plannerAuthState === "verified" && !claimedFirstActionTrackedRef.current) {
+      claimedFirstActionTrackedRef.current = true;
+      trackPlannerEvent("weekend_planner_first_authenticated_action_after_claim", {
+        surface: "planner",
+        source_page_type: plannerSourcePageType,
+        auth_state: "verified",
+        entitlement: entitlementForAnalytics,
+        first_action_type: firstActionType,
+      });
+    }
   }
 
   function plannerWriteBlockedCopy() {
@@ -634,8 +649,11 @@ export default function PlannerClient(props: Props) {
   const plannerReadyFiredRef = useRef(false);
   const savePromptViewedRef = useRef(false);
   const authRequiredViewedRef = useRef(false);
+  const anonymousClaimAttemptedRef = useRef(false);
+  const claimedFirstActionTrackedRef = useRef(false);
   const emptyStateViewedKeysRef = useRef<Set<string>>(new Set());
   const [anonymousStorageReady, setAnonymousStorageReady] = useState(false);
+  const [claimedAnonymousState, setClaimedAnonymousState] = useState(false);
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -1755,6 +1773,123 @@ export default function PlannerClient(props: Props) {
       entitlement: entitlementForAnalytics,
     });
   }, [allowAnonymousPlanner, entitlementForAnalytics, plannerSourcePageType]);
+
+  useEffect(() => {
+    const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
+    if (!plannerSessionId) return;
+    if (plannerAuthState !== "verified") return;
+    if (anonymousClaimAttemptedRef.current) return;
+    anonymousClaimAttemptedRef.current = true;
+
+    const alreadyClaimed = wasAnonymousPlannerClaimed(plannerSessionId);
+    const snapshot = loadAnonymousPlannerSnapshot(props.plannerSessionContext);
+    if (alreadyClaimed) {
+      if (snapshot) clearAnonymousPlannerSnapshot(props.plannerSessionContext);
+      trackPlannerEvent("weekend_planner_anonymous_claim_skipped", {
+        surface: "planner",
+        source_page_type: plannerSourcePageType,
+        auth_state: "verified",
+        entitlement: entitlementForAnalytics,
+        reason: "already_claimed",
+      });
+      return;
+    }
+    if (!snapshot) {
+      if (props.plannerSessionContext?.planner_auth) {
+        trackPlannerEvent("weekend_planner_anonymous_claim_skipped", {
+          surface: "planner",
+          source_page_type: plannerSourcePageType,
+          auth_state: "verified",
+          entitlement: entitlementForAnalytics,
+          reason: "no_snapshot",
+        });
+      }
+      return;
+    }
+
+    const claimableEvents = filterAnonymousClaimablePlannerEvents(snapshot.events);
+    if (!claimableEvents.length) {
+      clearAnonymousPlannerSnapshot(props.plannerSessionContext);
+      markAnonymousPlannerClaimed(plannerSessionId);
+      trackPlannerEvent("weekend_planner_anonymous_claim_skipped", {
+        surface: "planner",
+        source_page_type: plannerSourcePageType,
+        auth_state: "verified",
+        entitlement: entitlementForAnalytics,
+        reason: "no_manual_items",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      trackPlannerEvent("weekend_planner_anonymous_claim_started", {
+        surface: "planner",
+        source_page_type: plannerSourcePageType,
+        auth_state: "verified",
+        entitlement: entitlementForAnalytics,
+      });
+      try {
+        const res = await jsonFetch<{
+          ok: true;
+          imported_count: number;
+          skipped_duplicate_count: number;
+          had_existing_weekend_plan: boolean;
+          events: PlannerEventRow[];
+        }>("/api/planner/anonymous-claim", {
+          method: "POST",
+          body: JSON.stringify({
+            planner_session_id: plannerSessionId,
+            tournament_id: props.plannerSessionContext?.tournament_id ?? null,
+            venue_id: props.plannerSessionContext?.venue_id ?? null,
+            events: snapshot.events,
+          }),
+        });
+        if (cancelled) return;
+        clearAnonymousPlannerSnapshot(props.plannerSessionContext);
+        markAnonymousPlannerClaimed(plannerSessionId);
+        if (res.events.length) {
+          setEvents((prev) => {
+            const merged = new Map<string, PlannerEventRow>();
+            for (const event of prev) merged.set(String(event.id), event);
+            for (const event of res.events) merged.set(String(event.id), event);
+            return sortPlannerEvents(Array.from(merged.values()));
+          });
+          setClaimedAnonymousState(true);
+        }
+        const successMessage =
+          res.imported_count > 0
+            ? res.skipped_duplicate_count > 0
+              ? `Saved ${res.imported_count} temporary planner item${res.imported_count === 1 ? "" : "s"} to your account. ${res.skipped_duplicate_count} duplicate item${res.skipped_duplicate_count === 1 ? " was" : "s were"} skipped.`
+              : `Saved ${res.imported_count} temporary planner item${res.imported_count === 1 ? "" : "s"} to your account.`
+            : "Your temporary planner already matched saved items in your account.";
+        setNotice(successMessage);
+        trackPlannerEvent("weekend_planner_anonymous_claim_succeeded", {
+          surface: "planner",
+          source_page_type: plannerSourcePageType,
+          auth_state: "verified",
+          entitlement: entitlementForAnalytics,
+          imported_count: res.imported_count,
+          skipped_duplicate_count: res.skipped_duplicate_count,
+          had_existing_weekend_plan: res.had_existing_weekend_plan,
+        });
+      } catch (error: any) {
+        if (cancelled) return;
+        setError("We could not save your temporary planner items yet. Your local planner is still available on this device.");
+        trackPlannerEvent("weekend_planner_anonymous_claim_failed", {
+          surface: "planner",
+          source_page_type: plannerSourcePageType,
+          auth_state: "verified",
+          entitlement: entitlementForAnalytics,
+          failure_reason: String(error?.message ?? "unknown"),
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entitlementForAnalytics, plannerAuthState, plannerSourcePageType, props.plannerSessionContext]);
 
   useEffect(() => {
     if (plannerLoadedFiredRef.current) return;

@@ -2,6 +2,7 @@ import type { PlannerEventCreateBody, PlannerEventRow } from "./types";
 import type { PlannerSessionContext } from "./plannerSession";
 
 const STORAGE_PREFIX = "ti:anonymous-planner:v1:";
+const CLAIMED_PREFIX = "ti:anonymous-planner-claimed:v1:";
 const TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 type AnonymousPlannerSnapshot = {
@@ -23,7 +24,7 @@ function snapshotKey(context: PlannerSessionContext | null | undefined) {
   return null;
 }
 
-function safeReadSnapshot(context: PlannerSessionContext | null | undefined) {
+export function loadAnonymousPlannerSnapshot(context: PlannerSessionContext | null | undefined) {
   if (typeof window === "undefined") return null;
   const key = snapshotKey(context);
   if (!key) return null;
@@ -60,11 +61,49 @@ function safeWriteSnapshot(context: PlannerSessionContext | null | undefined, ev
 }
 
 export function loadAnonymousPlannerEvents(context: PlannerSessionContext | null | undefined) {
-  return safeReadSnapshot(context)?.events ?? [];
+  return loadAnonymousPlannerSnapshot(context)?.events ?? [];
 }
 
 export function saveAnonymousPlannerEvents(context: PlannerSessionContext | null | undefined, events: PlannerEventRow[]) {
   safeWriteSnapshot(context, events);
+}
+
+export function clearAnonymousPlannerSnapshot(context: PlannerSessionContext | null | undefined) {
+  if (typeof window === "undefined") return;
+  const key = snapshotKey(context);
+  if (!key) return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
+function claimedKey(plannerSessionId: string | null | undefined) {
+  const normalized = String(plannerSessionId ?? "").trim();
+  return normalized ? `${CLAIMED_PREFIX}${normalized}` : null;
+}
+
+export function wasAnonymousPlannerClaimed(plannerSessionId: string | null | undefined) {
+  if (typeof window === "undefined") return false;
+  const key = claimedKey(plannerSessionId);
+  if (!key) return false;
+  try {
+    return window.sessionStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markAnonymousPlannerClaimed(plannerSessionId: string | null | undefined) {
+  if (typeof window === "undefined") return;
+  const key = claimedKey(plannerSessionId);
+  if (!key) return;
+  try {
+    window.sessionStorage.setItem(key, "1");
+  } catch {
+    // ignore
+  }
 }
 
 export function buildSeededTournamentPlannerEvent(context: PlannerSessionContext | null | undefined): PlannerEventRow | null {
