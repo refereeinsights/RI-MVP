@@ -33,6 +33,14 @@ Maintenance rules:
     - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so authenticated planner boot now detects resumable anonymous state after auth return, calls the authoritative claim endpoint once, merges imported rows into live planner state, preserves local state on failure, and emits claim telemetry.
     - Extended `apps/ti-web/lib/tiAnalyticsEvents.ts` with the new anonymous-claim event family plus first-authenticated-action-after-claim tracking.
     - Follow-up duplicate fix: added additive migration `supabase/migrations/20260730_ti_planner_phase3_claim_idempotency.sql` plus server-side claim provenance on imported `planner_events`, so repeated authenticated visits with the same `planner_session_id` now no-op instead of re-importing the same anonymous item.
+    - Local browser rerun after applying the idempotency migration passed end-to-end:
+      - fresh signed-out tournament CTA entry
+      - temporary manual event create + signed-out refresh persistence
+      - auth return with the same `planner_session_id`
+      - single claimed authenticated event
+      - repeat revisits to the same planner-session URL with no duplicate import
+      - cleanup back to baseline planner events
+    - Remaining observed issue: a brief post-auth `Upcoming` zero-state flash can appear before the authenticated planner event list settles, but the claimed event then renders correctly and persists; current evidence points to a cosmetic timing artifact rather than claim/data loss.
     - Local validation passed:
       - `node --import tsx --test apps/ti-web/lib/planner/anonymousClaim.test.ts`
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
