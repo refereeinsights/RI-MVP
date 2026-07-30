@@ -654,6 +654,7 @@ export default function PlannerClient(props: Props) {
   const emptyStateViewedKeysRef = useRef<Set<string>>(new Set());
   const [anonymousStorageReady, setAnonymousStorageReady] = useState(false);
   const [claimedAnonymousState, setClaimedAnonymousState] = useState(false);
+  const [anonymousClaimPending, setAnonymousClaimPending] = useState(false);
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -1784,6 +1785,7 @@ export default function PlannerClient(props: Props) {
     const alreadyClaimed = wasAnonymousPlannerClaimed(plannerSessionId);
     const snapshot = loadAnonymousPlannerSnapshot(props.plannerSessionContext);
     if (alreadyClaimed) {
+      setAnonymousClaimPending(false);
       if (snapshot) clearAnonymousPlannerSnapshot(props.plannerSessionContext);
       trackPlannerEvent("weekend_planner_anonymous_claim_skipped", {
         surface: "planner",
@@ -1795,6 +1797,7 @@ export default function PlannerClient(props: Props) {
       return;
     }
     if (!snapshot) {
+      setAnonymousClaimPending(false);
       if (props.plannerSessionContext?.planner_auth) {
         trackPlannerEvent("weekend_planner_anonymous_claim_skipped", {
           surface: "planner",
@@ -1809,6 +1812,7 @@ export default function PlannerClient(props: Props) {
 
     const claimableEvents = filterAnonymousClaimablePlannerEvents(snapshot.events);
     if (!claimableEvents.length) {
+      setAnonymousClaimPending(false);
       clearAnonymousPlannerSnapshot(props.plannerSessionContext);
       markAnonymousPlannerClaimed(plannerSessionId);
       trackPlannerEvent("weekend_planner_anonymous_claim_skipped", {
@@ -1821,6 +1825,7 @@ export default function PlannerClient(props: Props) {
       return;
     }
 
+    setAnonymousClaimPending(true);
     let cancelled = false;
     void (async () => {
       trackPlannerEvent("weekend_planner_anonymous_claim_started", {
@@ -1863,6 +1868,7 @@ export default function PlannerClient(props: Props) {
               ? `Saved ${res.imported_count} temporary planner item${res.imported_count === 1 ? "" : "s"} to your account. ${res.skipped_duplicate_count} duplicate item${res.skipped_duplicate_count === 1 ? " was" : "s were"} skipped.`
               : `Saved ${res.imported_count} temporary planner item${res.imported_count === 1 ? "" : "s"} to your account.`
             : "Your temporary planner already matched saved items in your account.";
+        setAnonymousClaimPending(false);
         setNotice(successMessage);
         trackPlannerEvent("weekend_planner_anonymous_claim_succeeded", {
           surface: "planner",
@@ -1875,6 +1881,7 @@ export default function PlannerClient(props: Props) {
         });
       } catch (error: any) {
         if (cancelled) return;
+        setAnonymousClaimPending(false);
         setError("We could not save your temporary planner items yet. Your local planner is still available on this device.");
         trackPlannerEvent("weekend_planner_anonymous_claim_failed", {
           surface: "planner",
@@ -1895,6 +1902,7 @@ export default function PlannerClient(props: Props) {
     if (plannerLoadedFiredRef.current) return;
     if (!initialLoadSettledRef.current || eventsPagingBusy) return;
     if (plannerAuthState !== "verified") return;
+    if (anonymousClaimPending) return;
     plannerLoadedFiredRef.current = true;
     trackPlannerEvent("weekend_planner_loaded", {
       surface: "planner",
@@ -1927,6 +1935,7 @@ export default function PlannerClient(props: Props) {
     plannerViewForAnalytics,
     props.plannerSessionContext,
     sources.length,
+    anonymousClaimPending,
   ]);
 
   useEffect(() => {
@@ -3984,6 +3993,9 @@ export default function PlannerClient(props: Props) {
 	          ) : scheduleView === "upcoming" ? (
 	            <div className={styles.muted}>
 	              {familyFilter === "all" ? (
+                  anonymousClaimPending ? (
+                    <>Finishing your saved planner items…</>
+                  ) : (
                   isUnverified ? (
                     <>
                       Verify your email to connect a calendar or add manual events.{" "}
@@ -4012,6 +4024,7 @@ export default function PlannerClient(props: Props) {
                     <>No events are loaded for <b>tomorrow</b>. Try <b>Today</b> or <b>All upcoming</b>.</>
                   ) : (
                     <>No upcoming events yet. Connect a team calendar or add a manual event to start planning.</>
+                  )
                   )
                 ) : (
                   <>No upcoming events match <b>{activeFamilyFilterLabel}</b>. Try <b>All schedules</b> or another family filter.</>

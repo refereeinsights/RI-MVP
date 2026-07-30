@@ -40,7 +40,10 @@ Maintenance rules:
       - single claimed authenticated event
       - repeat revisits to the same planner-session URL with no duplicate import
       - cleanup back to baseline planner events
-    - Remaining observed issue: a brief post-auth `Upcoming` zero-state flash can appear before the authenticated planner event list settles, but the claimed event then renders correctly and persists; current evidence points to a cosmetic timing artifact rather than claim/data loss.
+    - Follow-up local fix for the post-auth cosmetic gap:
+      - updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so authenticated planner load waits for any in-flight anonymous-claim import before firing `weekend_planner_loaded`
+      - suppressed the misleading `No upcoming events yet...` copy during that narrow claim window and replaced it with `Finishing your saved planner items...`
+      - local `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed after the change
     - Local validation passed:
       - `node --import tsx --test apps/ti-web/lib/planner/anonymousClaim.test.ts`
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
