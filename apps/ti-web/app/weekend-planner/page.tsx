@@ -261,9 +261,11 @@ export default async function WeekendPlannerPage({
                   {resumeLabel ? (
                     <article className={styles.panelCard}>
                       <div className={styles.panelHeader}>
-                        <h2 className={styles.panelTitle}>Continuing your tournament plan</h2>
+                        <h2 className={styles.panelTitle}>
+                          {isAuthed ? "Continuing your tournament plan" : "Tournament added to this planner"}
+                        </h2>
                         <p className={styles.panelSub}>
-                          {resumeLabel}
+                          {isAuthed ? resumeLabel : `${resumeLabel} is already loaded in this planner.`}
                           {resumeDateLabel ? ` • ${resumeDateLabel}` : ""}
                         </p>
                       </div>

@@ -578,6 +578,18 @@ export default function PlannerClient(props: Props) {
     }
   }
 
+  function trackPlannerActivationIfNeeded(activationType: "manual_event_created") {
+    if (plannerActivationTrackedRef.current) return;
+    plannerActivationTrackedRef.current = true;
+    trackPlannerEvent("weekend_planner_activation_achieved", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      activation_type: activationType,
+    });
+  }
+
   function plannerWriteBlockedCopy() {
     if (allowAnonymousPlanner) {
       return "Create an account or sign in to save this planner, connect calendars, or use it on another device.";
@@ -651,6 +663,7 @@ export default function PlannerClient(props: Props) {
   const authRequiredViewedRef = useRef(false);
   const anonymousClaimAttemptedRef = useRef(false);
   const claimedFirstActionTrackedRef = useRef(false);
+  const plannerActivationTrackedRef = useRef(false);
   const emptyStateViewedKeysRef = useRef<Set<string>>(new Set());
   const [anonymousStorageReady, setAnonymousStorageReady] = useState(false);
   const [claimedAnonymousState, setClaimedAnonymousState] = useState(false);
@@ -2467,6 +2480,7 @@ export default function PlannerClient(props: Props) {
           event_type: String(createType),
         });
         trackPlannerFirstAction("manual_event_created");
+        trackPlannerActivationIfNeeded("manual_event_created");
         setEvents((prev) => sortPlannerEvents([...prev, event]));
         resetCreateForm();
         setCreateOpen(false);
@@ -2482,6 +2496,7 @@ export default function PlannerClient(props: Props) {
           event_type: String(createType),
         });
         trackPlannerFirstAction("manual_event_created");
+        trackPlannerActivationIfNeeded("manual_event_created");
 	      setEvents((prev) => [...prev, res.event].sort((a, b) => a.starts_at.localeCompare(b.starts_at)));
 	      resetCreateForm();
 	      setCreateOpen(false);
@@ -3522,11 +3537,17 @@ export default function PlannerClient(props: Props) {
             <div className={styles.card} style={{ marginBottom: 12 }}>
               <div className={styles.cardTitle}>Temporary planner</div>
               <div className={styles.muted}>
-                This planner is stored on this device for now. Sign in or create an account to keep it across devices, sync calendars, or share it later.
+                Your tournament context is already added. Use this planner now on this device, then sign in later if you want to save it to your account, use it on another device, connect calendars, or share it.
+              </div>
+              <div className={styles.muted} style={{ marginTop: 8 }}>
+                Best next step: add one manual event for your hotel, check-in, meal, or travel plan.
               </div>
               <div className={styles.eventActions} style={{ marginTop: 10 }}>
+                <button className={styles.primaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
+                  Add first event
+                </button>
                 <Link
-                  className={styles.primaryBtn}
+                  className={styles.secondaryBtn}
                   href={`/signup?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
                   onClick={() => {
                     trackPlannerEvent("weekend_planner_create_account_clicked", {
@@ -3569,6 +3590,15 @@ export default function PlannerClient(props: Props) {
                 >
                   Sign in
                 </Link>
+              </div>
+            </div>
+          ) : null}
+
+          {claimedAnonymousState ? (
+            <div className={styles.card} style={{ marginBottom: 12 }}>
+              <div className={styles.cardTitle}>Planner saved to your account</div>
+              <div className={styles.muted}>
+                Your temporary planner items are now attached to this account. Keep adding events here, revisit this tournament later, or connect calendars when you are ready.
               </div>
             </div>
           ) : null}

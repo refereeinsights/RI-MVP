@@ -189,7 +189,7 @@ If Smoke UAT fails, stop and report the first failure precisely (page + action +
 
 ---
 
-### Weekend Planner Phase 2 UAT (direct planner entry + anonymous temporary planning)
+### Weekend Planner Phase 2–4 UAT (direct entry, anonymous planning, claim, activation clarity)
 
 Use this when validating the tournament-detail CTA repair behind `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY=true`.
 
@@ -211,8 +211,11 @@ Browser automation note (2026-07-30):
 - [ ] Seeded tournament context:
   - [ ] The planner loads immediately while signed out.
   - [ ] Tournament context is visible without any second `Add to planner` action.
+  - [ ] The top card makes it clear the tournament was already added to this planner.
   - [ ] No auth wall blocks initial planner rendering.
 - [ ] Anonymous temporary action:
+  - [ ] The planner explains that it works on this device now and can be saved later with auth.
+  - [ ] A clear `Add first event` path is visible.
   - [ ] Click `Add event`.
   - [ ] Create one temporary manual event or note.
   - [ ] Confirm it appears in the planner immediately.
@@ -222,6 +225,8 @@ Browser automation note (2026-07-30):
   - [ ] A signed-out save prompt is visible.
   - [ ] `Create account` and `Sign in` links preserve the same `planner_session_id` in the `returnTo` path.
   - [ ] No auth loop occurs after login.
+  - [ ] After auth return, any claimed temporary item is clearly presented as saved to the account.
+  - [ ] No misleading `No upcoming events yet` flash appears during claim import. A temporary `Finishing your saved planner items...` message is acceptable.
 - [ ] Regression guardrails:
   - [ ] `/weekend/[slug]` still loads as the public/shared weekend route.
   - [ ] Signed-in planner still loads normally on `/weekend-planner`.
@@ -240,12 +245,19 @@ Copy/paste browser-verification prompt:
    - whether `/weekend-planner` loaded directly
 5) While still signed out:
    - confirm tournament context is visible
+   - confirm the page clearly says the tournament was already added to this planner
+   - confirm the planner explains this is temporary on the current device
+   - confirm there is a clear `Add first event` path
    - create one temporary manual event
    - refresh and confirm it persists
    - edit it, refresh, confirm change persisted
    - delete it, refresh, confirm removal
-6) Click `Create account` or `Sign in` from the planner save prompt and confirm the auth `returnTo` preserves the same `planner_session_id`.
-7) Report PASS/FAIL plus the first exact break point if anything fails.
+6) Create one fresh temporary manual event again, then click `Create account` or `Sign in` from the planner save prompt and confirm the auth `returnTo` preserves the same `planner_session_id`.
+7) After auth return:
+   - confirm the claimed event is still present
+   - confirm the planner clearly indicates the temporary items were saved to the account
+   - confirm no misleading empty-state flash appears during claim import
+8) Report PASS/FAIL plus the first exact break point if anything fails.
 
 ---
 

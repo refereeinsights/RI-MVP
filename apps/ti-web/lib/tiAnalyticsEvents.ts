@@ -96,6 +96,7 @@ export type TiAnalyticsEventName =
   | "weekend_planner_create_account_clicked"
   | "weekend_planner_sign_in_clicked"
   | "weekend_planner_ready"
+  | "weekend_planner_activation_achieved"
   | "weekend_planner_loaded"
   | "weekend_planner_first_action"
   | "weekend_planner_empty_state_viewed"
@@ -943,6 +944,13 @@ export type TiAnalyticsEventPropertiesByName = {
     loaded_event_count_bucket: LoadedEventCountBucket;
     feed_count_bucket: FeedCountBucket;
     child_team_count_bucket: ChildTeamCountBucket;
+  };
+  weekend_planner_activation_achieved: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    activation_type: "manual_event_created";
   };
   weekend_planner_loaded: PlannerCanonicalContext & {
     surface: "planner";

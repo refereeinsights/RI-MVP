@@ -40,11 +40,20 @@ Maintenance rules:
       - single claimed authenticated event
       - repeat revisits to the same planner-session URL with no duplicate import
       - cleanup back to baseline planner events
-    - Follow-up local fix for the post-auth cosmetic gap:
+  - Follow-up local fix for the post-auth cosmetic gap:
       - updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so authenticated planner load waits for any in-flight anonymous-claim import before firing `weekend_planner_loaded`
       - suppressed the misleading `No upcoming events yet...` copy during that narrow claim window and replaced it with `Finishing your saved planner items...`
       - local `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed after the change
-    - Local validation passed:
+  - TI Weekend Planner Phase 4 activation clarity implemented locally:
+    - updated `apps/ti-web/app/weekend-planner/page.tsx` so direct-entry signed-out tournament traffic now sees a clearer seeded-context banner (`Tournament added to this planner`) instead of the more ambiguous continuation copy
+    - updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so the signed-out planner clearly states the tournament is already loaded, the planner is temporary on this device, and the best next step is adding the first manual event
+    - promoted `Add first event` to the primary signed-out CTA while keeping auth deferred for save/cross-device/calendar use
+    - added a post-claim authenticated continuity card (`Planner saved to your account`) so successful anonymous claim no longer relies on a lower-page notice alone
+    - extended `apps/ti-web/lib/tiAnalyticsEvents.ts` and `PlannerClient.tsx` with `weekend_planner_activation_achieved`, fired once when the first user-generated manual planner item is created, so activation can be measured independently from `weekend_planner_first_action` view toggles
+    - updated `CLAUDE.md` Phase 2–4 UAT instructions to verify temporary-state clarity, first-event affordance, and post-auth continuity messaging
+    - local validation passed:
+      - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+  - Local validation passed:
       - `node --import tsx --test apps/ti-web/lib/planner/anonymousClaim.test.ts`
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
   - Extended typed analytics in `apps/ti-web/lib/tiAnalyticsEvents.ts` with `weekend_planner_ready` and `weekend_planner_save_prompt_viewed`.
