@@ -75,6 +75,54 @@ type DuplicateCandidate = {
   owl_run_count: number;
 };
 
+function summarizeUpstreamError(err: unknown) {
+  const error = err as any;
+  const nestedErrors = Array.isArray(error?.errors)
+    ? error.errors.map((nested: any) => ({
+        name: nested?.name ?? null,
+        message: nested?.message ?? null,
+        code: nested?.code ?? null,
+        errno: nested?.errno ?? null,
+        syscall: nested?.syscall ?? null,
+        address: nested?.address ?? null,
+        port: nested?.port ?? null,
+      }))
+    : [];
+
+  return {
+    name: error?.name ?? null,
+    message: error?.message ?? String(err ?? "unknown"),
+    code: error?.code ?? null,
+    errno: error?.errno ?? null,
+    syscall: error?.syscall ?? null,
+    address: error?.address ?? null,
+    port: error?.port ?? null,
+    cause: error?.cause
+      ? {
+          name: error.cause?.name ?? null,
+          message: error.cause?.message ?? null,
+          code: error.cause?.code ?? null,
+          errno: error.cause?.errno ?? null,
+          syscall: error.cause?.syscall ?? null,
+          address: error.cause?.address ?? null,
+          port: error.cause?.port ?? null,
+          errors: Array.isArray(error.cause?.errors)
+            ? error.cause.errors.map((nested: any) => ({
+                name: nested?.name ?? null,
+                message: nested?.message ?? null,
+                code: nested?.code ?? null,
+                errno: nested?.errno ?? null,
+                syscall: nested?.syscall ?? null,
+                address: nested?.address ?? null,
+                port: nested?.port ?? null,
+              }))
+            : [],
+        }
+      : null,
+    errors: nestedErrors,
+  };
+}
+
 function pickStreetAddress(row: {
   address?: string | null;
   address1?: string | null;
@@ -448,7 +496,12 @@ export async function POST(request: Request) {
           await supabaseAdmin.from("venues" as any).update(updates).eq("id", venueId);
         }
       } catch (err) {
-        console.warn("[owlseye] auto-geocode failed", err);
+        console.warn("[owlseye] auto-geocode failed", {
+          venueId,
+          address,
+          upstream: "api.mapbox.com",
+          error: summarizeUpstreamError(err),
+        });
       }
     }
 
@@ -473,16 +526,32 @@ export async function POST(request: Request) {
 
       const existingRunId = existingRunResp.data.run_id ?? existingRunResp.data.id;
       const supabase = getAdminSupabase();
-      const nearbyResult = await upsertNearbyForRun({
-        supabaseAdmin: supabase,
-        runId: existingRunId,
-        venueId,
-        sport,
-        venueLat: venueLat ?? 0,
-        venueLng: venueLng ?? 0,
-        force,
-        categoriesToFetch: requestedCategories!,
-      });
+      let nearbyResult;
+      try {
+        nearbyResult = await upsertNearbyForRun({
+          supabaseAdmin: supabase,
+          runId: existingRunId,
+          venueId,
+          sport,
+          venueLat: venueLat ?? 0,
+          venueLng: venueLng ?? 0,
+          force,
+          categoriesToFetch: requestedCategories!,
+        });
+      } catch (err) {
+        console.error("[owlseye] targeted nearby upsert failed", {
+          venueId,
+          runId: existingRunId,
+          categories: requestedCategories,
+          probableUpstreams: [
+            "places.googleapis.com",
+            "places-api.foursquare.com",
+            "overpass-api.de",
+          ],
+          error: summarizeUpstreamError(err),
+        });
+        throw err;
+      }
 
       const { data: nearbyRows } = await supabase
         .from("owls_eye_nearby_food" as any)
@@ -712,19 +781,42 @@ export async function POST(request: Request) {
         try {
           airports = await findNearestAirports({ lat, lng });
         } catch (airportErr) {
-          console.error("[owlseye] Airport lookup failed", airportErr);
+          console.error("[owlseye] Airport lookup failed", {
+            venueId,
+            lat,
+            lng,
+            dependency: "supabase.airports",
+            error: summarizeUpstreamError(airportErr),
+          });
         }
 
-        const nearbyResult = (await upsertNearbyForRun({
-          supabaseAdmin: supabase,
-          runId: result.runId,
-          venueId,
-          sport,
-          venueLat: lat,
-          venueLng: lng,
-          // Only force refresh when requested; otherwise reuse cached nearby rows to save Places calls.
-          force,
-        })) as any;
+        const nearbyResult = (await (async () => {
+          try {
+            return await upsertNearbyForRun({
+              supabaseAdmin: supabase,
+              runId: result.runId,
+              venueId,
+              sport,
+              venueLat: lat,
+              venueLng: lng,
+              force,
+            });
+          } catch (nearbyErr) {
+            console.error("[owlseye] nearby upsert failed", {
+              venueId,
+              runId: result.runId,
+              lat,
+              lng,
+              probableUpstreams: [
+                "places.googleapis.com",
+                "places-api.foursquare.com",
+                "overpass-api.de",
+              ],
+              error: summarizeUpstreamError(nearbyErr),
+            });
+            throw nearbyErr;
+          }
+        })()) as any;
         nearbyMeta = nearbyResult;
         if (nearbyResult && nearbyResult.ok === false) {
           console.warn("[owlseye] Nearby upsert result", nearbyResult);
@@ -788,7 +880,11 @@ export async function POST(request: Request) {
         }
       }
     } catch (err) {
-      console.error("[owlseye] Nearby fetch in run route failed", err);
+      console.error("[owlseye] Nearby fetch in run route failed", {
+        venueId,
+        runId: result.runId,
+        error: summarizeUpstreamError(err),
+      });
     }
 
     return NextResponse.json({
@@ -808,7 +904,10 @@ export async function POST(request: Request) {
               return "unknown error";
             }
           })();
-    console.error("[owlseye] run POST failed", err);
+    console.error("[owlseye] run POST failed", {
+      error: summarizeUpstreamError(err),
+      rawMessage: message,
+    });
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

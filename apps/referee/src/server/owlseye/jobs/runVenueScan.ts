@@ -44,6 +44,41 @@ function isUuid(value: string) {
   return UUID_REGEX.test(value);
 }
 
+function summarizeUpstreamError(err: unknown) {
+  const error = err as any;
+  return {
+    name: error?.name ?? null,
+    message: error?.message ?? String(err ?? "unknown"),
+    code: error?.code ?? null,
+    errno: error?.errno ?? null,
+    syscall: error?.syscall ?? null,
+    address: error?.address ?? null,
+    port: error?.port ?? null,
+    cause: error?.cause
+      ? {
+          name: error.cause?.name ?? null,
+          message: error.cause?.message ?? null,
+          code: error.cause?.code ?? null,
+          errno: error.cause?.errno ?? null,
+          syscall: error.cause?.syscall ?? null,
+          address: error.cause?.address ?? null,
+          port: error.cause?.port ?? null,
+          errors: Array.isArray(error.cause?.errors)
+            ? error.cause.errors.map((nested: any) => ({
+                name: nested?.name ?? null,
+                message: nested?.message ?? null,
+                code: nested?.code ?? null,
+                errno: nested?.errno ?? null,
+                syscall: nested?.syscall ?? null,
+                address: nested?.address ?? null,
+                port: nested?.port ?? null,
+              }))
+            : [],
+        }
+      : null,
+  };
+}
+
 async function safeUpsert(
   table: string,
   payload: Record<string, any>,
@@ -215,7 +250,16 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
       }
     }
   } catch (err) {
-    console.error("[owlseye] Nearby fetch failed", err);
+    console.error("[owlseye] Nearby fetch failed", {
+      venueId: input.venueId,
+      runId,
+      probableUpstreams: [
+        "places.googleapis.com",
+        "places-api.foursquare.com",
+        "overpass-api.de",
+      ],
+      error: summarizeUpstreamError(err),
+    });
   }
 
   if (failureMessage) {
