@@ -189,6 +189,56 @@ If Smoke UAT fails, stop and report the first failure precisely (page + action +
 
 ---
 
+### Weekend Planner Phase 2 UAT (direct planner entry + anonymous temporary planning)
+
+Use this when validating the tournament-detail CTA repair behind `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY=true`.
+
+- [ ] Starting point:
+  - [ ] Open a tournament detail page while signed out.
+  - [ ] Click `Plan this tournament`.
+  - [ ] Confirm the destination is `/weekend-planner`, not `/weekend/[slug]`.
+  - [ ] Confirm the URL includes `planner_session_id`, `tournament_id`, `tournament_slug`, and `venue_id` when available.
+- [ ] Seeded tournament context:
+  - [ ] The planner loads immediately while signed out.
+  - [ ] Tournament context is visible without any second `Add to planner` action.
+  - [ ] No auth wall blocks initial planner rendering.
+- [ ] Anonymous temporary action:
+  - [ ] Click `Add event`.
+  - [ ] Create one temporary manual event or note.
+  - [ ] Confirm it appears in the planner immediately.
+  - [ ] Edit the temporary item and confirm the change persists on refresh in the same browser.
+  - [ ] Delete the temporary item and confirm removal persists on refresh in the same browser.
+- [ ] Auth/save prompt:
+  - [ ] A signed-out save prompt is visible.
+  - [ ] `Create account` and `Sign in` links preserve the same `planner_session_id` in the `returnTo` path.
+  - [ ] No auth loop occurs after login.
+- [ ] Regression guardrails:
+  - [ ] `/weekend/[slug]` still loads as the public/shared weekend route.
+  - [ ] Signed-in planner still loads normally on `/weekend-planner`.
+  - [ ] No raw UUIDs are exposed in visible planner UI beyond expected query params.
+  - [ ] No blank planner, redirect loop, or immediate unauthorized error appears.
+
+Copy/paste browser-verification prompt:
+
+1) Log out completely.
+2) Open any tournament detail page on `https://www.tournamentinsights.com`.
+3) Click `Plan this tournament`.
+4) Record:
+   - starting tournament URL
+   - post-click URL
+   - visible `planner_session_id`
+   - whether `/weekend-planner` loaded directly
+5) While still signed out:
+   - confirm tournament context is visible
+   - create one temporary manual event
+   - refresh and confirm it persists
+   - edit it, refresh, confirm change persisted
+   - delete it, refresh, confirm removal
+6) Click `Create account` or `Sign in` from the planner save prompt and confirm the auth `returnTo` preserves the same `planner_session_id`.
+7) Report PASS/FAIL plus the first exact break point if anything fails.
+
+---
+
 ### Stage 3.5-1 UAT (Weekend Pro guest family schedule sharing)
 
 Use this after Smoke UAT passes. Run it with:

@@ -95,9 +95,11 @@ export type TiAnalyticsEventName =
   | "weekend_planner_auth_required_viewed"
   | "weekend_planner_create_account_clicked"
   | "weekend_planner_sign_in_clicked"
+  | "weekend_planner_ready"
   | "weekend_planner_loaded"
   | "weekend_planner_first_action"
   | "weekend_planner_empty_state_viewed"
+  | "weekend_planner_save_prompt_viewed"
   | "weekend_planner_contextual_cta_viewed"
   | "weekend_planner_contextual_cta_clicked"
   | "weekend_planner_prefill_started"
@@ -926,6 +928,16 @@ export type TiAnalyticsEventPropertiesByName = {
     auth_state: "signed_out";
     entitlement: "explorer";
   };
+  weekend_planner_ready: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: "signed_out";
+    entitlement: PlannerEntitlement;
+    view: Extract<PlannerView, "upcoming" | "this_weekend" | "season">;
+    loaded_event_count_bucket: LoadedEventCountBucket;
+    feed_count_bucket: FeedCountBucket;
+    child_team_count_bucket: ChildTeamCountBucket;
+  };
   weekend_planner_loaded: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "planner";
@@ -952,6 +964,12 @@ export type TiAnalyticsEventPropertiesByName = {
     loaded_event_count_bucket: "0";
     feed_count_bucket: FeedCountBucket;
     child_team_count_bucket: ChildTeamCountBucket;
+  };
+  weekend_planner_save_prompt_viewed: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: "signed_out";
+    entitlement: PlannerEntitlement;
   };
   weekend_planner_contextual_cta_viewed: PlannerCanonicalContext & {
     surface: PlannerActivationSurface;

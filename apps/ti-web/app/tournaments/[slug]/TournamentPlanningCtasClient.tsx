@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY } from "@/lib/featureFlags";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
-import { buildTournamentPlannerEntryHref, createPlannerSessionId } from "@/lib/planner/plannerSession";
+import { buildPlannerHref, buildTournamentPlannerEntryHref, createPlannerSessionId } from "@/lib/planner/plannerSession";
 import styles from "./TournamentPlanningCtasClient.module.css";
 
 function isValidIsoDate(value: string | null | undefined) {
@@ -19,6 +20,7 @@ function isValidIsoDate(value: string | null | undefined) {
 export default function TournamentPlanningCtasClient(props: {
   tournamentId: string;
   tournamentSlug: string;
+  tournamentName?: string | null;
   primaryVenueId?: string | null;
   city: string | null;
   state: string | null;
@@ -33,13 +35,30 @@ export default function TournamentPlanningCtasClient(props: {
   if (!plannerSessionIdRef.current) plannerSessionIdRef.current = createPlannerSessionId();
 
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
-  const plannerEntry = buildTournamentPlannerEntryHref(`/weekend/${encodeURIComponent(slug)}`, {
+  const legacyPlannerEntry = buildTournamentPlannerEntryHref(`/weekend/${encodeURIComponent(slug)}`, {
     planner_session_id: plannerSessionIdRef.current,
     venue_id: props.primaryVenueId,
     source: "tournament_detail",
   });
-  const weekendHref = plannerEntry.href;
-  const plannerSessionId = plannerEntry.plannerSessionId;
+  const plannerSessionId = legacyPlannerEntry.plannerSessionId;
+  const weekendHref = ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY
+    ? buildPlannerHref("/weekend-planner", {
+        planner_session_id: plannerSessionId,
+        tournament_id: props.tournamentId,
+        tournament_slug: slug,
+        tournament_name: String(props.tournamentName ?? "").trim() || null,
+        tournament_start_date: isValidIsoDate(props.startDate) ? String(props.startDate) : null,
+        tournament_end_date: isValidIsoDate(props.endDate) ? String(props.endDate) : null,
+        venue_id: props.primaryVenueId ?? null,
+        entry_source: "tournament_detail",
+        entry_page_type: "tournament",
+        entry_path: `/tournaments/${encodeURIComponent(slug)}`,
+        entry_placement: "tournament_detail_planner_cta",
+        current_page_type: "planner",
+        current_page_path: "/weekend-planner",
+        request_source: "planner_resume",
+      })
+    : legacyPlannerEntry.href;
   const travelHref = (() => {
     const qp = new URLSearchParams();
     const city = String(props.city ?? "").trim();

@@ -6,6 +6,12 @@ import dynamic from "next/dynamic";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import ChildTeamManager from "./ChildTeamManager";
 import {
+  buildAnonymousPlannerEvent,
+  loadAnonymousPlannerEvents,
+  saveAnonymousPlannerEvents,
+  updateAnonymousPlannerEvent,
+} from "@/lib/planner/anonymousPlanner";
+import {
   computeDuplicateCandidates,
   type PlannerDuplicateCandidate,
   type PlannerDuplicateReason,
@@ -25,7 +31,7 @@ import type {
 import type { TiTier } from "@/lib/entitlements";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import styles from "./Planner.module.css";
-import { markPlannerSessionEventSeen, type PlannerSessionContext, wasPlannerSessionEventSeen } from "@/lib/planner/plannerSession";
+import { buildPlannerHref, markPlannerSessionEventSeen, type PlannerSessionContext, wasPlannerSessionEventSeen } from "@/lib/planner/plannerSession";
 
 type Props = {
   initialEvents: PlannerEventRow[];
@@ -33,6 +39,8 @@ type Props = {
   isUnverified?: boolean;
   hideHeader?: boolean;
   plannerSessionContext?: PlannerSessionContext | null;
+  initialAuthState?: "signed_out" | "unverified" | "verified";
+  allowAnonymousWrite?: boolean;
 };
 
 type PlannerLens = "weekend" | "season";
@@ -459,8 +467,22 @@ export default function PlannerClient(props: Props) {
   const isExplorer = plannerEntitlement === "explorer";
   const isInsider = plannerEntitlement === "insider";
   const isWeekendPro = plannerEntitlement === "weekend_pro";
-  const isExplorerOrUnverified = isUnverified || isExplorer;
-  const canWritePlanner = !isExplorerOrUnverified;
+  const plannerAuthState = props.initialAuthState ?? (isUnverified ? "unverified" : "verified");
+  const isSignedOut = plannerAuthState === "signed_out";
+  const allowAnonymousPlanner = Boolean(props.allowAnonymousWrite && isSignedOut);
+  const isExplorerOrUnverified = isUnverified || (isExplorer && !allowAnonymousPlanner);
+  const canWritePlanner = allowAnonymousPlanner || !isExplorerOrUnverified;
+  const plannerSourcePageType = props.plannerSessionContext?.entry_page_type === "tournament" ? "tournament" : "planner";
+  const plannerAuthReturnTo = useMemo(
+    () =>
+      buildPlannerHref("/weekend-planner", {
+        ...(props.plannerSessionContext ?? {}),
+        planner_auth: true,
+        current_page_type: "planner",
+        current_page_path: "/weekend-planner",
+      }),
+    [props.plannerSessionContext],
+  );
 
   const entitlementForAnalytics = useMemo(() => {
     return plannerEntitlement;
@@ -534,7 +556,7 @@ export default function PlannerClient(props: Props) {
     markPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action");
     trackPlannerEvent("weekend_planner_first_action", {
       surface: "planner",
-      source_page_type: "planner",
+      source_page_type: plannerSourcePageType,
       auth_state: plannerAuthState,
       entitlement: entitlementForAnalytics,
       first_action_type: firstActionType,
@@ -542,7 +564,16 @@ export default function PlannerClient(props: Props) {
   }
 
   function plannerWriteBlockedCopy() {
+    if (allowAnonymousPlanner) {
+      return "Create an account or sign in to save this planner, connect calendars, or use it on another device.";
+    }
     return isUnverified ? "Verify your email to unlock planner actions." : "Upgrade to Insider to unlock planner actions.";
+  }
+
+  function sortPlannerEvents(list: PlannerEventRow[]) {
+    return list
+      .slice()
+      .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)));
   }
 
   function scrollToSection(sectionId: string) {
@@ -600,6 +631,8 @@ export default function PlannerClient(props: Props) {
   const canUseCalendar = isWeekendPro;
   const initialLoadSettledRef = useRef(false);
   const plannerLoadedFiredRef = useRef(false);
+  const plannerReadyFiredRef = useRef(false);
+  const savePromptViewedRef = useRef(false);
   const authRequiredViewedRef = useRef(false);
   const emptyStateViewedKeysRef = useRef<Set<string>>(new Set());
 
@@ -1028,6 +1061,11 @@ export default function PlannerClient(props: Props) {
   }, [editingId, editVenueId, editTournamentId, tz, editTimeZoneLocked]);
 
   async function loadEvents() {
+    if (allowAnonymousPlanner) {
+      if (!initialLoadSettledRef.current) initialLoadSettledRef.current = true;
+      setEventsPagingBusy(false);
+      return;
+    }
 	    setEventsPagingBusy(true);
 	    const now = new Date();
 	    const limit = 200;
@@ -1148,6 +1186,11 @@ export default function PlannerClient(props: Props) {
   }
 
   async function loadSources() {
+    if (allowAnonymousPlanner) {
+      setSources([]);
+      setSourceAssignmentDrafts({});
+      return;
+    }
     setSourcesBusy(true);
     try {
       const res = await jsonFetch<{ ok: true; sources: PlannerSourceRow[] }>("/api/planner/sources", { method: "GET" });
@@ -1160,6 +1203,11 @@ export default function PlannerClient(props: Props) {
   }
 
   async function loadSourcesForGate() {
+    if (allowAnonymousPlanner) {
+      setSources([]);
+      setSourceAssignmentDrafts({});
+      return null;
+    }
     try {
       const res = await jsonFetch<{ ok: true; sources: PlannerSourceRow[] }>("/api/planner/sources", { method: "GET" });
       const nextSources = res.sources ?? [];
@@ -1172,6 +1220,10 @@ export default function PlannerClient(props: Props) {
   }
 
   async function loadFamilyProfiles() {
+    if (allowAnonymousPlanner) {
+      setFamilyProfiles([]);
+      return;
+    }
     setFamilyProfilesBusy(true);
     try {
       const res = await jsonFetch<{ ok: true; children: PlannerChildWithTeamsRow[] }>(
@@ -1185,6 +1237,10 @@ export default function PlannerClient(props: Props) {
   }
 
   async function loadDismissedPairs() {
+    if (allowAnonymousPlanner) {
+      setDismissedPairs([]);
+      return;
+    }
     try {
       const res = await jsonFetch<{ ok: true; dismissed: DuplicateDismissedRow[] }>("/api/planner/events/duplicates/dismissed", {
         method: "GET",
@@ -1262,8 +1318,22 @@ export default function PlannerClient(props: Props) {
     return count;
   }, [familyProfiles]);
 
-  const plannerAuthState = isUnverified ? "unverified" : "verified";
   const plannerViewForAnalytics = scheduleView === "weekend" ? "this_weekend" : scheduleView;
+
+  useEffect(() => {
+    if (!allowAnonymousPlanner) return;
+    const storedEvents = loadAnonymousPlannerEvents(props.plannerSessionContext);
+    if (!storedEvents.length) return;
+    const merged = new Map<string, PlannerEventRow>();
+    for (const event of props.initialEvents ?? []) merged.set(String(event.id), event);
+    for (const event of storedEvents) merged.set(String(event.id), event);
+    setEvents(sortPlannerEvents(Array.from(merged.values())));
+  }, [allowAnonymousPlanner, props.initialEvents, props.plannerSessionContext]);
+
+  useEffect(() => {
+    if (!allowAnonymousPlanner) return;
+    saveAnonymousPlannerEvents(props.plannerSessionContext, events);
+  }, [allowAnonymousPlanner, events, props.plannerSessionContext]);
 
   const filteredEventsForScheduleView = useMemo(() => {
     if (familyFilter === "all") return eventsForScheduleView;
@@ -1615,7 +1685,24 @@ export default function PlannerClient(props: Props) {
   }, [canConnectAnotherCalendar, entitlementForAnalytics, isUnverified, isInsider, sources.length]);
 
   useEffect(() => {
+    const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
+    if (!plannerSessionId) return;
+    if (props.plannerSessionContext?.entry_page_type !== "tournament") return;
+    if (wasPlannerSessionEventSeen(plannerSessionId, "weekend_planner_entry_viewed")) return;
+    markPlannerSessionEventSeen(plannerSessionId, "weekend_planner_entry_viewed");
+    trackPlannerEvent("weekend_planner_entry_viewed", {
+      surface: "tournament",
+      source_page_type: "tournament",
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      cta_type: "weekend_plan",
+      context_type: "tournament",
+    });
+  }, [entitlementForAnalytics, plannerAuthState, props.plannerSessionContext]);
+
+  useEffect(() => {
     if (authRequiredViewedRef.current) return;
+    if (allowAnonymousPlanner) return;
     if (!isExplorerOrUnverified) return;
     authRequiredViewedRef.current = true;
     trackPlannerEvent("weekend_planner_auth_required_viewed", {
@@ -1625,7 +1712,45 @@ export default function PlannerClient(props: Props) {
       entitlement: entitlementForAnalytics,
       action_surface: "planner",
     });
-  }, [entitlementForAnalytics, isExplorerOrUnverified, plannerAuthState]);
+  }, [allowAnonymousPlanner, entitlementForAnalytics, isExplorerOrUnverified, plannerAuthState]);
+
+  useEffect(() => {
+    if (!allowAnonymousPlanner) return;
+    if (plannerReadyFiredRef.current) return;
+    if (!initialLoadSettledRef.current || eventsPagingBusy) return;
+    plannerReadyFiredRef.current = true;
+    trackPlannerEvent("weekend_planner_ready", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      auth_state: "signed_out",
+      entitlement: entitlementForAnalytics,
+      view: plannerViewForAnalytics,
+      loaded_event_count_bucket: bucketLoadedEventCount(filteredEventsForScheduleView.length),
+      feed_count_bucket: bucketFeedCount(sources.length),
+      child_team_count_bucket: bucketChildTeamCount(childTeamCount),
+    });
+  }, [
+    allowAnonymousPlanner,
+    childTeamCount,
+    entitlementForAnalytics,
+    eventsPagingBusy,
+    filteredEventsForScheduleView.length,
+    plannerSourcePageType,
+    plannerViewForAnalytics,
+    sources.length,
+  ]);
+
+  useEffect(() => {
+    if (!allowAnonymousPlanner) return;
+    if (savePromptViewedRef.current) return;
+    savePromptViewedRef.current = true;
+    trackPlannerEvent("weekend_planner_save_prompt_viewed", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      auth_state: "signed_out",
+      entitlement: entitlementForAnalytics,
+    });
+  }, [allowAnonymousPlanner, entitlementForAnalytics, plannerSourcePageType]);
 
   useEffect(() => {
     if (plannerLoadedFiredRef.current) return;
@@ -2186,6 +2311,19 @@ export default function PlannerClient(props: Props) {
 
     setBusy(true);
     try {
+      if (allowAnonymousPlanner) {
+        const event = buildAnonymousPlannerEvent(body);
+        trackPlannerEvent("planner_manual_event_created", {
+          surface: "weekend_planner",
+          entitlement: entitlementForAnalytics,
+          event_type: String(createType),
+        });
+        trackPlannerFirstAction("manual_event_created");
+        setEvents((prev) => sortPlannerEvents([...prev, event]));
+        resetCreateForm();
+        setCreateOpen(false);
+        return;
+      }
 	      const res = await jsonFetch<{ ok: true; event: PlannerEventRow }>("/api/planner/events", {
 	        method: "POST",
 	        body: JSON.stringify(body),
@@ -2262,6 +2400,17 @@ export default function PlannerClient(props: Props) {
 
     setBusy(true);
     try {
+      if (allowAnonymousPlanner) {
+        const updatedEvent = updateAnonymousPlannerEvent(editingEvent, body);
+        trackPlannerEvent("planner_manual_event_updated", {
+          surface: "weekend_planner",
+          entitlement: entitlementForAnalytics,
+          event_type: String(editType),
+        });
+        setEvents((prev) => sortPlannerEvents(prev.map((e) => (e.id === editingEvent.id ? updatedEvent : e))));
+        setEditingId(null);
+        return;
+      }
       const res = await jsonFetch<{ ok: true; event: PlannerEventRow }>(`/api/planner/events/${editingEvent.id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
@@ -2294,6 +2443,16 @@ export default function PlannerClient(props: Props) {
     setNotice(null);
     setBusy(true);
     try {
+      if (allowAnonymousPlanner) {
+        trackPlannerEvent("planner_manual_event_deleted", {
+          surface: "weekend_planner",
+          entitlement: entitlementForAnalytics,
+          event_type: String((e as any)?.event_type ?? "unknown"),
+        });
+        setEvents((prev) => prev.filter((x) => x.id !== e.id));
+        if (editingId === e.id) setEditingId(null);
+        return;
+      }
       await jsonFetch<{ ok: true }>(`/api/planner/events/${e.id}`, { method: "DELETE" });
       trackPlannerEvent("planner_manual_event_deleted", {
         surface: "weekend_planner",
@@ -3134,6 +3293,55 @@ export default function PlannerClient(props: Props) {
             <button className={styles.primaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
               Add event
             </button>
+                    {allowAnonymousPlanner ? (
+                      <>
+                        <Link
+                          className={styles.secondaryBtn}
+                          href={`/signup?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
+                          onClick={() => {
+                            trackPlannerEvent("weekend_planner_create_account_clicked", {
+                              surface: "planner",
+                              source_page_type: "planner",
+                              cta_type: "create_account",
+                              auth_state: "signed_out",
+                              entitlement: "explorer",
+                            });
+                            trackPlannerEvent("weekend_planner_auth_started", {
+                              surface: "planner",
+                              source_page_type: plannerSourcePageType,
+                              auth_state: "signed_out",
+                              entitlement: entitlementForAnalytics,
+                              cta_type: "create_account",
+                            });
+                          }}
+                        >
+                          Create account
+                        </Link>
+                        <Link
+                          className={styles.secondaryBtn}
+                          href={`/login?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
+                          onClick={() => {
+                            trackPlannerEvent("weekend_planner_sign_in_clicked", {
+                              surface: "planner",
+                              source_page_type: "planner",
+                              cta_type: "sign_in",
+                              auth_state: "signed_out",
+                              entitlement: "explorer",
+                            });
+                            trackPlannerEvent("weekend_planner_auth_started", {
+                              surface: "planner",
+                              source_page_type: plannerSourcePageType,
+                              auth_state: "signed_out",
+                              entitlement: entitlementForAnalytics,
+                              cta_type: "sign_in",
+                            });
+                          }}
+                        >
+                          Sign in
+                        </Link>
+                      </>
+                    ) : (
+                      <>
 				            <button
 				              className={styles.secondaryBtn}
 				              type="button"
@@ -3148,9 +3356,66 @@ export default function PlannerClient(props: Props) {
 				            <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen(true)} disabled={busy}>
 				              Manage calendars
 				            </button>
+                      </>
+                    )}
 				          </div>
 			        </div>
 			      ) : null}
+
+          {allowAnonymousPlanner ? (
+            <div className={styles.card} style={{ marginBottom: 12 }}>
+              <div className={styles.cardTitle}>Temporary planner</div>
+              <div className={styles.muted}>
+                This planner is stored on this device for now. Sign in or create an account to keep it across devices, sync calendars, or share it later.
+              </div>
+              <div className={styles.eventActions} style={{ marginTop: 10 }}>
+                <Link
+                  className={styles.primaryBtn}
+                  href={`/signup?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
+                  onClick={() => {
+                    trackPlannerEvent("weekend_planner_create_account_clicked", {
+                      surface: "planner",
+                      source_page_type: "planner",
+                      cta_type: "create_account",
+                      auth_state: "signed_out",
+                      entitlement: "explorer",
+                    });
+                    trackPlannerEvent("weekend_planner_auth_started", {
+                      surface: "planner",
+                      source_page_type: plannerSourcePageType,
+                      auth_state: "signed_out",
+                      entitlement: entitlementForAnalytics,
+                      cta_type: "create_account",
+                    });
+                  }}
+                >
+                  Create account to save
+                </Link>
+                <Link
+                  className={styles.secondaryBtn}
+                  href={`/login?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
+                  onClick={() => {
+                    trackPlannerEvent("weekend_planner_sign_in_clicked", {
+                      surface: "planner",
+                      source_page_type: "planner",
+                      cta_type: "sign_in",
+                      auth_state: "signed_out",
+                      entitlement: "explorer",
+                    });
+                    trackPlannerEvent("weekend_planner_auth_started", {
+                      surface: "planner",
+                      source_page_type: plannerSourcePageType,
+                      auth_state: "signed_out",
+                      entitlement: entitlementForAnalytics,
+                      cta_type: "sign_in",
+                    });
+                  }}
+                >
+                  Sign in
+                </Link>
+              </div>
+            </div>
+          ) : null}
 
           <div className={styles.plannerSummaryBar}>
             <div className={styles.summaryChips}>

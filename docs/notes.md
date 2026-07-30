@@ -12,6 +12,10 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-07-30
+
+- TI Weekend Planner Phase 2 direct-entry repair implemented locally behind `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY`: tournament-detail `Plan this tournament` can now route straight into `/weekend-planner` with canonical planner-session context, signed-out tournament-intent users can mount the real planner, create/edit/delete one temporary local planner item without auth, and see a save/auth prompt while `/weekend/[slug]` remains intact as the public/shared route; files: `apps/ti-web/app/tournaments/[slug]/{page.tsx,TournamentPlanningCtasClient.tsx}`, `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/lib/planner/anonymousPlanner.ts`, `apps/ti-web/lib/featureFlags.ts`, `apps/ti-web/lib/tiAnalyticsEvents.ts`, `CLAUDE.md`; TI typecheck passed locally.
+
 ## 2026-07-27
 
 - TI HotelPlanner attribution Phase 2A implemented locally for hotel-booking flows only: added canonical outbound token generation and storage (`outbound_attribution_id`) for `/go/hotels` and direct HotelPlanner property handoffs, preserved legacy `Custom1` / `Custom2`, standardized `Custom3 = attr:<token>`, `Custom4 = srcp:<source_page_type>`, `Custom5 = place:<placement>`, added authoritative TI property handoff route `apps/ti-web/app/go/hotels/property/route.ts`, additive outbound schema migration `supabase/migrations/20260727_ti_hotel_booking_attribution_phase2a.sql`, repeatable reconciliation SQL `scripts/analysis/ti_hotel_booking_attribution_reconciliation.sql`, and implementation report `docs/reports/ti-hotel-booking-attribution-phase2a-2026-07-27.md`; local focused tests and TI typecheck passed.

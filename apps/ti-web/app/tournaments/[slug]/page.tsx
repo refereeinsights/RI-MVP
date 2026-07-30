@@ -306,6 +306,7 @@ async function TournamentUserActions({
       <TournamentPlanningCtasClient
         tournamentId={tournament.id}
         tournamentSlug={tournament.slug ?? paramsSlug}
+        tournamentName={tournament.name ?? null}
         primaryVenueId={primaryVenueIdForPlan}
         city={tournament.city ?? null}
         state={tournament.state ?? null}

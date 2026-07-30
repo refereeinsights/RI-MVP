@@ -13,6 +13,19 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-07-30
+
+- TI Weekend Planner Phase 2 direct-entry + anonymous temporary planning implemented locally:
+  - Added `apps/ti-web/lib/featureFlags.ts` with reversible `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY` gating.
+  - Updated `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx` and `apps/ti-web/app/tournaments/[slug]/page.tsx` so tournament-detail `Plan this tournament` can route directly to `/weekend-planner` with seeded tournament context and canonical planner-session query params.
+  - Updated `apps/ti-web/app/weekend-planner/page.tsx` so signed-out tournament-intent traffic mounts the real `PlannerClient` instead of the old auth-only entry card, while preserving `/weekend/[slug]` as the public/shared weekend route.
+  - Added `apps/ti-web/lib/planner/anonymousPlanner.ts` for local-first 14-day temporary planner storage and seeded tournament context support.
+  - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so signed-out direct-entry users can create, edit, and delete one temporary local planner item, see a save/auth prompt, and emit direct-entry activation telemetry without touching planner backend state.
+  - Extended typed analytics in `apps/ti-web/lib/tiAnalyticsEvents.ts` with `weekend_planner_ready` and `weekend_planner_save_prompt_viewed`.
+  - Updated `CLAUDE.md` with a dedicated Phase 2 browser UAT checklist and copy/paste validation prompt.
+  - Local validation passed:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+
 ## 2026-07-27
 
 - TI HotelPlanner attribution Phase 2A implemented locally for hotel-booking flows:

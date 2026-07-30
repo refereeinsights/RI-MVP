@@ -16,6 +16,8 @@ import { getActivePlansForUser, saveWeekendPlanForTournament } from "@/lib/weeke
 import WeekendPlanActionsClient from "./WeekendPlanActionsClient";
 import type { PlannerEventRow } from "@/lib/planner/types";
 import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
+import { ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY } from "@/lib/featureFlags";
+import { buildSeededTournamentPlannerEvent } from "@/lib/planner/anonymousPlanner";
 import { buildPlannerHref, createPlannerSessionId, parsePlannerSessionContext, type PlannerSessionContext } from "@/lib/planner/plannerSession";
 
 export const runtime = "nodejs";
@@ -102,6 +104,11 @@ export default async function WeekendPlannerPage({
       current_page_type: "planner",
       current_page_path: "/weekend-planner",
     };
+  const isTournamentIntentPlannerEntry =
+    plannerContext.entry_page_type === "tournament" &&
+    String(plannerContext.tournament_id ?? "").trim().length > 0 &&
+    ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY;
+  const allowAnonymousPlanner = !isAuthed && isTournamentIntentPlannerEntry;
 
   if (user?.id && canUseSavedPlanning && plannerContext.tournament_id) {
     await saveWeekendPlanForTournament({
@@ -125,6 +132,8 @@ export default async function WeekendPlannerPage({
       ? []
       : await enrichPlannerEventsWithLinkedVenue(supabase, ((data ?? []) as PlannerEventRow[]) as any);
   }
+  const seededTournamentEvent = allowAnonymousPlanner ? buildSeededTournamentPlannerEvent(plannerContext) : null;
+  const initialPlannerEvents = user ? plannerEvents : seededTournamentEvent ? [seededTournamentEvent] : [];
 
   let activePlans: WeekendPlanRow[] = [];
   let plansLoadFailed = false;
@@ -239,7 +248,7 @@ export default async function WeekendPlannerPage({
 	        <div className="headerBlock">
 	          <h1 className="title">Weekend Planner Beta</h1>
 	          <p className="subtitle">Plan the weekend. Manage the season.</p>
-            {!isAuthed ? (
+            {!isAuthed && !allowAnonymousPlanner ? (
               <p className={`subtitle ${styles.betaIntro}`}>
                 You’re invited to test an early version of Weekend Planner. Add games, practices, tournaments,
                 travel notes, and team calendar feeds in one place. Then check Upcoming, This Weekend, and Season
@@ -247,7 +256,7 @@ export default async function WeekendPlannerPage({
               </p>
             ) : null}
 	          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
-	            {isAuthed ? (
+	            {isAuthed || allowAnonymousPlanner ? (
 	              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto", display: "grid", gap: 12 }}>
                   {resumeLabel ? (
                     <article className={styles.panelCard}>
@@ -261,11 +270,13 @@ export default async function WeekendPlannerPage({
                     </article>
                   ) : null}
                   <PlannerClient
-                    initialEvents={plannerEvents}
+                    initialEvents={initialPlannerEvents}
                     plannerEntitlement={plannerEntitlement}
                     isUnverified={isUnverified}
                     hideHeader
                     plannerSessionContext={plannerContext}
+                    initialAuthState={isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out"}
+                    allowAnonymousWrite={allowAnonymousPlanner}
                   />
                   {plannerCalendarFeedPanel}
                   {plannerGuestSharePanel}
@@ -287,7 +298,7 @@ export default async function WeekendPlannerPage({
 	          </div>
 	        </div>
 
-          {!isAuthed ? (
+          {!isAuthed && !allowAnonymousPlanner ? (
             <div className={styles.onboardingStack}>
               <section className={styles.infoCard} aria-label="What to test first">
                 <h2 className={styles.infoTitle}>What to test first</h2>
