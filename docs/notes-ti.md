@@ -22,6 +22,7 @@ Maintenance rules:
   - Added `apps/ti-web/lib/planner/anonymousPlanner.ts` for local-first 14-day temporary planner storage and seeded tournament context support.
   - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so signed-out direct-entry users can create, edit, and delete one temporary local planner item, see a save/auth prompt, and emit direct-entry activation telemetry without touching planner backend state.
   - Follow-up fix: moved tournament CTA `planner_session_id` generation to the server render path to eliminate the proven SSR/CSR hydration mismatch that caused non-deterministic CTA clicks and session drift during browser UAT.
+  - Follow-up fix: moved the full tournament CTA planner href generation to the server render path as well, so `TournamentPlanningCtasClient` now renders a stable precomputed href instead of rebuilding planner-session query params during hydration.
   - Follow-up fix: delayed anonymous local-storage writes until after local snapshot hydration so signed-out temporary manual events no longer get overwritten by the seeded tournament-only initial render on refresh.
   - Follow-up fix: replaced stray Explorer upgrade copy in the signed-out Phase 2 planner path with auth/account messaging for calendar-connection surfaces.
   - Extended typed analytics in `apps/ti-web/lib/tiAnalyticsEvents.ts` with `weekend_planner_ready` and `weekend_planner_save_prompt_viewed`.

@@ -31,7 +31,12 @@ import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { buildHotelsHref, canShowBookingCta, isValidZip5 } from "@/lib/booking/venueBooking";
-import { createPlannerSessionId } from "@/lib/planner/plannerSession";
+import {
+  buildPlannerHref,
+  buildTournamentPlannerEntryHref,
+  createPlannerSessionId,
+} from "@/lib/planner/plannerSession";
+import { ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY } from "@/lib/featureFlags";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import { mapStateCodeToName, mapStateCodeToSlug, normalizeSportSlug, sportDisplayName } from "@/lib/seoHub";
 import "../tournaments.css";
@@ -296,6 +301,30 @@ async function TournamentUserActions({
     <>
       {(() => {
         const plannerSessionId = createPlannerSessionId();
+        const plannerEntryPath = `/weekend/${encodeURIComponent(tournament.slug ?? paramsSlug)}`;
+        const plannerEntryHref = buildTournamentPlannerEntryHref(plannerEntryPath, {
+          planner_session_id: plannerSessionId,
+          venue_id: primaryVenueIdForPlan,
+          source: "tournament_detail",
+        });
+        const weekendHref = ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY
+          ? buildPlannerHref("/weekend-planner", {
+              planner_session_id: plannerSessionId,
+              tournament_id: tournament.id,
+              tournament_slug: tournament.slug ?? paramsSlug,
+              tournament_name: tournament.name ?? null,
+              tournament_start_date: tournament.start_date ?? null,
+              tournament_end_date: tournament.end_date ?? null,
+              venue_id: primaryVenueIdForPlan ?? null,
+              entry_source: "tournament_detail",
+              entry_page_type: "tournament",
+              entry_path: `/tournaments/${encodeURIComponent(tournament.slug ?? paramsSlug)}`,
+              entry_placement: "tournament_detail_planner_cta",
+              current_page_type: "planner",
+              current_page_path: "/weekend-planner",
+              request_source: "planner_resume",
+            })
+          : plannerEntryHref.href;
         return (
           <>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" as any }}>
@@ -313,6 +342,7 @@ async function TournamentUserActions({
         tournamentSlug={tournament.slug ?? paramsSlug}
         tournamentName={tournament.name ?? null}
         plannerSessionId={plannerSessionId}
+        weekendHref={weekendHref}
         primaryVenueId={primaryVenueIdForPlan}
         city={tournament.city ?? null}
         state={tournament.state ?? null}

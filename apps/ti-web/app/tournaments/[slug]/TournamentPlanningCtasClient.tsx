@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY } from "@/lib/featureFlags";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
-import { buildPlannerHref, buildTournamentPlannerEntryHref } from "@/lib/planner/plannerSession";
 import styles from "./TournamentPlanningCtasClient.module.css";
 
 function isValidIsoDate(value: string | null | undefined) {
@@ -22,6 +20,7 @@ export default function TournamentPlanningCtasClient(props: {
   tournamentSlug: string;
   tournamentName?: string | null;
   plannerSessionId: string;
+  weekendHref: string;
   primaryVenueId?: string | null;
   city: string | null;
   state: string | null;
@@ -34,30 +33,8 @@ export default function TournamentPlanningCtasClient(props: {
   const viewedRef = useRef(false);
 
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
-  const legacyPlannerEntry = buildTournamentPlannerEntryHref(`/weekend/${encodeURIComponent(slug)}`, {
-    planner_session_id: props.plannerSessionId,
-    venue_id: props.primaryVenueId,
-    source: "tournament_detail",
-  });
-  const plannerSessionId = legacyPlannerEntry.plannerSessionId;
-  const weekendHref = ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY
-    ? buildPlannerHref("/weekend-planner", {
-        planner_session_id: plannerSessionId,
-        tournament_id: props.tournamentId,
-        tournament_slug: slug,
-        tournament_name: String(props.tournamentName ?? "").trim() || null,
-        tournament_start_date: isValidIsoDate(props.startDate) ? String(props.startDate) : null,
-        tournament_end_date: isValidIsoDate(props.endDate) ? String(props.endDate) : null,
-        venue_id: props.primaryVenueId ?? null,
-        entry_source: "tournament_detail",
-        entry_page_type: "tournament",
-        entry_path: `/tournaments/${encodeURIComponent(slug)}`,
-        entry_placement: "tournament_detail_planner_cta",
-        current_page_type: "planner",
-        current_page_path: "/weekend-planner",
-        request_source: "planner_resume",
-      })
-    : legacyPlannerEntry.href;
+  const plannerSessionId = props.plannerSessionId;
+  const weekendHref = props.weekendHref;
   const travelHref = (() => {
     const qp = new URLSearchParams();
     const city = String(props.city ?? "").trim();
