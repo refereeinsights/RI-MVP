@@ -197,6 +197,12 @@ Local dev note:
 - Put `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY=true` in `apps/ti-web/.env.local`, not just the repo-root `.env.local`.
 - Restart the TI dev server after changing the flag.
 
+Browser automation note (2026-07-30):
+- The proven tournament-detail CTA hydration mismatch is fixed.
+- Some browser-automation tools may still fail to activate the `Plan this tournament` CTA with synthetic pointer clicks even when the CTA is healthy.
+- When pointer clicks fail but the CTA `href` is stable, `elementFromPoint(...)` returns the CTA itself, there is no overlay/layout shift, and `document.activeElement` stays `BODY`, treat that as a tooling artifact rather than an app regression.
+- In that case, verify destination and planner-session continuity with `element.click()` instead of repeated synthetic pointer retries.
+
 - [ ] Starting point:
   - [ ] Open a tournament detail page while signed out.
   - [ ] Click `Plan this tournament`.

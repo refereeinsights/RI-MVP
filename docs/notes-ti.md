@@ -25,6 +25,7 @@ Maintenance rules:
   - Follow-up fix: moved the full tournament CTA planner href generation to the server render path as well, so `TournamentPlanningCtasClient` now renders a stable precomputed href instead of rebuilding planner-session query params during hydration.
   - Follow-up fix: delayed anonymous local-storage writes until after local snapshot hydration so signed-out temporary manual events no longer get overwritten by the seeded tournament-only initial render on refresh.
   - Follow-up fix: replaced stray Explorer upgrade copy in the signed-out Phase 2 planner path with auth/account messaging for calendar-connection surfaces.
+  - Follow-up verification: browser automation re-check confirmed the remaining multi-click symptom is tooling-only, not app-side — synthetic pointer clicks can fail to focus/activate the healthy tournament CTA while direct `element.click()` succeeds immediately on the same stable DOM node with no overlay, no layout shift, and no console errors.
   - Extended typed analytics in `apps/ti-web/lib/tiAnalyticsEvents.ts` with `weekend_planner_ready` and `weekend_planner_save_prompt_viewed`.
   - Updated `CLAUDE.md` with a dedicated Phase 2 browser UAT checklist, copy/paste validation prompt, and local-env placement note for the feature flag.
   - Local validation passed:
