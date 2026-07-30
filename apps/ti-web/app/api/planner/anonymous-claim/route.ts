@@ -10,6 +10,7 @@ import { isUuid } from "@/lib/venues/isUuid";
 import { parseOptionalPlannerProfileId, validatePlannerAssignment } from "@/lib/planner/assignmentServer";
 
 export const runtime = "nodejs";
+const ANONYMOUS_CLAIM_SOURCE = "anonymous_local";
 
 const EVENT_TYPES = new Set<PlannerEventType>([
   "game",
@@ -96,6 +97,29 @@ export async function POST(req: Request) {
   const requestVenueId = requestVenueIdRaw && isUuid(requestVenueIdRaw) ? requestVenueIdRaw : null;
   if (requestVenueIdRaw && !requestVenueId) {
     return NextResponse.json({ ok: false, error: "invalid_venue_id" }, { status: 400 });
+  }
+
+  const { data: alreadyClaimedRows, error: alreadyClaimedRowsError } = await (supabase.from("planner_events" as any) as any)
+    .select(
+      "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,child_profile_id,team_profile_id,source_type,source_id,source_event_uid,created_at,updated_at"
+    )
+    .eq("user_id", user.id)
+    .eq("planner_session_id", plannerSessionId)
+    .eq("claim_source", ANONYMOUS_CLAIM_SOURCE)
+    .limit(250);
+  if (alreadyClaimedRowsError) {
+    return NextResponse.json({ ok: false, error: "could_not_check_existing_claim" }, { status: 500 });
+  }
+  if ((alreadyClaimedRows ?? []).length > 0) {
+    const enrichedClaimed = await enrichPlannerEventsWithLinkedVenue(supabase, ((alreadyClaimedRows ?? []) as PlannerEventRow[]) ?? []);
+    return NextResponse.json({
+      ok: true,
+      imported_count: 0,
+      skipped_duplicate_count: 0,
+      had_existing_weekend_plan: true,
+      events: enrichedClaimed,
+      already_claimed: true,
+    });
   }
 
   const claimableEvents = filterAnonymousClaimablePlannerEvents(Array.isArray(body.events) ? (body.events as PlannerEventRow[]) : []);
@@ -240,6 +264,8 @@ export async function POST(req: Request) {
       state: event.state,
       notes: event.notes,
       source_type: "manual",
+      planner_session_id: plannerSessionId,
+      claim_source: ANONYMOUS_CLAIM_SOURCE,
     });
   }
 

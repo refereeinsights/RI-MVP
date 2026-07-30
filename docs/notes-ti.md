@@ -32,6 +32,7 @@ Maintenance rules:
     - Extended `apps/ti-web/lib/planner/anonymousPlanner.ts` so the client can read full anonymous snapshots, clear them after successful claim, and mark claimed planner sessions to avoid repeated imports.
     - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so authenticated planner boot now detects resumable anonymous state after auth return, calls the authoritative claim endpoint once, merges imported rows into live planner state, preserves local state on failure, and emits claim telemetry.
     - Extended `apps/ti-web/lib/tiAnalyticsEvents.ts` with the new anonymous-claim event family plus first-authenticated-action-after-claim tracking.
+    - Follow-up duplicate fix: added additive migration `supabase/migrations/20260730_ti_planner_phase3_claim_idempotency.sql` plus server-side claim provenance on imported `planner_events`, so repeated authenticated visits with the same `planner_session_id` now no-op instead of re-importing the same anonymous item.
     - Local validation passed:
       - `node --import tsx --test apps/ti-web/lib/planner/anonymousClaim.test.ts`
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
