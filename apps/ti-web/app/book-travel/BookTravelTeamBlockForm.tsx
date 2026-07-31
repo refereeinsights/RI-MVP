@@ -98,6 +98,9 @@ type BookTravelTeamBlockFormProps = {
   authState?: "signed_out" | "unverified" | "verified";
   plannerTrackingContext?: {
     planner_session_id?: string | null;
+    experiment_name?: string | null;
+    experiment_variant?: "control" | "treatment" | null;
+    feature_flag_state?: "disabled" | "enabled" | null;
     tournament_id?: string | null;
     venue_id?: string | null;
     entry_source?: string | null;
@@ -149,6 +152,9 @@ export default function BookTravelTeamBlockForm({
       entitlement,
       context_type: "team_hotel",
       planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+      experiment_name: plannerTrackingContext?.experiment_name ?? undefined,
+      experiment_variant: plannerTrackingContext?.experiment_variant ?? undefined,
+      feature_flag_state: plannerTrackingContext?.feature_flag_state ?? undefined,
       entry_source: plannerTrackingContext?.entry_source ?? undefined,
       entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
       entry_path: plannerTrackingContext?.entry_path ?? undefined,
@@ -178,6 +184,9 @@ export default function BookTravelTeamBlockForm({
       entitlement,
       context_type: "team_hotel",
       planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+      experiment_name: plannerTrackingContext?.experiment_name ?? undefined,
+      experiment_variant: plannerTrackingContext?.experiment_variant ?? undefined,
+      feature_flag_state: plannerTrackingContext?.feature_flag_state ?? undefined,
       entry_source: plannerTrackingContext?.entry_source ?? undefined,
       entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
       entry_path: plannerTrackingContext?.entry_path ?? undefined,
@@ -332,6 +341,9 @@ export default function BookTravelTeamBlockForm({
         entitlement,
         context_type: "team_hotel",
         planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+        experiment_name: plannerTrackingContext?.experiment_name ?? undefined,
+        experiment_variant: plannerTrackingContext?.experiment_variant ?? undefined,
+        feature_flag_state: plannerTrackingContext?.feature_flag_state ?? undefined,
         entry_source: plannerTrackingContext?.entry_source ?? undefined,
         entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
         entry_path: plannerTrackingContext?.entry_path ?? undefined,
@@ -372,6 +384,9 @@ export default function BookTravelTeamBlockForm({
                 entitlement,
                 context_type: "team_hotel",
                 planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+                experiment_name: plannerTrackingContext?.experiment_name ?? undefined,
+                experiment_variant: plannerTrackingContext?.experiment_variant ?? undefined,
+                feature_flag_state: plannerTrackingContext?.feature_flag_state ?? undefined,
                 entry_source: plannerTrackingContext?.entry_source ?? undefined,
                 entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
                 entry_path: plannerTrackingContext?.entry_path ?? undefined,
