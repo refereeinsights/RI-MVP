@@ -664,6 +664,7 @@ export default function PlannerClient(props: Props) {
   const anonymousClaimAttemptedRef = useRef(false);
   const claimedFirstActionTrackedRef = useRef(false);
   const plannerActivationTrackedRef = useRef(false);
+  const componentMountedRef = useRef(true);
   const emptyStateViewedKeysRef = useRef<Set<string>>(new Set());
   const [anonymousStorageReady, setAnonymousStorageReady] = useState(false);
   const [claimedAnonymousState, setClaimedAnonymousState] = useState(false);
@@ -691,6 +692,13 @@ export default function PlannerClient(props: Props) {
   const lastCreateVenueLocationRef = useRef<{ address: string; city: string; state: string } | null>(null);
   const lastEditVenueLocationRef = useRef<{ address: string; city: string; state: string } | null>(null);
   const gateViewedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    componentMountedRef.current = true;
+    return () => {
+      componentMountedRef.current = false;
+    };
+  }, []);
 
   function closeMergeModal() {
     setMergeOpen(false);
@@ -1839,7 +1847,6 @@ export default function PlannerClient(props: Props) {
     }
 
     setAnonymousClaimPending(true);
-    let cancelled = false;
     void (async () => {
       trackPlannerEvent("weekend_planner_anonymous_claim_started", {
         surface: "planner",
@@ -1863,7 +1870,7 @@ export default function PlannerClient(props: Props) {
             events: snapshot.events,
           }),
         });
-        if (cancelled) return;
+        if (!componentMountedRef.current) return;
         clearAnonymousPlannerSnapshot(props.plannerSessionContext);
         markAnonymousPlannerClaimed(plannerSessionId);
         if (res.events.length) {
@@ -1893,7 +1900,7 @@ export default function PlannerClient(props: Props) {
           had_existing_weekend_plan: res.had_existing_weekend_plan,
         });
       } catch (error: any) {
-        if (cancelled) return;
+        if (!componentMountedRef.current) return;
         setAnonymousClaimPending(false);
         setError("We could not save your temporary planner items yet. Your local planner is still available on this device.");
         trackPlannerEvent("weekend_planner_anonymous_claim_failed", {
@@ -1905,10 +1912,6 @@ export default function PlannerClient(props: Props) {
         });
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [entitlementForAnalytics, plannerAuthState, plannerSourcePageType, props.plannerSessionContext]);
 
   useEffect(() => {

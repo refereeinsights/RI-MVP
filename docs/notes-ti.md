@@ -60,6 +60,12 @@ Maintenance rules:
     - updated `CLAUDE.md` local UAT to verify both bare `/weekend-planner` resume and same-tournament fresh-CTA resume for anonymous planner items
     - local validation passed:
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+  - Follow-up local fix after a second 2026-07-31 Phase 4 browser rerun found a real post-auth local-dev claim-state bug:
+    - browser UAT proved anonymous claim succeeded server-side and the claimed event appeared in `Season`, but the default `Upcoming` view could remain stuck on `Finishing your saved planner items...` indefinitely after auth return
+    - root cause was the per-effect `cancelled` guard inside `apps/ti-web/app/_components/planner/PlannerClient.tsx`, which can be tripped by React local-dev StrictMode remount behavior and leave `anonymousClaimPending` permanently true even after a successful claim response
+    - replaced that guard with a component-level mounted ref so successful claim completion now clears pending state correctly while still avoiding post-unmount state writes
+    - local validation passed:
+      - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
   - Local validation passed:
       - `node --import tsx --test apps/ti-web/lib/planner/anonymousClaim.test.ts`
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
