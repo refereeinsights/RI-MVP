@@ -64,6 +64,13 @@ Maintenance rules:
     - browser UAT proved anonymous claim succeeded server-side and the claimed event appeared in `Season`, but the default `Upcoming` view could remain stuck on `Finishing your saved planner items...` indefinitely after auth return
     - root cause was the per-effect `cancelled` guard inside `apps/ti-web/app/_components/planner/PlannerClient.tsx`, which can be tripped by React local-dev StrictMode remount behavior and leave `anonymousClaimPending` permanently true even after a successful claim response
     - replaced that guard with a component-level mounted ref so successful claim completion now clears pending state correctly while still avoiding post-unmount state writes
+  - Local browser rerun later on 2026-07-31 passed cleanly with an in-range event (`Perfect Game Hoover Classic`, event dated 2026-08-05):
+    - signed-out direct entry, temporary-state clarity, and first-event creation all passed
+    - auth `returnTo` preserved the same `planner_session_id`
+    - post-auth `Upcoming` resolved cleanly with the claimed event visible immediately and the `Planner saved to your account` continuity banner shown
+    - `Season` also showed both the newly claimed event and the prior claimed September event
+    - a hard reload of the exact post-auth planner URL remained stable with no stuck `Finishing your saved planner items...` state
+    - current interpretation: the earlier stuck-pending local failure is not reproducible after the mounted-ref fix and should be treated as resolved unless it recurs
     - local validation passed:
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
   - Local validation passed:
