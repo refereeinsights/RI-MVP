@@ -108,7 +108,7 @@ export default async function WeekendPlannerPage({
     plannerContext.entry_page_type === "tournament" &&
     String(plannerContext.tournament_id ?? "").trim().length > 0 &&
     ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY;
-  const allowAnonymousPlanner = !isAuthed && isTournamentIntentPlannerEntry;
+  const allowAnonymousPlanner = !isAuthed && ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY;
 
   if (user?.id && canUseSavedPlanning && plannerContext.tournament_id) {
     await saveWeekendPlanForTournament({

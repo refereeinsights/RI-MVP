@@ -53,6 +53,13 @@ Maintenance rules:
     - updated `CLAUDE.md` Phase 2–4 UAT instructions to verify temporary-state clarity, first-event affordance, and post-auth continuity messaging
     - local validation passed:
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+  - Follow-up local fix after 2026-07-31 Phase 4 browser UAT found a real device-persistence gap:
+    - updated `apps/ti-web/lib/planner/anonymousPlanner.ts` so signed-out anonymous planner snapshots are now stored under the current `planner_session_id`, the tournament alias, and a device-local active alias instead of only the exact deep-link session key
+    - updated `apps/ti-web/app/weekend-planner/page.tsx` so signed-out `/weekend-planner` mounts the real planner whenever `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY` is enabled, allowing device-local anonymous planner resume outside the original tournament deep-link
+    - this closes the proven failure where a manual event survived only on the exact original deep-link URL but disappeared from bare `/weekend-planner` or a fresh tournament CTA click on the same device
+    - updated `CLAUDE.md` local UAT to verify both bare `/weekend-planner` resume and same-tournament fresh-CTA resume for anonymous planner items
+    - local validation passed:
+      - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
   - Local validation passed:
       - `node --import tsx --test apps/ti-web/lib/planner/anonymousClaim.test.ts`
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`

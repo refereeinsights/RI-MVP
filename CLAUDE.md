@@ -221,6 +221,8 @@ Browser automation note (2026-07-30):
   - [ ] Confirm it appears in the planner immediately.
   - [ ] Edit the temporary item and confirm the change persists on refresh in the same browser.
   - [ ] Delete the temporary item and confirm removal persists on refresh in the same browser.
+  - [ ] Open bare `/weekend-planner` while still signed out and confirm the same device-local planner state is still available there.
+  - [ ] Re-open the same tournament from its detail-page CTA and confirm the same device-local manual item still appears even if a fresh `planner_session_id` is minted.
 - [ ] Auth/save prompt:
   - [ ] A signed-out save prompt is visible.
   - [ ] `Create account` and `Sign in` links preserve the same `planner_session_id` in the `returnTo` path.
@@ -252,6 +254,8 @@ Copy/paste browser-verification prompt:
    - refresh and confirm it persists
    - edit it, refresh, confirm change persisted
    - delete it, refresh, confirm removal
+   - before deleting, open bare `/weekend-planner` and confirm the same local planner state is still present
+   - before deleting, return to the same tournament detail page, click `Plan this tournament` again, and confirm the same local manual item is still present even if the URL has a new `planner_session_id`
 6) Create one fresh temporary manual event again, then click `Create account` or `Sign in` from the planner save prompt and confirm the auth `returnTo` preserves the same `planner_session_id`.
 7) After auth return:
    - confirm the claimed event is still present

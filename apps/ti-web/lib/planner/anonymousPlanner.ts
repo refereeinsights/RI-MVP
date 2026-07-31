@@ -3,6 +3,7 @@ import type { PlannerSessionContext } from "./plannerSession";
 
 const STORAGE_PREFIX = "ti:anonymous-planner:v1:";
 const CLAIMED_PREFIX = "ti:anonymous-planner-claimed:v1:";
+const ACTIVE_KEY = `${STORAGE_PREFIX}active`;
 const TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 type AnonymousPlannerSnapshot = {
@@ -16,18 +17,39 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function plannerSessionSnapshotKey(plannerSessionId: string | null | undefined) {
+  const normalized = String(plannerSessionId ?? "").trim();
+  return normalized ? `${STORAGE_PREFIX}${normalized}` : null;
+}
+
+function tournamentSnapshotKey(tournamentId: string | null | undefined) {
+  const normalized = String(tournamentId ?? "").trim();
+  return normalized ? `${STORAGE_PREFIX}tournament:${normalized}` : null;
+}
+
 function snapshotKey(context: PlannerSessionContext | null | undefined) {
   const plannerSessionId = String(context?.planner_session_id ?? "").trim();
-  if (plannerSessionId) return `${STORAGE_PREFIX}${plannerSessionId}`;
+  if (plannerSessionId) return plannerSessionSnapshotKey(plannerSessionId);
   const tournamentId = String(context?.tournament_id ?? "").trim();
-  if (tournamentId) return `${STORAGE_PREFIX}tournament:${tournamentId}`;
+  if (tournamentId) return tournamentSnapshotKey(tournamentId);
   return null;
 }
 
-export function loadAnonymousPlannerSnapshot(context: PlannerSessionContext | null | undefined) {
-  if (typeof window === "undefined") return null;
-  const key = snapshotKey(context);
-  if (!key) return null;
+function snapshotKeysForContext(context: PlannerSessionContext | null | undefined) {
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  const add = (key: string | null) => {
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    keys.push(key);
+  };
+  add(plannerSessionSnapshotKey(context?.planner_session_id));
+  add(tournamentSnapshotKey(context?.tournament_id));
+  add(ACTIVE_KEY);
+  return keys;
+}
+
+function readSnapshotAtKey(key: string) {
   try {
     const raw = window.localStorage.getItem(key);
     if (!raw) return null;
@@ -43,10 +65,20 @@ export function loadAnonymousPlannerSnapshot(context: PlannerSessionContext | nu
   }
 }
 
+export function loadAnonymousPlannerSnapshot(context: PlannerSessionContext | null | undefined) {
+  if (typeof window === "undefined") return null;
+  const candidateKeys = snapshotKeysForContext(context);
+  for (const key of candidateKeys) {
+    const parsed = readSnapshotAtKey(key);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
 function safeWriteSnapshot(context: PlannerSessionContext | null | undefined, events: PlannerEventRow[]) {
   if (typeof window === "undefined") return;
-  const key = snapshotKey(context);
-  if (!key) return;
+  const keys = snapshotKeysForContext(context);
+  if (!keys.length) return;
   try {
     const snapshot: AnonymousPlannerSnapshot = {
       plannerSessionId: String(context?.planner_session_id ?? "").trim(),
@@ -54,7 +86,8 @@ function safeWriteSnapshot(context: PlannerSessionContext | null | undefined, ev
       expiresAt: new Date(Date.now() + TTL_MS).toISOString(),
       events,
     };
-    window.localStorage.setItem(key, JSON.stringify(snapshot));
+    const raw = JSON.stringify(snapshot);
+    for (const key of keys) window.localStorage.setItem(key, raw);
   } catch {
     // ignore storage failures
   }
@@ -70,10 +103,17 @@ export function saveAnonymousPlannerEvents(context: PlannerSessionContext | null
 
 export function clearAnonymousPlannerSnapshot(context: PlannerSessionContext | null | undefined) {
   if (typeof window === "undefined") return;
-  const key = snapshotKey(context);
-  if (!key) return;
+  const loadedSnapshot = loadAnonymousPlannerSnapshot(context);
   try {
-    window.localStorage.removeItem(key);
+    for (const key of snapshotKeysForContext(context)) {
+      window.localStorage.removeItem(key);
+    }
+    if (loadedSnapshot) {
+      const loadedSessionKey = plannerSessionSnapshotKey(loadedSnapshot.plannerSessionId);
+      const loadedTournamentKey = tournamentSnapshotKey(loadedSnapshot.tournamentId);
+      if (loadedSessionKey) window.localStorage.removeItem(loadedSessionKey);
+      if (loadedTournamentKey) window.localStorage.removeItem(loadedTournamentKey);
+    }
   } catch {
     // ignore
   }
