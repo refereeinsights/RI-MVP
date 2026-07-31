@@ -79,6 +79,13 @@ Maintenance rules:
     - updated signed-out save/account CTA telemetry to carry `prompt_location`, distinguishing `post_first_manual_event` conversion prompts from `calendar_gate` auth prompts
     - improved the post-claim continuation card with explicit next-step actions (`Add another event`, `Connect calendar`) so authenticated continuation is clearer after claim success
     - updated `CLAUDE.md` local UAT so save-prompt timing and post-claim next-step visibility are explicitly verified
+  - Local browser rerun later on Friday, July 31, 2026 passed cleanly for the Phase 5 conversion changes (`Perfect Game Hoover Classic`):
+    - before the first manual event, save/auth prompting was correctly deferred and only calendar-scoped sign-in messaging was visible
+    - after the first manual event was created, the prompt correctly upgraded to `Save this planner to keep it` with clear save/sign-in reasoning
+    - auth `returnTo` preserved the same `planner_session_id`
+    - claim succeeded cleanly with the `Planner saved to your account` banner shown immediately and no stuck `Finishing your saved planner items...` state
+    - the claimed event remained visible in `Upcoming`, also appeared in `Season`, and one authenticated follow-up action (adding a second event) worked before cleanup
+    - current interpretation: Phase 5 save-conversion timing and post-claim continuation are locally passing
     - local validation passed:
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
   - Local validation passed:
