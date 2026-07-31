@@ -590,6 +590,28 @@ export default function PlannerClient(props: Props) {
     });
   }
 
+  function trackPlannerAuthPromptClick(ctaType: "create_account" | "sign_in", promptLocation: "post_first_manual_event" | "calendar_gate") {
+    trackPlannerEvent(
+      ctaType === "create_account" ? "weekend_planner_create_account_clicked" : "weekend_planner_sign_in_clicked",
+      {
+        surface: "planner",
+        source_page_type: "planner",
+        cta_type: ctaType,
+        auth_state: "signed_out",
+        entitlement: "explorer",
+        prompt_location: promptLocation,
+      },
+    );
+    trackPlannerEvent("weekend_planner_auth_started", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      auth_state: "signed_out",
+      entitlement: entitlementForAnalytics,
+      cta_type: ctaType,
+      prompt_location: promptLocation,
+    });
+  }
+
   function plannerWriteBlockedCopy() {
     if (allowAnonymousPlanner) {
       return "Create an account or sign in to save this planner, connect calendars, or use it on another device.";
@@ -1384,6 +1406,10 @@ export default function PlannerClient(props: Props) {
     return eventsForScheduleView.filter((event) => familyFilterMatchesEvent(event, familyFilter));
   }, [eventsForScheduleView, familyFilter]);
 
+  const anonymousManualEventCount = useMemo(() => {
+    return events.filter((event) => String(event.source_type ?? "") === "manual").length;
+  }, [events]);
+
   const seasonDateRangeLabel = useMemo(() => {
     return formatDateRangeLabel(seasonDateStart || null, seasonDateEnd || null);
   }, [seasonDateEnd, seasonDateStart]);
@@ -1431,6 +1457,15 @@ export default function PlannerClient(props: Props) {
       return;
     }
     if (busy) return;
+    if (allowAnonymousPlanner && anonymousManualEventCount === 0) {
+      trackPlannerEvent("weekend_planner_start_clicked", {
+        surface: "planner",
+        source_page_type: plannerSourcePageType,
+        cta_type: "add_first_event",
+        auth_state: plannerAuthState,
+        entitlement: entitlementForAnalytics,
+      });
+    }
     setCreateOpen(true);
     setTimeout(() => {
       try {
@@ -1787,14 +1822,16 @@ export default function PlannerClient(props: Props) {
   useEffect(() => {
     if (!allowAnonymousPlanner) return;
     if (savePromptViewedRef.current) return;
+    if (anonymousManualEventCount <= 0) return;
     savePromptViewedRef.current = true;
     trackPlannerEvent("weekend_planner_save_prompt_viewed", {
       surface: "planner",
       source_page_type: plannerSourcePageType,
       auth_state: "signed_out",
       entitlement: entitlementForAnalytics,
+      prompt_location: "post_first_manual_event",
     });
-  }, [allowAnonymousPlanner, entitlementForAnalytics, plannerSourcePageType]);
+  }, [allowAnonymousPlanner, anonymousManualEventCount, entitlementForAnalytics, plannerSourcePageType]);
 
   useEffect(() => {
     const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
@@ -3234,7 +3271,12 @@ export default function PlannerClient(props: Props) {
                 </div>
                 <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
                   {allowAnonymousPlanner ? (
-                    <Link href={`/signup?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`} className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
+                    <Link
+                      href={`/signup?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
+                      className={styles.primaryBtn}
+                      style={{ display: "inline-flex", justifyContent: "center" }}
+                      onClick={() => trackPlannerAuthPromptClick("create_account", "calendar_gate")}
+                    >
                       Create account
                     </Link>
                   ) : (
@@ -3468,52 +3510,9 @@ export default function PlannerClient(props: Props) {
               Add event
             </button>
                     {allowAnonymousPlanner ? (
-                      <>
-                        <Link
-                          className={styles.secondaryBtn}
-                          href={`/signup?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
-                          onClick={() => {
-                            trackPlannerEvent("weekend_planner_create_account_clicked", {
-                              surface: "planner",
-                              source_page_type: "planner",
-                              cta_type: "create_account",
-                              auth_state: "signed_out",
-                              entitlement: "explorer",
-                            });
-                            trackPlannerEvent("weekend_planner_auth_started", {
-                              surface: "planner",
-                              source_page_type: plannerSourcePageType,
-                              auth_state: "signed_out",
-                              entitlement: entitlementForAnalytics,
-                              cta_type: "create_account",
-                            });
-                          }}
-                        >
-                          Create account
-                        </Link>
-                        <Link
-                          className={styles.secondaryBtn}
-                          href={`/login?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
-                          onClick={() => {
-                            trackPlannerEvent("weekend_planner_sign_in_clicked", {
-                              surface: "planner",
-                              source_page_type: "planner",
-                              cta_type: "sign_in",
-                              auth_state: "signed_out",
-                              entitlement: "explorer",
-                            });
-                            trackPlannerEvent("weekend_planner_auth_started", {
-                              surface: "planner",
-                              source_page_type: plannerSourcePageType,
-                              auth_state: "signed_out",
-                              entitlement: entitlementForAnalytics,
-                              cta_type: "sign_in",
-                            });
-                          }}
-                        >
-                          Sign in
-                        </Link>
-                      </>
+                      <div className={styles.muted} style={{ fontWeight: 700 }}>
+                        Save later after your first planner item
+                      </div>
                     ) : (
                       <>
 				            <button
@@ -3538,61 +3537,41 @@ export default function PlannerClient(props: Props) {
 
           {allowAnonymousPlanner ? (
             <div className={styles.card} style={{ marginBottom: 12 }}>
-              <div className={styles.cardTitle}>Temporary planner</div>
+              <div className={styles.cardTitle}>
+                {anonymousManualEventCount > 0 ? "Save this planner to keep it" : "Temporary planner"}
+              </div>
               <div className={styles.muted}>
-                Your tournament context is already added. Use this planner now on this device, then sign in later if you want to save it to your account, use it on another device, connect calendars, or share it.
+                {anonymousManualEventCount > 0
+                  ? `You now have ${anonymousManualEventCount} temporary planner item${anonymousManualEventCount === 1 ? "" : "s"} on this device. Save this planner to your account if you want to keep it across devices, come back later, connect calendars, or share it.`
+                  : "Your tournament context is already added. Use this planner now on this device, then sign in later if you want to save it to your account, use it on another device, connect calendars, or share it."}
               </div>
               <div className={styles.muted} style={{ marginTop: 8 }}>
-                Best next step: add one manual event for your hotel, check-in, meal, or travel plan.
+                {anonymousManualEventCount > 0
+                  ? "Best next step: save this planner now, or keep building it on this device."
+                  : "Best next step: add one manual event for your hotel, check-in, meal, or travel plan."}
               </div>
               <div className={styles.eventActions} style={{ marginTop: 10 }}>
                 <button className={styles.primaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
-                  Add first event
+                  {anonymousManualEventCount > 0 ? "Add another event" : "Add first event"}
                 </button>
-                <Link
-                  className={styles.secondaryBtn}
-                  href={`/signup?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
-                  onClick={() => {
-                    trackPlannerEvent("weekend_planner_create_account_clicked", {
-                      surface: "planner",
-                      source_page_type: "planner",
-                      cta_type: "create_account",
-                      auth_state: "signed_out",
-                      entitlement: "explorer",
-                    });
-                    trackPlannerEvent("weekend_planner_auth_started", {
-                      surface: "planner",
-                      source_page_type: plannerSourcePageType,
-                      auth_state: "signed_out",
-                      entitlement: entitlementForAnalytics,
-                      cta_type: "create_account",
-                    });
-                  }}
-                >
-                  Create account to save
-                </Link>
-                <Link
-                  className={styles.secondaryBtn}
-                  href={`/login?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
-                  onClick={() => {
-                    trackPlannerEvent("weekend_planner_sign_in_clicked", {
-                      surface: "planner",
-                      source_page_type: "planner",
-                      cta_type: "sign_in",
-                      auth_state: "signed_out",
-                      entitlement: "explorer",
-                    });
-                    trackPlannerEvent("weekend_planner_auth_started", {
-                      surface: "planner",
-                      source_page_type: plannerSourcePageType,
-                      auth_state: "signed_out",
-                      entitlement: entitlementForAnalytics,
-                      cta_type: "sign_in",
-                    });
-                  }}
-                >
-                  Sign in
-                </Link>
+                {anonymousManualEventCount > 0 ? (
+                  <>
+                    <Link
+                      className={styles.secondaryBtn}
+                      href={`/signup?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
+                      onClick={() => trackPlannerAuthPromptClick("create_account", "post_first_manual_event")}
+                    >
+                      Create account to save
+                    </Link>
+                    <Link
+                      className={styles.secondaryBtn}
+                      href={`/login?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
+                      onClick={() => trackPlannerAuthPromptClick("sign_in", "post_first_manual_event")}
+                    >
+                      Sign in
+                    </Link>
+                  </>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -3602,6 +3581,22 @@ export default function PlannerClient(props: Props) {
               <div className={styles.cardTitle}>Planner saved to your account</div>
               <div className={styles.muted}>
                 Your temporary planner items are now attached to this account. Keep adding events here, revisit this tournament later, or connect calendars when you are ready.
+              </div>
+              <div className={styles.eventActions} style={{ marginTop: 10 }}>
+                <button className={styles.primaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
+                  Add another event
+                </button>
+                <button
+                  className={styles.secondaryBtn}
+                  type="button"
+                  onClick={() => {
+                    if (busy) return;
+                    openConnectCalendarFlow();
+                  }}
+                  disabled={busy || sourcesBusy}
+                >
+                  Connect calendar
+                </button>
               </div>
             </div>
           ) : null}
@@ -5016,7 +5011,11 @@ export default function PlannerClient(props: Props) {
 			                allowAnonymousPlanner ? (
                         <>
                           Sign in or create an account to connect calendars.{" "}
-                          <Link href={`/login?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`} className="secondaryLink">
+                          <Link
+                            href={`/login?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
+                            className="secondaryLink"
+                            onClick={() => trackPlannerAuthPromptClick("sign_in", "calendar_gate")}
+                          >
                             Sign in
                           </Link>
                           .

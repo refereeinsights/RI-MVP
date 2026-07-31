@@ -189,7 +189,7 @@ If Smoke UAT fails, stop and report the first failure precisely (page + action +
 
 ---
 
-### Weekend Planner Phase 2–4 UAT (direct entry, anonymous planning, claim, activation clarity)
+### Weekend Planner Phase 2–5 UAT (direct entry, anonymous planning, claim, activation clarity, save conversion)
 
 Use this when validating the tournament-detail CTA repair behind `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY=true`.
 
@@ -219,15 +219,18 @@ Browser automation note (2026-07-30):
   - [ ] Click `Add event`.
   - [ ] Create one temporary manual event or note.
   - [ ] Confirm it appears in the planner immediately.
+  - [ ] After the first manual event is created, a clearer save-intent prompt appears.
+  - [ ] Confirm save/auth prompts are not shown as primary actions before the first manual item exists.
   - [ ] Edit the temporary item and confirm the change persists on refresh in the same browser.
   - [ ] Delete the temporary item and confirm removal persists on refresh in the same browser.
   - [ ] Open bare `/weekend-planner` while still signed out and confirm the same device-local planner state is still available there.
   - [ ] Re-open the same tournament from its detail-page CTA and confirm the same device-local manual item still appears even if a fresh `planner_session_id` is minted.
 - [ ] Auth/save prompt:
-  - [ ] A signed-out save prompt is visible.
+  - [ ] A signed-out save prompt is visible after the first manual event exists.
   - [ ] `Create account` and `Sign in` links preserve the same `planner_session_id` in the `returnTo` path.
   - [ ] No auth loop occurs after login.
   - [ ] After auth return, any claimed temporary item is clearly presented as saved to the account.
+  - [ ] After auth return, one clear next step is visible (for example `Add another event` or `Connect calendar`).
   - [ ] No misleading `No upcoming events yet` flash appears during claim import. A temporary `Finishing your saved planner items...` message is acceptable.
 - [ ] Regression guardrails:
   - [ ] `/weekend/[slug]` still loads as the public/shared weekend route.
@@ -251,6 +254,7 @@ Copy/paste browser-verification prompt:
    - confirm the planner explains this is temporary on the current device
    - confirm there is a clear `Add first event` path
    - create one temporary manual event
+   - confirm a stronger save/account prompt appears only after that first manual event exists
    - refresh and confirm it persists
    - edit it, refresh, confirm change persisted
    - delete it, refresh, confirm removal
@@ -260,6 +264,7 @@ Copy/paste browser-verification prompt:
 7) After auth return:
    - confirm the claimed event is still present
    - confirm the planner clearly indicates the temporary items were saved to the account
+   - confirm a clear next step is visible after claim (for example `Add another event` or `Connect calendar`)
    - confirm no misleading empty-state flash appears during claim import
 8) Report PASS/FAIL plus the first exact break point if anything fails.
 

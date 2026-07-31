@@ -73,6 +73,14 @@ Maintenance rules:
     - current interpretation: the earlier stuck-pending local failure is not reproducible after the mounted-ref fix and should be treated as resolved unless it recurs
     - local validation passed:
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+  - TI Weekend Planner Phase 5 save-conversion pass implemented locally:
+    - updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so signed-out tournament-intent users no longer get primary save/auth CTAs immediately on planner entry; the main save prompt now appears only after the first manual planner item exists
+    - wired `weekend_planner_start_clicked` from the real signed-out `Add first event` path so first-use intent can be measured before activation
+    - updated signed-out save/account CTA telemetry to carry `prompt_location`, distinguishing `post_first_manual_event` conversion prompts from `calendar_gate` auth prompts
+    - improved the post-claim continuation card with explicit next-step actions (`Add another event`, `Connect calendar`) so authenticated continuation is clearer after claim success
+    - updated `CLAUDE.md` local UAT so save-prompt timing and post-claim next-step visibility are explicitly verified
+    - local validation passed:
+      - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
   - Local validation passed:
       - `node --import tsx --test apps/ti-web/lib/planner/anonymousClaim.test.ts`
       - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`

@@ -192,6 +192,7 @@ type PlannerFirstActionType =
   | "team_hotel_clicked"
   | "view_toggle";
 type PlannerClaimSkippedReason = "no_snapshot" | "already_claimed" | "not_authenticated" | "no_manual_items";
+type PlannerPromptLocation = "post_first_manual_event" | "post_claim" | "calendar_gate";
 
 type PlannerCanonicalContext = {
   planner_session_id?: string;
@@ -900,6 +901,7 @@ export type TiAnalyticsEventPropertiesByName = {
     cta_type: "create_account" | "sign_in";
     auth_state: "signed_out" | "unverified";
     entitlement: PlannerEntitlement;
+    prompt_location?: PlannerPromptLocation;
   };
   weekend_planner_auth_completed: PlannerCanonicalContext & {
     surface: "planner";
@@ -927,6 +929,7 @@ export type TiAnalyticsEventPropertiesByName = {
     cta_type: "create_account";
     auth_state: "signed_out";
     entitlement: "explorer";
+    prompt_location?: PlannerPromptLocation;
   };
   weekend_planner_sign_in_clicked: {
     surface: "planner";
@@ -934,6 +937,7 @@ export type TiAnalyticsEventPropertiesByName = {
     cta_type: "sign_in";
     auth_state: "signed_out";
     entitlement: "explorer";
+    prompt_location?: PlannerPromptLocation;
   };
   weekend_planner_ready: PlannerCanonicalContext & {
     surface: "planner";
@@ -984,6 +988,7 @@ export type TiAnalyticsEventPropertiesByName = {
     source_page_type: "planner" | "tournament";
     auth_state: "signed_out";
     entitlement: PlannerEntitlement;
+    prompt_location?: PlannerPromptLocation;
   };
   weekend_planner_anonymous_claim_started: PlannerCanonicalContext & {
     surface: "planner";
