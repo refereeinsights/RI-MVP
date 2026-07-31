@@ -94,3 +94,48 @@ Coverage includes:
 - disabled default
 - legacy direct-entry fallback
 - authenticated-user exclusion behavior
+
+## Local browser UAT result
+
+Verification timestamp:
+
+- 2026-07-31, approximately 12:22 PM local
+
+Flow verified:
+
+- signed-out tournament detail CTA
+- direct entry to `/weekend-planner`
+- seeded tournament context
+- first manual event while signed out
+- correct delayed save/auth prompting
+- auth `returnTo` preserving the same `planner_session_id`
+- successful anonymous claim
+- no duplicate import on refresh or revisit
+
+Verified planner session:
+
+- `planner_session_id = 21f0a249-a2d2-4107-b347-37b343e09516`
+
+Verified related context:
+
+- `tournament_id = d390cb3f-06e6-4060-b4c0-74435ba8b9a6`
+- `venue_id = e607118b-250b-4d98-b5d6-e0fb1f9f233f`
+
+Observed outcome:
+
+- PASS WITH LIMITATIONS
+
+Limitation:
+
+- Browser tooling could confirm `/api/analytics` POST activity and the server-rendered experiment state, but could not inspect analytics POST bodies directly.
+- As a result, this UAT pass does not by itself prove the literal on-wire payload keys for:
+  - `experiment_name`
+  - `experiment_variant`
+  - `feature_flag_state`
+
+Recommended follow-up:
+
+- Run SQL verification against `ti_map_events` using the exact `planner_session_id` above to confirm:
+  - experiment metadata presence
+  - canonical event ordering
+  - no duplicate claim events

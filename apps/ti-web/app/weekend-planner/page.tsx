@@ -10,6 +10,7 @@ import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getTiTierServer } from "@/lib/entitlementsServer";
+import { canUseCorePrivatePlanner } from "@/lib/entitlements";
 import { getSavedTournamentIdsForUser } from "@/lib/savedTournaments";
 import SavedTournamentActionsClient from "./SavedTournamentActionsClient";
 import { getActivePlansForUser, saveWeekendPlanForTournament } from "@/lib/weekendPlans";
@@ -85,7 +86,11 @@ export default async function WeekendPlannerPage({
   const isAuthed = Boolean(user);
   const tierInfo = await getTiTierServer(user ?? null);
   const isUnverified = Boolean(isAuthed && tierInfo.unverified);
-  const canUseSavedPlanning = tierInfo.tier === "insider" || tierInfo.tier === "weekend_pro";
+  const canUseSavedPlanning = canUseCorePrivatePlanner({
+    tier: tierInfo.tier,
+    unverified: isUnverified,
+    isAuthenticated: isAuthed,
+  });
   const plannerEntitlement = tierInfo.tier;
   const rawSearchParams = new URLSearchParams();
   for (const [key, value] of Object.entries(searchParams ?? {})) {
@@ -286,6 +291,7 @@ export default async function WeekendPlannerPage({
                     plannerActivationExperiment={plannerActivationExperiment}
                     initialAuthState={isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out"}
                     allowAnonymousWrite={allowAnonymousPlanner}
+                    allowAuthenticatedCoreWrite={canUseSavedPlanning}
                   />
                   {plannerCalendarFeedPanel}
                   {plannerGuestSharePanel}

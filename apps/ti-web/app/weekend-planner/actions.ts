@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
+import { canUseCorePrivatePlanner } from "@/lib/entitlements";
 import { archiveWeekendPlan, updateWeekendPlanLodging, updateWeekendPlanNotes } from "@/lib/weekendPlans";
 
 export type PlannerEditorState = { status: "idle" | "saved" | "error"; error?: string };
@@ -21,7 +22,7 @@ function isValidIsoDate(value: string | null | undefined) {
   return dt.toISOString().slice(0, 10) === raw;
 }
 
-async function requireVerifiedPlannerUser() {
+async function requireCorePlannerUser() {
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -29,12 +30,13 @@ async function requireVerifiedPlannerUser() {
   if (!user?.id) return { ok: false as const, error: "Sign in to manage weekend plans.", userId: null as string | null };
 
   const tierInfo = await getTiTierServer(user);
-  const isVerified = !tierInfo.unverified;
-  const canManage = isVerified && (tierInfo.tier === "insider" || tierInfo.tier === "weekend_pro");
+  const canManage = canUseCorePrivatePlanner({
+    tier: tierInfo.tier,
+    unverified: tierInfo.unverified,
+    isAuthenticated: true,
+  });
   if (!canManage) {
-    return tierInfo.unverified
-      ? { ok: false as const, error: "Confirm your email to manage weekend plans.", userId: null as string | null }
-      : { ok: false as const, error: "Weekend plan management is unavailable for this account.", userId: null as string | null };
+    return { ok: false as const, error: "Weekend plan management is unavailable for this account.", userId: null as string | null };
   }
 
   return { ok: true as const, error: null as string | null, userId: user.id };
@@ -48,7 +50,7 @@ export async function updateWeekendPlanNotesAction(
   const planId = String(params.planId ?? "").trim();
   if (!planId) return { status: "error", error: "Missing plan." };
 
-  const authRes = await requireVerifiedPlannerUser();
+  const authRes = await requireCorePlannerUser();
   if (!authRes.ok || !authRes.userId) return { status: "error", error: authRes.error || "Not authorized." };
 
   const raw = String(formData.get("notes") ?? "");
@@ -72,7 +74,7 @@ export async function archiveWeekendPlanAction(
   const planId = String(params.planId ?? "").trim();
   if (!planId) return { status: "error", error: "Missing plan." };
 
-  const authRes = await requireVerifiedPlannerUser();
+  const authRes = await requireCorePlannerUser();
   if (!authRes.ok || !authRes.userId) return { status: "error", error: authRes.error || "Not authorized." };
 
   const res = await archiveWeekendPlan({ userId: authRes.userId, planId });
@@ -90,7 +92,7 @@ export async function updateWeekendPlanLodgingAction(
   const planId = String(params.planId ?? "").trim();
   if (!planId) return { status: "error", error: "Missing plan." };
 
-  const authRes = await requireVerifiedPlannerUser();
+  const authRes = await requireCorePlannerUser();
   if (!authRes.ok || !authRes.userId) return { status: "error", error: authRes.error || "Not authorized." };
 
   const lodgingName = String(formData.get("lodging_name") ?? "").trim() || null;

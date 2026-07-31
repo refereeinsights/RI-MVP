@@ -5,6 +5,7 @@ import type { PlannerEventUpdateBody } from "@/lib/planner/types";
 import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
 import { parseOptionalPlannerProfileId, validatePlannerAssignment } from "@/lib/planner/assignmentServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
+import { canUseCorePrivatePlanner } from "@/lib/entitlements";
 
 export const runtime = "nodejs";
 
@@ -62,7 +63,12 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   const tierInfo = await getTiTierServer(user);
-  if (tierInfo.unverified || tierInfo.tier === "explorer") {
+  const canUseCorePlanner = canUseCorePrivatePlanner({
+    tier: tierInfo.tier,
+    unverified: tierInfo.unverified,
+    isAuthenticated: true,
+  });
+  if (!canUseCorePlanner) {
     if (tierInfo.unverified) {
       return NextResponse.json({ ok: false, error: "email_verification_required" }, { status: 403 });
     }
@@ -213,7 +219,12 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   const tierInfo = await getTiTierServer(user);
-  if (tierInfo.unverified || tierInfo.tier === "explorer") {
+  const canUseCorePlanner = canUseCorePrivatePlanner({
+    tier: tierInfo.tier,
+    unverified: tierInfo.unverified,
+    isAuthenticated: true,
+  });
+  if (!canUseCorePlanner) {
     if (tierInfo.unverified) {
       return NextResponse.json({ ok: false, error: "email_verification_required" }, { status: 403 });
     }

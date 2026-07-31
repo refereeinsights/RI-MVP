@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
+import { canUseCorePrivatePlanner } from "@/lib/entitlements";
 import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
 import type { PlannerEventRow, PlannerEventType } from "@/lib/planner/types";
 import { filterAnonymousClaimablePlannerEvents, buildPlannerEventDedupSignature } from "@/lib/planner/anonymousClaim";
@@ -72,7 +73,12 @@ export async function POST(req: Request) {
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   const tierInfo = await getTiTierServer(user);
-  if (tierInfo.unverified || tierInfo.tier === "explorer") {
+  const canUseCorePlanner = canUseCorePrivatePlanner({
+    tier: tierInfo.tier,
+    unverified: tierInfo.unverified,
+    isAuthenticated: true,
+  });
+  if (!canUseCorePlanner) {
     if (tierInfo.unverified) {
       return NextResponse.json({ ok: false, error: "email_verification_required" }, { status: 403 });
     }

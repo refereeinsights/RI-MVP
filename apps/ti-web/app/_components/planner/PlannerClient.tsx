@@ -48,6 +48,7 @@ type Props = {
   plannerActivationExperiment?: PlannerActivationAssignment | null;
   initialAuthState?: "signed_out" | "unverified" | "verified";
   allowAnonymousWrite?: boolean;
+  allowAuthenticatedCoreWrite?: boolean;
 };
 
 type PlannerLens = "weekend" | "season";
@@ -476,9 +477,10 @@ export default function PlannerClient(props: Props) {
   const isWeekendPro = plannerEntitlement === "weekend_pro";
   const plannerAuthState = props.initialAuthState ?? (isUnverified ? "unverified" : "verified");
   const isSignedOut = plannerAuthState === "signed_out";
+  const isAuthenticatedPlannerUser = plannerAuthState === "verified" || plannerAuthState === "unverified";
   const allowAnonymousPlanner = Boolean(props.allowAnonymousWrite && isSignedOut);
-  const isExplorerOrUnverified = isUnverified || (isExplorer && !allowAnonymousPlanner);
-  const canWritePlanner = allowAnonymousPlanner || !isExplorerOrUnverified;
+  const canWritePlanner = allowAnonymousPlanner || Boolean(props.allowAuthenticatedCoreWrite);
+  const isCorePlannerBlocked = !allowAnonymousPlanner && !Boolean(props.allowAuthenticatedCoreWrite);
   const plannerSourcePageType = props.plannerSessionContext?.entry_page_type === "tournament" ? "tournament" : "planner";
   const plannerAuthReturnTo = useMemo(
     () =>
@@ -571,12 +573,12 @@ export default function PlannerClient(props: Props) {
       entitlement: entitlementForAnalytics,
       first_action_type: firstActionType,
     });
-    if (claimedAnonymousState && plannerAuthState === "verified" && !claimedFirstActionTrackedRef.current) {
+    if (claimedAnonymousState && isAuthenticatedPlannerUser && !claimedFirstActionTrackedRef.current) {
       claimedFirstActionTrackedRef.current = true;
       trackPlannerEvent("weekend_planner_first_authenticated_action_after_claim", {
         surface: "planner",
         source_page_type: plannerSourcePageType,
-        auth_state: "verified",
+        auth_state: plannerAuthState,
         entitlement: entitlementForAnalytics,
         first_action_type: firstActionType,
       });
@@ -1787,7 +1789,7 @@ export default function PlannerClient(props: Props) {
   useEffect(() => {
     if (authRequiredViewedRef.current) return;
     if (allowAnonymousPlanner) return;
-    if (!isExplorerOrUnverified) return;
+    if (!isCorePlannerBlocked) return;
     authRequiredViewedRef.current = true;
     trackPlannerEvent("weekend_planner_auth_required_viewed", {
       surface: "planner",
@@ -1796,7 +1798,7 @@ export default function PlannerClient(props: Props) {
       entitlement: entitlementForAnalytics,
       action_surface: "planner",
     });
-  }, [allowAnonymousPlanner, entitlementForAnalytics, isExplorerOrUnverified, plannerAuthState]);
+  }, [allowAnonymousPlanner, entitlementForAnalytics, isCorePlannerBlocked, plannerAuthState]);
 
   useEffect(() => {
     if (!allowAnonymousPlanner) return;
@@ -1841,7 +1843,7 @@ export default function PlannerClient(props: Props) {
   useEffect(() => {
     const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
     if (!plannerSessionId) return;
-    if (plannerAuthState !== "verified") return;
+    if (!isAuthenticatedPlannerUser) return;
     if (anonymousClaimAttemptedRef.current) return;
     anonymousClaimAttemptedRef.current = true;
 
@@ -1853,7 +1855,7 @@ export default function PlannerClient(props: Props) {
       trackPlannerEvent("weekend_planner_anonymous_claim_skipped", {
         surface: "planner",
         source_page_type: plannerSourcePageType,
-        auth_state: "verified",
+        auth_state: plannerAuthState,
         entitlement: entitlementForAnalytics,
         reason: "already_claimed",
       });
@@ -1865,7 +1867,7 @@ export default function PlannerClient(props: Props) {
         trackPlannerEvent("weekend_planner_anonymous_claim_skipped", {
           surface: "planner",
           source_page_type: plannerSourcePageType,
-          auth_state: "verified",
+          auth_state: plannerAuthState,
           entitlement: entitlementForAnalytics,
           reason: "no_snapshot",
         });
@@ -1881,7 +1883,7 @@ export default function PlannerClient(props: Props) {
       trackPlannerEvent("weekend_planner_anonymous_claim_skipped", {
         surface: "planner",
         source_page_type: plannerSourcePageType,
-        auth_state: "verified",
+        auth_state: plannerAuthState,
         entitlement: entitlementForAnalytics,
         reason: "no_manual_items",
       });
@@ -1893,7 +1895,7 @@ export default function PlannerClient(props: Props) {
       trackPlannerEvent("weekend_planner_anonymous_claim_started", {
         surface: "planner",
         source_page_type: plannerSourcePageType,
-        auth_state: "verified",
+        auth_state: plannerAuthState,
         entitlement: entitlementForAnalytics,
       });
       try {
@@ -1935,7 +1937,7 @@ export default function PlannerClient(props: Props) {
         trackPlannerEvent("weekend_planner_anonymous_claim_succeeded", {
           surface: "planner",
           source_page_type: plannerSourcePageType,
-          auth_state: "verified",
+          auth_state: plannerAuthState,
           entitlement: entitlementForAnalytics,
           imported_count: res.imported_count,
           skipped_duplicate_count: res.skipped_duplicate_count,
@@ -1948,24 +1950,24 @@ export default function PlannerClient(props: Props) {
         trackPlannerEvent("weekend_planner_anonymous_claim_failed", {
           surface: "planner",
           source_page_type: plannerSourcePageType,
-          auth_state: "verified",
+          auth_state: plannerAuthState,
           entitlement: entitlementForAnalytics,
           failure_reason: String(error?.message ?? "unknown"),
         });
       }
     })();
-  }, [entitlementForAnalytics, plannerAuthState, plannerSourcePageType, props.plannerSessionContext]);
+  }, [entitlementForAnalytics, isAuthenticatedPlannerUser, plannerAuthState, plannerSourcePageType, props.plannerSessionContext]);
 
   useEffect(() => {
     if (plannerLoadedFiredRef.current) return;
     if (!initialLoadSettledRef.current || eventsPagingBusy) return;
-    if (plannerAuthState !== "verified") return;
+    if (!isAuthenticatedPlannerUser) return;
     if (anonymousClaimPending) return;
     plannerLoadedFiredRef.current = true;
     trackPlannerEvent("weekend_planner_loaded", {
       surface: "planner",
       source_page_type: "planner",
-      auth_state: "verified",
+      auth_state: plannerAuthState,
       entitlement: entitlementForAnalytics,
       view: plannerViewForAnalytics,
       loaded_event_count_bucket: bucketLoadedEventCount(filteredEventsForScheduleView.length),
@@ -1979,7 +1981,7 @@ export default function PlannerClient(props: Props) {
         trackPlannerEvent("weekend_planner_auth_completed", {
           surface: "planner",
           source_page_type: props.plannerSessionContext?.entry_page_type === "tournament" ? "tournament" : "planner",
-          auth_state: "verified",
+          auth_state: plannerAuthState,
           entitlement: entitlementForAnalytics,
         });
       }
@@ -1989,6 +1991,7 @@ export default function PlannerClient(props: Props) {
     entitlementForAnalytics,
     eventsPagingBusy,
     filteredEventsForScheduleView.length,
+    isAuthenticatedPlannerUser,
     plannerAuthState,
     plannerViewForAnalytics,
     props.plannerSessionContext,
@@ -4030,13 +4033,7 @@ export default function PlannerClient(props: Props) {
                     <>Finishing your saved planner items…</>
                   ) : (
                   isUnverified ? (
-                    <>
-                      Verify your email to connect a calendar or add manual events.{" "}
-                      <Link href="/verify-email" className="secondaryLink">
-                        Verify email
-                      </Link>
-                      .
-                    </>
+                    <>No upcoming events yet. Add a manual event to keep planning, or verify your email to connect a calendar.</>
                   ) : isExplorer ? (
                     allowAnonymousPlanner ? (
                       <>No upcoming events yet. Add a temporary event above or sign in to connect a calendar.</>
@@ -4071,7 +4068,7 @@ export default function PlannerClient(props: Props) {
                   <>No season events match <b>{activeFamilyFilterLabel}</b> in this date range. Clear <b>Dates</b> or choose another range.</>
                 ) : familyFilter === "all" ? (
                   isUnverified ? (
-                    <>Verify your email to start building your season schedule.</>
+                    <>No season events yet. Add manual events now, or verify your email to connect a calendar.</>
                   ) : isExplorer ? (
                     allowAnonymousPlanner ? (
                       <>No season events yet. Add a temporary event above or sign in to connect a calendar.</>
@@ -5261,7 +5258,7 @@ export default function PlannerClient(props: Props) {
           <ChildTeamManager
             initialChildren={familyProfiles}
             initialLoading={familyProfilesBusy}
-            canWriteProfiles={canWritePlanner}
+            canWriteProfiles={!isUnverified && canWritePlanner}
             onProfilesChanged={() => void loadFamilyProfiles().catch(() => {})}
           />
         </div>

@@ -24,6 +24,8 @@ Maintenance rules:
   - Added rollout funnel SQL in `scripts/analysis/ti_weekend_planner_phase6_rollout.sql`.
   - Added implementation summary report `docs/reports/ti-weekend-planner-phase6-production-readiness-2026-07-31.md`.
   - Expanded `CLAUDE.md` with a Phase 6 rollout/UAT checklist.
+  - Local browser UAT on Friday, July 31, 2026 passed with limitations: signed-out direct entry, first manual event, delayed save prompt, auth return, anonymous claim, and duplicate-prevention all worked using `planner_session_id = 21f0a249-a2d2-4107-b347-37b343e09516`; remaining limitation is that browser tooling could not inspect analytics POST bodies directly, so SQL verification is still needed to prove the persisted experiment metadata and exact event ordering.
+  - Final pre-production local verification found one real rollout blocker: authenticated unverified users were still blocked from core private planner writes and anonymous-claim continuation. Fixed by adding `canUseCorePrivatePlanner(...)` in `apps/ti-web/lib/entitlements.ts` and using it in `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/api/planner/anonymous-claim/route.ts`, `apps/ti-web/app/api/planner/events/route.ts`, `apps/ti-web/app/api/planner/events/[id]/route.ts`, and `apps/ti-web/app/weekend-planner/actions.ts`; added `apps/ti-web/lib/entitlements.test.ts`; report: `docs/reports/ti-weekend-planner-pre-production-verification-2026-07-31.md`.
 
 ## 2026-07-30
 

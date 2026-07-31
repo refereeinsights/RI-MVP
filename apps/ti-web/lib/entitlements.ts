@@ -8,6 +8,11 @@ export type TiProfile = {
 } | null;
 
 export type TiTier = "explorer" | "insider" | "weekend_pro";
+export type PlannerCapabilityContext = {
+  tier: TiTier;
+  unverified: boolean;
+  isAuthenticated: boolean;
+};
 
 function overrideWeekendPro() {
   return (
@@ -53,4 +58,16 @@ export function getTier(user: User | null | undefined, profile: TiProfile): TiTi
 
 export function canAccessWeekendPro(user: User | null | undefined, profile: TiProfile) {
   return getTier(user, profile) === "weekend_pro";
+}
+
+export function canUseCorePrivatePlanner(context: PlannerCapabilityContext) {
+  if (!context.isAuthenticated) return false;
+  if (context.unverified) return true;
+  return context.tier === "insider" || context.tier === "weekend_pro";
+}
+
+export function canUseAdvancedPlannerCapabilities(context: PlannerCapabilityContext) {
+  if (!context.isAuthenticated) return false;
+  if (context.unverified) return false;
+  return context.tier === "weekend_pro";
 }

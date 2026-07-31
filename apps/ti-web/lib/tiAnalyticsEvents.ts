@@ -912,7 +912,7 @@ export type TiAnalyticsEventPropertiesByName = {
   weekend_planner_auth_completed: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "planner" | "tournament";
-    auth_state: "verified";
+    auth_state: "verified" | "unverified";
     entitlement: PlannerEntitlement;
   };
   weekend_planner_start_clicked: {
@@ -965,7 +965,7 @@ export type TiAnalyticsEventPropertiesByName = {
   weekend_planner_loaded: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "planner";
-    auth_state: "verified";
+    auth_state: "verified" | "unverified";
     entitlement: PlannerEntitlement;
     view: Extract<PlannerView, "upcoming" | "this_weekend" | "season">;
     loaded_event_count_bucket: LoadedEventCountBucket;
@@ -999,13 +999,13 @@ export type TiAnalyticsEventPropertiesByName = {
   weekend_planner_anonymous_claim_started: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "tournament" | "planner";
-    auth_state: "verified";
+    auth_state: "verified" | "unverified";
     entitlement: PlannerEntitlement;
   };
   weekend_planner_anonymous_claim_succeeded: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "tournament" | "planner";
-    auth_state: "verified";
+    auth_state: "verified" | "unverified";
     entitlement: PlannerEntitlement;
     imported_count: number;
     skipped_duplicate_count: number;
@@ -1014,7 +1014,7 @@ export type TiAnalyticsEventPropertiesByName = {
   weekend_planner_anonymous_claim_failed: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "tournament" | "planner";
-    auth_state: "verified";
+    auth_state: "verified" | "unverified";
     entitlement: PlannerEntitlement;
     failure_reason: string;
   };
@@ -1028,7 +1028,7 @@ export type TiAnalyticsEventPropertiesByName = {
   weekend_planner_first_authenticated_action_after_claim: PlannerCanonicalContext & {
     surface: "planner";
     source_page_type: "tournament" | "planner";
-    auth_state: "verified";
+    auth_state: "verified" | "unverified";
     entitlement: PlannerEntitlement;
     first_action_type: PlannerFirstActionType;
   };

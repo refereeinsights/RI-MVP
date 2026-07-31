@@ -15,6 +15,8 @@ Maintenance rules:
 ## 2026-07-31
 
 - TI Weekend Planner Phase 6 local production-readiness implementation added `anonymous_planner_activation_v1` rollout assignment, experiment metadata on planner CTA and activation analytics, planner analytics persistence of experiment fields, a rollout funnel SQL script, and matching report/UAT documentation.
+- TI Weekend Planner Phase 6 local browser UAT on Friday, July 31, 2026 passed with limitations: the repaired anonymous flow still worked end to end, no duplicate claim/import was observed, and the exact verification key was `planner_session_id = 21f0a249-a2d2-4107-b347-37b343e09516`; browser tooling still could not inspect analytics POST bodies directly, so SQL verification remains required for persisted experiment metadata and event-order proof.
+- TI Weekend Planner final pre-production local verification found and fixed one real rollout blocker: authenticated unverified users were still blocked from core private planner writes and anonymous-claim continuation despite the intended model allowing those private actions pre-verification. Added `canUseCorePrivatePlanner(...)` in `apps/ti-web/lib/entitlements.ts`, used it in the planner page, client, core planner event routes, anonymous-claim route, and weekend-plan server actions, adjusted unverified planner empty-state copy accordingly, and added `apps/ti-web/lib/entitlements.test.ts`; summary report: `docs/reports/ti-weekend-planner-pre-production-verification-2026-07-31.md`.
 
 ## 2026-07-30
 
