@@ -15,6 +15,17 @@ Maintenance rules:
 
 ## 2026-07-31
 
+- TI Weekend Planner rollout-assignment follow-up after production contradiction:
+  - Production on Friday, July 31, 2026 showed fresh signed-out tournament CTA sessions landing on `experiment_variant=control` with `feature_flag_state=enabled` even though the intended production config was `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ENABLED=true`, `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ROLLOUT_PERCENT=100`, `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_INCLUDE_AUTHENTICATED=false`, and `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY=false`.
+  - The helper already tested correctly for signed-out 100% rollout, so the exact production root cause remained unresolved from local code inspection alone.
+  - Added a defensive operator-safe fallback in `apps/ti-web/lib/planner/plannerActivationExperiment.ts`: `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY=true` is now a true hard override to treatment, even if the newer experiment envs are present and contradictory.
+  - Also made the 100% treatment branch explicit in the helper and added focused tests proving both:
+    - signed-out 100% rollout yields treatment
+    - legacy direct-entry override forces treatment
+  - Validation passed:
+    - `node --import tsx --test apps/ti-web/lib/planner/plannerActivationExperiment.test.ts`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+
 - TI Weekend Planner Phase 6 production telemetry follow-up:
   - Production browser UAT on Friday, July 31, 2026 proved the treatment UX path works end to end for `planner_session_id = f30747f2-6b27-4455-9168-ea7c1cb2c073`, but SQL verification showed two analytics gaps: some `WeekendPlannerClient` events (`weekend_planner_viewed`, `team_hotel_cta_viewed`) were missing `experiment_name` / `experiment_variant` / `feature_flag_state`, and several critical anonymous-flow events (`weekend_planner_ready`, `weekend_planner_activation_achieved`, `weekend_planner_save_prompt_viewed`, anonymous-claim events) did not persist reliably enough for rollout measurement confidence.
   - Fixed this locally by updating `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` to include the rollout metadata on its direct analytics calls and by changing `apps/ti-web/lib/analytics.ts` so normal visible-page analytics use `fetch(..., { keepalive: true })` and only prefer `sendBeacon` when the document is actually hidden; this avoids silent beacon-only drops during active in-app interaction.

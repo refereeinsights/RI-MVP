@@ -48,6 +48,25 @@ export function getPlannerActivationAssignment(input: {
 }): PlannerActivationAssignment {
   const legacyDirectEntryEnabled =
     process.env.NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY === "true";
+  if (legacyDirectEntryEnabled) {
+    const lockedVariant = input.lockedVariant === "control" || input.lockedVariant === "treatment"
+      ? input.lockedVariant
+      : null;
+    const lockedFeatureFlagState =
+      input.lockedFeatureFlagState === "enabled" || input.lockedFeatureFlagState === "disabled"
+        ? input.lockedFeatureFlagState
+        : null;
+    const variant = lockedVariant ?? "treatment";
+    const featureFlagState = lockedFeatureFlagState ?? "enabled";
+    return {
+      experimentName: ANONYMOUS_PLANNER_ACTIVATION_EXPERIMENT,
+      variant,
+      featureFlagState,
+      rolloutPercent: 100,
+      directEntryEnabled: variant === "treatment",
+      anonymousPlannerEnabled: variant === "treatment" && input.authState === "signed_out",
+    };
+  }
   const experimentEnabled = parseBoolean(
     process.env.NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ENABLED,
     legacyDirectEntryEnabled,
@@ -71,7 +90,10 @@ export function getPlannerActivationAssignment(input: {
     input.lockedFeatureFlagState === "enabled" || input.lockedFeatureFlagState === "disabled"
       ? input.lockedFeatureFlagState
       : null;
-  const treatmentAssigned = experimentEnabled && eligibleForTreatment && bucket < rolloutPercent;
+  const treatmentAssigned =
+    experimentEnabled &&
+    eligibleForTreatment &&
+    (rolloutPercent >= 100 || bucket < rolloutPercent);
   const variant = lockedVariant ?? (treatmentAssigned ? "treatment" : "control");
   const featureFlagState = lockedFeatureFlagState ?? (experimentEnabled ? "enabled" : "disabled");
   return {
