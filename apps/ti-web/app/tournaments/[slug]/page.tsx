@@ -303,11 +303,6 @@ async function TournamentUserActions({
       {(() => {
         const plannerSessionId = createPlannerSessionId();
         const plannerEntryPath = `/weekend/${encodeURIComponent(tournament.slug ?? paramsSlug)}`;
-        const plannerEntryHref = buildTournamentPlannerEntryHref(plannerEntryPath, {
-          planner_session_id: plannerSessionId,
-          venue_id: primaryVenueIdForPlan,
-          source: "tournament_detail",
-        });
         const plannerActivationExperiment = getPlannerActivationAssignment({
           plannerSessionId,
           authState: viewer.isLoggedIn ? (viewer.isVerified ? "verified" : "unverified") : "signed_out",
@@ -315,6 +310,9 @@ async function TournamentUserActions({
         const weekendHref = plannerActivationExperiment.directEntryEnabled || ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY
           ? buildPlannerHref("/weekend-planner", {
               planner_session_id: plannerSessionId,
+              experiment_name: plannerActivationExperiment.experimentName,
+              experiment_variant: plannerActivationExperiment.variant,
+              feature_flag_state: plannerActivationExperiment.featureFlagState,
               tournament_id: tournament.id,
               tournament_slug: tournament.slug ?? paramsSlug,
               tournament_name: tournament.name ?? null,
@@ -329,7 +327,14 @@ async function TournamentUserActions({
               current_page_path: "/weekend-planner",
               request_source: "planner_resume",
             })
-          : plannerEntryHref.href;
+          : buildTournamentPlannerEntryHref(plannerEntryPath, {
+              planner_session_id: plannerSessionId,
+              experiment_name: plannerActivationExperiment.experimentName,
+              experiment_variant: plannerActivationExperiment.variant,
+              feature_flag_state: plannerActivationExperiment.featureFlagState,
+              venue_id: primaryVenueIdForPlan,
+              source: "tournament_detail",
+            }).href;
         return (
           <>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" as any }}>

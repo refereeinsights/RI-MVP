@@ -2,6 +2,9 @@ export type CanonicalPlannerPageType = "tournament" | "planner_entry" | "planner
 
 export type PlannerSessionContext = {
   planner_session_id: string;
+  experiment_name?: string | null;
+  experiment_variant?: "control" | "treatment" | null;
+  feature_flag_state?: "disabled" | "enabled" | null;
   tournament_id?: string | null;
   tournament_slug?: string | null;
   tournament_name?: string | null;
@@ -49,6 +52,18 @@ function safeCanonicalPageType(value: string | null | undefined): CanonicalPlann
     : null;
 }
 
+function safeExperimentVariant(value: string | null | undefined): "control" | "treatment" | null {
+  const raw = safeTrim(value);
+  if (!raw) return null;
+  return raw === "control" || raw === "treatment" ? raw : null;
+}
+
+function safeFeatureFlagState(value: string | null | undefined): "disabled" | "enabled" | null {
+  const raw = safeTrim(value);
+  if (!raw) return null;
+  return raw === "disabled" || raw === "enabled" ? raw : null;
+}
+
 type SearchParamsLike = URLSearchParams | { get(name: string): string | null };
 
 export function parsePlannerSessionContext(input: SearchParamsLike): PlannerSessionContext | null {
@@ -56,6 +71,9 @@ export function parsePlannerSessionContext(input: SearchParamsLike): PlannerSess
   if (!plannerSessionId) return null;
   return {
     planner_session_id: plannerSessionId,
+    experiment_name: safeTrim(input.get("experiment_name")),
+    experiment_variant: safeExperimentVariant(input.get("experiment_variant")),
+    feature_flag_state: safeFeatureFlagState(input.get("feature_flag_state")),
     tournament_id: safeTrim(input.get("tournament_id")),
     tournament_slug: safeTrim(input.get("tournament_slug")),
     tournament_name: safeTrim(input.get("tournament_name")),
@@ -81,6 +99,9 @@ export function buildPlannerSessionParams(context: Partial<PlannerSessionContext
   params.set("planner_session_id", plannerSessionId);
 
   const fields: Array<keyof Omit<PlannerSessionContext, "planner_session_id" | "planner_auth">> = [
+    "experiment_name",
+    "experiment_variant",
+    "feature_flag_state",
     "tournament_id",
     "tournament_slug",
     "tournament_name",
@@ -118,6 +139,9 @@ export function buildPlannerHref(pathname: string, context: Partial<PlannerSessi
 
 type TournamentPlannerEntryOptions = {
   planner_session_id?: string | null;
+  experiment_name?: string | null;
+  experiment_variant?: "control" | "treatment" | null;
+  feature_flag_state?: "disabled" | "enabled" | null;
   venue_id?: string | null;
   source?: string | null;
   utm_source?: string | null;
@@ -128,11 +152,17 @@ export function buildTournamentPlannerEntryHref(pathname: string, options: Tourn
   const plannerSessionId = normalizePlannerSessionId(options.planner_session_id) ?? createPlannerSessionId();
   const params = new URLSearchParams();
 
+  const experimentName = safeTrim(options.experiment_name);
+  const experimentVariant = safeExperimentVariant(options.experiment_variant);
+  const featureFlagState = safeFeatureFlagState(options.feature_flag_state);
   const venueId = safeTrim(options.venue_id);
   const source = safeTrim(options.source);
   const utmSource = safeTrim(options.utm_source);
   const utmMedium = safeTrim(options.utm_medium);
 
+  if (experimentName) params.set("experiment_name", experimentName);
+  if (experimentVariant) params.set("experiment_variant", experimentVariant);
+  if (featureFlagState) params.set("feature_flag_state", featureFlagState);
   if (venueId) params.set("venue", venueId);
   if (source) params.set("source", source);
   if (utmSource) params.set("utm_source", utmSource);

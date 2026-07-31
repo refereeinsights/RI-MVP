@@ -43,6 +43,8 @@ function hashToBucket(seed: string) {
 export function getPlannerActivationAssignment(input: {
   plannerSessionId: string | null | undefined;
   authState: PlannerActivationAuthState;
+  lockedVariant?: PlannerActivationVariant | null;
+  lockedFeatureFlagState?: "disabled" | "enabled" | null;
 }): PlannerActivationAssignment {
   const legacyDirectEntryEnabled =
     process.env.NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY === "true";
@@ -62,13 +64,22 @@ export function getPlannerActivationAssignment(input: {
     input.authState === "signed_out" || includeAuthenticated;
   const normalizedSessionId = String(input.plannerSessionId ?? "").trim().toLowerCase();
   const bucket = normalizedSessionId ? hashToBucket(normalizedSessionId) : 100;
+  const lockedVariant = input.lockedVariant === "control" || input.lockedVariant === "treatment"
+    ? input.lockedVariant
+    : null;
+  const lockedFeatureFlagState =
+    input.lockedFeatureFlagState === "enabled" || input.lockedFeatureFlagState === "disabled"
+      ? input.lockedFeatureFlagState
+      : null;
   const treatmentAssigned = experimentEnabled && eligibleForTreatment && bucket < rolloutPercent;
+  const variant = lockedVariant ?? (treatmentAssigned ? "treatment" : "control");
+  const featureFlagState = lockedFeatureFlagState ?? (experimentEnabled ? "enabled" : "disabled");
   return {
     experimentName: ANONYMOUS_PLANNER_ACTIVATION_EXPERIMENT,
-    variant: treatmentAssigned ? "treatment" : "control",
-    featureFlagState: experimentEnabled ? "enabled" : "disabled",
+    variant,
+    featureFlagState,
     rolloutPercent,
-    directEntryEnabled: treatmentAssigned,
-    anonymousPlannerEnabled: treatmentAssigned && input.authState === "signed_out",
+    directEntryEnabled: variant === "treatment",
+    anonymousPlannerEnabled: variant === "treatment" && input.authState === "signed_out",
   };
 }

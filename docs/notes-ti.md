@@ -15,6 +15,14 @@ Maintenance rules:
 
 ## 2026-07-31
 
+- TI Weekend Planner Phase 6 rollout-control hardening:
+  - Found one real release blocker in the original rollout pass: experiment assignment was hash-stable by `planner_session_id` but not session-sticky across a live flag or percentage change, so an active treatment session could flip back to control on refresh or auth return.
+  - Fixed this by extending `apps/ti-web/lib/planner/plannerSession.ts` to carry `experiment_name`, `experiment_variant`, and `feature_flag_state` inside the planner session context, honoring the locked assignment inside `apps/ti-web/lib/planner/plannerActivationExperiment.ts`, and threading the metadata through `apps/ti-web/app/tournaments/[slug]/page.tsx` and `apps/ti-web/app/weekend-planner/page.tsx`.
+  - Upgraded `scripts/analysis/ti_weekend_planner_phase6_rollout.sql` to use the validated field names (`entitlement`, not `entitlement_state`), derive device from `ua` unless `device_type` is explicitly present, include auth/entitlement/tournament/venue splits, and join planner sessions to lodging search and hotel outbound records.
+  - Rewrote `docs/reports/ti-weekend-planner-phase6-production-readiness-2026-07-31.md` with a complete rollout audit, exact enable/rollback procedures, measurable-vs-unmeasurable metrics, and blocker classification.
+  - Updated `CLAUDE.md` Phase 6 UAT to verify experiment metadata continuity across direct entry, auth return, and refresh.
+  - Added/updated focused tests in `apps/ti-web/lib/planner/plannerActivationExperiment.test.ts` and `apps/ti-web/lib/planner/plannerSession.test.ts`.
+
 - TI Weekend Planner Phase 6 local production-readiness work:
   - Added `apps/ti-web/lib/planner/plannerActivationExperiment.ts` for `anonymous_planner_activation_v1` with stable assignment by `planner_session_id`, rollout-percentage support, and optional authenticated-user exclusion.
   - Preserved legacy compatibility with `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY`.

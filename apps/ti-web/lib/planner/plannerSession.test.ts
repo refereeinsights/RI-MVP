@@ -13,6 +13,9 @@ const SESSION_ID = "11111111-1111-4111-8111-111111111111";
 test("plannerSession round-trips canonical context", () => {
   const href = buildPlannerHref("/weekend-planner", {
     planner_session_id: SESSION_ID,
+    experiment_name: "anonymous_planner_activation_v1",
+    experiment_variant: "treatment",
+    feature_flag_state: "enabled",
     tournament_id: "t-1",
     tournament_slug: "summer-classic",
     venue_id: "v-1",
@@ -29,6 +32,9 @@ test("plannerSession round-trips canonical context", () => {
   const ctx = parsePlannerSessionContext(parsed.searchParams);
   assert.ok(ctx);
   assert.equal(ctx?.planner_session_id, SESSION_ID);
+  assert.equal(ctx?.experiment_name, "anonymous_planner_activation_v1");
+  assert.equal(ctx?.experiment_variant, "treatment");
+  assert.equal(ctx?.feature_flag_state, "enabled");
   assert.equal(ctx?.entry_page_type, "tournament");
   assert.equal(ctx?.entry_source, "tournament_detail");
   assert.equal(ctx?.planner_auth, true);
@@ -46,6 +52,9 @@ test("plannerSession params omit invalid session ids", () => {
 test("tournament planner entry href preserves a provided planner session id", () => {
   const result = buildTournamentPlannerEntryHref("/weekend/summer-classic", {
     planner_session_id: SESSION_ID,
+    experiment_name: "anonymous_planner_activation_v1",
+    experiment_variant: "control",
+    feature_flag_state: "enabled",
     venue_id: "v-1",
     source: "tournament_detail",
   });
@@ -54,6 +63,9 @@ test("tournament planner entry href preserves a provided planner session id", ()
   const parsed = new URL(result.href, "https://www.tournamentinsights.com");
   assert.equal(parsed.pathname, "/weekend/summer-classic");
   assert.equal(parsed.searchParams.get("planner_session_id"), SESSION_ID);
+  assert.equal(parsed.searchParams.get("experiment_name"), "anonymous_planner_activation_v1");
+  assert.equal(parsed.searchParams.get("experiment_variant"), "control");
+  assert.equal(parsed.searchParams.get("feature_flag_state"), "enabled");
   assert.equal(parsed.searchParams.get("venue"), "v-1");
   assert.equal(parsed.searchParams.get("source"), "tournament_detail");
 });

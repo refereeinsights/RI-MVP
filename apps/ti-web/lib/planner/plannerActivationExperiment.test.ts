@@ -87,3 +87,49 @@ test("planner activation experiment can exclude authenticated traffic", () => {
     },
   );
 });
+
+test("planner activation experiment preserves a locked treatment assignment after rollback", () => {
+  withEnv(
+    {
+      NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ENABLED: "false",
+      NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ROLLOUT_PERCENT: "0",
+      NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_INCLUDE_AUTHENTICATED: "false",
+      NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY: "false",
+    },
+    () => {
+      const result = getPlannerActivationAssignment({
+        plannerSessionId: SESSION_ID,
+        authState: "signed_out",
+        lockedVariant: "treatment",
+        lockedFeatureFlagState: "enabled",
+      });
+      assert.equal(result.featureFlagState, "enabled");
+      assert.equal(result.variant, "treatment");
+      assert.equal(result.directEntryEnabled, true);
+      assert.equal(result.anonymousPlannerEnabled, true);
+    },
+  );
+});
+
+test("planner activation experiment preserves a locked control assignment", () => {
+  withEnv(
+    {
+      NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ENABLED: "true",
+      NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ROLLOUT_PERCENT: "100",
+      NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_INCLUDE_AUTHENTICATED: "true",
+      NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY: "false",
+    },
+    () => {
+      const result = getPlannerActivationAssignment({
+        plannerSessionId: SESSION_ID,
+        authState: "signed_out",
+        lockedVariant: "control",
+        lockedFeatureFlagState: "enabled",
+      });
+      assert.equal(result.featureFlagState, "enabled");
+      assert.equal(result.variant, "control");
+      assert.equal(result.directEntryEnabled, false);
+      assert.equal(result.anonymousPlannerEnabled, false);
+    },
+  );
+});

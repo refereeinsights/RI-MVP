@@ -281,6 +281,10 @@ Use this after a build includes `anonymous_planner_activation_v1`.
   - [ ] Click `Plan this tournament`.
   - [ ] Confirm treatment traffic lands on `/weekend-planner`.
   - [ ] Confirm the same `planner_session_id` survives the hop.
+  - [ ] Confirm the issued planner URL also carries stable rollout metadata for the session:
+    - `experiment_name=anonymous_planner_activation_v1`
+    - `experiment_variant`
+    - `feature_flag_state`
 - [ ] First meaningful action:
   - [ ] Create the first manual event.
   - [ ] Confirm the planner is already usable before auth.
@@ -288,15 +292,23 @@ Use this after a build includes `anonymous_planner_activation_v1`.
 - [ ] Auth + claim:
   - [ ] Sign in from the planner flow.
   - [ ] Confirm the same `planner_session_id` survives `returnTo`.
+  - [ ] Confirm `experiment_variant` and `feature_flag_state` also survive `returnTo` unchanged.
   - [ ] Confirm claim completes once with no duplicate imported items.
+- [ ] Refresh stability:
+  - [ ] Refresh the authenticated planner URL.
+  - [ ] Confirm the same `planner_session_id`, `experiment_variant`, and `feature_flag_state` remain present.
+  - [ ] Confirm the session does not fall back to the control route mid-flow.
 - [ ] SQL verification:
   - [ ] Query `ti_map_events` for the exact `planner_session_id`.
   - [ ] Confirm the relevant planner events include:
     - `experiment_name = anonymous_planner_activation_v1`
     - `experiment_variant`
     - `feature_flag_state`
+    - `auth_state`
+    - `entitlement`
   - [ ] Confirm `weekend_planner_ready` occurs before `weekend_planner_activation_achieved`.
   - [ ] Confirm `weekend_planner_activation_achieved` occurs once for the first manual event.
+  - [ ] Treat device segmentation as `ua`-derived unless a dedicated `device_type` property is visibly present in the stored event rows.
 - [ ] Control/treatment sanity:
   - [ ] If rollout percent is below 100, verify at least one control session and one treatment session using separate planner sessions.
 

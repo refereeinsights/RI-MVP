@@ -113,6 +113,8 @@ export default async function WeekendPlannerPage({
   const plannerActivationExperiment = getPlannerActivationAssignment({
     plannerSessionId: plannerContext.planner_session_id,
     authState: isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out",
+    lockedVariant: plannerContext.experiment_variant ?? null,
+    lockedFeatureFlagState: plannerContext.feature_flag_state ?? null,
   });
   const isTournamentIntentPlannerEntry =
     plannerContext.entry_page_type === "tournament" &&
