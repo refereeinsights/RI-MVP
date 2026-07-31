@@ -11,10 +11,16 @@ export async function sendTiAnalytics(event: string, properties: AnalyticsProper
   const payload: AnalyticsPayload = { event, properties };
 
   try {
-    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+    const shouldPreferBeacon =
+      typeof document !== "undefined" &&
+      document.visibilityState === "hidden" &&
+      typeof navigator !== "undefined" &&
+      typeof navigator.sendBeacon === "function";
+
+    if (shouldPreferBeacon) {
       const body = new Blob([JSON.stringify(payload)], { type: "application/json" });
-      navigator.sendBeacon("/api/analytics", body);
-      return;
+      const accepted = navigator.sendBeacon("/api/analytics", body);
+      if (accepted) return;
     }
 
     await fetch("/api/analytics", {

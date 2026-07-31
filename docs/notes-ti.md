@@ -15,6 +15,13 @@ Maintenance rules:
 
 ## 2026-07-31
 
+- TI Weekend Planner Phase 6 production telemetry follow-up:
+  - Production browser UAT on Friday, July 31, 2026 proved the treatment UX path works end to end for `planner_session_id = f30747f2-6b27-4455-9168-ea7c1cb2c073`, but SQL verification showed two analytics gaps: some `WeekendPlannerClient` events (`weekend_planner_viewed`, `team_hotel_cta_viewed`) were missing `experiment_name` / `experiment_variant` / `feature_flag_state`, and several critical anonymous-flow events (`weekend_planner_ready`, `weekend_planner_activation_achieved`, `weekend_planner_save_prompt_viewed`, anonymous-claim events) did not persist reliably enough for rollout measurement confidence.
+  - Fixed this locally by updating `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` to include the rollout metadata on its direct analytics calls and by changing `apps/ti-web/lib/analytics.ts` so normal visible-page analytics use `fetch(..., { keepalive: true })` and only prefer `sendBeacon` when the document is actually hidden; this avoids silent beacon-only drops during active in-app interaction.
+  - Follow-up validation passed:
+    - `node --import tsx --test apps/ti-web/lib/planner/plannerActivationExperiment.test.ts apps/ti-web/lib/planner/plannerSession.test.ts`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+
 - TI Weekend Planner Phase 6 rollout-control hardening:
   - Found one real release blocker in the original rollout pass: experiment assignment was hash-stable by `planner_session_id` but not session-sticky across a live flag or percentage change, so an active treatment session could flip back to control on refresh or auth return.
   - Fixed this by extending `apps/ti-web/lib/planner/plannerSession.ts` to carry `experiment_name`, `experiment_variant`, and `feature_flag_state` inside the planner session context, honoring the locked assignment inside `apps/ti-web/lib/planner/plannerActivationExperiment.ts`, and threading the metadata through `apps/ti-web/app/tournaments/[slug]/page.tsx` and `apps/ti-web/app/weekend-planner/page.tsx`.

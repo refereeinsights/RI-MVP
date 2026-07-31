@@ -8,6 +8,7 @@ import {
   createOutboundAttributionId,
   HOTEL_PLANNER_BOOKING_PLACEMENTS,
 } from "@/lib/hotelPlannerAttribution";
+import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import { markPlannerSessionEventSeen, type PlannerSessionContext, wasPlannerSessionEventSeen } from "@/lib/planner/plannerSession";
 import styles from "./WeekendPlanner.module.css";
 
@@ -216,6 +217,7 @@ export default function WeekendPlannerClient(props: {
   initialAuthState: "signed_out" | "unverified" | "verified";
   initialEntitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
   plannerSessionContext?: PlannerSessionContext | null;
+  plannerActivationExperiment?: PlannerActivationAssignment | null;
 }) {
   const mode = props.mode ?? "book_travel";
   const isPlannerBeta = mode === "planner_beta";
@@ -307,6 +309,9 @@ export default function WeekendPlannerClient(props: {
           auth_state: props.initialAuthState,
           entitlement: props.initialEntitlement,
           planner_session_id: props.plannerSessionContext?.planner_session_id ?? undefined,
+          experiment_name: props.plannerActivationExperiment?.experimentName ?? undefined,
+          experiment_variant: props.plannerActivationExperiment?.variant ?? undefined,
+          feature_flag_state: props.plannerActivationExperiment?.featureFlagState ?? undefined,
           entry_source: props.plannerSessionContext?.entry_source ?? undefined,
           entry_page_type: props.plannerSessionContext?.entry_page_type ?? undefined,
           entry_path: props.plannerSessionContext?.entry_path ?? undefined,
@@ -591,6 +596,9 @@ export default function WeekendPlannerClient(props: {
     void sendTiAnalytics(event, {
       ...properties,
       planner_session_id: props.plannerSessionContext?.planner_session_id ?? undefined,
+      experiment_name: props.plannerActivationExperiment?.experimentName ?? undefined,
+      experiment_variant: props.plannerActivationExperiment?.variant ?? undefined,
+      feature_flag_state: props.plannerActivationExperiment?.featureFlagState ?? undefined,
       entry_source: props.plannerSessionContext?.entry_source ?? undefined,
       entry_page_type: props.plannerSessionContext?.entry_page_type ?? undefined,
       entry_path: props.plannerSessionContext?.entry_path ?? undefined,
