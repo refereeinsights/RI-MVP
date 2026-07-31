@@ -12,6 +12,10 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-07-31
+
+- TI Weekend Planner Phase 6 local production-readiness implementation added `anonymous_planner_activation_v1` rollout assignment, experiment metadata on planner CTA and activation analytics, planner analytics persistence of experiment fields, a rollout funnel SQL script, and matching report/UAT documentation.
+
 ## 2026-07-30
 
 - TI Weekend Planner Phase 2 direct-entry repair implemented locally behind `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY`: tournament-detail `Plan this tournament` can now route straight into `/weekend-planner` with canonical planner-session context, signed-out tournament-intent users can mount the real planner, create/edit/delete one temporary local planner item without auth, and see a save/auth prompt while `/weekend/[slug]` remains intact as the public/shared route; files: `apps/ti-web/app/tournaments/[slug]/{page.tsx,TournamentPlanningCtasClient.tsx}`, `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/lib/planner/anonymousPlanner.ts`, `apps/ti-web/lib/featureFlags.ts`, `apps/ti-web/lib/tiAnalyticsEvents.ts`, `CLAUDE.md`; TI typecheck passed locally.

@@ -268,6 +268,38 @@ Copy/paste browser-verification prompt:
    - confirm no misleading empty-state flash appears during claim import
 8) Report PASS/FAIL plus the first exact break point if anything fails.
 
+### Weekend Planner Phase 6 UAT (rollout + analytics readiness)
+
+Use this after a build includes `anonymous_planner_activation_v1`.
+
+- [ ] Confirm test env configuration:
+  - `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ENABLED`
+  - `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ROLLOUT_PERCENT`
+  - `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_INCLUDE_AUTHENTICATED`
+- [ ] Signed-out tournament entry:
+  - [ ] Open a tournament detail page.
+  - [ ] Click `Plan this tournament`.
+  - [ ] Confirm treatment traffic lands on `/weekend-planner`.
+  - [ ] Confirm the same `planner_session_id` survives the hop.
+- [ ] First meaningful action:
+  - [ ] Create the first manual event.
+  - [ ] Confirm the planner is already usable before auth.
+  - [ ] Confirm save/auth prompting appears only after the first manual event exists.
+- [ ] Auth + claim:
+  - [ ] Sign in from the planner flow.
+  - [ ] Confirm the same `planner_session_id` survives `returnTo`.
+  - [ ] Confirm claim completes once with no duplicate imported items.
+- [ ] SQL verification:
+  - [ ] Query `ti_map_events` for the exact `planner_session_id`.
+  - [ ] Confirm the relevant planner events include:
+    - `experiment_name = anonymous_planner_activation_v1`
+    - `experiment_variant`
+    - `feature_flag_state`
+  - [ ] Confirm `weekend_planner_ready` occurs before `weekend_planner_activation_achieved`.
+  - [ ] Confirm `weekend_planner_activation_achieved` occurs once for the first manual event.
+- [ ] Control/treatment sanity:
+  - [ ] If rollout percent is below 100, verify at least one control session and one treatment session using separate planner sessions.
+
 ---
 
 ### Stage 3.5-1 UAT (Weekend Pro guest family schedule sharing)

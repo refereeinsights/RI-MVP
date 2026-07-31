@@ -451,6 +451,9 @@ export async function POST(request: Request) {
     const loadedEventCountBucket = asTextWithLimit((props as any).loaded_event_count_bucket, 16);
     const feedCountBucket = asTextWithLimit((props as any).feed_count_bucket, 16);
     const childTeamCountBucket = asTextWithLimit((props as any).child_team_count_bucket, 16);
+    const experimentName = asTextWithLimit((props as any).experiment_name, 64);
+    const experimentVariant = asTextWithLimit((props as any).experiment_variant, 32);
+    const featureFlagState = asTextWithLimit((props as any).feature_flag_state, 32);
 
     const hasPlannerActivationShape =
       payload.event.startsWith("weekend_planner_") ||
@@ -483,6 +486,9 @@ export async function POST(request: Request) {
           loaded_event_count_bucket: loadedEventCountBucket,
           feed_count_bucket: feedCountBucket,
           child_team_count_bucket: childTeamCountBucket,
+          experiment_name: experimentName,
+          experiment_variant: experimentVariant,
+          feature_flag_state: featureFlagState,
           ua: userAgent ?? null,
           host: host ?? null,
           origin: origin ?? null,

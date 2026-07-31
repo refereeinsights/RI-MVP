@@ -13,6 +13,18 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-07-31
+
+- TI Weekend Planner Phase 6 local production-readiness work:
+  - Added `apps/ti-web/lib/planner/plannerActivationExperiment.ts` for `anonymous_planner_activation_v1` with stable assignment by `planner_session_id`, rollout-percentage support, and optional authenticated-user exclusion.
+  - Preserved legacy compatibility with `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY`.
+  - Threaded `experiment_name`, `experiment_variant`, and `feature_flag_state` through tournament planner CTA events and planner activation events.
+  - Updated `apps/ti-web/app/api/analytics/route.ts` so planner-shaped analytics persist those fields into `ti_map_events.properties`.
+  - Added `apps/ti-web/lib/planner/plannerActivationExperiment.test.ts`.
+  - Added rollout funnel SQL in `scripts/analysis/ti_weekend_planner_phase6_rollout.sql`.
+  - Added implementation summary report `docs/reports/ti-weekend-planner-phase6-production-readiness-2026-07-31.md`.
+  - Expanded `CLAUDE.md` with a Phase 6 rollout/UAT checklist.
+
 ## 2026-07-30
 
 - TI Weekend Planner Phase 2 direct-entry + anonymous temporary planning implemented locally:

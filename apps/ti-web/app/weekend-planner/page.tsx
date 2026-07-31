@@ -19,6 +19,7 @@ import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMet
 import { ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY } from "@/lib/featureFlags";
 import { buildSeededTournamentPlannerEvent } from "@/lib/planner/anonymousPlanner";
 import { buildPlannerHref, createPlannerSessionId, parsePlannerSessionContext, type PlannerSessionContext } from "@/lib/planner/plannerSession";
+import { getPlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -104,11 +105,16 @@ export default async function WeekendPlannerPage({
       current_page_type: "planner",
       current_page_path: "/weekend-planner",
     };
+  const plannerActivationExperiment = getPlannerActivationAssignment({
+    plannerSessionId: plannerContext.planner_session_id,
+    authState: isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out",
+  });
   const isTournamentIntentPlannerEntry =
     plannerContext.entry_page_type === "tournament" &&
     String(plannerContext.tournament_id ?? "").trim().length > 0 &&
-    ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY;
-  const allowAnonymousPlanner = !isAuthed && ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY;
+    (plannerActivationExperiment.directEntryEnabled || ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY);
+  const allowAnonymousPlanner =
+    !isAuthed && (plannerActivationExperiment.anonymousPlannerEnabled || ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY);
 
   if (user?.id && canUseSavedPlanning && plannerContext.tournament_id) {
     await saveWeekendPlanForTournament({
@@ -277,6 +283,7 @@ export default async function WeekendPlannerPage({
                     isUnverified={isUnverified}
                     hideHeader
                     plannerSessionContext={plannerContext}
+                    plannerActivationExperiment={plannerActivationExperiment}
                     initialAuthState={isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out"}
                     allowAnonymousWrite={allowAnonymousPlanner}
                   />

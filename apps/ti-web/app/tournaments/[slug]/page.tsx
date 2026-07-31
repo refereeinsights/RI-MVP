@@ -37,6 +37,7 @@ import {
   createPlannerSessionId,
 } from "@/lib/planner/plannerSession";
 import { ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY } from "@/lib/featureFlags";
+import { getPlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import { mapStateCodeToName, mapStateCodeToSlug, normalizeSportSlug, sportDisplayName } from "@/lib/seoHub";
 import "../tournaments.css";
@@ -307,7 +308,11 @@ async function TournamentUserActions({
           venue_id: primaryVenueIdForPlan,
           source: "tournament_detail",
         });
-        const weekendHref = ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY
+        const plannerActivationExperiment = getPlannerActivationAssignment({
+          plannerSessionId,
+          authState: viewer.isLoggedIn ? (viewer.isVerified ? "verified" : "unverified") : "signed_out",
+        });
+        const weekendHref = plannerActivationExperiment.directEntryEnabled || ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY
           ? buildPlannerHref("/weekend-planner", {
               planner_session_id: plannerSessionId,
               tournament_id: tournament.id,
@@ -354,6 +359,7 @@ async function TournamentUserActions({
             ? viewer.tier
             : "unknown"
         }
+        plannerActivationExperiment={plannerActivationExperiment}
       />
           </>
         );

@@ -206,6 +206,9 @@ type PlannerCanonicalContext = {
   current_page_type?: CanonicalPlannerPageType | null;
   current_page_path?: string | null;
   request_source?: string | null;
+  experiment_name?: "anonymous_planner_activation_v1";
+  experiment_variant?: "control" | "treatment";
+  feature_flag_state?: "disabled" | "enabled";
 };
 
 export type TiAnalyticsEventPropertiesByName = {
@@ -247,6 +250,9 @@ export type TiAnalyticsEventPropertiesByName = {
     source_page: "tournament_detail";
     cta: "weekend_plan";
     href: string;
+    experiment_name?: "anonymous_planner_activation_v1";
+    experiment_variant?: "control" | "treatment";
+    feature_flag_state?: "disabled" | "enabled";
   };
   tournament_detail_venue_map_clicked: {
     page_type: "tournament_detail";

@@ -25,6 +25,7 @@ import { compactAssignmentLabel, getFamilyColorToken } from "@/lib/planner/famil
 import { inferAssignmentFromSourceLabel } from "@/lib/planner/inferAssignmentFromSourceLabel";
 import { sanitizeIcsNotesForDisplay } from "@/lib/planner/icsNoteSanitizer";
 import { isMapLinkEligibleLocation, mapsSearchUrl, plannerEventLocationForMaps } from "@/lib/planner/venueResolution";
+import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import type {
   PlannerChildWithTeamsRow,
   PlannerEventCreateBody,
@@ -44,6 +45,7 @@ type Props = {
   isUnverified?: boolean;
   hideHeader?: boolean;
   plannerSessionContext?: PlannerSessionContext | null;
+  plannerActivationExperiment?: PlannerActivationAssignment | null;
   initialAuthState?: "signed_out" | "unverified" | "verified";
   allowAnonymousWrite?: boolean;
 };
@@ -546,6 +548,9 @@ export default function PlannerClient(props: Props) {
           tournament_id: props.plannerSessionContext?.tournament_id ?? undefined,
           tournament_slug: props.plannerSessionContext?.tournament_slug ?? undefined,
           venue_id: props.plannerSessionContext?.venue_id ?? undefined,
+          experiment_name: props.plannerActivationExperiment?.experimentName ?? undefined,
+          experiment_variant: props.plannerActivationExperiment?.variant ?? undefined,
+          feature_flag_state: props.plannerActivationExperiment?.featureFlagState ?? undefined,
           ...properties,
         } as any,
       );

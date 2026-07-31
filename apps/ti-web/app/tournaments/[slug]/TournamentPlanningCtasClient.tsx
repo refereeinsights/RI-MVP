@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import styles from "./TournamentPlanningCtasClient.module.css";
 
 function isValidIsoDate(value: string | null | undefined) {
@@ -28,6 +29,7 @@ export default function TournamentPlanningCtasClient(props: {
   endDate: string | null;
   authState: "signed_out" | "unverified" | "verified";
   entitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
+  plannerActivationExperiment: PlannerActivationAssignment;
 }) {
   const slug = String(props.tournamentSlug ?? "").trim();
   const viewedRef = useRef(false);
@@ -66,6 +68,9 @@ export default function TournamentPlanningCtasClient(props: {
       context_type: "tournament",
       tournament_id: props.tournamentId,
       tournament_slug: slug,
+      experiment_name: props.plannerActivationExperiment.experimentName,
+      experiment_variant: props.plannerActivationExperiment.variant,
+      feature_flag_state: props.plannerActivationExperiment.featureFlagState,
     });
     void trackTiEvent("team_hotel_cta_viewed", {
       surface: "tournament",
@@ -107,6 +112,9 @@ export default function TournamentPlanningCtasClient(props: {
               context_type: "tournament",
               tournament_id: props.tournamentId,
               tournament_slug: slug,
+              experiment_name: props.plannerActivationExperiment.experimentName,
+              experiment_variant: props.plannerActivationExperiment.variant,
+              feature_flag_state: props.plannerActivationExperiment.featureFlagState,
             });
             void trackTiEvent("tournament_detail_weekend_plan_clicked", {
               page_type: "tournament_detail",
@@ -115,6 +123,9 @@ export default function TournamentPlanningCtasClient(props: {
               source_page: "tournament_detail",
               cta: "weekend_plan",
               href: weekendHref,
+              experiment_name: props.plannerActivationExperiment.experimentName,
+              experiment_variant: props.plannerActivationExperiment.variant,
+              feature_flag_state: props.plannerActivationExperiment.featureFlagState,
             });
           }}
         >
