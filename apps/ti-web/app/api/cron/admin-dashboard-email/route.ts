@@ -45,7 +45,9 @@ type WeekendPlannerDailySummary =
       teamHotelRequests: number;
       snapshot: {
         totalActivations: number;
+        meaningfulActivations: number;
         plannerViews: number;
+        plannerReady: number;
         plannerLoaded: number;
         newPlannerUsers: "not tracked";
         returningPlannerUsers: "not tracked";
@@ -71,6 +73,11 @@ type WeekendPlannerDailySummary =
         authRequiredViews: number;
         authStarted: number;
         authCompleted: number;
+        savePromptViewed: number;
+        claimStarted: number;
+        claimSucceeded: number;
+        claimFailed: number;
+        claimSkipped: number;
         plannerLoaded: number;
         emptyStateViewed: number;
         calendarConnectStarts: "not tracked";
@@ -78,11 +85,13 @@ type WeekendPlannerDailySummary =
         calendarFeedsConnected: number;
       };
       firstActions: {
+        meaningfulActivations: number;
         manualEventsAdded: number;
         calendarFeedsConnected: number;
         weekendPlansSaved: number;
         guestSharesCreated: number;
         privateCalendarFeedsCreated: number;
+        firstAuthenticatedActionAfterClaim: number;
       };
       activationBySource: {
         tracked: true;
@@ -242,6 +251,14 @@ async function loadWeekendPlannerDailySummary(params: {
       "weekend_planner_auth_required_viewed",
       "weekend_planner_create_account_clicked",
       "weekend_planner_sign_in_clicked",
+      "weekend_planner_ready",
+      "weekend_planner_activation_achieved",
+      "weekend_planner_save_prompt_viewed",
+      "weekend_planner_anonymous_claim_started",
+      "weekend_planner_anonymous_claim_succeeded",
+      "weekend_planner_anonymous_claim_failed",
+      "weekend_planner_anonymous_claim_skipped",
+      "weekend_planner_first_authenticated_action_after_claim",
       "weekend_planner_loaded",
       "weekend_planner_first_action",
       "weekend_planner_empty_state_viewed",
@@ -305,6 +322,14 @@ async function loadWeekendPlannerDailySummary(params: {
     const authRequiredViews = countEvents(rows, "weekend_planner_auth_gate_viewed");
     const authStarted = countEvents(rows, "weekend_planner_auth_started");
     const authCompleted = countEvents(rows, "weekend_planner_auth_completed");
+    const plannerReady = countEvents(rows, "weekend_planner_ready");
+    const meaningfulActivations = countEvents(rows, "weekend_planner_activation_achieved");
+    const savePromptViewed = countEvents(rows, "weekend_planner_save_prompt_viewed");
+    const claimStarted = countEvents(rows, "weekend_planner_anonymous_claim_started");
+    const claimSucceeded = countEvents(rows, "weekend_planner_anonymous_claim_succeeded");
+    const claimFailed = countEvents(rows, "weekend_planner_anonymous_claim_failed");
+    const claimSkipped = countEvents(rows, "weekend_planner_anonymous_claim_skipped");
+    const firstAuthenticatedActionAfterClaim = countEvents(rows, "weekend_planner_first_authenticated_action_after_claim");
     const plannerLoaded = countEvents(rows, "weekend_planner_loaded");
     const emptyStateViewed = countEvents(rows, "weekend_planner_empty_state_viewed");
     const manualEventsAdded = countEvents(rows, "planner_manual_event_created");
@@ -416,9 +441,14 @@ async function loadWeekendPlannerDailySummary(params: {
             : "No data",
       },
       {
-        status: activations > 0 ? "ok" : "warn",
+        status: meaningfulActivations > 0 || activations > 0 ? "ok" : "warn",
         label: "Planner activations",
-        detail: activations > 0 ? `${formatInt(activations)} (manual events + calendar connects)` : "Zero activations",
+        detail:
+          meaningfulActivations > 0
+            ? `${formatInt(meaningfulActivations)} meaningful activations`
+            : activations > 0
+            ? `${formatInt(activations)} legacy activations (manual events + calendar connects)`
+            : "Zero activations",
       },
       {
         status: hotelHandoffsTotal > 0 ? "ok" : "neutral",
@@ -454,6 +484,9 @@ async function loadWeekendPlannerDailySummary(params: {
     if (plannerEntries > 0 && authRequiredViews >= Math.ceil(plannerEntries * 0.5)) {
       alerts.push("Planner auth-gate views are high relative to canonical planner entries.");
     }
+    if (claimStarted > 0 && claimSucceeded === 0 && claimFailed > 0) {
+      alerts.push("Anonymous planner claim attempts failed without any successful claims.");
+    }
 
     const missingTracking = [
       "new planner users",
@@ -472,7 +505,9 @@ async function loadWeekendPlannerDailySummary(params: {
       teamHotelRequests: teamHotelSubmitted,
       snapshot: {
         totalActivations: activations,
+        meaningfulActivations,
         plannerViews,
+        plannerReady,
         plannerLoaded,
         newPlannerUsers: "not tracked",
         returningPlannerUsers: "not tracked",
@@ -498,6 +533,11 @@ async function loadWeekendPlannerDailySummary(params: {
         authRequiredViews,
         authStarted,
         authCompleted,
+        savePromptViewed,
+        claimStarted,
+        claimSucceeded,
+        claimFailed,
+        claimSkipped,
         plannerLoaded,
         emptyStateViewed,
         calendarConnectStarts: "not tracked",
@@ -505,11 +545,13 @@ async function loadWeekendPlannerDailySummary(params: {
         calendarFeedsConnected,
       },
       firstActions: {
+        meaningfulActivations,
         manualEventsAdded,
         calendarFeedsConnected,
         weekendPlansSaved: weekendSaved,
         guestSharesCreated,
         privateCalendarFeedsCreated,
+        firstAuthenticatedActionAfterClaim,
       },
       activationBySource: {
         tracked: true,
@@ -572,7 +614,9 @@ function renderWeekendPlannerSummaryHtml(params: {
   const snapshotHtml = renderMetricRows([
     { label: "Date window", value: summary.windowLabel },
     { label: "Activation events", value: summary.snapshot.totalActivations, note: "manual event + calendar connect" },
+    { label: "Meaningful activations", value: summary.snapshot.meaningfulActivations, note: "first user-created planner item" },
     { label: "Weekend Planner route views", value: summary.snapshot.plannerViews },
+    { label: "Planner ready", value: summary.snapshot.plannerReady },
     { label: "Planner loaded", value: summary.snapshot.plannerLoaded },
     { label: "New planner users", value: summary.snapshot.newPlannerUsers },
     { label: "Returning planner users", value: summary.snapshot.returningPlannerUsers },
@@ -629,6 +673,11 @@ function renderWeekendPlannerSummaryHtml(params: {
     { label: "Canonical auth-gate views", value: summary.directEntry.authRequiredViews },
     { label: "Canonical auth starts", value: summary.directEntry.authStarted },
     { label: "Canonical auth completions", value: summary.directEntry.authCompleted },
+    { label: "Save prompt viewed", value: summary.directEntry.savePromptViewed },
+    { label: "Anonymous claim started", value: summary.directEntry.claimStarted },
+    { label: "Anonymous claim succeeded", value: summary.directEntry.claimSucceeded },
+    { label: "Anonymous claim failed", value: summary.directEntry.claimFailed },
+    { label: "Anonymous claim skipped", value: summary.directEntry.claimSkipped },
     {
       label: "Planner loaded",
       value: summary.directEntry.plannerLoaded,
@@ -649,11 +698,13 @@ function renderWeekendPlannerSummaryHtml(params: {
   ]);
 
   const firstActionsHtml = renderMetricRows([
+    { label: "Meaningful activations", value: summary.firstActions.meaningfulActivations },
     { label: "Manual events added", value: summary.firstActions.manualEventsAdded },
     { label: "Calendar feeds connected", value: summary.firstActions.calendarFeedsConnected },
     { label: "Weekend plans saved", value: summary.firstActions.weekendPlansSaved },
     { label: "Guest shares created", value: summary.firstActions.guestSharesCreated },
     { label: "Private calendar feeds created", value: summary.firstActions.privateCalendarFeedsCreated },
+    { label: "First authenticated action after claim", value: summary.firstActions.firstAuthenticatedActionAfterClaim },
   ]);
 
   const activationBySourceHtml = renderMetricRows([

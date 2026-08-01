@@ -29,6 +29,16 @@ Maintenance rules:
     - `weekend_planner_first_authenticated_action_after_claim`
   - Root cause 2: one remaining `team_hotel_cta_viewed` emitter path in `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx` still did not pass through `experiment_name`, `experiment_variant`, and `feature_flag_state`, so planner-linked team-hotel impressions from that path could still lose rollout attribution.
   - Fixed that emitter locally by threading the experiment metadata through the same planner tracking context already used for `planner_session_id` and entry attribution.
+  - Follow-up operator visibility fix: `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts` now includes the new planner rollout metrics in the daily admin email summary:
+    - `weekend_planner_ready`
+    - `weekend_planner_activation_achieved`
+    - `weekend_planner_save_prompt_viewed`
+    - `weekend_planner_anonymous_claim_started`
+    - `weekend_planner_anonymous_claim_succeeded`
+    - `weekend_planner_anonymous_claim_failed`
+    - `weekend_planner_anonymous_claim_skipped`
+    - `weekend_planner_first_authenticated_action_after_claim`
+  - The email now exposes both legacy activation counts and the stronger meaningful-activation count, plus anonymous claim progression after auth.
 
 - TI Weekend Planner rollout-assignment follow-up after production contradiction:
   - Production on Friday, July 31, 2026 showed fresh signed-out tournament CTA sessions landing on `experiment_variant=control` with `feature_flag_state=enabled` even though the intended production config was `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ENABLED=true`, `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ROLLOUT_PERCENT=100`, `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_INCLUDE_AUTHENTICATED=false`, and `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY=false`.
