@@ -84,6 +84,18 @@ type WeekendPlannerDailySummary =
         manualEventsAdded: number;
         calendarFeedsConnected: number;
       };
+      tournamentTreatmentFunnel: Array<{
+        label: string;
+        rawEvents: number;
+        uniqueSessions: number;
+        conversionFromPrior: string;
+      }>;
+      directPlannerFunnel: Array<{
+        label: string;
+        rawEvents: number;
+        uniqueSessions: number;
+        conversionFromPrior: string;
+      }>;
       firstActions: {
         meaningfulActivations: number;
         manualEventsAdded: number;
@@ -118,6 +130,7 @@ type WeekendPlannerDailySummary =
       hotelHandoffs: {
         total: number;
         bySurface: Record<string, number>;
+        uncapped: true;
       };
       partialWindowNote: string | null;
       healthSummary: HealthItem[];
@@ -200,6 +213,31 @@ function renderMetricRows(rows: Array<{ label: string; value: number | string; n
   </table>`;
 }
 
+function renderFunnelRows(rows: Array<{ label: string; rawEvents: number; uniqueSessions: number; conversionFromPrior: string }>) {
+  return `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead>
+      <tr style="background:#f1f5f9;">
+        <th style="text-align:left;padding:8px 10px;border:1px solid #e5e7eb;border-left:none;border-right:none;">Stage</th>
+        <th style="text-align:right;padding:8px 10px;border:1px solid #e5e7eb;border-left:none;border-right:none;">Raw events</th>
+        <th style="text-align:right;padding:8px 10px;border:1px solid #e5e7eb;border-left:none;border-right:none;">Unique sessions</th>
+        <th style="text-align:right;padding:8px 10px;border:1px solid #e5e7eb;border-left:none;border-right:none;">Conv. from prior</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows
+        .map(
+          (row) => `<tr>
+            <td style="padding:8px 10px;border-top:1px solid #e5e7eb;color:#334155;">${htmlEscape(row.label)}</td>
+            <td style="padding:8px 10px;border-top:1px solid #e5e7eb;text-align:right;color:#0f172a;">${htmlEscape(formatInt(row.rawEvents))}</td>
+            <td style="padding:8px 10px;border-top:1px solid #e5e7eb;text-align:right;color:#0f172a;font-weight:800;">${htmlEscape(formatInt(row.uniqueSessions))}</td>
+            <td style="padding:8px 10px;border-top:1px solid #e5e7eb;text-align:right;color:#64748b;">${htmlEscape(row.conversionFromPrior)}</td>
+          </tr>`,
+        )
+        .join("")}
+    </tbody>
+  </table>`;
+}
+
 function renderSectionCard(title: string, subtitle: string | null, bodyHtml: string) {
   return `<div style="margin-top:14px;border:1px solid #dbe7e1;border-radius:12px;padding:12px;background:#f8fffb;">
     <div style="font-size:11px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;">${htmlEscape(title)}</div>
@@ -215,6 +253,49 @@ function eventPropertyText(row: TiMapEventRow, key: string) {
 
 function countEvents(rows: TiMapEventRow[], eventName: string, predicate?: (row: TiMapEventRow) => boolean) {
   return rows.filter((row) => row.event_name === eventName && (!predicate || predicate(row))).length;
+}
+
+function countUniquePlannerSessions(rows: TiMapEventRow[], eventName: string, predicate?: (row: TiMapEventRow) => boolean) {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    if (row.event_name !== eventName) continue;
+    if (predicate && !predicate(row)) continue;
+    const plannerSessionId = eventPropertyText(row, "planner_session_id");
+    if (!plannerSessionId) continue;
+    ids.add(plannerSessionId);
+  }
+  return ids.size;
+}
+
+async function loadHotelOutboundBySurface(params: { startIso: string; endIso: string }) {
+  const bySurface: Record<string, number> = {};
+  let total = 0;
+  let from = 0;
+  const pageSize = 1000;
+
+  for (;;) {
+    const { data, error } = await supabaseAdmin
+      .from("ti_outbound_clicks" as any)
+      .select("source_surface")
+      .eq("destination_type", "hotels")
+      .eq("partner", "hotelplanner")
+      .gte("created_at", params.startIso)
+      .lt("created_at", params.endIso)
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    const rows = ((data ?? []) as HotelOutboundClickRow[]) ?? [];
+    total += rows.length;
+    for (const row of rows) {
+      const surface = row.source_surface ?? "unknown";
+      bySurface[surface] = (bySurface[surface] ?? 0) + 1;
+    }
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return { total, bySurface, uncapped: true as const };
 }
 
 function formatDateLabelInTimeZone(date: Date, timeZone: string) {
@@ -251,6 +332,13 @@ async function loadWeekendPlannerDailySummary(params: {
       "weekend_planner_auth_required_viewed",
       "weekend_planner_create_account_clicked",
       "weekend_planner_sign_in_clicked",
+      "weekend_planner_first_action_cta_clicked",
+      "weekend_planner_manual_event_form_opened",
+      "weekend_planner_manual_event_form_started",
+      "weekend_planner_manual_event_submitted",
+      "weekend_planner_temporary_event_persisted",
+      "weekend_planner_manual_event_failed",
+      "weekend_planner_first_meaningful_action",
       "weekend_planner_ready",
       "weekend_planner_activation_achieved",
       "weekend_planner_save_prompt_viewed",
@@ -276,20 +364,17 @@ async function loadWeekendPlannerDailySummary(params: {
       "planner_weekend_pro_gate_clicked",
     ];
 
-    const [{ data, error }, { data: hotelClickData }] = await Promise.all([
+    const [{ data, error }, hotelHandoffs] = await Promise.all([
       supabaseAdmin
         .from("ti_map_events" as any)
         .select("event_name,properties,created_at")
         .in("event_name", trackedEventNames)
         .gte("created_at", params.yesterdayStartUtcIso)
         .lt("created_at", params.todayStartUtcIso),
-      supabaseAdmin
-        .from("ti_outbound_clicks" as any)
-        .select("source_surface")
-        .eq("destination_type", "hotels")
-        .eq("partner", "hotelplanner")
-        .gte("created_at", params.yesterdayStartUtcIso)
-        .lt("created_at", params.todayStartUtcIso),
+      loadHotelOutboundBySurface({
+        startIso: params.yesterdayStartUtcIso,
+        endIso: params.todayStartUtcIso,
+      }),
     ]);
 
     if (error) {
@@ -346,14 +431,8 @@ async function loadWeekendPlannerDailySummary(params: {
     const plannerGateClicks = countEvents(rows, "planner_weekend_pro_gate_clicked");
     const activations = manualEventsAdded + calendarFeedsConnected;
 
-    // Hotel outbound handoffs
-    const hotelClickRows = ((hotelClickData ?? []) as HotelOutboundClickRow[]);
-    const hotelHandoffsTotal = hotelClickRows.length;
-    const hotelBySurface: Record<string, number> = {};
-    for (const row of hotelClickRows) {
-      const surf = row.source_surface ?? "unknown";
-      hotelBySurface[surf] = (hotelBySurface[surf] ?? 0) + 1;
-    }
+    const hotelHandoffsTotal = hotelHandoffs.total;
+    const hotelBySurface = hotelHandoffs.bySurface;
 
     // Partial window detection: find earliest event timestamp in the window
     const windowStartMs = new Date(params.yesterdayStartUtcIso).getTime();
@@ -377,10 +456,17 @@ async function loadWeekendPlannerDailySummary(params: {
       direct: 0,
       unknown: 0,
     };
+    const plannerSessionRows = new Map<string, TiMapEventRow[]>();
     const impressionsBySlug = new Map<string, number>();
     const clicksBySlug = new Map<string, number>();
 
     for (const row of rows) {
+      const plannerSessionId = eventPropertyText(row, "planner_session_id");
+      if (plannerSessionId) {
+        const list = plannerSessionRows.get(plannerSessionId) ?? [];
+        list.push(row);
+        plannerSessionRows.set(plannerSessionId, list);
+      }
       if (row.event_name === "weekend_planner_entry_viewed") {
         const entrySource = eventPropertyText(row, "entry_source");
         if (entrySource === "tournament_detail" || entrySource === "direct" || entrySource === "unknown") {
@@ -408,6 +494,90 @@ async function loadWeekendPlannerDailySummary(params: {
         if (slug) clicksBySlug.set(slug, (clicksBySlug.get(slug) ?? 0) + 1);
       }
     }
+
+    const treatmentSessionIds = new Set<string>();
+    const directSessionIds = new Set<string>();
+    for (const [plannerSessionId, sessionRows] of plannerSessionRows) {
+      const hasTournamentTreatmentEntry = sessionRows.some(
+        (row) =>
+          row.event_name === "weekend_planner_entry_viewed" &&
+          eventPropertyText(row, "entry_source") === "tournament_detail" &&
+          eventPropertyText(row, "experiment_variant") === "treatment",
+      );
+      const hasDirectEntry = sessionRows.some(
+        (row) => row.event_name === "weekend_planner_entry_viewed" && eventPropertyText(row, "entry_source") === "direct",
+      );
+      if (hasTournamentTreatmentEntry) treatmentSessionIds.add(plannerSessionId);
+      else if (hasDirectEntry) directSessionIds.add(plannerSessionId);
+    }
+
+    function countSessionsByEvent(sessionIds: Set<string>, matcher: (row: TiMapEventRow) => boolean) {
+      let count = 0;
+      for (const plannerSessionId of sessionIds) {
+        const sessionRows = plannerSessionRows.get(plannerSessionId) ?? [];
+        if (sessionRows.some(matcher)) count += 1;
+      }
+      return count;
+    }
+
+    const treatmentCtaSessions = countUniquePlannerSessions(
+      rows,
+      "weekend_planner_contextual_cta_clicked",
+      (row) =>
+        eventPropertyText(row, "source_page_type") === "tournament" &&
+        eventPropertyText(row, "cta_type") === "weekend_plan" &&
+        eventPropertyText(row, "experiment_variant") === "treatment",
+    );
+    const treatmentPlannerEntries = treatmentSessionIds.size;
+    const treatmentPlannerReadySessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_ready");
+    const treatmentEmptyStateSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_empty_state_viewed");
+    const treatmentFirstActionCtaSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_first_action_cta_clicked");
+    const treatmentFormOpenedSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_manual_event_form_opened");
+    const treatmentFormStartedSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_manual_event_form_started");
+    const treatmentSubmittedSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_manual_event_submitted");
+    const treatmentPersistedSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_temporary_event_persisted");
+    const treatmentActivatedSessions = countSessionsByEvent(
+      treatmentSessionIds,
+      (row) => row.event_name === "weekend_planner_first_meaningful_action" || row.event_name === "weekend_planner_activation_achieved",
+    );
+    const treatmentSavePromptSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_save_prompt_viewed");
+
+    const directEntrySessions = directSessionIds.size;
+    const directAuthGateSessions = countSessionsByEvent(directSessionIds, (row) => row.event_name === "weekend_planner_auth_gate_viewed");
+    const directAuthStartedSessions = countSessionsByEvent(directSessionIds, (row) => row.event_name === "weekend_planner_auth_started");
+    const directAuthCompletedSessions = countSessionsByEvent(directSessionIds, (row) => row.event_name === "weekend_planner_auth_completed");
+    const directReadySessions = countSessionsByEvent(
+      directSessionIds,
+      (row) => row.event_name === "weekend_planner_ready" || row.event_name === "weekend_planner_loaded",
+    );
+    const directActivatedSessions = countSessionsByEvent(
+      directSessionIds,
+      (row) => row.event_name === "weekend_planner_first_meaningful_action" || row.event_name === "weekend_planner_activation_achieved",
+    );
+
+    const tournamentTreatmentFunnel = [
+      { label: "CTA impressions", rawEvents: plannerCtaImpressions, uniqueSessions: 0, conversionFromPrior: "n/a" },
+      { label: "Unique CTA sessions", rawEvents: plannerClicks, uniqueSessions: treatmentCtaSessions, conversionFromPrior: formatRatioPercent(treatmentCtaSessions, plannerCtaImpressions) },
+      { label: "Tournament-attributed planner entries", rawEvents: plannerEntries, uniqueSessions: treatmentPlannerEntries, conversionFromPrior: formatRatioPercent(treatmentPlannerEntries, treatmentCtaSessions) },
+      { label: "Planner-ready sessions", rawEvents: plannerReady, uniqueSessions: treatmentPlannerReadySessions, conversionFromPrior: formatRatioPercent(treatmentPlannerReadySessions, treatmentPlannerEntries) },
+      { label: "Empty-state sessions", rawEvents: emptyStateViewed, uniqueSessions: treatmentEmptyStateSessions, conversionFromPrior: formatRatioPercent(treatmentEmptyStateSessions, treatmentPlannerReadySessions) },
+      { label: "First-action CTA sessions", rawEvents: countEvents(rows, "weekend_planner_first_action_cta_clicked"), uniqueSessions: treatmentFirstActionCtaSessions, conversionFromPrior: formatRatioPercent(treatmentFirstActionCtaSessions, treatmentPlannerReadySessions) },
+      { label: "Form-open sessions", rawEvents: countEvents(rows, "weekend_planner_manual_event_form_opened"), uniqueSessions: treatmentFormOpenedSessions, conversionFromPrior: formatRatioPercent(treatmentFormOpenedSessions, treatmentFirstActionCtaSessions) },
+      { label: "Form-start sessions", rawEvents: countEvents(rows, "weekend_planner_manual_event_form_started"), uniqueSessions: treatmentFormStartedSessions, conversionFromPrior: formatRatioPercent(treatmentFormStartedSessions, treatmentFormOpenedSessions) },
+      { label: "Submitted sessions", rawEvents: countEvents(rows, "weekend_planner_manual_event_submitted"), uniqueSessions: treatmentSubmittedSessions, conversionFromPrior: formatRatioPercent(treatmentSubmittedSessions, treatmentFormStartedSessions) },
+      { label: "Persisted-event sessions", rawEvents: countEvents(rows, "weekend_planner_temporary_event_persisted"), uniqueSessions: treatmentPersistedSessions, conversionFromPrior: formatRatioPercent(treatmentPersistedSessions, treatmentSubmittedSessions) },
+      { label: "Activated sessions", rawEvents: meaningfulActivations, uniqueSessions: treatmentActivatedSessions, conversionFromPrior: formatRatioPercent(treatmentActivatedSessions, treatmentPersistedSessions) },
+      { label: "Save-prompt sessions", rawEvents: savePromptViewed, uniqueSessions: treatmentSavePromptSessions, conversionFromPrior: formatRatioPercent(treatmentSavePromptSessions, treatmentPersistedSessions) },
+    ];
+
+    const directPlannerFunnel = [
+      { label: "Direct entries", rawEvents: plannerEntries, uniqueSessions: directEntrySessions, conversionFromPrior: "n/a" },
+      { label: "Auth-gate sessions", rawEvents: authRequiredViews, uniqueSessions: directAuthGateSessions, conversionFromPrior: formatRatioPercent(directAuthGateSessions, directEntrySessions) },
+      { label: "Auth-start sessions", rawEvents: authStarted, uniqueSessions: directAuthStartedSessions, conversionFromPrior: formatRatioPercent(directAuthStartedSessions, directAuthGateSessions) },
+      { label: "Auth-complete sessions", rawEvents: authCompleted, uniqueSessions: directAuthCompletedSessions, conversionFromPrior: formatRatioPercent(directAuthCompletedSessions, directAuthStartedSessions) },
+      { label: "Planner-ready sessions", rawEvents: plannerReady + plannerLoaded, uniqueSessions: directReadySessions, conversionFromPrior: formatRatioPercent(directReadySessions, directAuthCompletedSessions) },
+      { label: "Activated sessions", rawEvents: meaningfulActivations, uniqueSessions: directActivatedSessions, conversionFromPrior: formatRatioPercent(directActivatedSessions, directReadySessions) },
+    ];
 
     const topTournamentPages = Array.from(new Set([...impressionsBySlug.keys(), ...clicksBySlug.keys()]))
       .map((tournamentSlug) => {
@@ -544,6 +714,8 @@ async function loadWeekendPlannerDailySummary(params: {
         manualEventsAdded,
         calendarFeedsConnected,
       },
+      tournamentTreatmentFunnel,
+      directPlannerFunnel,
       firstActions: {
         meaningfulActivations,
         manualEventsAdded,
@@ -570,7 +742,7 @@ async function loadWeekendPlannerDailySummary(params: {
         premiumClicks,
       },
       topTournamentPages,
-      hotelHandoffs: { total: hotelHandoffsTotal, bySurface: hotelBySurface },
+      hotelHandoffs: { total: hotelHandoffsTotal, bySurface: hotelBySurface, uncapped: true },
       partialWindowNote,
       healthSummary,
       alerts,
@@ -633,12 +805,12 @@ function renderWeekendPlannerSummaryHtml(params: {
     {
       label: "Canonical planner entries",
       value: summary.tournamentFunnel.plannerEntries,
-      note: formatRatioPercent(summary.tournamentFunnel.plannerEntries, summary.tournamentFunnel.plannerClicks),
+      note: "raw events only; see treatment funnel below",
     },
     {
       label: "Planner auth-gate views",
       value: summary.tournamentFunnel.plannerAuthGateViews,
-      note: formatRatioPercent(summary.tournamentFunnel.plannerAuthGateViews, summary.tournamentFunnel.plannerEntries),
+      note: "mixed traffic; see direct funnel below",
     },
     {
       label: "Planner auth starts",
@@ -658,11 +830,8 @@ function renderWeekendPlannerSummaryHtml(params: {
     },
     { label: "Planner opens from weekend flow", value: summary.tournamentFunnel.plannerOpensFromWeekendFlow },
     { label: "Activated after weekend flow", value: summary.tournamentFunnel.activatedAfterWeekendFlow },
-    { label: "Planner activation rate", value: formatRatioPercent(summary.activations, summary.snapshot.plannerLoaded) },
-    {
-      label: "End-to-end activation",
-      value: formatRatioPercent(summary.activations, summary.tournamentFunnel.plannerCtaImpressions),
-    },
+    { label: "Planner activation rate", value: formatRatioPercent(summary.firstActions.meaningfulActivations, summary.snapshot.plannerReady) },
+    { label: "End-to-end activation", value: "see treatment funnel below" },
   ]);
 
   const directEntryHtml = renderMetricRows([
@@ -697,6 +866,9 @@ function renderWeekendPlannerSummaryHtml(params: {
     },
   ]);
 
+  const treatmentFunnelHtml = renderFunnelRows(summary.tournamentTreatmentFunnel);
+  const directFunnelHtml = renderFunnelRows(summary.directPlannerFunnel);
+
   const firstActionsHtml = renderMetricRows([
     { label: "Meaningful activations", value: summary.firstActions.meaningfulActivations },
     { label: "Manual events added", value: summary.firstActions.manualEventsAdded },
@@ -715,7 +887,7 @@ function renderWeekendPlannerSummaryHtml(params: {
   ]);
 
   const hotelHandoffRows: Array<{ label: string; value: number | string; note?: string }> = [
-    { label: "/go/hotels handoffs (HotelPlanner)", value: summary.hotelHandoffs.total },
+    { label: "/go/hotels handoffs (HotelPlanner)", value: summary.hotelHandoffs.total, note: summary.hotelHandoffs.uncapped ? "uncapped total" : "capped" },
   ];
   for (const [surface, count] of Object.entries(summary.hotelHandoffs.bySurface).sort((a, b) => b[1] - a[1])) {
     hotelHandoffRows.push({
@@ -793,12 +965,14 @@ function renderWeekendPlannerSummaryHtml(params: {
 
   return renderSectionCard(
     "Weekend Planner",
-    `Daily operator summary for ${summary.windowLabel}. Activation counts are event counts, not de-duplicated users.`,
+    `Daily operator summary for ${summary.windowLabel}. Treatment and direct-entry funnels below use unique planner_session_id where available.`,
     [
       healthBlockHtml,
       renderSectionCard("Snapshot", null, snapshotHtml),
       renderSectionCard("Tournament → Weekend Planner Funnel", null, tournamentFunnelHtml),
       renderSectionCard("Direct Weekend Planner Entry Funnel", null, directEntryHtml),
+      renderSectionCard("Tournament Anonymous Planner Funnel", "Treatment-only funnel using unique planner_session_id denominators", treatmentFunnelHtml),
+      renderSectionCard("Direct Planner Session Funnel", "Direct-entry funnel kept separate from tournament treatment traffic", directFunnelHtml),
       renderSectionCard("First Planner Actions", null, firstActionsHtml),
       renderSectionCard("Activation by Source", null, activationBySourceHtml),
       renderSectionCard("Individual Hotel Handoffs (HotelPlanner)", null, hotelHandoffsHtml),

@@ -39,6 +39,22 @@ Maintenance rules:
     - `weekend_planner_anonymous_claim_skipped`
     - `weekend_planner_first_authenticated_action_after_claim`
   - The email now exposes both legacy activation counts and the stronger meaningful-activation count, plus anonymous claim progression after auth.
+  - Follow-up funnel repair implementation:
+    - Added the first-action micro-funnel event family to `apps/ti-web/lib/tiAnalyticsEvents.ts`, `apps/ti-web/app/api/analytics/route.ts`, and `apps/ti-web/app/_components/planner/PlannerClient.tsx`:
+      - `weekend_planner_first_action_cta_clicked`
+      - `weekend_planner_manual_event_form_opened`
+      - `weekend_planner_manual_event_form_started`
+      - `weekend_planner_manual_event_submitted`
+      - `weekend_planner_temporary_event_persisted`
+      - `weekend_planner_manual_event_failed`
+      - `weekend_planner_first_meaningful_action`
+    - Preserved existing `weekend_planner_start_clicked`, `weekend_planner_activation_achieved`, and `planner_manual_event_created` for backward compatibility while adding the deeper anonymous-first instrumentation.
+    - Expanded planner-shaped analytics persistence so the new funnel events retain `event_type`, `form_location`, `temporary_plan_id`, `device_type`, and `failure_reason` instead of dropping them during `/api/analytics` normalization.
+    - Corrected the admin email so treatment and direct planner funnels are now separated by unique `planner_session_id` instead of mixing direct planner traffic into tournament-treatment conversion rates.
+    - The email now shows treatment-stage raw events, unique-session counts, and correct prior-stage conversions for the anonymous planner funnel, plus a separate direct planner session funnel.
+    - Replaced the capped HotelPlanner handoff counting path with uncapped pagination over `ti_outbound_clicks`, so the dashboard no longer presents an exact `1000` count when more rows exist.
+  - Validation passed:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
 
 - TI Weekend Planner rollout-assignment follow-up after production contradiction:
   - Production on Friday, July 31, 2026 showed fresh signed-out tournament CTA sessions landing on `experiment_variant=control` with `feature_flag_state=enabled` even though the intended production config was `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ENABLED=true`, `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_ROLLOUT_PERCENT=100`, `NEXT_PUBLIC_ANONYMOUS_PLANNER_ACTIVATION_V1_INCLUDE_AUTHENTICATED=false`, and `NEXT_PUBLIC_ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY=false`.

@@ -134,6 +134,13 @@ const PLANNER_EVENTS = new Set([
   "weekend_planner_auth_started",
   "weekend_planner_auth_completed",
   "weekend_planner_start_clicked",
+  "weekend_planner_first_action_cta_clicked",
+  "weekend_planner_manual_event_form_opened",
+  "weekend_planner_manual_event_form_started",
+  "weekend_planner_manual_event_submitted",
+  "weekend_planner_temporary_event_persisted",
+  "weekend_planner_manual_event_failed",
+  "weekend_planner_first_meaningful_action",
   "weekend_planner_auth_required_viewed",
   "weekend_planner_create_account_clicked",
   "weekend_planner_sign_in_clicked",
@@ -453,9 +460,14 @@ export async function POST(request: Request) {
     const venueId = asTextWithLimit((props as any).venue_id, 64);
     const firstActionType = asTextWithLimit((props as any).first_action_type, 64);
     const ctaType = asTextWithLimit((props as any).cta_type, 64);
+    const eventType = asTextWithLimit((props as any).event_type, 32);
     const authState = asTextWithLimit((props as any).auth_state, 32);
     const actionSurface = asTextWithLimit((props as any).action_surface, 32);
     const contextType = asTextWithLimit((props as any).context_type, 32);
+    const formLocation = asTextWithLimit((props as any).form_location, 64);
+    const temporaryPlanId = asTextWithLimit((props as any).temporary_plan_id, 128);
+    const failureReason = asTextWithLimit((props as any).failure_reason, 256);
+    const deviceType = asTextWithLimit((props as any).device_type, 32);
     const loadedEventCountBucket = asTextWithLimit((props as any).loaded_event_count_bucket, 16);
     const feedCountBucket = asTextWithLimit((props as any).feed_count_bucket, 16);
     const childTeamCountBucket = asTextWithLimit((props as any).child_team_count_bucket, 16);
@@ -486,10 +498,15 @@ export async function POST(request: Request) {
           tournament_slug: tournamentSlug,
           venue_id: venueId,
           first_action_type: firstActionType,
+          event_type: eventType,
           auth_state: authState,
           entitlement,
           action_surface: actionSurface,
           context_type: contextType,
+          form_location: formLocation,
+          temporary_plan_id: temporaryPlanId,
+          failure_reason: failureReason,
+          device_type: deviceType,
           view,
           loaded_event_count_bucket: loadedEventCountBucket,
           feed_count_bucket: feedCountBucket,

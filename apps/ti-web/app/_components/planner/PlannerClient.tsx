@@ -561,6 +561,15 @@ export default function PlannerClient(props: Props) {
     }
   }
 
+  function plannerDeviceType(): "mobile" | "desktop" | null {
+    if (typeof window === "undefined") return null;
+    try {
+      return window.matchMedia?.("(max-width: 767px)")?.matches ? "mobile" : "desktop";
+    } catch {
+      return null;
+    }
+  }
+
   function trackPlannerFirstAction(firstActionType: "manual_event_created" | "guest_share_created" | "calendar_feed_created" | "team_hotel_clicked" | "view_toggle") {
     const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
     if (!plannerSessionId) return;
@@ -585,7 +594,7 @@ export default function PlannerClient(props: Props) {
     }
   }
 
-  function trackPlannerActivationIfNeeded(activationType: "manual_event_created") {
+  function trackPlannerActivationIfNeeded(activationType: "manual_event_created", eventType: PlannerEventType) {
     if (plannerActivationTrackedRef.current) return;
     plannerActivationTrackedRef.current = true;
     trackPlannerEvent("weekend_planner_activation_achieved", {
@@ -594,6 +603,31 @@ export default function PlannerClient(props: Props) {
       auth_state: plannerAuthState,
       entitlement: entitlementForAnalytics,
       activation_type: activationType,
+    });
+    trackPlannerEvent("weekend_planner_first_meaningful_action", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      event_type: eventType,
+    });
+  }
+
+  function trackFirstActionManualEventFailure(
+    reason: string,
+    formLocation: "entry_card" | "saved_state_card" | "manual_event_card",
+    eventType?: PlannerEventType,
+  ) {
+    if (!(allowAnonymousPlanner && anonymousManualEventCount === 0)) return;
+    trackPlannerEvent("weekend_planner_manual_event_failed", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      form_location: formLocation,
+      device_type: plannerDeviceType(),
+      failure_reason: reason,
+      event_type: eventType,
     });
   }
 
@@ -693,6 +727,8 @@ export default function PlannerClient(props: Props) {
   const anonymousClaimAttemptedRef = useRef(false);
   const claimedFirstActionTrackedRef = useRef(false);
   const plannerActivationTrackedRef = useRef(false);
+  const createFormStartedTrackedRef = useRef(false);
+  const createFormLocationRef = useRef<"entry_card" | "saved_state_card" | "manual_event_card">("manual_event_card");
   const componentMountedRef = useRef(true);
   const emptyStateViewedKeysRef = useRef<Set<string>>(new Set());
   const [anonymousStorageReady, setAnonymousStorageReady] = useState(false);
@@ -1458,12 +1494,14 @@ export default function PlannerClient(props: Props) {
     }
   }, [canUseCalendar, dismissSeasonCalendarGateForSession, entitlementForAnalytics, scheduleView]);
 
-  function openManualEventFromTop() {
+  function openManualEventFromTop(formLocation: "entry_card" | "saved_state_card" | "manual_event_card" = "manual_event_card") {
     if (!canWritePlanner) {
       setError(plannerWriteBlockedCopy());
       return;
     }
     if (busy) return;
+    createFormLocationRef.current = formLocation;
+    createFormStartedTrackedRef.current = false;
     if (allowAnonymousPlanner && anonymousManualEventCount === 0) {
       trackPlannerEvent("weekend_planner_start_clicked", {
         surface: "planner",
@@ -1471,6 +1509,23 @@ export default function PlannerClient(props: Props) {
         cta_type: "add_first_event",
         auth_state: plannerAuthState,
         entitlement: entitlementForAnalytics,
+      });
+      trackPlannerEvent("weekend_planner_first_action_cta_clicked", {
+        surface: "planner",
+        source_page_type: plannerSourcePageType,
+        cta_type: "add_first_event",
+        auth_state: plannerAuthState,
+        entitlement: entitlementForAnalytics,
+        form_location: formLocation,
+        device_type: plannerDeviceType(),
+      });
+      trackPlannerEvent("weekend_planner_manual_event_form_opened", {
+        surface: "planner",
+        source_page_type: plannerSourcePageType,
+        auth_state: plannerAuthState,
+        entitlement: entitlementForAnalytics,
+        form_location: formLocation,
+        device_type: plannerDeviceType(),
       });
     }
     setCreateOpen(true);
@@ -1839,6 +1894,65 @@ export default function PlannerClient(props: Props) {
       prompt_location: "post_first_manual_event",
     });
   }, [allowAnonymousPlanner, anonymousManualEventCount, entitlementForAnalytics, plannerSourcePageType]);
+
+  useEffect(() => {
+    if (!createOpen) {
+      createFormStartedTrackedRef.current = false;
+      return;
+    }
+    if (!(allowAnonymousPlanner && anonymousManualEventCount === 0)) return;
+    if (createFormStartedTrackedRef.current) return;
+    const hasStarted =
+      Boolean(createTitle.trim()) ||
+      createType !== "game" ||
+      Boolean(createStartDate) ||
+      Boolean(createStartTime) ||
+      Boolean(createEndDate) ||
+      Boolean(createEndTime) ||
+      Boolean(createChildProfileId) ||
+      Boolean(createTeamProfileId) ||
+      Boolean(createVenueId) ||
+      Boolean(createVenueQuery.trim()) ||
+      Boolean(createTournamentId) ||
+      Boolean(createTournamentQuery.trim()) ||
+      Boolean(createAddress.trim()) ||
+      Boolean(createCity.trim()) ||
+      Boolean(createState.trim()) ||
+      Boolean(createNotes.trim());
+    if (!hasStarted) return;
+    createFormStartedTrackedRef.current = true;
+    trackPlannerEvent("weekend_planner_manual_event_form_started", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      form_location: createFormLocationRef.current,
+      device_type: plannerDeviceType(),
+    });
+  }, [
+    allowAnonymousPlanner,
+    anonymousManualEventCount,
+    createAddress,
+    createChildProfileId,
+    createCity,
+    createEndDate,
+    createEndTime,
+    createNotes,
+    createOpen,
+    createStartDate,
+    createStartTime,
+    createState,
+    createTeamProfileId,
+    createTitle,
+    createTournamentId,
+    createTournamentQuery,
+    createType,
+    createVenueId,
+    createVenueQuery,
+    entitlementForAnalytics,
+    plannerAuthState,
+    plannerSourcePageType,
+  ]);
 
   useEffect(() => {
     const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
@@ -2478,27 +2592,32 @@ export default function PlannerClient(props: Props) {
     setNotice(null);
     if (!createTitle.trim()) {
       setError("Title is required.");
+      trackFirstActionManualEventFailure("title_required", createFormLocationRef.current, createType);
       return;
     }
     if (!createStartDate || !createStartTime) {
       setError("Start time is required.");
+      trackFirstActionManualEventFailure("start_time_required", createFormLocationRef.current, createType);
       return;
     }
 
     const startsIso = zonedPartsToUtcIso({ date: createStartDate, time: createStartTime, timeZone: createTimeZone });
     if (!startsIso) {
       setError("Start time is invalid.");
+      trackFirstActionManualEventFailure("start_time_invalid", createFormLocationRef.current, createType);
       return;
     }
 
     const endEmpty = !createEndDate && !createEndTime;
     if (!endEmpty && (!createEndDate || !createEndTime)) {
       setError("End time is incomplete.");
+      trackFirstActionManualEventFailure("end_time_incomplete", createFormLocationRef.current, createType);
       return;
     }
     const endsIso = endEmpty ? null : zonedPartsToUtcIso({ date: createEndDate, time: createEndTime, timeZone: createTimeZone });
     if (!endEmpty && !endsIso) {
       setError("End time is invalid.");
+      trackFirstActionManualEventFailure("end_time_invalid", createFormLocationRef.current, createType);
       return;
     }
 
@@ -2520,6 +2639,17 @@ export default function PlannerClient(props: Props) {
 
     setBusy(true);
     try {
+      if (allowAnonymousPlanner && anonymousManualEventCount === 0) {
+        trackPlannerEvent("weekend_planner_manual_event_submitted", {
+          surface: "planner",
+          source_page_type: plannerSourcePageType,
+          auth_state: plannerAuthState,
+          entitlement: entitlementForAnalytics,
+          form_location: createFormLocationRef.current,
+          device_type: plannerDeviceType(),
+          event_type: createType,
+        });
+      }
       if (allowAnonymousPlanner) {
         const event = buildAnonymousPlannerEvent(body);
         trackPlannerEvent("planner_manual_event_created", {
@@ -2527,10 +2657,23 @@ export default function PlannerClient(props: Props) {
           entitlement: entitlementForAnalytics,
           event_type: String(createType),
         });
+        if (anonymousManualEventCount === 0) {
+          trackPlannerEvent("weekend_planner_temporary_event_persisted", {
+            surface: "planner",
+            source_page_type: plannerSourcePageType,
+            auth_state: "signed_out",
+            entitlement: entitlementForAnalytics,
+            form_location: createFormLocationRef.current,
+            device_type: plannerDeviceType(),
+            temporary_plan_id: event.id,
+            event_type: createType,
+          });
+        }
         trackPlannerFirstAction("manual_event_created");
-        trackPlannerActivationIfNeeded("manual_event_created");
+        trackPlannerActivationIfNeeded("manual_event_created", createType);
         setEvents((prev) => sortPlannerEvents([...prev, event]));
         resetCreateForm();
+        createFormStartedTrackedRef.current = false;
         setCreateOpen(false);
         return;
       }
@@ -2544,12 +2687,14 @@ export default function PlannerClient(props: Props) {
           event_type: String(createType),
         });
         trackPlannerFirstAction("manual_event_created");
-        trackPlannerActivationIfNeeded("manual_event_created");
+        trackPlannerActivationIfNeeded("manual_event_created", createType);
 	      setEvents((prev) => [...prev, res.event].sort((a, b) => a.starts_at.localeCompare(b.starts_at)));
 	      resetCreateForm();
+        createFormStartedTrackedRef.current = false;
 	      setCreateOpen(false);
 	    } catch (e: any) {
 	      setError(e?.message || "Failed to create event.");
+        trackFirstActionManualEventFailure(String(e?.message ?? "create_failed"), createFormLocationRef.current, createType);
 	    } finally {
 	      setBusy(false);
 	    }
@@ -3514,7 +3659,7 @@ export default function PlannerClient(props: Props) {
 			            <p className={styles.subtitle}>Your family’s sports schedule, calendar feeds, and tournament weekends in one place.</p>
 			          </div>
 				          <div className={styles.headerActions}>
-            <button className={styles.primaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
+            <button className={styles.primaryBtn} type="button" onClick={() => openManualEventFromTop("manual_event_card")} disabled={busy}>
               Add event
             </button>
                     {allowAnonymousPlanner ? (
@@ -3559,7 +3704,7 @@ export default function PlannerClient(props: Props) {
                   : "Best next step: add one manual event for your hotel, check-in, meal, or travel plan."}
               </div>
               <div className={styles.eventActions} style={{ marginTop: 10 }}>
-                <button className={styles.primaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
+                <button className={styles.primaryBtn} type="button" onClick={() => openManualEventFromTop("entry_card")} disabled={busy}>
                   {anonymousManualEventCount > 0 ? "Add another event" : "Add first event"}
                 </button>
                 {anonymousManualEventCount > 0 ? (
@@ -3591,7 +3736,7 @@ export default function PlannerClient(props: Props) {
                 Your temporary planner items are now attached to this account. Keep adding events here, revisit this tournament later, or connect calendars when you are ready.
               </div>
               <div className={styles.eventActions} style={{ marginTop: 10 }}>
-                <button className={styles.primaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
+                <button className={styles.primaryBtn} type="button" onClick={() => openManualEventFromTop("saved_state_card")} disabled={busy}>
                   Add another event
                 </button>
                 <button
@@ -3715,7 +3860,7 @@ export default function PlannerClient(props: Props) {
 		              >
 		                Season
 		              </button>
-                  <button className={styles.secondaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
+                  <button className={styles.secondaryBtn} type="button" onClick={() => openManualEventFromTop("manual_event_card")} disabled={busy}>
                     Add event
                   </button>
 		            </div>
@@ -4634,7 +4779,7 @@ export default function PlannerClient(props: Props) {
 		              Add games, travel, hotels, or reminders not in your connected calendars.
 		            </div>
 		            <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
-		              <button className={styles.primaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
+		              <button className={styles.primaryBtn} type="button" onClick={() => openManualEventFromTop("manual_event_card")} disabled={busy}>
 		                Add event
 		              </button>
 		            </div>

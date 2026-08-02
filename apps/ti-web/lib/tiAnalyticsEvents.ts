@@ -1,3 +1,5 @@
+import type { PlannerEventType } from "@/lib/planner/types";
+
 export type TiAnalyticsEventName =
   | "hotel_cta_impression"
   | "hotel_cta_clicked"
@@ -92,6 +94,13 @@ export type TiAnalyticsEventName =
   | "weekend_planner_auth_started"
   | "weekend_planner_auth_completed"
   | "weekend_planner_start_clicked"
+  | "weekend_planner_first_action_cta_clicked"
+  | "weekend_planner_manual_event_form_opened"
+  | "weekend_planner_manual_event_form_started"
+  | "weekend_planner_manual_event_submitted"
+  | "weekend_planner_temporary_event_persisted"
+  | "weekend_planner_manual_event_failed"
+  | "weekend_planner_first_meaningful_action"
   | "weekend_planner_auth_required_viewed"
   | "weekend_planner_create_account_clicked"
   | "weekend_planner_sign_in_clicked"
@@ -921,6 +930,67 @@ export type TiAnalyticsEventPropertiesByName = {
     cta_type: "add_first_event";
     auth_state: PlannerAuthState;
     entitlement: PlannerEntitlement;
+  };
+  weekend_planner_first_action_cta_clicked: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    cta_type: "add_first_event";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    form_location: "entry_card" | "saved_state_card" | "manual_event_card";
+    device_type: "mobile" | "desktop" | null;
+  };
+  weekend_planner_manual_event_form_opened: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    form_location: "entry_card" | "saved_state_card" | "manual_event_card";
+    device_type: "mobile" | "desktop" | null;
+  };
+  weekend_planner_manual_event_form_started: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    form_location: "entry_card" | "saved_state_card" | "manual_event_card";
+    device_type: "mobile" | "desktop" | null;
+  };
+  weekend_planner_manual_event_submitted: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    form_location: "entry_card" | "saved_state_card" | "manual_event_card";
+    device_type: "mobile" | "desktop" | null;
+    event_type: PlannerEventType;
+  };
+  weekend_planner_temporary_event_persisted: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: "signed_out";
+    entitlement: PlannerEntitlement;
+    form_location: "entry_card" | "saved_state_card" | "manual_event_card";
+    device_type: "mobile" | "desktop" | null;
+    temporary_plan_id: string;
+    event_type: PlannerEventType;
+  };
+  weekend_planner_manual_event_failed: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    form_location: "entry_card" | "saved_state_card" | "manual_event_card";
+    device_type: "mobile" | "desktop" | null;
+    failure_reason: string;
+    event_type?: PlannerEventType;
+  };
+  weekend_planner_first_meaningful_action: PlannerCanonicalContext & {
+    surface: "planner";
+    source_page_type: "planner" | "tournament";
+    auth_state: PlannerAuthState;
+    entitlement: PlannerEntitlement;
+    event_type: PlannerEventType;
   };
   weekend_planner_auth_required_viewed: PlannerCanonicalContext & {
     surface: "planner";
