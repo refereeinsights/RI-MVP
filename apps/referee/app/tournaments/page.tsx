@@ -12,7 +12,6 @@ import InsightDisclaimer from "@/components/InsightDisclaimer";
 import StateMultiSelect from "./StateMultiSelect";
 import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import "./tournaments.css";
-import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import RiTournamentDirectoryAnalytics from "@/components/analytics/RiTournamentDirectoryAnalytics";
 import { RiTournamentExternalLink, RiTournamentInternalLink } from "@/components/analytics/RiTournamentCardLink";
@@ -567,7 +566,6 @@ export default async function TournamentsPage({
 	              summaryLabel={stateSummaryLabel}
 	              stateCounts={stateCounts}
 	              totalCount={tournamentsByMetro.length}
-	              autoSubmit
 	            />
 	          </div>
 
@@ -593,7 +591,7 @@ export default async function TournamentsPage({
             </label>
             {sportsSorted.map(({ sport, count }) => (
               <label key={sport} className="sportToggle">
-                <AutoSubmitCheckbox
+                <input
                   type="checkbox"
                   name="sports"
                   value={sport}
