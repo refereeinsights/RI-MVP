@@ -1,0 +1,27 @@
+export const RI_PERSISTED_EVENTS = [
+  "ri_tournament_directory_viewed",
+  "ri_tournament_filter_applied",
+  "ri_tournament_map_opened",
+  "ri_tournament_result_opened",
+  "ri_tournament_official_site_clicked",
+  "ri_tournament_map_viewed",
+  "ri_tournament_map_filter_applied",
+  "ri_tournament_map_marker_selected",
+  "ri_tournament_map_result_selected",
+  "ri_tournament_map_view_details_clicked",
+  "ri_tournament_map_view_venue_clicked",
+  "ri_venue_directory_viewed",
+  "ri_venue_result_opened",
+  "ri_venue_detail_viewed",
+  "ri_venue_hotels_module_viewed",
+  "ri_venue_nearby_module_viewed",
+  "ri_venue_linked_tournament_clicked",
+  "ri_venue_site_clicked",
+  "ri_venue_directions_clicked",
+  "ri_venue_hotels_cta_clicked",
+  "ri_venue_rentals_clicked",
+  "ri_venue_nearby_section_toggled",
+  "ri_venue_nearby_place_clicked",
+].sort();
+
+export const RI_PERSISTED_EVENT_SET = new Set(RI_PERSISTED_EVENTS);

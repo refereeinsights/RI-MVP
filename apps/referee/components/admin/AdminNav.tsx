@@ -194,6 +194,9 @@ export async function AdminNav() {
         <Link href="/admin/venues" style={linkStyle}>
           Venues
         </Link>
+        <Link href="/admin/analytics" style={linkStyle}>
+          Analytics
+        </Link>
         <Link href="/admin/owls-eye" style={linkStyle}>
           Owl&apos;s Eye
         </Link>

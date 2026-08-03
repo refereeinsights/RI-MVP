@@ -1,10 +1,6 @@
 "use client";
 
 export const RI_SOURCE_APP = "refereeinsights";
-const RI_POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim() || "";
-const RI_POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://app.posthog.com";
-
-let posthogInitPromise: Promise<any | null> | null = null;
 
 export type RiPageType =
   | "tournament_directory"
@@ -71,34 +67,36 @@ export function buildRiBaseEventPayload(args: Omit<CaptureArgs, "properties">) {
   };
 }
 
-async function getRiPosthogClient() {
-  if (typeof window === "undefined" || process.env.NODE_ENV !== "production") return null;
-  if (!RI_POSTHOG_KEY) return null;
-
-  if (!posthogInitPromise) {
-    posthogInitPromise = (async () => {
-      const posthog = (await import("posthog-js")).default;
-      if (!(window as any).__ri_posthog_init) {
-        posthog.init(RI_POSTHOG_KEY, {
-          api_host: RI_POSTHOG_HOST,
-          autocapture: false,
-          capture_pageview: false,
-          persistence: "localStorage+cookie",
-        });
-        (window as any).__ri_posthog_init = true;
-      }
-      return posthog;
-    })().catch(() => null);
-  }
-
-  return posthogInitPromise;
-}
-
 export async function captureRiEvent(eventName: string, args: CaptureArgs) {
-  const posthog = await getRiPosthogClient();
-  if (!posthog) return;
-  posthog.capture(eventName, {
-    ...buildRiBaseEventPayload(args),
-    ...(args.properties ?? {}),
-  });
+  if (typeof window === "undefined") return;
+
+  const payload = {
+    event: eventName,
+    properties: {
+      ...buildRiBaseEventPayload(args),
+      ...(args.properties ?? {}),
+    },
+  };
+
+  try {
+    const shouldPreferBeacon =
+      document.visibilityState === "hidden" &&
+      typeof navigator !== "undefined" &&
+      typeof navigator.sendBeacon === "function";
+
+    if (shouldPreferBeacon) {
+      const body = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      const accepted = navigator.sendBeacon("/api/analytics", body);
+      if (accepted) return;
+    }
+
+    await fetch("/api/analytics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+  } catch {
+    // Analytics must fail open.
+  }
 }
