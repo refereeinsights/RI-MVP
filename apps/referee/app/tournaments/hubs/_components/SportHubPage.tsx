@@ -21,6 +21,7 @@ import {
   parseToggle,
   sportLabelFromParam,
 } from "../../../../../../packages/lib/tournament";
+import { buildTournamentMapHref } from "../../../../../../packages/lib/tournament-map";
 import "../../tournaments.css";
 
 type Tournament = {
@@ -195,6 +196,16 @@ export default async function SportHubPage(props: Props) {
   const stateSelections = parsedStates?.selections ?? [];
   const isAllStates = props.mode === "state-seo" || parsedStates?.isAllStates !== false;
   const stateSummaryLabel = parsedStates?.summaryLabel ?? "All states";
+  const mapHref = buildTournamentMapHref("/tournaments/map", {
+    q,
+    state: stateSelections,
+    month,
+    sports: [sportQuery],
+    reviewed: reviewedOnly,
+    includePast,
+    city: "",
+    sourcePage: "sport_hub",
+  });
 
   const supabase = supabaseAdmin;
   const demoSlug = "refereeinsights-demo-tournament";
@@ -419,6 +430,11 @@ export default async function SportHubPage(props: Props) {
               </p>
             </div>
           )}
+          <div className="actionsRow" style={{ marginTop: 12 }}>
+            <Link className="smallBtn" href={mapHref}>
+              Open map view
+            </Link>
+          </div>
         </div>
 
         {error ? (

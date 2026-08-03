@@ -18,6 +18,7 @@ import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { buildTournamentTitle } from "@/lib/seo/buildTitle";
 import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
+import { buildTournamentMapHref } from "../../../../../packages/lib/tournament-map";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -414,6 +415,15 @@ export default async function TournamentDetailPage({
     data.slug ?? ""
   )}&tournament_id=${encodeURIComponent(data.id)}&source_url=${encodeURIComponent(detailPath)}`;
   const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
+  const mapMonth = data.start_date ? data.start_date.slice(0, 7) : "";
+  const tournamentMapHref = buildTournamentMapHref("/tournaments/map", {
+    state: data.state ? [data.state] : [],
+    month: mapMonth,
+    sports: data.sport ? [data.sport] : [],
+    city: data.city ?? "",
+    includePast: Boolean(data.end_date && data.end_date < new Date().toISOString().slice(0, 10)),
+    sourcePage: "tournament_detail",
+  });
   const eventLd: Record<string, any> = {
     "@context": "https://schema.org",
     "@type": "Event",
@@ -557,6 +567,9 @@ export default async function TournamentDetailPage({
                   Visit official site
                 </a>
               ) : null}
+              <Link className="secondaryLink" href={tournamentMapHref}>
+                View similar tournaments on map
+              </Link>
               <Link className="secondaryLink" href="/tournaments">
                 Back to tournaments
               </Link>

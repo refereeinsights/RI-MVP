@@ -16,6 +16,7 @@ import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import RiTournamentDirectoryAnalytics from "@/components/analytics/RiTournamentDirectoryAnalytics";
 import { RiTournamentExternalLink, RiTournamentInternalLink } from "@/components/analytics/RiTournamentCardLink";
 import { ALL_STATES_VALUE, buildMonthRange, monthOptions, parseStateSelections } from "../../../../packages/lib/tournament";
+import { buildTournamentMapHref } from "../../../../packages/lib/tournament-map";
 
 type Tournament = {
   id: string;
@@ -275,6 +276,16 @@ export default async function TournamentsPage({
     }
   }
   const months = monthOptions(9);
+  const mapHref = buildTournamentMapHref("/tournaments/map", {
+    q,
+    state: stateSelections,
+    month,
+    sports: sportsSelected,
+    reviewed: reviewedOnly,
+    includePast,
+    city: "",
+    sourcePage: "directory",
+  });
   const reviewedTournaments = reviewedOnly
     ? tournamentsData.filter((t) => (whistleMap.get(t.id)?.review_count ?? 0) > 0)
     : tournamentsData;
@@ -520,6 +531,9 @@ export default async function TournamentsPage({
             >
               Report an Issue
             </a>
+            <Link className="smallBtn" href={mapHref}>
+              Open map view
+            </Link>
             <span style={{ fontSize: 12, color: "#0b1f14" }}>
               Flag incorrect info, safety concerns, or policy violations.
             </span>
