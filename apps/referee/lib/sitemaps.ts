@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 export const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
 export const TOURNAMENT_SITEMAP_PAGE_SIZE = 500;
+export const VENUE_SITEMAP_PAGE_SIZE = 500;
 
 export type SitemapEntry = {
   url: string;

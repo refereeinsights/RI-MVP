@@ -64,14 +64,18 @@ type OwlNearbyRow = {
 // Cache this listing for 5 minutes to reduce Supabase load while keeping results fresh.
 export const revalidate = 300;
 
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
+
 export const metadata = {
-  title: "Tournament Listings and Reviews | RefereeInsights",
+  title: "Tournament Directory for Referees | RefereeInsights",
   description:
-    "Referee-submitted insight on pay, organization, and on-site experience — so you can decide with confidence.",
+    "Browse upcoming tournaments with referee-oriented location, schedule, and venue context to evaluate travel and assignment fit.",
+  alternates: {
+    canonical: `${SITE_ORIGIN}/tournaments`,
+  },
 };
 
 const ISSUE_EMAIL = "rod@refereeinsights.com";
-const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
 
 const SPORTS_LABELS: Record<string, string> = {
   soccer: "Soccer",

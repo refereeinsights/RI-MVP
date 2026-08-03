@@ -48,7 +48,7 @@ export async function generateMetadata({
   const year = new Date().getFullYear();
   return {
     title: buildHubTitle(stateLabel, sportLabel, year),
-    description: `Public beta directory for ${sportLabel.toLowerCase()} tournaments in ${stateLabel}. Details sourced from public listings with referee insights coming soon.`,
+    description: `Browse ${sportLabel.toLowerCase()} tournaments in ${stateLabel} with referee-focused date, location, venue, and travel context.`,
     alternates: {
       canonical: `${SITE_ORIGIN}/tournaments/hubs/${params.sport.toLowerCase()}/${params.state.toLowerCase()}`,
     },

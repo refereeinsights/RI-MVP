@@ -225,9 +225,9 @@ export async function generateMetadata({
     .maybeSingle<TournamentMeta>();
   if (error || !data) {
     return {
-      title: "Tournament listing | RefereeInsights",
+      title: "Tournament Guide | RefereeInsights",
       description:
-        "Public beta tournament listing. Tournament details sourced from public listings. Referee insights coming soon.",
+        "Referee-focused tournament guide with public event details, venue context, and travel planning basics for officials.",
       alternates: {
         canonical: buildCanonicalUrl(params.slug),
       },
@@ -239,7 +239,18 @@ export async function generateMetadata({
     data.state ?? null,
     (data.sport ?? "").trim() || "Tournament"
   );
-  const description = `Public listing for ${data.name ?? "tournament"}${buildLocationLabel(data.city ?? null, data.state ?? null)}.`;
+  const startDate = data.start_date ? formatDate(data.start_date) : null;
+  const sportLabel = (data.sport ?? "tournament").trim() || "tournament";
+  const locationLabel = [data.city, data.state].filter(Boolean).join(", ");
+  const description = [
+    `${data.name ?? "Tournament"} referee guide`,
+    sportLabel ? `${sportLabel} event` : null,
+    locationLabel ? `in ${locationLabel}` : null,
+    startDate ? `starting ${startDate}` : null,
+    "with public listing details, venue context, and travel basics for officials.",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const canonical = buildCanonicalUrl(data.slug ?? params.slug);
   return {
     title,

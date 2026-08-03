@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const year = new Date().getFullYear();
   return {
     title: buildHubTitle(STATE_NAME, "Soccer", year),
-    description: `Browse soccer tournaments in ${STATE_NAME}. Filter reviewed events and include past tournaments. Referee-informed tournament details.`,
+    description: `Browse soccer tournaments in ${STATE_NAME} with referee-focused date, venue, and travel context for officials and crews.`,
     alternates: {
       canonical: `${SITE_ORIGIN}${PATH}`,
     },

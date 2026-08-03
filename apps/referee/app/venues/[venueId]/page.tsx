@@ -153,10 +153,13 @@ export async function generateMetadata({ params }: { params: { venueId: string }
 
   const title = buildVenueTitle(venue.name ?? "Venue", venue.city ?? null, venue.state ?? null);
   const canonical = `${siteOrigin}${getVenueHref(venue)}`;
-  const desc =
-    venue.address && (venue.city || venue.state)
-      ? `${venue.name ?? "Venue"} in ${[venue.city, venue.state].filter(Boolean).join(", ")}. Address: ${venue.address}`
-      : `${venue.name ?? "Venue"} in ${[venue.city, venue.state].filter(Boolean).join(", ")}.`;
+  const desc = [
+    `${venue.name ?? "Venue"} venue guide`,
+    venue.city || venue.state ? `for officials working in ${[venue.city, venue.state].filter(Boolean).join(", ")}` : null,
+    "with linked tournaments, nearby hotels, coffee, food, and directions.",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return {
     title,

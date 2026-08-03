@@ -68,10 +68,10 @@ type OwlsEyeRunRow = {
 export const revalidate = 300;
 
 export const metadata = {
-  title: "Venue Directory | RefereeInsights",
-  description: "Browse tournament venues by sport, state, and month with Owl's Eye venue intelligence.",
+  title: "Venue Directory for Referees | RefereeInsights",
+  description: "Browse sports venues with referee-oriented location context, linked tournaments, and nearby hotel, coffee, and food signals.",
   alternates: {
-    canonical: "/venues",
+    canonical: `${(process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "")}/venues`,
   },
 };
 

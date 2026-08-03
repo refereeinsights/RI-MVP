@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   SITE_ORIGIN,
   TOURNAMENT_SITEMAP_PAGE_SIZE,
+  VENUE_SITEMAP_PAGE_SIZE,
   buildSitemapIndexXml,
   xmlResponse,
 } from "@/lib/sitemaps";
@@ -22,6 +23,16 @@ export async function GET() {
   const pageCount = Math.ceil((count ?? 0) / TOURNAMENT_SITEMAP_PAGE_SIZE);
   for (let page = 1; page <= pageCount; page += 1) {
     sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/tournaments-${page}.xml`);
+  }
+
+  const { count: venueCount } = await supabaseAdmin
+    .from("venues" as any)
+    .select("id", { count: "exact", head: true })
+    .not("name", "is", null);
+
+  const venuePageCount = Math.ceil((venueCount ?? 0) / VENUE_SITEMAP_PAGE_SIZE);
+  for (let page = 1; page <= venuePageCount; page += 1) {
+    sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/venues-${page}.xml`);
   }
 
   return xmlResponse(buildSitemapIndexXml(sitemapUrls));

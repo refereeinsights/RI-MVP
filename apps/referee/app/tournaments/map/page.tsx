@@ -56,8 +56,8 @@ type TournamentVenueLinkRow = {
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
 
 export const metadata: Metadata = {
-  title: "Tournament travel map | RefereeInsights",
-  description: "Browse tournaments geographically to understand officiating travel patterns and venue distribution.",
+  title: "Tournament Travel Map for Referees | RefereeInsights",
+  description: "Explore tournaments geographically to compare officiating travel patterns, venue spread, and assignment clusters.",
   alternates: {
     canonical: `${SITE_ORIGIN}/tournaments/map`,
   },

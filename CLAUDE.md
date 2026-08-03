@@ -2572,6 +2572,25 @@ Test by finding any tournament with a year in its slug and confirming sibling-ye
 - Re-run the page at a narrow/mobile width (~375px if possible) and confirm the nearby sections and directions links remain usable without horizontal overflow.
 - If a venue has no nearby data, verify the page fails gracefully with “No nearby Owl's Eye results captured yet for this venue.”
 
+### RI Phase 5 Metadata / Sitemap UAT
+- Open these local RI routes and inspect the page title, meta description, and canonical tag:
+  - `http://localhost:3000/tournaments`
+  - one RI tournament detail page
+  - one RI sport hub page
+  - `http://localhost:3000/tournaments/map`
+  - `http://localhost:3000/venues`
+  - one RI venue detail page
+- Confirm each page uses RefereeInsights branding and does **not** contain `TournamentInsights` in the rendered metadata.
+- Confirm each canonical points to the RI route, never a TI domain.
+- Confirm the tournament map route remains intentionally `noindex` if that tag is present.
+- Inspect:
+  - `http://localhost:3000/sitemap.xml`
+  - `http://localhost:3000/sitemaps/static.xml`
+  - `http://localhost:3000/sitemaps/hubs.xml`
+  - one `tournaments-N.xml` page
+  - one `venues-N.xml` page
+- Confirm sitemap entries use RI URLs only and include both tournament and venue routes.
+
 ## What to Flag
 - Any page returning a 500 error or blank white screen
 - Broken images or missing assets
