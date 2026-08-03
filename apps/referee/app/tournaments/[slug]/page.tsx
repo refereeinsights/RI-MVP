@@ -219,12 +219,12 @@ export async function generateMetadata({
   };
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
-    .select("name,city,state,start_date,slug")
+    .select("name,city,state,start_date,slug,sport")
     .eq("slug", params.slug)
     .maybeSingle<TournamentMeta>();
   if (error || !data) {
     return {
-      title: "Tournament listing | TournamentInsights",
+      title: "Tournament listing | RefereeInsights",
       description:
         "Public beta tournament listing. Tournament details sourced from public listings. Referee insights coming soon.",
       alternates: {

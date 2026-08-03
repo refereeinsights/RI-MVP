@@ -583,7 +583,6 @@ export default async function TournamentsPage({
 
           <div className="sportsRow">
             <label className="sportToggle">
-              <input type="hidden" name="reviewed" value="false" />
               <input
                 type="checkbox"
                 name="reviewed"
@@ -604,7 +603,6 @@ export default async function TournamentsPage({
               </label>
             ))}
             <label className="sportToggle">
-              <input type="hidden" name="includePast" value="false" />
               <input
                 type="checkbox"
                 name="includePast"

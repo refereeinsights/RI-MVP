@@ -1,7 +1,7 @@
-const BRAND = "TournamentInsights";
+const BRAND = "RefereeInsights";
 
 function dedupeBrand(title: string) {
-  return title.replace(/\s*\|\s*TournamentInsights/gi, "").trim();
+  return title.replace(/\s*\|\s*(TournamentInsights|RefereeInsights)/gi, "").trim();
 }
 
 function withBrand(main: string) {

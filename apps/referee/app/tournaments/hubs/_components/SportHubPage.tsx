@@ -446,12 +446,10 @@ export default async function SportHubPage(props: Props) {
                 </div>
                 <div className="sportsRow">
                   <label className="sportToggle">
-                    <input type="hidden" name="reviewed" value="0" />
                     <input type="checkbox" name="reviewed" value="1" defaultChecked={reviewedOnly} />
                     <span>Reviewed</span>
                   </label>
                   <label className="sportToggle">
-                    <input type="hidden" name="past" value="0" />
                     <input type="checkbox" name="past" value="1" defaultChecked={includePast} />
                     <span>Include past events</span>
                   </label>
@@ -501,7 +499,6 @@ export default async function SportHubPage(props: Props) {
 
                 <div className="sportsRow">
                   <label className="sportToggle">
-                    <input type="hidden" name="reviewed" value="false" />
                     <input
                       type="checkbox"
                       name="reviewed"
@@ -511,7 +508,6 @@ export default async function SportHubPage(props: Props) {
                     <span>Reviewed only</span>
                   </label>
                   <label className="sportToggle">
-                    <input type="hidden" name="includePast" value="false" />
                     <input
                       type="checkbox"
                       name="includePast"
