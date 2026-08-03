@@ -105,6 +105,15 @@
   border: 1px solid rgba(0,0,0,0.12);
 }
 
+.card--clickable {
+  cursor: pointer;
+}
+
+.card--clickable:focus-visible {
+  outline: 3px solid rgba(15, 107, 74, 0.75);
+  outline-offset: 3px;
+}
+
 /* ===== Header block ===== */
 .headerBlock {
   position: relative;

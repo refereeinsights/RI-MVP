@@ -14,7 +14,7 @@ import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import "./tournaments.css";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import RiTournamentDirectoryAnalytics from "@/components/analytics/RiTournamentDirectoryAnalytics";
-import { RiTournamentExternalLink, RiTournamentInternalLink } from "@/components/analytics/RiTournamentCardLink";
+import { RiTournamentClickableCard, RiTournamentExternalLink, RiTournamentInternalLink } from "@/components/analytics/RiTournamentCardLink";
 import { RiTrackedInternalLink } from "@/components/analytics/RiTrackedLink";
 import { ALL_STATES_VALUE, buildMonthRange, monthOptions, parseStateSelections } from "../../../../packages/lib/tournament";
 import { buildTournamentMapHref } from "../../../../packages/lib/tournament-map";
@@ -713,7 +713,18 @@ export default async function TournamentsPage({
 
           <div className="grid">
             {tournamentsSorted.map((t) => (
-            <article key={t.id} className={`card ${getSportCardClass(t.sport)}`}>
+            <RiTournamentClickableCard
+              key={t.id}
+              className={`card card--clickable ${getSportCardClass(t.sport)}`}
+              href={`/tournaments/${t.slug}`}
+              eventName="ri_tournament_result_opened"
+              sourcePageType="directory"
+              tournamentId={t.id}
+              tournamentSlug={t.slug}
+              sport={t.sport}
+              state={t.state}
+              city={t.city}
+            >
               {(() => {
                 const locationLabel = [t.city, t.state].filter(Boolean).join(", ");
                 const hasOfficialSite = Boolean(t.official_website_url || t.source_url);
@@ -869,7 +880,7 @@ export default async function TournamentsPage({
                   </>
                 );
               })()}
-            </article>
+            </RiTournamentClickableCard>
           ))}
         </div>
 

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { ComponentProps, MouseEvent, ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import type { ComponentProps, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { captureRiEvent } from "@/lib/riAnalytics";
 
 type BaseProps = {
@@ -25,6 +26,11 @@ type ExternalLinkProps = BaseProps &
     href: string;
   };
 
+type ClickableCardProps = BaseProps &
+  Omit<ComponentProps<"article">, "children"> & {
+    href: string;
+  };
+
 async function capture(eventName: string, props: BaseProps) {
   await captureRiEvent(eventName, {
     pageType: props.sourcePageType === "sport_hub" ? "sport_hub" : "tournament_directory",
@@ -37,6 +43,11 @@ async function capture(eventName: string, props: BaseProps) {
       city: props.city ?? null,
     },
   });
+}
+
+function shouldIgnoreCardClick(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest("a,button,input,select,textarea,summary,[role='button'],[data-card-ignore-click='true']"));
 }
 
 function handleClick(eventName: string, props: BaseProps, onClick?: (event: MouseEvent<any>) => void) {
@@ -86,5 +97,56 @@ export function RiTournamentExternalLink({
     <a {...rest} onClick={handleClick(eventName, analyticsProps, onClick)}>
       {children}
     </a>
+  );
+}
+
+export function RiTournamentClickableCard({
+  href,
+  eventName,
+  sourcePageType,
+  tournamentId,
+  tournamentSlug,
+  sport,
+  state,
+  city,
+  onClick,
+  onKeyDown,
+  children,
+  ...rest
+}: ClickableCardProps) {
+  const router = useRouter();
+  const analyticsProps = { eventName, sourcePageType, tournamentId, tournamentSlug, sport, state, city, children };
+
+  const navigate = () => {
+    void capture(eventName, analyticsProps);
+    router.push(href);
+  };
+
+  const handleCardClick = (event: MouseEvent<HTMLElement>) => {
+    onClick?.(event);
+    if (event.defaultPrevented) return;
+    if (shouldIgnoreCardClick(event.target)) return;
+    navigate();
+  };
+
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    onKeyDown?.(event);
+    if (event.defaultPrevented) return;
+    if (shouldIgnoreCardClick(event.target)) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    navigate();
+  };
+
+  return (
+    <article
+      {...rest}
+      role="link"
+      tabIndex={0}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+    >
+      {children}
+    </article>
   );
 }
