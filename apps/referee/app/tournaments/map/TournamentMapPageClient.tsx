@@ -31,6 +31,7 @@ function formatDate(value: string | null) {
 }
 
 export default function TournamentMapPageClient({ items, sourcePage, sport, stateLabel, city, month }: Props) {
+  const shouldPrefetch = process.env.NODE_ENV === "production";
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const mapboxRef = useRef<any>(null);
@@ -505,6 +506,7 @@ export default function TournamentMapPageClient({ items, sourcePage, sport, stat
                 <Link
                   href={`/tournaments/${selectedItem.tournamentSlug}`}
                   className={styles.actionLink}
+                  prefetch={shouldPrefetch}
                   onClick={() => captureAction("ri_tournament_map_view_details_clicked", selectedItem)}
                 >
                   View tournament travel guide
@@ -513,6 +515,7 @@ export default function TournamentMapPageClient({ items, sourcePage, sport, stat
                   <Link
                     href={`/venues/${selectedItem.venue?.slug ?? selectedItem.venue?.id}`}
                     className={styles.secondaryAction}
+                    prefetch={shouldPrefetch}
                     onClick={() => captureAction("ri_tournament_map_view_venue_clicked", selectedItem)}
                   >
                     View venue

@@ -106,6 +106,7 @@ async function loadWhistleScores(
 }
 
 export default async function TournamentMapPage({ searchParams }: { searchParams?: SearchParams }) {
+  const shouldPrefetch = process.env.NODE_ENV === "production";
   const q = (searchParams?.q ?? "").trim();
   const month = (searchParams?.month ?? "").trim();
   const city = (searchParams?.city ?? "").trim();
@@ -262,7 +263,7 @@ export default async function TournamentMapPage({ searchParams }: { searchParams
               Error loading tournaments: <code>{error}</code>
             </p>
             <div className="actionsRow" style={{ marginTop: 12 }}>
-              <Link href="/tournaments" className="smallBtn">
+              <Link href="/tournaments" className="smallBtn" prefetch={shouldPrefetch}>
                 Back to directory
               </Link>
             </div>
@@ -292,10 +293,10 @@ export default async function TournamentMapPage({ searchParams }: { searchParams
           </p>
           <InsightDisclaimer />
           <div className="actionsRow" style={{ marginTop: 12 }}>
-            <Link className="smallBtn" href="/tournaments">
+            <Link className="smallBtn" href="/tournaments" prefetch={shouldPrefetch}>
               Directory view
             </Link>
-            <Link className="smallBtn" href={directoryMapHref}>
+            <Link className="smallBtn" href={directoryMapHref} prefetch={shouldPrefetch}>
               Share this map view
             </Link>
           </div>

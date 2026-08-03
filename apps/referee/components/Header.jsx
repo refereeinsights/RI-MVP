@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 export default function Header({ isAuthenticated = false }) {
+  const shouldPrefetch = process.env.NODE_ENV === "production";
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const toggleRef = useRef(null);
@@ -33,7 +34,7 @@ export default function Header({ isAuthenticated = false }) {
   return (
     <header className="ri-header">
       <div className="ri-header-shell">
-        <Link href="/" className="ri-logo" aria-label="RefereeInsights home">
+        <Link href="/" className="ri-logo" aria-label="RefereeInsights home" prefetch={shouldPrefetch}>
           {!logoFailed ? (
             <img
               className="ri-logo-img"
@@ -53,20 +54,20 @@ export default function Header({ isAuthenticated = false }) {
         </div>
 
         <nav className="ri-nav" aria-label="Main navigation">
-          <Link href="/tournaments">Tournaments</Link>
-          <Link href="/venues">Venues</Link>
-          <Link href="/assignors">Assignors</Link>
+          <Link href="/tournaments" prefetch={shouldPrefetch}>Tournaments</Link>
+          <Link href="/venues" prefetch={shouldPrefetch}>Venues</Link>
+          <Link href="/assignors" prefetch={shouldPrefetch}>Assignors</Link>
         </nav>
 
         <div className="ri-header-actions">
-          <Link href="/tournaments/list" className="ri-cta" title="Submit a tournament">
+          <Link href="/tournaments/list" className="ri-cta" title="Submit a tournament" prefetch={shouldPrefetch}>
             <span aria-hidden="true">🏆</span>
             List your tournament
           </Link>
 
           <div className="ri-auth-links" aria-label="Account actions">
             {!isAuthenticated ? (
-              <Link href="/signup?returnTo=%2Faccount" className="ri-signup">
+              <Link href="/signup?returnTo=%2Faccount" className="ri-signup" prefetch={shouldPrefetch}>
                 Sign up
               </Link>
             ) : null}
@@ -74,6 +75,7 @@ export default function Header({ isAuthenticated = false }) {
             <Link
               className={`ri-accountIcon ${isAuthenticated ? "is-auth" : "is-guest"}`}
               href={isAuthenticated ? "/account" : "/account/login"}
+              prefetch={shouldPrefetch}
               aria-label={isAuthenticated ? "My account" : "Sign in"}
               title={isAuthenticated ? "My account" : "Sign in"}
             >
@@ -101,27 +103,28 @@ export default function Header({ isAuthenticated = false }) {
         hidden={!menuOpen}
       >
         <nav className="ri-mobileMenu__panel" aria-label="Mobile">
-          <Link className="ri-mobileLink" href="/tournaments" onClick={closeMenu}>
+          <Link className="ri-mobileLink" href="/tournaments" onClick={closeMenu} prefetch={shouldPrefetch}>
             Tournaments
           </Link>
-          <Link className="ri-mobileLink" href="/venues" onClick={closeMenu}>
+          <Link className="ri-mobileLink" href="/venues" onClick={closeMenu} prefetch={shouldPrefetch}>
             Venues
           </Link>
-          <Link className="ri-mobileLink" href="/assignors" onClick={closeMenu}>
+          <Link className="ri-mobileLink" href="/assignors" onClick={closeMenu} prefetch={shouldPrefetch}>
             Assignors
           </Link>
-          <Link className="ri-mobileLink" href="/tournaments/list" onClick={closeMenu}>
+          <Link className="ri-mobileLink" href="/tournaments/list" onClick={closeMenu} prefetch={shouldPrefetch}>
             List your tournament
           </Link>
           <Link
             className="ri-mobileCta"
             href={isAuthenticated ? "/account" : "/account/login"}
             onClick={closeMenu}
+            prefetch={shouldPrefetch}
           >
             {isAuthenticated ? "Account" : "Login"}
           </Link>
           {!isAuthenticated ? (
-            <Link className="ri-mobileLink" href="/signup?returnTo=%2Faccount" onClick={closeMenu}>
+            <Link className="ri-mobileLink" href="/signup?returnTo=%2Faccount" onClick={closeMenu} prefetch={shouldPrefetch}>
               Sign up
             </Link>
           ) : null}

@@ -4534,3 +4534,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
 - 2026-07-27: TI HotelPlanner group-request attribution phase 2B.2 local verification.
   - Added `docs/reports/ti-hotel-group-request-attribution-phase2b2-verification-2026-07-27.md` documenting TI-side verification at commit `45824534` and explicitly marking HotelPlanner response/report evidence as still external and unverified.
   - Local verification confirms the canonical token contract, provider payload construction, and duplicate-success TI behavior; it does not claim end-to-end HotelPlanner report proof.
+
+- 2026-08-03: RI tournament map dev-mode RSC prefetch noise cleanup.
+  - Claude local UAT confirmed the map itself now renders with clustered markers and only 25 unmapped tournaments, but the page still logged non-fatal React/Next RSC payload errors during automatic link prefetch on localhost.
+  - Updated `apps/referee/components/Header.jsx`, `apps/referee/app/tournaments/map/page.tsx`, and `apps/referee/app/tournaments/map/TournamentMapPageClient.tsx` so RI route prefetch remains enabled in production but is explicitly disabled in local/dev mode.
+  - This keeps production navigation behavior unchanged while removing dev-only prefetch fetches that were polluting map UAT with false console failures.
