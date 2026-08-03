@@ -12,6 +12,7 @@ import StateMultiSelect from "@/app/tournaments/StateMultiSelect";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import RiTournamentDirectoryAnalytics from "@/components/analytics/RiTournamentDirectoryAnalytics";
 import { RiTournamentExternalLink, RiTournamentInternalLink } from "@/components/analytics/RiTournamentCardLink";
+import { RiTrackedInternalLink } from "@/components/analytics/RiTrackedLink";
 import {
   ALL_STATES_VALUE,
   buildMonthRange,
@@ -431,9 +432,20 @@ export default async function SportHubPage(props: Props) {
             </div>
           )}
           <div className="actionsRow" style={{ marginTop: 12 }}>
-            <Link className="smallBtn" href={mapHref}>
+            <RiTrackedInternalLink
+              className="smallBtn"
+              href={mapHref}
+              eventName="ri_tournament_map_opened"
+              pageType="sport_hub"
+              properties={{
+                source_page_type: "sport_hub",
+                sport: sportQuery,
+                state_filter_count: stateSelections.length,
+                has_month_filter: Boolean(month),
+              }}
+            >
               Open map view
-            </Link>
+            </RiTrackedInternalLink>
           </div>
         </div>
 
@@ -606,7 +618,7 @@ export default async function SportHubPage(props: Props) {
                     <RiTournamentInternalLink
                       className="btn"
                       href={`/tournaments/${t.slug}`}
-                      eventName="ri_tournament_view_details_clicked"
+                      eventName="ri_tournament_result_opened"
                       sourcePageType="sport_hub"
                       tournamentId={t.id}
                       tournamentSlug={t.slug}

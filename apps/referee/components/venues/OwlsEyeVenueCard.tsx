@@ -3,6 +3,7 @@
 import OwlsEyeDemoScoresPanel from "@/components/OwlsEyeDemoScoresPanel";
 import OwlsEyeWeekendGuideAccordion from "@/components/OwlsEyeWeekendGuideAccordion";
 import type { OwlsEyeDemoScores } from "@/lib/owlsEyeScores";
+import { captureRiEvent } from "@/lib/riAnalytics";
 import MobileMapLink from "@/components/venues/MobileMapLink";
 
 const BRAND_OWL = "Owl's Eye™";
@@ -57,9 +58,10 @@ type OwlsEyeVenueCardProps = {
 };
 
 async function captureVenueEvent(eventName: string, payload: Record<string, unknown>) {
-  if (typeof window === "undefined" || process.env.NODE_ENV !== "production") return;
-  const posthog = (await import("posthog-js")).default;
-  posthog.capture(eventName, payload);
+  await captureRiEvent(eventName, {
+    pageType: "venue_detail",
+    properties: payload,
+  });
 }
 
 export default function OwlsEyeVenueCard({
@@ -246,11 +248,15 @@ export default function OwlsEyeVenueCard({
                     })
                   }
                   onItemClick={(label, item) =>
-                    void captureVenueEvent(label === "Hotels" ? "ri_venue_hotel_cta_clicked" : "ri_venue_nearby_place_clicked", {
+                    void captureVenueEvent(label === "Hotels" ? "ri_venue_hotels_cta_clicked" : "ri_venue_nearby_place_clicked", {
                       ...analyticsBase,
                       nearby_category: label.toLowerCase(),
                       place_name: item.name,
                       sponsored: item.is_sponsor,
+                      source_surface: "venue_nearby_module",
+                      cta_placement: label === "Hotels" ? "venue_nearby_hotels_list" : "venue_nearby_place_list",
+                      outbound_partner: label === "Hotels" ? "hotelplanner" : null,
+                      outbound_destination_type: label === "Hotels" ? "hotels" : "nearby_place",
                       target_kind: label === "Hotels" ? "hotel_outbound" : "directions",
                     })
                   }

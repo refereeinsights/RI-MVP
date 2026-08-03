@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import StateMultiSelect from "../tournaments/StateMultiSelect";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
+import { RiVenueDirectoryAnalytics } from "@/components/analytics/RiVenueAnalytics";
 import VenueCard from "@/components/venues/VenueCard";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import styles from "./VenuesPage.module.css";
@@ -214,7 +215,7 @@ export default async function VenuesPage({
     return (
       <main className="pitchWrap tournamentsWrap">
         <section className="field tournamentsField">
-          <div className="headerBlock">
+        <div className="headerBlock">
             <h1 className="title">Venue Directory</h1>
             <p className="subtitle">We couldn’t load venues right now. Please try again.</p>
           </div>
@@ -369,6 +370,7 @@ export default async function VenuesPage({
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
+        <RiVenueDirectoryAnalytics resultCount={venues.length} />
         <div className="headerBlock brandedHeader">
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
             Venue Directory

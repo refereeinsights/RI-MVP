@@ -15,6 +15,7 @@ import "./tournaments.css";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import RiTournamentDirectoryAnalytics from "@/components/analytics/RiTournamentDirectoryAnalytics";
 import { RiTournamentExternalLink, RiTournamentInternalLink } from "@/components/analytics/RiTournamentCardLink";
+import { RiTrackedInternalLink } from "@/components/analytics/RiTrackedLink";
 import { ALL_STATES_VALUE, buildMonthRange, monthOptions, parseStateSelections } from "../../../../packages/lib/tournament";
 import { buildTournamentMapHref } from "../../../../packages/lib/tournament-map";
 
@@ -535,9 +536,20 @@ export default async function TournamentsPage({
             >
               Report an Issue
             </a>
-            <Link className="smallBtn" href={mapHref}>
+            <RiTrackedInternalLink
+              className="smallBtn"
+              href={mapHref}
+              eventName="ri_tournament_map_opened"
+              pageType="tournament_directory"
+              properties={{
+                source_page_type: "directory",
+                sport: sportsSelected[0] ?? null,
+                state_filter_count: stateSelections.length,
+                has_month_filter: Boolean(month),
+              }}
+            >
               Open map view
-            </Link>
+            </RiTrackedInternalLink>
             <span style={{ fontSize: 12, color: "#0b1f14" }}>
               Flag incorrect info, safety concerns, or policy violations.
             </span>
@@ -819,7 +831,7 @@ export default async function TournamentsPage({
                 <RiTournamentInternalLink
                   className="primaryLink"
                   href={`/tournaments/${t.slug}`}
-                  eventName="ri_tournament_view_details_clicked"
+                    eventName="ri_tournament_result_opened"
                   sourcePageType="directory"
                   tournamentId={t.id}
                   tournamentSlug={t.slug}

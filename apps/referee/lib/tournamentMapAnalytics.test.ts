@@ -39,7 +39,7 @@ test("analytics payload builder keeps RI map namespace properties stable", () =>
       venueId: "v-1",
     }),
     {
-      site: "refereeinsights",
+      source_app: "refereeinsights",
       source_page: "directory",
       map_list_state: "split",
       result_count: 42,

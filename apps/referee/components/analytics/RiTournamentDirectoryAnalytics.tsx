@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { captureRiEvent } from "@/lib/riAnalytics";
 
 type Props = {
   sourcePageType: "directory" | "sport_hub";
@@ -36,8 +37,6 @@ export default function RiTournamentDirectoryAnalytics({ sourcePageType, sport, 
   }, [pathname, resultCount, searchParams, sourcePageType, sport]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || process.env.NODE_ENV !== "production") return;
-
     const key = JSON.stringify(payload);
     if (lastKeyRef.current === key) return;
     lastKeyRef.current = key;
@@ -45,10 +44,13 @@ export default function RiTournamentDirectoryAnalytics({ sourcePageType, sport, 
     let cancelled = false;
 
     async function run() {
-      const posthog = (await import("posthog-js")).default;
       if (cancelled) return;
-
-      posthog.capture("ri_tournament_directory_viewed", payload);
+      const pageType = sourcePageType === "sport_hub" ? "sport_hub" : "tournament_directory";
+      await captureRiEvent("ri_tournament_directory_viewed", {
+        pageType,
+        pagePath: payload.path,
+        properties: payload,
+      });
 
       if (
         payload.has_search_query ||
@@ -58,7 +60,11 @@ export default function RiTournamentDirectoryAnalytics({ sourcePageType, sport, 
         payload.include_past ||
         payload.page > 1
       ) {
-        posthog.capture("ri_tournament_directory_filters_applied", payload);
+        await captureRiEvent("ri_tournament_filter_applied", {
+          pageType,
+          pagePath: payload.path,
+          properties: payload,
+        });
       }
     }
 
@@ -67,8 +73,7 @@ export default function RiTournamentDirectoryAnalytics({ sourcePageType, sport, 
     return () => {
       cancelled = true;
     };
-  }, [payload]);
+  }, [payload, sourcePageType]);
 
   return null;
 }
-

@@ -2591,6 +2591,28 @@ Test by finding any tournament with a year in its slug and confirming sibling-ye
   - one `venues-N.xml` page
 - Confirm sitemap entries use RI URLs only and include both tournament and venue routes.
 
+### RI Phase 6 Analytics / Outbound Attribution UAT
+- Start on local RI and verify these interaction surfaces:
+  - `http://localhost:3000/tournaments`
+  - one RI sport hub page
+  - `http://localhost:3000/tournaments/map`
+  - `http://localhost:3000/venues`
+  - one RI venue detail page
+- Confirm the following visible actions still work after the analytics patch:
+  - opening tournament detail from directory/hub
+  - opening map view from directory/hub
+  - selecting a map marker and a map list result
+  - opening a venue guide from the venue directory
+  - opening the venue hotel CTA
+  - opening one nearby coffee/food link and one nearby hotel link when present
+- For RI hotel outbound checks, inspect the opened URL before redirect completes when possible and confirm the handoff contains RI-specific source markers, at minimum:
+  - `source=referee_...`
+  - or `pageType=referee`
+  - and RI-specific placement/source context
+- Confirm RI pages still show no `TournamentInsights` branding leakage.
+- Confirm TI-side shared behavior is unchanged at the interface level if you spot any TI handoff URL; this phase should only add RI attribution markers, not alter TI user-facing behavior.
+- If browser tooling cannot inspect analytics POST bodies, record that limitation explicitly and judge the analytics patch by code-path-visible evidence plus outbound URL evidence.
+
 ## What to Flag
 - Any page returning a 500 error or blank white screen
 - Broken images or missing assets

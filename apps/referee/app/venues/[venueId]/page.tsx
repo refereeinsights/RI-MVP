@@ -233,12 +233,16 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const travelHotelsHref = `${tiOrigin}/go/hotels?${new URLSearchParams({
     venueId: data.id,
     ...(nearestTournamentId ? { tournamentId: nearestTournamentId } : {}),
-    source: "ri_venue_detail",
+    source: "referee_venue_detail",
+    pageType: "referee",
+    cta_placement: "ri_venue_detail_hotels",
+    flow_type: "referee_travel",
+    custom8: "app:refereeinsights",
   }).toString()}`;
   const travelRentalsHref = `${tiOrigin}/go/vrbo?${new URLSearchParams({
     venueId: data.id,
     ...(nearestTournamentId ? { tournamentId: nearestTournamentId } : {}),
-    source: "ri_venue_detail",
+    source: "referee_venue_detail",
   }).toString()}`;
 
   const semanticLocationSentence = (() => {
@@ -481,7 +485,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                     href={travelHotelsHref}
                     target="_blank"
                     rel="noopener noreferrer sponsored"
-                    eventName="ri_venue_hotel_cta_clicked"
+                    eventName="ri_venue_hotels_cta_clicked"
                     sourcePageType="venue_detail"
                     venueId={data.id}
                     venueName={data.name || "Venue"}
@@ -490,6 +494,10 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                     targetKind="hotel_outbound"
                     nearbyCategory="hotels"
                     linkedTournamentCount={linkedTournaments.length}
+                    sourceSurface="venue_detail"
+                    ctaPlacement="ri_venue_detail_hotels"
+                    outboundPartner="hotelplanner"
+                    outboundDestinationType="hotels"
                   >
                     🏨 Find hotels near this venue
                   </RiVenueExternalLink>

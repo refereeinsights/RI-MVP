@@ -115,7 +115,7 @@ export default function VenueCard({
         <RiVenueInternalLink
           href={venueHref}
           className={`primaryLink ${styles.detailsLink}`}
-          eventName="ri_venue_directory_card_clicked"
+          eventName="ri_venue_result_opened"
           sourcePageType="venue_directory"
           venueId={venueId}
           venueName={name}

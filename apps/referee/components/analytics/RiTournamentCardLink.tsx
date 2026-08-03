@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ComponentProps, MouseEvent, ReactNode } from "react";
+import { captureRiEvent } from "@/lib/riAnalytics";
 
 type BaseProps = {
   eventName: string;
@@ -25,15 +26,16 @@ type ExternalLinkProps = BaseProps &
   };
 
 async function capture(eventName: string, props: BaseProps) {
-  if (typeof window === "undefined" || process.env.NODE_ENV !== "production") return;
-  const posthog = (await import("posthog-js")).default;
-  posthog.capture(eventName, {
-    source_page_type: props.sourcePageType,
-    tournament_id: props.tournamentId,
-    tournament_slug: props.tournamentSlug,
-    sport: props.sport ?? null,
-    state: props.state ?? null,
-    city: props.city ?? null,
+  await captureRiEvent(eventName, {
+    pageType: props.sourcePageType === "sport_hub" ? "sport_hub" : "tournament_directory",
+    properties: {
+      source_page_type: props.sourcePageType,
+      tournament_id: props.tournamentId,
+      tournament_slug: props.tournamentSlug,
+      sport: props.sport ?? null,
+      state: props.state ?? null,
+      city: props.city ?? null,
+    },
   });
 }
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TournamentMapItem } from "../../../../../packages/lib/tournament-map";
 import { buildTournamentMapFeatureCollection, calculateMapBounds, normalizeLngLat } from "../../../../../packages/lib/tournament-map";
+import { captureRiEvent } from "@/lib/riAnalytics";
 import { buildRiTournamentMapEventPayload, getRiMapDeviceType, getRiMapTrafficSource } from "@/lib/tournamentMapAnalytics";
 import styles from "./TournamentMapPage.module.css";
 
@@ -19,9 +20,10 @@ type Props = {
 type MobileView = "map" | "list";
 
 async function captureEvent(eventName: string, payload: Record<string, unknown>) {
-  if (typeof window === "undefined" || process.env.NODE_ENV !== "production") return;
-  const posthog = (await import("posthog-js")).default;
-  posthog.capture(eventName, payload);
+  await captureRiEvent(eventName, {
+    pageType: "tournament_map",
+    properties: payload,
+  });
 }
 
 function formatDate(value: string | null) {
@@ -318,7 +320,7 @@ export default function TournamentMapPageClient({ items, sourcePage, sport, stat
           map.easeTo({ center: feature.geometry.coordinates, duration: 250, zoom: Math.max(map.getZoom(), 8) });
           const analyticsContext = analyticsContextRef.current;
           void captureEvent(
-            "ri_tournament_map_marker_clicked",
+            "ri_tournament_map_marker_selected",
             {
               ...buildRiTournamentMapEventPayload({
                 sourcePage: analyticsContext.sourcePage,
@@ -398,7 +400,7 @@ export default function TournamentMapPageClient({ items, sourcePage, sport, stat
     focusItem(item);
     if (typeof window !== "undefined") {
       const analyticsContext = analyticsContextRef.current;
-      void captureEvent("ri_tournament_map_result_clicked", {
+      void captureEvent("ri_tournament_map_result_selected", {
         ...buildRiTournamentMapEventPayload({
           sourcePage: analyticsContext.sourcePage,
           mapListState: analyticsContext.renderMode,

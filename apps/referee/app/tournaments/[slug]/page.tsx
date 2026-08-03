@@ -522,14 +522,18 @@ export default async function TournamentDetailPage({
     ? `${tiOrigin}/go/hotels?${new URLSearchParams({
         venueId: primaryVenue.id,
         tournamentId: data.id,
-        source: "ri_tournament_detail",
+        source: "referee_tournament_detail",
+        pageType: "referee",
+        cta_placement: "ri_tournament_detail_hotels",
+        flow_type: "referee_travel",
+        custom8: "app:refereeinsights",
       }).toString()}`
     : null;
   const travelRentalsHref = primaryVenue
     ? `${tiOrigin}/go/vrbo?${new URLSearchParams({
         venueId: primaryVenue.id,
         tournamentId: data.id,
-        source: "ri_tournament_detail",
+        source: "referee_tournament_detail",
       }).toString()}`
     : null;
 

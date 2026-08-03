@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ComponentProps, MouseEvent, ReactNode } from "react";
+import { captureRiEvent } from "@/lib/riAnalytics";
 
 type VenueAnalyticsBase = {
   eventName: string;
@@ -15,6 +16,10 @@ type VenueAnalyticsBase = {
   targetKind?: string | null;
   nearbyCategory?: string | null;
   linkedTournamentCount?: number | null;
+  sourceSurface?: string | null;
+  ctaPlacement?: string | null;
+  outboundPartner?: string | null;
+  outboundDestinationType?: string | null;
 };
 
 type InternalLinkProps = VenueAnalyticsBase &
@@ -30,17 +35,22 @@ type ExternalLinkProps = VenueAnalyticsBase &
   };
 
 async function capture(payload: VenueAnalyticsBase) {
-  if (typeof window === "undefined" || process.env.NODE_ENV !== "production") return;
-  const posthog = (await import("posthog-js")).default;
-  posthog.capture(payload.eventName, {
-    venue_id: payload.venueId,
-    venue_name: payload.venueName,
-    city: payload.city ?? null,
-    state: payload.state ?? null,
-    source_page_type: payload.sourcePageType,
-    target_kind: payload.targetKind ?? null,
-    nearby_category: payload.nearbyCategory ?? null,
-    linked_tournament_count: payload.linkedTournamentCount ?? null,
+  await captureRiEvent(payload.eventName, {
+    pageType: payload.sourcePageType,
+    properties: {
+      venue_id: payload.venueId,
+      venue_name: payload.venueName,
+      city: payload.city ?? null,
+      state: payload.state ?? null,
+      source_page_type: payload.sourcePageType,
+      target_kind: payload.targetKind ?? null,
+      nearby_category: payload.nearbyCategory ?? null,
+      linked_tournament_count: payload.linkedTournamentCount ?? null,
+      source_surface: payload.sourceSurface ?? null,
+      cta_placement: payload.ctaPlacement ?? null,
+      outbound_partner: payload.outboundPartner ?? null,
+      outbound_destination_type: payload.outboundDestinationType ?? null,
+    },
   });
 }
 
@@ -62,6 +72,10 @@ export function RiVenueInternalLink({
   targetKind,
   nearbyCategory,
   linkedTournamentCount,
+  sourceSurface,
+  ctaPlacement,
+  outboundPartner,
+  outboundDestinationType,
   onClick,
   children,
   ...rest
@@ -70,7 +84,21 @@ export function RiVenueInternalLink({
     <Link
       {...rest}
       onClick={handleClick(
-        { eventName, venueId, venueName, city, state, sourcePageType, targetKind, nearbyCategory, linkedTournamentCount },
+        {
+          eventName,
+          venueId,
+          venueName,
+          city,
+          state,
+          sourcePageType,
+          targetKind,
+          nearbyCategory,
+          linkedTournamentCount,
+          sourceSurface,
+          ctaPlacement,
+          outboundPartner,
+          outboundDestinationType,
+        },
         onClick
       )}
     >
@@ -89,6 +117,10 @@ export function RiVenueExternalLink({
   targetKind,
   nearbyCategory,
   linkedTournamentCount,
+  sourceSurface,
+  ctaPlacement,
+  outboundPartner,
+  outboundDestinationType,
   onClick,
   children,
   ...rest
@@ -97,7 +129,21 @@ export function RiVenueExternalLink({
     <a
       {...rest}
       onClick={handleClick(
-        { eventName, venueId, venueName, city, state, sourcePageType, targetKind, nearbyCategory, linkedTournamentCount },
+        {
+          eventName,
+          venueId,
+          venueName,
+          city,
+          state,
+          sourcePageType,
+          targetKind,
+          nearbyCategory,
+          linkedTournamentCount,
+          sourceSurface,
+          ctaPlacement,
+          outboundPartner,
+          outboundDestinationType,
+        },
         onClick
       )}
     >
@@ -152,7 +198,6 @@ export default function RiVenueDetailAnalytics({
   );
 
   useEffect(() => {
-    if (typeof window === "undefined" || process.env.NODE_ENV !== "production") return;
     const key = JSON.stringify(payload);
     if (lastKeyRef.current === key) return;
     lastKeyRef.current = key;
@@ -160,9 +205,71 @@ export default function RiVenueDetailAnalytics({
     let cancelled = false;
 
     async function run() {
-      const posthog = (await import("posthog-js")).default;
       if (cancelled) return;
-      posthog.capture("ri_venue_detail_viewed", payload);
+      await captureRiEvent("ri_venue_detail_viewed", {
+        pageType: "venue_detail",
+        pagePath: payload.path,
+        properties: payload,
+      });
+      await captureRiEvent("ri_venue_hotels_module_viewed", {
+        pageType: "venue_detail",
+        pagePath: payload.path,
+        properties: payload,
+      });
+      await captureRiEvent("ri_venue_nearby_module_viewed", {
+        pageType: "venue_detail",
+        pagePath: payload.path,
+        properties: payload,
+      });
+    }
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [payload]);
+
+  return null;
+}
+
+type RiVenueDirectoryAnalyticsProps = {
+  resultCount: number;
+};
+
+export function RiVenueDirectoryAnalytics({ resultCount }: RiVenueDirectoryAnalyticsProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const lastKeyRef = useRef<string | null>(null);
+
+  const payload = useMemo(
+    () => ({
+      path: pathname ?? "",
+      query: searchParams?.toString() ?? "",
+      result_count: resultCount,
+      has_search_query: Boolean(searchParams?.get("q")),
+      has_month_filter: Boolean(searchParams?.get("month")),
+      has_state_filter: Boolean(searchParams?.getAll("state").filter(Boolean).length),
+      has_sport_filter: Boolean(searchParams?.getAll("sports").filter(Boolean).length),
+      include_past: (searchParams?.get("includePast") ?? "").toLowerCase() === "true",
+      source_page_type: "venue_directory",
+    }),
+    [pathname, resultCount, searchParams]
+  );
+
+  useEffect(() => {
+    const key = JSON.stringify(payload);
+    if (lastKeyRef.current === key) return;
+    lastKeyRef.current = key;
+
+    let cancelled = false;
+
+    async function run() {
+      if (cancelled) return;
+      await captureRiEvent("ri_venue_directory_viewed", {
+        pageType: "venue_directory",
+        pagePath: payload.path,
+        properties: payload,
+      });
     }
 
     void run();
