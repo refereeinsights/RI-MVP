@@ -1,6 +1,10 @@
 "use client";
 
 export const RI_SOURCE_APP = "refereeinsights";
+const RI_POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim() || "";
+const RI_POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://app.posthog.com";
+
+let posthogInitPromise: Promise<any | null> | null = null;
 
 export type RiPageType =
   | "tournament_directory"
@@ -67,9 +71,32 @@ export function buildRiBaseEventPayload(args: Omit<CaptureArgs, "properties">) {
   };
 }
 
+async function getRiPosthogClient() {
+  if (typeof window === "undefined" || process.env.NODE_ENV !== "production") return null;
+  if (!RI_POSTHOG_KEY) return null;
+
+  if (!posthogInitPromise) {
+    posthogInitPromise = (async () => {
+      const posthog = (await import("posthog-js")).default;
+      if (!(window as any).__ri_posthog_init) {
+        posthog.init(RI_POSTHOG_KEY, {
+          api_host: RI_POSTHOG_HOST,
+          autocapture: false,
+          capture_pageview: false,
+          persistence: "localStorage+cookie",
+        });
+        (window as any).__ri_posthog_init = true;
+      }
+      return posthog;
+    })().catch(() => null);
+  }
+
+  return posthogInitPromise;
+}
+
 export async function captureRiEvent(eventName: string, args: CaptureArgs) {
-  if (typeof window === "undefined" || process.env.NODE_ENV !== "production") return;
-  const posthog = (await import("posthog-js")).default;
+  const posthog = await getRiPosthogClient();
+  if (!posthog) return;
   posthog.capture(eventName, {
     ...buildRiBaseEventPayload(args),
     ...(args.properties ?? {}),
