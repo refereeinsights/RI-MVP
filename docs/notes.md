@@ -4551,3 +4551,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Updated `apps/referee/app/venues/page.tsx` and `apps/referee/components/venues/VenueCard.tsx` so RI venue directory cards link to canonical RI venue URLs and label the destination as a venue guide.
   - Extended `apps/referee/components/venues/MobileMapLink.tsx` and `apps/referee/components/OwlsEyeWeekendGuideAccordion.tsx` so RI can capture mobile directions clicks and nearby section/item interactions without changing TI behavior.
   - Added an RI Phase 4 venue-detail UAT checklist to `CLAUDE.md`.
+
+- 2026-08-03: RI Phase 4 browser UAT passed locally, with TI non-regression smoke check also passing.
+  - Claude verified `http://localhost:3000/venues/1-barnard-dr-ca-92056` after a local server restart: RI venue detail rendered linked tournaments, nearby hotels, nearby coffee, nearby food, hotel/rental outbound CTAs, and Google/Apple/Waze directions with no `TournamentInsights` branding leakage and no user-facing premium/Insider/Weekend Pro gating.
+  - The same local run confirmed RI linked tournaments route to RI `/tournaments/{slug}` pages, nearby sections remained usable at ~606px width without horizontal overflow, hotel/rental CTAs used the expected internal outbound path, and the page logged zero console/runtime errors.
+  - Separate TI smoke check on `http://localhost:3001/venues/1-barnard-dr-ca-92056` passed: TI Owl's Eye counts, hotel list, directions links, embedded map, and existing signed-out gating behavior remained intact with zero console/runtime errors, so the RI Phase 4 work did not regress the shared-risk TI surfaces.
