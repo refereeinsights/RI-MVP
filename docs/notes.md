@@ -4544,3 +4544,10 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Claude re-tested `http://localhost:3000/tournaments/map` after the dev-only prefetch cleanup and completed all 11 map checks successfully: marker selection, list-to-map synchronization, directory and sport-hub filter carryover, refresh persistence, back/forward restoration, graceful empty state, and mobile Map/List toggle behavior.
   - The map now renders with clustered markers and `1000 tournaments · 25 without map pins`; marker interactions and filtered empty states behaved correctly with no branding leakage.
   - No console/runtime errors reproduced during this run. The earlier localhost RSC payload mismatch is now classified as intermittent/non-deterministic rather than a blocking map defect.
+
+- 2026-08-03: RI Phase 4 venue-detail reuse implemented locally without TI product changes.
+  - Updated `apps/referee/app/venues/[venueId]/page.tsx` and `apps/referee/components/venues/OwlsEyeVenueCard.tsx` so RI venue detail now presents nearby hotels, coffee, food, linked tournaments, and directions with RI-oriented copy and no user-facing premium/Insider/Weekend Pro gating.
+  - Added RI-only venue analytics in `apps/referee/components/analytics/RiVenueAnalytics.tsx` for venue-detail views, linked-tournament clicks, nearby section interactions, hotel clicks, rental clicks, venue-site clicks, and directions clicks.
+  - Updated `apps/referee/app/venues/page.tsx` and `apps/referee/components/venues/VenueCard.tsx` so RI venue directory cards link to canonical RI venue URLs and label the destination as a venue guide.
+  - Extended `apps/referee/components/venues/MobileMapLink.tsx` and `apps/referee/components/OwlsEyeWeekendGuideAccordion.tsx` so RI can capture mobile directions clicks and nearby section/item interactions without changing TI behavior.
+  - Added an RI Phase 4 venue-detail UAT checklist to `CLAUDE.md`.

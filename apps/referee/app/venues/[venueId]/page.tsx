@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import RiVenueDetailAnalytics, { RiVenueExternalLink, RiVenueInternalLink } from "@/components/analytics/RiVenueAnalytics";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import OwlsEyeVenueCard, { type AirportSummary, type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
 import MobileMapLink from "@/components/venues/MobileMapLink";
@@ -201,7 +202,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const venueInsightsExtra = await supabaseAdmin
     .from("venues" as any)
     .select("id,player_parking_fee,parking_notes,bring_field_chairs,seating_notes")
-    .eq("id", params.venueId)
+    .eq("id", data.id)
     .maybeSingle<{
       id: string;
       player_parking_fee: string | null;
@@ -390,6 +391,17 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
 
   return (
     <main className="pitchWrap tournamentsWrap">
+      <RiVenueDetailAnalytics
+        venueId={data.id}
+        venueName={data.name || "Venue"}
+        city={data.city}
+        state={data.state}
+        linkedTournamentCount={linkedTournaments.length}
+        nearbyHotelCount={nearbyCounts.hotels}
+        nearbyCoffeeCount={nearbyCounts.coffee}
+        nearbyFoodCount={nearbyCounts.food}
+        hasOwlsEye={hasOwlsEye}
+      />
       <section className={`detailHero ${sportSurfaceClass}`}>
         <div className="detailHero__overlay">
           <article className="detailPanel">
@@ -415,7 +427,22 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                   Back to venues
                 </Link>
                 {data.venue_url ? (
-                  <a href={data.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink">Venue site</a>
+                  <RiVenueExternalLink
+                    href={data.venue_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="secondaryLink"
+                    eventName="ri_venue_site_clicked"
+                    sourcePageType="venue_detail"
+                    venueId={data.id}
+                    venueName={data.name || "Venue"}
+                    city={data.city}
+                    state={data.state}
+                    targetKind="venue_site"
+                    linkedTournamentCount={linkedTournaments.length}
+                  >
+                    Venue site
+                  </RiVenueExternalLink>
                 ) : null}
                 {mapLinks ? (
                   <MobileMapLink provider="apple" query={addressLabel} fallbackHref={mapLinks.apple} className="primaryLink">
@@ -446,22 +473,39 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
 
               <div className="detailCard" style={{ width: "min(720px, 100%)" }}>
                 <div className="detailLinksRow">
-                  <a
+                  <RiVenueExternalLink
                     className="secondaryLink"
                     href={travelHotelsHref}
                     target="_blank"
                     rel="noopener noreferrer sponsored"
+                    eventName="ri_venue_hotel_cta_clicked"
+                    sourcePageType="venue_detail"
+                    venueId={data.id}
+                    venueName={data.name || "Venue"}
+                    city={data.city}
+                    state={data.state}
+                    targetKind="hotel_outbound"
+                    nearbyCategory="hotels"
+                    linkedTournamentCount={linkedTournaments.length}
                   >
                     🏨 Find hotels near this venue
-                  </a>
-                  <a
+                  </RiVenueExternalLink>
+                  <RiVenueExternalLink
                     className="secondaryLink"
                     href={travelRentalsHref}
                     target="_blank"
                     rel="noopener noreferrer sponsored"
+                    eventName="ri_venue_rentals_clicked"
+                    sourcePageType="venue_detail"
+                    venueId={data.id}
+                    venueName={data.name || "Venue"}
+                    city={data.city}
+                    state={data.state}
+                    targetKind="rental_outbound"
+                    linkedTournamentCount={linkedTournaments.length}
                   >
                     🏠 Search rentals near this venue
-                  </a>
+                  </RiVenueExternalLink>
                 </div>
                 <div style={{ marginTop: 8, fontSize: 12, opacity: 0.82, textAlign: "center" }}>
                   This page may contain affiliate links. RefereeInsights may earn a commission if you book through these links, at
@@ -479,10 +523,23 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                       const end = formatDate(t.end_date);
                       const dateLabel = start && end && start !== end ? `${start} - ${end}` : start || end || "Dates TBA";
                       return (
-                        <Link key={t.id} href={`/tournaments/${t.slug}`} className="secondaryLink" style={{ justifyContent: "space-between", width: "100%" }}>
+                        <RiVenueInternalLink
+                          key={t.id}
+                          href={`/tournaments/${t.slug}`}
+                          className="secondaryLink"
+                          style={{ justifyContent: "space-between", width: "100%" }}
+                          eventName="ri_venue_linked_tournament_clicked"
+                          sourcePageType="venue_detail"
+                          venueId={data.id}
+                          venueName={data.name || "Venue"}
+                          city={data.city}
+                          state={data.state}
+                          targetKind="linked_tournament"
+                          linkedTournamentCount={linkedTournaments.length}
+                        >
                           <span>{t.name}</span>
                           <span style={{ fontSize: 12, opacity: 0.85 }}>{dateLabel}</span>
-                        </Link>
+                        </RiVenueInternalLink>
                       );
                     })}
                   </div>

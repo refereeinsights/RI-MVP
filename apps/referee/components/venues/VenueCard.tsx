@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
+import { RiVenueInternalLink } from "@/components/analytics/RiVenueAnalytics";
 import styles from "./VenueCard.module.css";
 
 type MapLinks = {
@@ -10,6 +11,7 @@ type MapLinks = {
 } | null;
 
 type Props = {
+  venueHref: string;
   venueId: string;
   name: string;
   city: string | null;
@@ -37,6 +39,7 @@ type Props = {
 };
 
 export default function VenueCard({
+  venueHref,
   venueId,
   name,
   city,
@@ -109,9 +112,20 @@ export default function VenueCard({
       {notes ? <p className={styles.notes}>{notes}</p> : null}
 
       <div className="cardFooter">
-        <Link href={`/venues/${venueId}`} className={`primaryLink ${styles.detailsLink}`}>
-          Venue details
-        </Link>
+        <RiVenueInternalLink
+          href={venueHref}
+          className={`primaryLink ${styles.detailsLink}`}
+          eventName="ri_venue_directory_card_clicked"
+          sourcePageType="venue_directory"
+          venueId={venueId}
+          venueName={name}
+          city={city}
+          state={state}
+          targetKind="venue_detail"
+          linkedTournamentCount={upcomingTournaments.length}
+        >
+          Venue guide
+        </RiVenueInternalLink>
 
         {venueUrl ? (
           <a href={venueUrl} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.siteLink}`}>

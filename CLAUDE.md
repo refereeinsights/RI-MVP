@@ -2553,6 +2553,25 @@ Test by finding any tournament with a year in its slug and confirming sibling-ye
 - Verify `Find hotels near the venue`, `Find rentals`, `Open venue map →`, `Travel search →`, and `Weekend Planner →` all have visible button styling and remain tappable.
 - On tournament detail mobile, check the sticky CTA bar for visual bleed-through. The sticky container and `Hotels` button should appear solid enough that underlying content does not show through.
 
+### RI Phase 4 Venue Detail UAT
+- Start on `http://localhost:3000/venues` and open one venue with linked tournaments plus Owl's Eye data.
+- Verify the RI venue detail page shows:
+  - venue identity and address
+  - linked tournaments
+  - nearby hotels
+  - nearby coffee
+  - nearby food
+  - Google / Apple / Waze directions links
+- Confirm there is **no** TI branding and **no** user-facing premium / Insider / Weekend Pro gate language anywhere on the RI venue page.
+- Expand the nearby sections and verify:
+  - coffee entries open directions
+  - food entries open directions
+  - hotel entries open hotel outbound links or hotel sponsor links
+- Verify the venue hotel CTA (`Find hotels near this venue`) is visible and opens the expected outbound TI hotel handoff path with RI source context.
+- Verify at least one linked tournament card opens an RI tournament detail route, not a TI route.
+- Re-run the page at a narrow/mobile width (~375px if possible) and confirm the nearby sections and directions links remain usable without horizontal overflow.
+- If a venue has no nearby data, verify the page fails gracefully with “No nearby Owl's Eye results captured yet for this venue.”
+
 ## What to Flag
 - Any page returning a 500 error or blank white screen
 - Broken images or missing assets

@@ -4,13 +4,15 @@ import { useId, useState } from "react";
 import type { NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
 
 type Group = {
-  label: "Coffee" | "Food" | "Hotels" | "Gear";
+  label: "Coffee" | "Food" | "Hotels";
   items: NearbyPlace[];
 };
 
 type Props = {
   groups: Group[];
   defaultAllCollapsed?: boolean;
+  onToggle?: (label: Group["label"], count: number) => void;
+  onItemClick?: (label: Group["label"], item: NearbyPlace) => void;
 };
 
 function HeaderButton({
@@ -53,13 +55,17 @@ function HeaderButton({
   );
 }
 
-export default function OwlsEyeWeekendGuideAccordion({ groups, defaultAllCollapsed = false }: Props) {
+export default function OwlsEyeWeekendGuideAccordion({
+  groups,
+  defaultAllCollapsed = false,
+  onToggle,
+  onItemClick,
+}: Props) {
   const baseId = useId();
   const [open, setOpen] = useState<Record<Group["label"], boolean>>({
     Coffee: !defaultAllCollapsed,
     Food: false,
     Hotels: false,
-    Gear: false,
   });
 
   return (
@@ -74,7 +80,10 @@ export default function OwlsEyeWeekendGuideAccordion({ groups, defaultAllCollaps
               count={group.items.length}
               expanded={expanded}
               controlsId={controlsId}
-              onClick={() => setOpen((prev) => ({ ...prev, [group.label]: !prev[group.label] }))}
+              onClick={() => {
+                onToggle?.(group.label, group.items.length);
+                setOpen((prev) => ({ ...prev, [group.label]: !prev[group.label] }));
+              }}
             />
             {expanded ? (
               <div className="premiumNearbyGroup__list" id={controlsId}>
@@ -95,8 +104,14 @@ export default function OwlsEyeWeekendGuideAccordion({ groups, defaultAllCollaps
                           </span>
                         </div>
                         {primaryLink ? (
-                          <a className="secondaryLink premiumNearbyLink__cta" href={primaryLink} target="_blank" rel="noopener noreferrer">
-                            Directions
+                          <a
+                            className="secondaryLink premiumNearbyLink__cta"
+                            href={primaryLink}
+                            target="_blank"
+                            rel={item.is_sponsor && item.sponsor_click_url ? "noopener noreferrer sponsored" : "noopener noreferrer"}
+                            onClick={() => onItemClick?.(group.label, item)}
+                          >
+                            {group.label === "Hotels" && item.is_sponsor && item.sponsor_click_url ? "Check rates" : "Directions"}
                           </a>
                         ) : null}
                       </div>
