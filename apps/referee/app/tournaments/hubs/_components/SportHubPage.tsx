@@ -10,6 +10,17 @@ import { getSportCardClass } from "@/lib/ui/sportBackground";
 import { validateTournamentSport } from "@/lib/validation/validateTournamentSport";
 import StateMultiSelect from "@/app/tournaments/StateMultiSelect";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
+import RiTournamentDirectoryAnalytics from "@/components/analytics/RiTournamentDirectoryAnalytics";
+import { RiTournamentExternalLink, RiTournamentInternalLink } from "@/components/analytics/RiTournamentCardLink";
+import {
+  ALL_STATES_VALUE,
+  buildMonthRange,
+  monthOptions,
+  normalizeSportParam,
+  parseStateSelections,
+  parseToggle,
+  sportLabelFromParam,
+} from "../../../../../../packages/lib/tournament";
 import "../../tournaments.css";
 
 type Tournament = {
@@ -69,40 +80,10 @@ type StateSeoProps = {
 
 type Props = GenericProps | StateSeoProps;
 
-function toTitleCase(value: string) {
-  return value.replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-export function normalizeSportParam(sport: string) {
-  return sport.trim().toLowerCase().replace(/-/g, " ");
-}
-
-export function sportLabelFromParam(sport: string) {
-  return toTitleCase(normalizeSportParam(sport));
-}
-
-function parseToggle(value: string | string[] | undefined) {
-  const raw = Array.isArray(value) ? value[value.length - 1] : value;
-  const normalized = String(raw ?? "").trim().toLowerCase();
-  return normalized === "1" || normalized === "true";
-}
-
 function formatDate(iso: string | null) {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-function monthOptions(count = 9) {
-  const out: { value: string; label: string }[] = [];
-  const now = new Date();
-  for (let i = 0; i < count; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const label = d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-    out.push({ value, label });
-  }
-  return out;
 }
 
 const PAGE_SIZE = 60;
@@ -209,20 +190,11 @@ export default async function SportHubPage(props: Props) {
       : parseToggle(props.searchParams?.includePast);
 
   const stateParam = props.mode === "generic" ? props.searchParams?.state : undefined;
-  const ALL_STATES_VALUE = "__ALL__";
-  const stateSelectionsRaw =
-    props.mode === "generic"
-      ? (Array.isArray(stateParam) ? stateParam : stateParam ? [stateParam] : [])
-          .map((s) => s.trim().toUpperCase())
-          .filter(Boolean)
-      : [];
-  const stateSelections = stateSelectionsRaw.filter((s) => s !== ALL_STATES_VALUE);
-  const isAllStates = props.mode === "state-seo" || stateSelections.length === 0 || stateSelectionsRaw.includes(ALL_STATES_VALUE);
-  const stateSummaryLabel = isAllStates
-    ? "All states"
-    : stateSelections.length <= 3
-    ? stateSelections.join(", ")
-    : `${stateSelections.length} states`;
+  const parsedStates = props.mode === "generic" ? parseStateSelections(stateParam) : null;
+  const stateSelectionsRaw = parsedStates?.selectionsRaw ?? [];
+  const stateSelections = parsedStates?.selections ?? [];
+  const isAllStates = props.mode === "state-seo" || parsedStates?.isAllStates !== false;
+  const stateSummaryLabel = parsedStates?.summaryLabel ?? "All states";
 
   const supabase = supabaseAdmin;
   const demoSlug = "refereeinsights-demo-tournament";
@@ -247,12 +219,10 @@ export default async function SportHubPage(props: Props) {
       next = next.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
     }
     if (month && /^\d{4}-\d{2}$/.test(month)) {
-      const [y, m] = month.split("-").map(Number);
-      const start = new Date(Date.UTC(y, m - 1, 1));
-      const end = new Date(Date.UTC(y, m, 1));
-      const startISO = start.toISOString().slice(0, 10);
-      const endISO = end.toISOString().slice(0, 10);
-      next = next.gte("start_date", startISO).lt("start_date", endISO);
+      const monthRange = buildMonthRange(month);
+      if (monthRange) {
+        next = next.gte("start_date", monthRange.startISO).lt("start_date", monthRange.endISO);
+      }
     }
     if (!includePast) {
       next = next.or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`);
@@ -423,6 +393,11 @@ export default async function SportHubPage(props: Props) {
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
+        <RiTournamentDirectoryAnalytics
+          sourcePageType="sport_hub"
+          sport={sportQuery}
+          resultCount={tournamentsSorted.length}
+        />
         <div className="headerBlock brandedHeader">
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
             {heading}
@@ -616,9 +591,21 @@ export default async function SportHubPage(props: Props) {
                   ) : null}
 
                   <div className="actions">
-                    <Link className="btn" href={`/tournaments/${t.slug}`}>View details</Link>
+                    <RiTournamentInternalLink
+                      className="btn"
+                      href={`/tournaments/${t.slug}`}
+                      eventName="ri_tournament_view_details_clicked"
+                      sourcePageType="sport_hub"
+                      tournamentId={t.id}
+                      tournamentSlug={t.slug}
+                      sport={t.sport}
+                      state={t.state}
+                      city={t.city}
+                    >
+                      View details
+                    </RiTournamentInternalLink>
                     {(t.official_website_url || t.source_url) ? (
-                      <a
+                      <RiTournamentExternalLink
                         className="btn"
                         href={
                           t.slug === "refereeinsights-demo-tournament"
@@ -627,9 +614,16 @@ export default async function SportHubPage(props: Props) {
                         }
                         target="_blank"
                         rel="noopener noreferrer"
+                        eventName="ri_tournament_official_site_clicked"
+                        sourcePageType="sport_hub"
+                        tournamentId={t.id}
+                        tournamentSlug={t.slug}
+                        sport={t.sport}
+                        state={t.state}
+                        city={t.city}
                       >
                         Official site
-                      </a>
+                      </RiTournamentExternalLink>
                     ) : null}
                   </div>
 

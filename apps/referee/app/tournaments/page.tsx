@@ -14,6 +14,9 @@ import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import "./tournaments.css";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
+import RiTournamentDirectoryAnalytics from "@/components/analytics/RiTournamentDirectoryAnalytics";
+import { RiTournamentExternalLink, RiTournamentInternalLink } from "@/components/analytics/RiTournamentCardLink";
+import { ALL_STATES_VALUE, buildMonthRange, monthOptions, parseStateSelections } from "../../../../packages/lib/tournament";
 
 type Tournament = {
   id: string;
@@ -67,7 +70,7 @@ export const metadata = {
     "Referee-submitted insight on pay, organization, and on-site experience — so you can decide with confidence.",
 };
 
-const ISSUE_EMAIL = "tournamentinsights@gmail.com";
+const ISSUE_EMAIL = "rod@refereeinsights.com";
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
 
 const SPORTS_LABELS: Record<string, string> = {
@@ -94,18 +97,6 @@ function toWhistleScore(aiScore: number | string | null | undefined) {
   const value = Number(aiScore);
   if (!Number.isFinite(value)) return null;
   return Math.max(1, Math.min(5, value / 20));
-}
-
-function monthOptions(count = 9) {
-  const out: { value: string; label: string }[] = [];
-  const now = new Date();
-  for (let i = 0; i < count; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const label = d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-    out.push({ value, label });
-  }
-  return out;
 }
 
 function sportIcon(sport: string | null) {
@@ -195,17 +186,12 @@ export default async function TournamentsPage({
     ? [sportsParam]
     : [];
   const sportsSelected = sportsSelectedRaw.map((s) => s.toLowerCase()).filter(Boolean);
-  const stateSelectionsRaw = (Array.isArray(stateParam) ? stateParam : stateParam ? [stateParam] : [])
-    .map((s) => s.trim().toUpperCase())
-    .filter(Boolean);
-  const ALL_STATES_VALUE = "__ALL__";
-  const stateSelections = stateSelectionsRaw.filter((s) => s !== ALL_STATES_VALUE);
-  const isAllStates = stateSelections.length === 0 || stateSelectionsRaw.includes(ALL_STATES_VALUE);
-  const stateSummaryLabel = isAllStates
-    ? "All states"
-    : stateSelections.length <= 3
-    ? stateSelections.join(", ")
-    : `${stateSelections.length} states`;
+  const {
+    selections: stateSelections,
+    selectionsRaw: stateSelectionsRaw,
+    isAllStates,
+    summaryLabel: stateSummaryLabel,
+  } = parseStateSelections(stateParam);
 
   const today = new Date().toISOString().slice(0, 10);
   const pageSize = 1000;
@@ -230,13 +216,10 @@ export default async function TournamentsPage({
       query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
     }
     if (month && /^\d{4}-\d{2}$/.test(month)) {
-      const [y, m] = month.split("-").map(Number);
-      // Use UTC to avoid timezone drift moving the month window
-      const start = new Date(Date.UTC(y, m - 1, 1));
-      const end = new Date(Date.UTC(y, m, 1));
-      const startISO = start.toISOString().slice(0, 10);
-      const endISO = end.toISOString().slice(0, 10);
-      query = query.gte("start_date", startISO).lt("start_date", endISO);
+      const monthRange = buildMonthRange(month);
+      if (monthRange) {
+        query = query.gte("start_date", monthRange.startISO).lt("start_date", monthRange.endISO);
+      }
     }
 
     const { data, error: pageError } = await query;
@@ -465,6 +448,7 @@ export default async function TournamentsPage({
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
+        <RiTournamentDirectoryAnalytics sourcePageType="directory" resultCount={tournamentsSorted.length} />
         <div className="headerBlock brandedHeader">
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
             Tournament Listings and Reviews
@@ -789,9 +773,9 @@ export default async function TournamentsPage({
                 ) : null;
               })() : null}
 
-              <div className="cardFooter">
+                  <div className="cardFooter">
                 {hasOfficialSite ? (
-                  <a
+                  <RiTournamentExternalLink
                     className="secondaryLink"
                     href={
                       isDemoTournament
@@ -800,9 +784,16 @@ export default async function TournamentsPage({
                     }
                     target="_blank"
                     rel="noopener noreferrer"
+                    eventName="ri_tournament_official_site_clicked"
+                    sourcePageType="directory"
+                    tournamentId={t.id}
+                    tournamentSlug={t.slug}
+                    sport={t.sport}
+                    state={t.state}
+                    city={t.city}
                   >
                     Official site
-                  </a>
+                  </RiTournamentExternalLink>
                 ) : (
                   <div className="secondaryLink" aria-disabled="true" style={{ cursor: "default" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }}>
@@ -811,7 +802,19 @@ export default async function TournamentsPage({
                     </div>
                   </div>
                 )}
-                <Link className="primaryLink" href={`/tournaments/${t.slug}`}>View details</Link>
+                <RiTournamentInternalLink
+                  className="primaryLink"
+                  href={`/tournaments/${t.slug}`}
+                  eventName="ri_tournament_view_details_clicked"
+                  sourcePageType="directory"
+                  tournamentId={t.id}
+                  tournamentSlug={t.slug}
+                  sport={t.sport}
+                  state={t.state}
+                  city={t.city}
+                >
+                  View details
+                </RiTournamentInternalLink>
               </div>
 
               <div className="cardFooterBadgeRow">

@@ -144,13 +144,14 @@ function renderSemanticParts(parts: SemanticListPart[]) {
 
 export async function generateMetadata({ params }: { params: { venueId: string } }) {
   const { venue, redirectTo } = await fetchVenueByParam(params.venueId);
+  const siteOrigin = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
   if (redirectTo) {
-    return { alternates: { canonical: `https://www.tournamentinsights.com${redirectTo}` } };
+    return { alternates: { canonical: `${siteOrigin}${redirectTo}` } };
   }
   if (!venue) return {};
 
   const title = buildVenueTitle(venue.name ?? "Venue", venue.city ?? null, venue.state ?? null);
-  const canonical = `https://www.tournamentinsights.com${getVenueHref(venue)}`;
+  const canonical = `${siteOrigin}${getVenueHref(venue)}`;
   const desc =
     venue.address && (venue.city || venue.state)
       ? `${venue.name ?? "Venue"} in ${[venue.city, venue.state].filter(Boolean).join(", ")}. Address: ${venue.address}`

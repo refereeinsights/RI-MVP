@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import SportHubPage, { sportLabelFromParam } from "../_components/SportHubPage";
+import SportHubPage from "../_components/SportHubPage";
 import { buildHubTitle } from "@/lib/seo/buildTitle";
+import { sportLabelFromParam } from "../../../../../../packages/lib/tournament";
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
 
