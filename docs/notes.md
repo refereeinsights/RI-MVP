@@ -4539,3 +4539,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Claude local UAT confirmed the map itself now renders with clustered markers and only 25 unmapped tournaments, but the page still logged non-fatal React/Next RSC payload errors during automatic link prefetch on localhost.
   - Updated `apps/referee/components/Header.jsx`, `apps/referee/app/tournaments/map/page.tsx`, and `apps/referee/app/tournaments/map/TournamentMapPageClient.tsx` so RI route prefetch remains enabled in production but is explicitly disabled in local/dev mode.
   - This keeps production navigation behavior unchanged while removing dev-only prefetch fetches that were polluting map UAT with false console failures.
+
+- 2026-08-03: RI tournament map local UAT re-run passed end-to-end.
+  - Claude re-tested `http://localhost:3000/tournaments/map` after the dev-only prefetch cleanup and completed all 11 map checks successfully: marker selection, list-to-map synchronization, directory and sport-hub filter carryover, refresh persistence, back/forward restoration, graceful empty state, and mobile Map/List toggle behavior.
+  - The map now renders with clustered markers and `1000 tournaments · 25 without map pins`; marker interactions and filtered empty states behaved correctly with no branding leakage.
+  - No console/runtime errors reproduced during this run. The earlier localhost RSC payload mismatch is now classified as intermittent/non-deterministic rather than a blocking map defect.
