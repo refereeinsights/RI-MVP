@@ -46,6 +46,11 @@ function toHotelPlannerDate(value: string | null) {
   const raw = String(value ?? "").trim();
   const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
   if (match) return raw;
+  const fullYear = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (fullYear) {
+    const [, mm, dd, yyyy] = fullYear;
+    return `${mm}/${dd}/${yyyy.slice(-2)}`;
+  }
   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!iso) return null;
   const [, yyyy, mm, dd] = iso;

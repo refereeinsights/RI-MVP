@@ -2596,3 +2596,10 @@ Maintenance rules:
 - 2026-08-04: TI property hotel handoff now preserves inbound `custom8` for RI-origin property clicks.
   - File: `apps/ti-web/app/go/hotels/property/route.ts`
   - Change: pass `custom8` from incoming request params into `buildHotelPlannerBookingAttribution()` so RI property clicks can preserve `custom8=app:refereeinsights` through the HotelPlanner property URL.
+- 2026-08-04: TI property hotel handoff now accepts `MM/DD/YYYY` date params from RI hotel search results.
+  - File: `apps/ti-web/app/go/hotels/property/route.ts`
+  - Change: extend `toHotelPlannerDate()` to normalize `MM/DD/YYYY` into HotelPlanner's `MM/DD/YY` format instead of rejecting it as missing handoff data.
+  - Reason: RI venue hotel cards were correctly opening TI `/go/hotels/property` with populated future dates like `08/14/2026`, but TI returned `Missing property handoff parameters.` because only `MM/DD/YY` and ISO formats were accepted.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run build --workspace ti-web` (passes with pre-existing warnings only)
