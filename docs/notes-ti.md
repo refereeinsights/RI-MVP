@@ -2593,3 +2593,6 @@ Maintenance rules:
     - “Submit another request” reset the form without creating a duplicate lodging request.
     - No console/runtime regressions were observed.
   - Verdict: production PASS; no further Team Travel patching required for this launch surface.
+- 2026-08-04: TI property hotel handoff now preserves inbound `custom8` for RI-origin property clicks.
+  - File: `apps/ti-web/app/go/hotels/property/route.ts`
+  - Change: pass `custom8` from incoming request params into `buildHotelPlannerBookingAttribution()` so RI property clicks can preserve `custom8=app:refereeinsights` through the HotelPlanner property URL.

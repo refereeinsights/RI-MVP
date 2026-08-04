@@ -4587,3 +4587,22 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added `apps/referee/app/venues/[venueId]/layout.tsx` to import the route-scoped Mapbox stylesheet so the gesture-hint overlay stays constrained to the venue map canvas instead of bleeding into the detail text below.
   - Fixed `apps/referee/components/analytics/RiVenueAnalytics.tsx` so `RiVenueInternalLink` / `RiVenueExternalLink` consume analytics-only props (`tournamentId`, `tournamentSlug`, `sport`) instead of leaking them onto DOM anchors and triggering React warnings.
   - Claude re-ran the local venue-map UAT on `http://localhost:3000/venues/1705-nw-amberglen-ct-hillsboro-or` and confirmed the overlay issue is gone, console is clean, directions still work, linked tournaments still route to RI pages, and no TI behavior leaked in.
+- 2026-08-04: RI Phase 4A venue-detail hotels with rates via TI HotelPlanner reuse.
+  - Files:
+    - `apps/referee/app/venues/[venueId]/page.tsx`
+    - `apps/referee/components/analytics/RiVenueAnalytics.tsx`
+    - `apps/referee/components/venues/RiVenueHotelResultsTracker.tsx`
+    - `apps/referee/lib/riAnalyticsEvents.ts`
+    - `apps/ti-web/app/go/hotels/property/route.ts`
+  - Changes:
+    - RI venue detail now performs a server-side TI `/api/lodging/search` fetch with a short timeout and `no-store` caching, then renders a live hotel-results block with HotelPlanner rates above the Owl's Eye module when data exists.
+    - RI hotel cards open TI `/go/hotels/property` handoff URLs in a new tab with resolved dates, venue/tournament context, and RI attribution fields.
+    - Owl's Eye hotel entries are suppressed on the RI venue page while food, coffee, and sporting-goods sections remain visible.
+    - Existing RI “Find hotels near this venue” CTA now acts as the empty/error fallback for HotelPlanner search.
+    - Added RI analytics events for hotel results loaded, hotel no-results, and hotel card clicks.
+    - TI property handoff now forwards inbound `custom8` into HotelPlanner attribution.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run lint --workspace referee-app`
+    - `npm run build --workspace referee-app` (passes with pre-existing warnings only)

@@ -24,6 +24,7 @@ type VenueAnalyticsBase = {
   tournamentId?: string | null;
   tournamentSlug?: string | null;
   sport?: string | null;
+  extraProperties?: Record<string, unknown>;
 };
 
 type InternalLinkProps = VenueAnalyticsBase &
@@ -60,6 +61,7 @@ async function capture(payload: VenueAnalyticsBase) {
       tournament_id: payload.tournamentId ?? null,
       tournament_slug: payload.tournamentSlug ?? null,
       sport: payload.sport ?? null,
+      ...(payload.extraProperties ?? {}),
     },
   });
 }
@@ -90,6 +92,7 @@ export function RiVenueInternalLink({
   tournamentId,
   tournamentSlug,
   sport,
+  extraProperties,
   onClick,
   children,
   ...rest
@@ -116,6 +119,7 @@ export function RiVenueInternalLink({
           tournamentId,
           tournamentSlug,
           sport,
+          extraProperties,
         },
         onClick
       )}
@@ -143,6 +147,7 @@ export function RiVenueExternalLink({
   tournamentId,
   tournamentSlug,
   sport,
+  extraProperties,
   onClick,
   children,
   ...rest
@@ -169,6 +174,7 @@ export function RiVenueExternalLink({
           tournamentId,
           tournamentSlug,
           sport,
+          extraProperties,
         },
         onClick
       )}

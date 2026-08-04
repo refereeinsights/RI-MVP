@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import RiVenueDetailAnalytics, { RiVenueExternalLink, RiVenueInternalLink } from "@/components/analytics/RiVenueAnalytics";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import OwlsEyeVenueCard, { type AirportSummary, type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
+import RiVenueHotelResultsTracker from "@/components/venues/RiVenueHotelResultsTracker";
 import RiVenueMap from "@/components/venues/RiVenueMap";
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import { buildOwlsEyeDemoScores, type VenueReviewChoiceRow } from "@/lib/owlsEyeScores";
@@ -77,6 +78,37 @@ type NearbyPlaceRow = {
   sponsor_click_url?: string | null;
 };
 
+type RiVenueHotelResult = {
+  id: string;
+  name: string;
+  city?: string | null;
+  state?: string | null;
+  addressLine1?: string | null;
+  distanceMiles?: number | null;
+  rating?: number | null;
+  reviewCount?: number | null;
+  thumbnailUrl?: string | null;
+  currency?: string | null;
+  fromPrice?: number | null;
+  hotelIDTypeID?: number | null;
+  detailUrl?: string | null;
+};
+
+type RiVenueHotelSearchFallback = {
+  showHotelFallback: boolean;
+  showVrboFallback: boolean;
+  reason?: string;
+};
+
+type RiVenueHotelSearchResponse = {
+  provider?: string;
+  hotels?: unknown[];
+  fallback?: RiVenueHotelSearchFallback | null;
+  resolvedCheckIn?: string | null;
+  resolvedCheckOut?: string | null;
+  error?: string;
+};
+
 function canonicalSport(sport: string | null | undefined) {
   const key = (sport ?? "").trim().toLowerCase();
   return key || "unknown";
@@ -92,6 +124,108 @@ function getTiOrigin() {
   const configured = String(process.env.NEXT_PUBLIC_TI_SITE_URL ?? "").trim().replace(/\/+$/, "");
   if (configured) return configured;
   return process.env.NODE_ENV === "production" ? "https://www.tournamentinsights.com" : "http://localhost:3001";
+}
+
+function formatCurrency(value: number | null | undefined, currency = "USD") {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `$${Math.round(value)}`;
+  }
+}
+
+function normalizeHotelResult(value: unknown): RiVenueHotelResult | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const id = typeof row.id === "string" ? row.id.trim() : "";
+  const name = typeof row.name === "string" ? row.name.trim() : "";
+  if (!id || !name) return null;
+
+  const asText = (input: unknown) => (typeof input === "string" && input.trim() ? input.trim() : null);
+  const asNumber = (input: unknown) => {
+    const n = typeof input === "number" ? input : Number(input);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  return {
+    id,
+    name,
+    city: asText(row.city),
+    state: asText(row.state),
+    addressLine1: asText(row.addressLine1),
+    distanceMiles: asNumber(row.distanceMiles),
+    rating: asNumber(row.rating),
+    reviewCount: asNumber(row.reviewCount),
+    thumbnailUrl: asText(row.thumbnailUrl),
+    currency: asText(row.currency),
+    fromPrice: asNumber(row.fromPrice),
+    hotelIDTypeID: asNumber(row.hotelIDTypeID),
+    detailUrl: asText(row.detailUrl),
+  };
+}
+
+async function fetchRiVenueHotels(args: { tiOrigin: string; venueId: string; tournamentId: string | null; pagePath: string }) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4500);
+  try {
+    // RI intentionally reuses TI's provider/search stack over HTTP so HP credentials stay on TI only.
+    // TI rate limiting is caller-IP based, so RI SSR traffic shares the server IP. Keep this narrow and fail open.
+    const response = await fetch(`${args.tiOrigin}/api/lodging/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        venueId: args.venueId,
+        ...(args.tournamentId ? { tournamentId: args.tournamentId } : {}),
+        source: "referee_venue_detail",
+        page_type: "referee",
+        page_url: args.pagePath,
+        cta_placement: "ri_venue_detail_hotels",
+        flow_type: "referee_travel",
+        current_page_type: "referee",
+        current_page_path: args.pagePath,
+        request_source: "referee_venue_detail",
+        custom8: "app:refereeinsights",
+      }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    const payload = (await response.json().catch(() => null)) as RiVenueHotelSearchResponse | null;
+    if (!response.ok || !payload) {
+      return {
+        hotels: [] as RiVenueHotelResult[],
+        fallback: { showHotelFallback: true, showVrboFallback: true, reason: payload?.error ? "provider_error" : "invalid_response" },
+        resolvedCheckIn: payload?.resolvedCheckIn ?? null,
+        resolvedCheckOut: payload?.resolvedCheckOut ?? null,
+      };
+    }
+
+    return {
+      hotels: Array.isArray(payload.hotels) ? payload.hotels.map(normalizeHotelResult).filter((item): item is RiVenueHotelResult => Boolean(item)) : [],
+      fallback: payload.fallback ?? null,
+      resolvedCheckIn: payload.resolvedCheckIn ?? null,
+      resolvedCheckOut: payload.resolvedCheckOut ?? null,
+    };
+  } catch (error) {
+    console.warn("[ri venue detail] hotel search fallback", {
+      venueId: args.venueId,
+      tournamentId: args.tournamentId,
+      message: error instanceof Error ? error.message : "unknown error",
+    });
+    return {
+      hotels: [] as RiVenueHotelResult[],
+      fallback: { showHotelFallback: true, showVrboFallback: true, reason: "provider_error" },
+      resolvedCheckIn: null,
+      resolvedCheckOut: null,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
@@ -226,7 +360,9 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
     .sort((a, b) => (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31"));
 
   const tiOrigin = getTiOrigin();
+  const venuePath = getVenueHref(data);
   const nearestTournamentId = upcomingTournaments[0]?.id ?? null;
+  const nearestTournamentSlug = upcomingTournaments[0]?.slug ?? null;
   const travelHotelsHref = `${tiOrigin}/go/hotels?${new URLSearchParams({
     venueId: data.id,
     ...(nearestTournamentId ? { tournamentId: nearestTournamentId } : {}),
@@ -241,6 +377,16 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
     ...(nearestTournamentId ? { tournamentId: nearestTournamentId } : {}),
     source: "referee_venue_detail",
   }).toString()}`;
+  const hotelSearch = await fetchRiVenueHotels({
+    tiOrigin,
+    venueId: data.id,
+    tournamentId: nearestTournamentId,
+    pagePath: venuePath,
+  });
+  const venueHotels = hotelSearch.hotels;
+  const venueHotelsFallbackReason = hotelSearch.fallback?.reason ?? null;
+  const showVenueHotelResults = venueHotels.length > 0;
+  const showVenueHotelFallback = !showVenueHotelResults;
 
   const semanticLocationSentence = (() => {
     const name = data.name ?? "This venue";
@@ -365,7 +511,19 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
     };
   }
 
-  const hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels + nearbyCounts.sporting_goods > 0;
+  const displayedNearbyCounts = { ...nearbyCounts, hotels: 0 };
+  const displayedPremiumNearby = premiumNearby
+    ? {
+        ...premiumNearby,
+        hotels: [] as NearbyPlace[],
+      }
+    : null;
+  const hasOwlsEye =
+    displayedNearbyCounts.food +
+      displayedNearbyCounts.coffee +
+      displayedNearbyCounts.hotels +
+      displayedNearbyCounts.sporting_goods >
+    0;
 
   const reviewChoicesPrimary = await supabaseAdmin
     .from("venue_reviews" as any)
@@ -409,7 +567,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
         city={data.city}
         state={data.state}
         linkedTournamentCount={linkedTournaments.length}
-        nearbyHotelCount={nearbyCounts.hotels}
+        nearbyHotelCount={displayedNearbyCounts.hotels}
         nearbyCoffeeCount={nearbyCounts.coffee}
         nearbyFoodCount={nearbyCounts.food}
         hasOwlsEye={hasOwlsEye}
@@ -417,6 +575,15 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
       <section className={`detailHero ${sportSurfaceClass}`}>
         <div className="detailHero__overlay">
           <article className="detailPanel">
+            <RiVenueHotelResultsTracker
+              venueId={data.id}
+              tournamentId={nearestTournamentId}
+              hotelCount={venueHotels.length}
+              fallbackReason={showVenueHotelResults ? null : venueHotelsFallbackReason}
+              resolvedCheckIn={hotelSearch.resolvedCheckIn}
+              resolvedCheckOut={hotelSearch.resolvedCheckOut}
+              dateSource="tournament"
+            />
             <div style={{ display: "grid", gap: 10, color: "#fff" }}>
               <h1 className="detailTitle">{data.name || "Venue"}</h1>
               <p className="meta" style={{ margin: 0 }}>
@@ -474,6 +641,94 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 linkedTournamentCount={linkedTournaments.length}
               />
 
+              {showVenueHotelResults ? (
+                <div className="detailCard" style={{ width: "min(720px, 100%)", display: "grid", gap: 12 }}>
+                  <div style={{ display: "grid", gap: 4 }}>
+                    <div style={{ fontWeight: 900, fontSize: 18 }}>Hotels near this venue</div>
+                    <div style={{ color: "#4b5563", fontSize: 14 }}>
+                      Live HotelPlanner results
+                      {hotelSearch.resolvedCheckIn || hotelSearch.resolvedCheckOut
+                        ? ` • ${hotelSearch.resolvedCheckIn || "—"} → ${hotelSearch.resolvedCheckOut || "—"}`
+                        : ""}
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {venueHotels.slice(0, 8).map((hotel) => {
+                      const propertyHref = `${tiOrigin}/go/hotels/property?${new URLSearchParams({
+                        hotelId: hotel.id,
+                        idTypeId: String(hotel.hotelIDTypeID ?? 0),
+                        ...(hotelSearch.resolvedCheckIn ? { inDate: hotelSearch.resolvedCheckIn } : {}),
+                        ...(hotelSearch.resolvedCheckOut ? { outDate: hotelSearch.resolvedCheckOut } : {}),
+                        venueId: data.id,
+                        ...(nearestTournamentId ? { tournamentId: nearestTournamentId } : {}),
+                        ...(nearestTournamentSlug ? { tournament_slug: nearestTournamentSlug } : {}),
+                        source: "referee_venue_detail",
+                        page_type: "referee",
+                        cta_placement: "ri_venue_detail_hotels",
+                        flow_type: "referee_travel",
+                        page_url: venuePath,
+                        custom8: "app:refereeinsights",
+                      }).toString()}`;
+
+                      return (
+                        <RiVenueExternalLink
+                          key={hotel.id}
+                          href={propertyHref}
+                          target="_blank"
+                          rel="noopener noreferrer sponsored"
+                          className="secondaryLink"
+                          eventName="ri_venue_hotel_card_clicked"
+                          sourcePageType="venue_detail"
+                          venueId={data.id}
+                          venueName={data.name || "Venue"}
+                          city={data.city}
+                          state={data.state}
+                          targetKind="hotel_outbound"
+                          nearbyCategory="hotels"
+                          linkedTournamentCount={linkedTournaments.length}
+                          sourceSurface="venue_hotel_results"
+                          ctaPlacement="ri_venue_detail_hotels"
+                          outboundPartner="hotelplanner"
+                          outboundDestinationType="hotels"
+                          tournamentId={nearestTournamentId}
+                          tournamentSlug={nearestTournamentSlug}
+                          sport={sportsFromTournaments[0] ?? null}
+                          extraProperties={{
+                            hotel_id: hotel.id,
+                            hotel_name: hotel.name,
+                            hotel_rate: hotel.fromPrice ?? null,
+                            resolved_check_in: hotelSearch.resolvedCheckIn ?? null,
+                            resolved_check_out: hotelSearch.resolvedCheckOut ?? null,
+                            date_source: "tournament",
+                          }}
+                          style={{
+                            display: "grid",
+                            gap: 6,
+                            textDecoration: "none",
+                            border: "1px solid rgba(15, 61, 46, 0.12)",
+                            borderRadius: 12,
+                            padding: 14,
+                            background: "#fff",
+                            color: "#0f172a",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
+                            <strong>{hotel.name}</strong>
+                            <span style={{ fontWeight: 800, color: "#0f3d2e" }}>
+                              {formatCurrency(hotel.fromPrice, hotel.currency || "USD") || "Price on request"}
+                            </span>
+                          </div>
+                          <div style={{ color: "#475569", fontSize: 14 }}>
+                            {[hotel.addressLine1, [hotel.city, hotel.state].filter(Boolean).join(", ")].filter(Boolean).join(" • ")}
+                            {hotel.distanceMiles != null ? ` • ${hotel.distanceMiles.toFixed(1)} mi` : ""}
+                          </div>
+                        </RiVenueExternalLink>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
               <OwlsEyeVenueCard
                 venue={{
                   id: data.id,
@@ -485,9 +740,9 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                   venue_url: data.venue_url,
                 }}
                 hasOwlsEye={hasOwlsEye}
-                nearbyCounts={nearbyCounts}
+                nearbyCounts={displayedNearbyCounts}
                 airportSummary={airportSummary}
-                premiumNearby={premiumNearby}
+                premiumNearby={displayedPremiumNearby}
                 mapLinks={mapLinks}
                 mapQuery={mapLinks?.query ?? null}
                 demoScores={demoScores}
@@ -496,27 +751,36 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
 
               <div className="detailCard" style={{ width: "min(720px, 100%)" }}>
                 <div className="detailLinksRow">
-                  <RiVenueExternalLink
-                    className="secondaryLink"
-                    href={travelHotelsHref}
-                    target="_blank"
-                    rel="noopener noreferrer sponsored"
-                    eventName="ri_venue_hotels_cta_clicked"
-                    sourcePageType="venue_detail"
-                    venueId={data.id}
-                    venueName={data.name || "Venue"}
-                    city={data.city}
-                    state={data.state}
-                    targetKind="hotel_outbound"
-                    nearbyCategory="hotels"
-                    linkedTournamentCount={linkedTournaments.length}
-                    sourceSurface="venue_detail"
-                    ctaPlacement="ri_venue_detail_hotels"
-                    outboundPartner="hotelplanner"
-                    outboundDestinationType="hotels"
-                  >
-                    🏨 Find hotels near this venue
-                  </RiVenueExternalLink>
+                  {showVenueHotelFallback ? (
+                    <RiVenueExternalLink
+                      className="secondaryLink"
+                      href={travelHotelsHref}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                      eventName="ri_venue_hotels_cta_clicked"
+                      sourcePageType="venue_detail"
+                      venueId={data.id}
+                      venueName={data.name || "Venue"}
+                      city={data.city}
+                      state={data.state}
+                      targetKind="hotel_outbound"
+                      nearbyCategory="hotels"
+                      linkedTournamentCount={linkedTournaments.length}
+                      sourceSurface="venue_detail"
+                      ctaPlacement="ri_venue_detail_hotels"
+                      outboundPartner="hotelplanner"
+                      outboundDestinationType="hotels"
+                      tournamentId={nearestTournamentId}
+                      tournamentSlug={nearestTournamentSlug}
+                      sport={sportsFromTournaments[0] ?? null}
+                      extraProperties={{
+                        fallback_reason: venueHotelsFallbackReason,
+                        date_source: "tournament",
+                      }}
+                    >
+                      🏨 Find hotels near this venue
+                    </RiVenueExternalLink>
+                  ) : null}
                   <RiVenueExternalLink
                     className="secondaryLink"
                     href={travelRentalsHref}

@@ -161,6 +161,7 @@ export async function GET(request: Request) {
     jobCode: pickTrackingParam(reqUrl, "jobCode") || pickTrackingParam(reqUrl, "jobcode"),
     custom1: pickTrackingParam(reqUrl, "custom1"),
     custom2: pickTrackingParam(reqUrl, "custom2"),
+    custom8: pickTrackingParam(reqUrl, "custom8"),
   });
 
   const redirectTarget = buildPropertyUrl({
