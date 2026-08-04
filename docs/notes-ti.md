@@ -15,6 +15,11 @@ Maintenance rules:
 
 ## 2026-08-04
 
+- TI HotelPlanner individual booking — checkout route attribution fixed:
+  - `apps/ti-web/app/go/hotels/checkout/route.ts` previously logged almost nothing to `ti_outbound_clicks`: `source_surface` was hardcoded to `"venue_map_room_rate"`, and all attribution fields (`outbound_attribution_id`, `job_code`, `keyword`, `partner_source_code`, `custom_field1–8`, `cta_placement`, `device_type`, `traffic_source`, `source_page_type`) were missing.
+  - Route is called by HP's white-label property page (not by TI client code directly), so attribution params arrive via POST form data and optionally URL query params.
+  - Fix: added `pickFormOrQuery` helper (reads form data first, URL query as fallback), `deriveStableAttributionId` (matches pattern in property route), and full `buildHotelPlannerBookingAttribution` call. `logOutboundClick` now logs the same field set as the property route. `source_surface` is now derived from `deriveHotelPlannerSourcePageType` instead of hardcoded.
+
 - TI HotelPlanner group request — improved submission messaging:
   - Added a `.processing` in-flight status row ("Sending your request — this usually takes a few seconds.") visible while the request is in transit, so users aren't left wondering if the submit worked.
   - Rewrote success copy from "Request submitted / HotelPlanner will follow up…" to "Your request is on its way / Expect options within 24–48 hours at [email]." Echoes the user's email back for confidence, removes the vendor name as primary message, and sets timing expectations.

@@ -1,6 +1,20 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
+import {
+  buildHotelPlannerBookingAttribution,
+  createOutboundAttributionId,
+  deriveHotelPlannerSourcePageType,
+  isValidOutboundAttributionId,
+  type HotelPlannerAttributionFields,
+} from "@/lib/hotelPlannerAttribution";
 import { buildHotelsHref } from "@/lib/booking/venueBooking";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  parseVenueHotelUuid,
+  sanitizePageUrl,
+  sanitizeText,
+  resolveDeviceTypeFromUserAgent,
+} from "@/lib/venueHotelFunnel";
 
 export const runtime = "nodejs";
 
@@ -71,9 +85,41 @@ function buildFallbackPath(args: {
   return `${url.pathname}${url.search}`;
 }
 
+function pickFormOrQuery(formData: FormData, reqUrl: URL, key: string): string | null {
+  const fromForm = toText(formData.get(key));
+  if (fromForm !== null) return fromForm;
+  const lowerKey = key.toLowerCase();
+  for (const [name, value] of reqUrl.searchParams.entries()) {
+    if (name.toLowerCase() !== lowerKey) continue;
+    const trimmed = String(value).trim();
+    return trimmed || null;
+  }
+  return null;
+}
+
+function deriveStableAttributionId(args: {
+  outboundAttributionId: string | null;
+  outboundRequestId: string | null;
+}) {
+  if (args.outboundAttributionId && isValidOutboundAttributionId(args.outboundAttributionId)) {
+    return args.outboundAttributionId;
+  }
+  if (args.outboundRequestId) {
+    return createHash("sha256").update(`ti-hp:${args.outboundRequestId}`).digest("hex").slice(0, 32);
+  }
+  return createOutboundAttributionId();
+}
+
 async function logOutboundClick(args: {
   venueId: string | null;
   tournamentId: string | null;
+  outboundAttributionId: string;
+  sourcePageType: string;
+  attribution: HotelPlannerAttributionFields;
+  ctaPlacement: string | null;
+  trafficSource: string | null;
+  deviceType: string | null;
+  pageUrl: string | null;
   referer: string | null;
   host: string | null;
   userAgent: string | null;
@@ -83,16 +129,34 @@ async function logOutboundClick(args: {
     await supabaseAdmin.from("ti_outbound_clicks" as any).insert({
       destination_type: "hotels",
       partner: "hotelplanner",
-      source_surface: "venue_map_room_rate",
+      outbound_partner: "hotelplanner",
+      source_surface: args.sourcePageType,
+      source_page_type: args.sourcePageType,
       venue_id: args.venueId && isUuid(args.venueId) ? args.venueId : null,
       tournament_id: args.tournamentId && isUuid(args.tournamentId) ? args.tournamentId : null,
       target_url: "hotelplanner:white-label-checkout",
       redirect_url: "hotelplanner:white-label-checkout",
-      source_path: args.sourcePath,
+      source_path: args.sourcePath ?? args.pageUrl,
       referer: args.referer,
       host: args.host,
       user_agent: args.userAgent?.slice(0, 300) ?? null,
       is_localhost: false,
+      outbound_attribution_id: args.outboundAttributionId,
+      cta_placement: args.ctaPlacement,
+      traffic_source: args.trafficSource,
+      device_type: args.deviceType,
+      page_url: args.pageUrl,
+      job_code: args.attribution.jobCode,
+      keyword: args.attribution.keyword,
+      partner_source_code: args.attribution.sc,
+      custom_field1: args.attribution.custom1,
+      custom_field2: args.attribution.custom2,
+      custom_field3: args.attribution.custom3,
+      custom_field4: args.attribution.custom4,
+      custom_field5: args.attribution.custom5,
+      custom_field6: args.attribution.custom6,
+      custom_field7: args.attribution.custom7,
+      custom_field8: args.attribution.custom8,
     });
   } catch {
     console.warn("[go/hotels/checkout] outbound click insert failed");
@@ -112,17 +176,65 @@ function sourcePathFromReferer(referer: string | null) {
 
 export async function POST(request: Request) {
   const whiteLabelBaseUrl = normalizeWhiteLabelBaseUrl(process.env.HOTELPLANNER_WHITE_LABEL_BASE_URL || "");
+  const reqUrl = new URL(request.url);
   const formData = await request.formData();
+
+  // Core passthrough fields
   const bundle = toText(formData.get("bundle"));
-  const venueId = toText(formData.get("venueId"));
-  const tournamentId = toText(formData.get("tournamentId"));
-  const checkIn = toText(formData.get("checkin"));
-  const checkOut = toText(formData.get("checkout"));
-  const source = toText(formData.get("source")) || "venue_map";
+  const venueId = parseVenueHotelUuid(pickFormOrQuery(formData, reqUrl, "venueId"));
+  const tournamentId = parseVenueHotelUuid(pickFormOrQuery(formData, reqUrl, "tournamentId"));
+  const checkIn = pickFormOrQuery(formData, reqUrl, "checkin");
+  const checkOut = pickFormOrQuery(formData, reqUrl, "checkout");
+  const source = pickFormOrQuery(formData, reqUrl, "source") ?? "venue_map";
+
+  // Attribution params — HP may forward these back as form fields or URL query params
+  const rawAttributionId = pickFormOrQuery(formData, reqUrl, "outbound_attribution_id");
+  const rawRequestId = parseVenueHotelUuid(pickFormOrQuery(formData, reqUrl, "outbound_request_id"));
+  const outboundAttributionId = deriveStableAttributionId({
+    outboundAttributionId: rawAttributionId,
+    outboundRequestId: rawRequestId,
+  });
+  const ctaPlacement = sanitizeText(pickFormOrQuery(formData, reqUrl, "cta_placement"), 64);
+  const plannerSessionId = parseVenueHotelUuid(pickFormOrQuery(formData, reqUrl, "planner_session_id"));
+  const trafficSource = sanitizeText(pickFormOrQuery(formData, reqUrl, "traffic_source"), 64);
+  const pageType = sanitizeText(pickFormOrQuery(formData, reqUrl, "page_type"), 32);
+  const pageUrl = sanitizePageUrl(pickFormOrQuery(formData, reqUrl, "page_url"));
+
   const referer = request.headers.get("referer");
   const userAgent = request.headers.get("user-agent");
   const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const deviceType =
+    sanitizeText(pickFormOrQuery(formData, reqUrl, "device_type"), 32) ??
+    resolveDeviceTypeFromUserAgent(userAgent);
   const sourcePath = sourcePathFromReferer(referer);
+
+  const sourcePageType = deriveHotelPlannerSourcePageType({
+    source,
+    pageType,
+    sourcePath,
+    hasVenueId: Boolean(venueId),
+  });
+
+  const attribution = buildHotelPlannerBookingAttribution({
+    outboundAttributionId,
+    sourcePageType,
+    placement: ctaPlacement,
+    venueId,
+    plannerSessionId,
+    sc: pickFormOrQuery(formData, reqUrl, "sc") ?? "tournamentinsights",
+    keyword:
+      pickFormOrQuery(formData, reqUrl, "kw") ??
+      pickFormOrQuery(formData, reqUrl, "keyword"),
+    jobCode:
+      pickFormOrQuery(formData, reqUrl, "jobCode") ??
+      pickFormOrQuery(formData, reqUrl, "jobcode"),
+    custom1:
+      pickFormOrQuery(formData, reqUrl, "custom1") ??
+      pickFormOrQuery(formData, reqUrl, "Custom1"),
+    custom2:
+      pickFormOrQuery(formData, reqUrl, "custom2") ??
+      pickFormOrQuery(formData, reqUrl, "Custom2"),
+  });
 
   const fallbackPath = buildFallbackPath({
     venueId,
@@ -147,6 +259,13 @@ export async function POST(request: Request) {
     await logOutboundClick({
       venueId,
       tournamentId,
+      outboundAttributionId,
+      sourcePageType,
+      attribution,
+      ctaPlacement,
+      trafficSource,
+      deviceType,
+      pageUrl,
       referer,
       host,
       userAgent,

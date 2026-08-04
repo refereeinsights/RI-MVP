@@ -14,6 +14,7 @@ Maintenance rules:
 
 ## 2026-08-04
 
+- TI HotelPlanner individual booking — checkout route attribution fixed (`source_surface` hardcode removed, full attribution field set now logged to `ti_outbound_clicks`). See `docs/notes-ti.md` for details.
 - TI HotelPlanner group request — improved submission messaging (processing indicator, warmer success copy with email echo and 24–48h timing). See `docs/notes-ti.md` for details.
 - TI HotelPlanner group request — three bugs fixed (duplicate submission, stale custom8 override, children count dropped). See `docs/notes-ti.md` for details.
 
