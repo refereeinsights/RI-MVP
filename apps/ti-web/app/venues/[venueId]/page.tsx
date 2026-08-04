@@ -929,17 +929,19 @@ export default async function VenueDetailsPage({
                 {addressLabel || "Address TBA"}
               </p>
 
-              {selectedTournament?.slug ? (
+              {selectedTournament?.id ? (
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <ShareWeekendButton
-                    tournamentSlug={selectedTournament.slug}
-                    tournamentName={selectedTournament.name ?? "Tournament"}
-                    venueLabel={[data.name, data.city, data.state].filter(Boolean).join(", ")}
-                    venue={data.seo_slug || data.id}
-                    sourcePage="venue_detail"
-                    buttonLabel="Share This Weekend"
-                    className="secondaryLink"
-                  />
+                  {selectedTournament.slug ? (
+                    <ShareWeekendButton
+                      tournamentSlug={selectedTournament.slug}
+                      tournamentName={selectedTournament.name ?? "Tournament"}
+                      venueLabel={[data.name, data.city, data.state].filter(Boolean).join(", ")}
+                      venue={data.seo_slug || data.id}
+                      sourcePage="venue_detail"
+                      buttonLabel="Share This Weekend"
+                      className="secondaryLink"
+                    />
+                  ) : null}
                   {teamHotelHref ? (
                     <Link href={teamHotelHref} className="secondaryLink">
                       Book 5+ rooms for your team

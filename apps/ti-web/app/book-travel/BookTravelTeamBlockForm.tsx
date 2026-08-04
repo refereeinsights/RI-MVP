@@ -133,6 +133,7 @@ export default function BookTravelTeamBlockForm({
   const startedRef = useRef(false);
   const ctaViewedRef = useRef(false);
   const outboundAttributionIdRef = useRef<string | null>(null);
+  const successRef = useRef<HTMLDivElement | null>(null);
 
   const providerDestination = useMemo(
     () => buildProviderDestination(form.destination, matchedVenue),
@@ -176,6 +177,12 @@ export default function BookTravelTeamBlockForm({
     if (window.location.hash !== "#team-hotel-blocks") return;
     setIsOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (!success) return;
+    successRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    successRef.current?.focus();
+  }, [success]);
 
   function trackStart() {
     if (startedRef.current) return;
@@ -471,7 +478,7 @@ export default function BookTravelTeamBlockForm({
       {isOpen ? (
         <>
       {success ? (
-        <div className={styles.success}>
+        <div ref={successRef} className={styles.success} role="status" aria-live="polite" tabIndex={-1}>
           <div className={styles.successTitle}>Your request is on its way</div>
           <div>
             We&apos;ve sent your team hotel request for{" "}
@@ -483,7 +490,7 @@ export default function BookTravelTeamBlockForm({
         </div>
       ) : null}
 
-      <form className={styles.form} onSubmit={handleSubmit}>
+      {!success ? <form className={styles.form} onSubmit={handleSubmit}>
         <div className={styles.grid}>
           <label className={`${styles.field} ${styles.fieldFull}`}>
             <span className={styles.label}>Destination</span>
@@ -672,7 +679,7 @@ export default function BookTravelTeamBlockForm({
             {submitting ? "Submitting…" : "Submit team block request"}
           </button>
         </div>
-      </form>
+      </form> : null}
         </>
       ) : null}
     </section>

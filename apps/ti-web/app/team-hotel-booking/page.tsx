@@ -57,7 +57,7 @@ function cleanRooms(value: string | string[] | undefined) {
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Team Hotel Blocks for Youth Sports Tournaments | TournamentInsights",
+    title: "Team Hotel Blocks for Youth Sports Tournaments",
     description:
       "Planning travel for 5 or more rooms? Send TournamentInsights your tournament, venue, dates, and room count to request group hotel options near the fields, courts, or rink.",
     alternates: { canonical: "/team-hotel-booking" },

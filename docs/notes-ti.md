@@ -38,6 +38,14 @@ Maintenance rules:
     - `npm run lint --workspace ti-web`
     - `npm run build --workspace ti-web`
   - Build caveat: the TI production build still emits pre-existing repo warnings and sandboxed Supabase DNS fetch warnings during static page generation, but the build completed successfully and this slice introduced no new type or lint failures.
+  - Local browser UAT follow-up fixes after Claude found three real issues:
+    - removed the duplicated page-title suffix on `apps/ti-web/app/team-hotel-booking/page.tsx`
+    - changed the venue-detail CTA render gate in `apps/ti-web/app/venues/[venueId]/page.tsx` from `selectedTournament?.slug` to `selectedTournament?.id`, while still only rendering `Share This Weekend` when a slug exists
+    - hardened post-submit confirmation in `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx` so a successful request now scrolls/focuses a visible success banner and hides the form instead of leaving the filled inputs on screen with no obvious confirmation
+  - Follow-up validation passed:
+    - `node --import tsx --test apps/ti-web/lib/teamHotelBooking.test.ts apps/ti-web/lib/hotelPlannerAttribution.test.ts apps/ti-web/lib/lodging/hotelPlannerProvider.test.ts`
+    - `npm run build --workspace ti-web`
+  - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` became flaky again after the build because this repo’s TI tsconfig includes transient `.next/types/**/*.ts` entries; the production build remained the authoritative type validation and completed successfully.
 
 - TI Weekend Planner activation measurement repair:
   - Added two new anonymous-treatment instrumentation events in `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/lib/tiAnalyticsEvents.ts`, and `apps/ti-web/app/api/analytics/route.ts`:
