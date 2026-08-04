@@ -78,7 +78,11 @@ export default async function BookTravelPage() {
           }}
         />
 
-        <BookTravelTeamBlockForm authState={authState} entitlement={entitlement} />
+        <BookTravelTeamBlockForm
+          authState={authState}
+          entitlement={entitlement}
+          userId={user?.id ?? null}
+        />
 
         <section style={{ marginTop: 12 }}>
           <p className={styles.smallHelper} style={{ margin: 0 }}>

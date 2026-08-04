@@ -7,6 +7,7 @@ import { BRAND_TI } from "@/lib/brand";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import AccountIconMenu from "@/components/AccountIconMenu";
 import { getTiTierServer } from "@/lib/entitlementsServer";
+import TeamTravelHeaderLink from "@/components/TeamTravelHeaderLink";
 import "./globals.css";
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -72,6 +73,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   } = await supabase.auth.getUser();
   const isLoggedIn = Boolean(user);
   const { tier, unverified } = await getTiTierServer(user);
+  const authState: "signed_out" | "unverified" | "verified" = !isLoggedIn ? "signed_out" : unverified ? "unverified" : "verified";
 
   return (
     <html lang="en">
@@ -96,6 +98,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/venues">Venue Insights</Link>
                 <Link href="/weekend-planner">Weekend Planner Beta</Link>
                 <Link href="/book-travel">Book Travel</Link>
+                <TeamTravelHeaderLink authState={authState} />
               </nav>
               <div className="ti-header-actions">
                 <Link href="/list-your-tournament" className="ti-cta">

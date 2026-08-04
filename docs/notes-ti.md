@@ -15,6 +15,40 @@ Maintenance rules:
 
 ## 2026-08-04
 
+- TI team travel pre-launch measurement fixes:
+  - Added a distinct landing-page denominator for the canonical team-travel route by splitting page-view measurement away from CTA impression measurement:
+    - `apps/ti-web/app/team-hotel-booking/TeamHotelLandingTracker.tsx` now fires `team_hotel_landing_viewed` once per landing-page session instead of reusing `team_hotel_cta_viewed`.
+    - `apps/ti-web/app/team-hotel-booking/TeamHotelLandingPrimaryCta.tsx` now owns the actual landing CTA impression/click pair and persists a `cta_interaction_id` for downstream attribution.
+    - new lightweight browser identity helper `apps/ti-web/lib/teamHotelClientTracking.ts` now supplies session-scoped and anonymous visitor ids for team-travel landing, header, CTA, and form-start events.
+  - Added reversible Team Travel header exposure without changing the overall TI nav structure:
+    - new `apps/ti-web/components/TeamTravelHeaderLink.tsx`
+    - mounted in `apps/ti-web/app/layout.tsx`
+    - tracks `team_hotel_header_cta_viewed` and `team_hotel_header_cta_clicked` separately from contextual team-hotel traffic.
+  - Made accepted-request reporting server-authoritative:
+    - `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx` no longer emits `team_hotel_request_submitted` from the client success screen.
+    - `apps/ti-web/app/api/lodging/group-request/route.ts` now persists the authoritative `team_hotel_request_submitted` analytics event only after validation, persistence, dedupe, and provider acceptance succeed.
+    - that server event now carries `request_id`, `outbound_attribution_id`, planner/session context, and the lightweight team-travel session / anonymous ids when present.
+  - Added a focused qualified-request rule for reporting in `apps/ti-web/lib/teamHotelReporting.ts` with coverage in `apps/ti-web/lib/teamHotelReporting.test.ts`.
+  - Updated analytics typing and ingestion:
+    - `apps/ti-web/lib/tiAnalyticsEvents.ts`
+    - `apps/ti-web/app/api/analytics/route.ts`
+  - Updated the TI admin email summary in `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts` so Team Travel now separates:
+    - landing raw views
+    - landing unique sessions
+    - header impressions/clicks
+    - CTA impressions/clicks
+    - form starts
+    - accepted-request events
+    - unique accepted requests
+    - qualified requests
+  - Validation passed:
+    - `node --import tsx --test apps/ti-web/lib/teamHotelBooking.test.ts apps/ti-web/lib/teamHotelReporting.test.ts apps/ti-web/lib/hotelPlannerAttribution.test.ts apps/ti-web/lib/lodging/hotelPlannerProvider.test.ts`
+    - `npm run lint --workspace ti-web`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run build --workspace ti-web`
+  - Build caveat unchanged: TI still emits pre-existing repo warnings plus sandboxed Supabase DNS lookup failures during static generation in this environment, but the build completed successfully.
+  - Remaining follow-up: fresh browser UAT for direct landing, header nav, tournament-prefill, venue-prefill, duplicate suppression, and accepted-request analytics/network verification before push.
+
 - TI team hotel booking SEO and attribution slice:
   - Added a new indexable, server-rendered landing page at `apps/ti-web/app/team-hotel-booking/page.tsx` with dedicated metadata, self-canonical, Open Graph fields, breadcrumb JSON-LD, FAQ JSON-LD, clear server-rendered explainer copy, and a mobile-friendly team-hotel request flow built on the existing `BookTravelTeamBlockForm`.
   - Added landing-page measurement and attribution preservation:

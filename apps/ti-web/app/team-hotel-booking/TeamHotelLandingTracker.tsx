@@ -2,12 +2,18 @@
 
 import { useEffect, useRef } from "react";
 import { sendTiAnalytics } from "@/lib/analytics";
+import { currentPathWithSearch, getAnonymousVisitorId, getTeamHotelSessionId } from "@/lib/teamHotelClientTracking";
 
 type TeamHotelLandingTrackerProps = {
   authState: "signed_out" | "unverified" | "verified";
   entitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
+  userId?: string | null;
   tournamentId?: string | null;
+  tournamentSlug?: string | null;
   venueId?: string | null;
+  sport?: string | null;
+  eventStartDate?: string | null;
+  eventEndDate?: string | null;
   entrySource?: string | null;
   entryPageType?: string | null;
   entryPath?: string | null;
@@ -20,13 +26,16 @@ export default function TeamHotelLandingTracker(props: TeamHotelLandingTrackerPr
   useEffect(() => {
     if (viewedRef.current) return;
     viewedRef.current = true;
-    void sendTiAnalytics("team_hotel_cta_viewed", {
-      surface: "team_hotel",
+    void sendTiAnalytics("team_hotel_landing_viewed", {
+      surface: "team_hotel_booking_landing",
       source_page_type: "team_hotel_booking",
-      cta_type: "team_hotel",
       auth_state: props.authState,
       entitlement: props.entitlement,
       context_type: "team_hotel",
+      session_id: getTeamHotelSessionId(),
+      anonymous_visitor_id: getAnonymousVisitorId(),
+      user_id: props.userId ?? undefined,
+      source_path: currentPathWithSearch() ?? "/team-hotel-booking",
       entry_source: props.entrySource ?? undefined,
       entry_page_type: props.entryPageType ?? undefined,
       entry_path: props.entryPath ?? undefined,
@@ -34,7 +43,11 @@ export default function TeamHotelLandingTracker(props: TeamHotelLandingTrackerPr
       current_page_type: "team_hotel_booking",
       current_page_path: "/team-hotel-booking",
       tournament_id: props.tournamentId ?? undefined,
+      tournament_slug: props.tournamentSlug ?? undefined,
       venue_id: props.venueId ?? undefined,
+      sport: props.sport ?? undefined,
+      event_start_date: props.eventStartDate ?? undefined,
+      event_end_date: props.eventEndDate ?? undefined,
     });
   }, [
     props.authState,
@@ -43,7 +56,12 @@ export default function TeamHotelLandingTracker(props: TeamHotelLandingTrackerPr
     props.entryPath,
     props.entryPlacement,
     props.entrySource,
+    props.eventEndDate,
+    props.eventStartDate,
+    props.sport,
     props.tournamentId,
+    props.tournamentSlug,
+    props.userId,
     props.venueId,
   ]);
 

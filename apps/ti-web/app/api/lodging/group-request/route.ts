@@ -88,6 +88,9 @@ type GroupRequestBody = {
   referrer?: unknown;
   device_type?: unknown;
   outbound_attribution_id?: unknown;
+  session_id?: unknown;
+  anonymous_visitor_id?: unknown;
+  cta_interaction_id?: unknown;
 };
 
 type GroupRequestTracking = {
@@ -260,6 +263,53 @@ function asRequestError(message: string) {
   return NextResponse.json({ ok: false, error: message }, { status: 400 });
 }
 
+function isLocalhostHost(host: string) {
+  const h = host.trim().toLowerCase();
+  if (!h) return false;
+  if (h === "localhost" || h.startsWith("localhost:")) return true;
+  if (h === "127.0.0.1" || h.startsWith("127.0.0.1:")) return true;
+  if (h === "0.0.0.0" || h.startsWith("0.0.0.0:")) return true;
+  if (h === "[::1]" || h.startsWith("[::1]:")) return true;
+  if (h.endsWith(".local")) return true;
+  return false;
+}
+
+function isPrivateNetworkHost(host: string) {
+  const h = host.trim().toLowerCase();
+  if (!h) return false;
+  const withoutPort = h.startsWith("[") ? h : h.split(":")[0];
+  const ip = withoutPort.replace(/^\[/, "").replace(/\]$/, "");
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return false;
+  const parts = ip.split(".").map((p) => Number(p));
+  if (parts.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return false;
+  const [a, b] = parts;
+  if (a === 10) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  return false;
+}
+
+function shouldPersistTeamHotelAnalytics(request: Request) {
+  if (process.env.ENABLE_TI_ANALYTICS_TRACKING === "true") return true;
+  if (process.env.NODE_ENV === "development") return false;
+
+  const host = sanitizeText(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
+  if (host && isLocalhostHost(host)) return false;
+  if (host && isPrivateNetworkHost(host)) return false;
+
+  const origin = sanitizeText(request.headers.get("origin"), 256);
+  if (origin && (origin.includes("://localhost") || origin.includes("://127.0.0.1") || origin.includes("://[::1]"))) {
+    return false;
+  }
+
+  const referer = sanitizeText(request.headers.get("referer"), 512);
+  if (referer && (referer.includes("://localhost") || referer.includes("://127.0.0.1") || referer.includes("://[::1]"))) {
+    return false;
+  }
+
+  return true;
+}
+
 function firstIpFromHeader(value: string | null) {
   if (!value) return null;
   const first = value.split(",")[0]?.trim();
@@ -429,6 +479,68 @@ async function updateSessionLifecycle(input: {
     await (supabaseAdmin.from("lodging_search_session" as any) as any)
       .update(payload)
       .eq("id", input.sessionId);
+  } catch {
+    // best-effort
+  }
+}
+
+async function insertAcceptedAnalyticsEvent(input: {
+  request: Request;
+  tracking: GroupRequestTracking;
+  body: GroupRequestBody;
+  requestId: string | null;
+  sessionId: string;
+}) {
+  if (!shouldPersistTeamHotelAnalytics(input.request)) return;
+
+  const requestedCheckIn = toText(input.body.checkin) ?? toText(input.body.checkIn);
+  const requestedCheckOut = toText(input.body.checkout) ?? toText(input.body.checkOut);
+  const checkInDate = normalizeCheckDate(requestedCheckIn);
+  const checkOutDate = normalizeCheckDate(requestedCheckOut);
+
+  const properties = {
+    surface: "team_hotel",
+    source_surface: sanitizeText(toText(input.body.request_source) ?? toText(input.body.source), 64) ?? "team_hotel",
+    source_page_type: input.tracking.sourcePageType,
+    action_surface: "team_hotel",
+    auth_state: "unknown",
+    entitlement: "unknown",
+    context_type: "team_hotel",
+    session_id: sanitizeText(toText(input.body.session_id), 128),
+    anonymous_visitor_id: sanitizeText(toText(input.body.anonymous_visitor_id), 128),
+    source_path: input.tracking.sourcePath,
+    cta_interaction_id: sanitizeText(toText(input.body.cta_interaction_id), 128),
+    planner_session_id: input.tracking.plannerSessionId,
+    tournament_id: input.tracking.tournamentId,
+    venue_id: input.tracking.venueId,
+    entry_source: input.tracking.entrySource,
+    entry_page_type: input.tracking.entryPageType,
+    entry_path: input.tracking.entryPath,
+    entry_placement: input.tracking.entryPlacement,
+    current_page_type: input.tracking.currentPageType,
+    current_page_path: input.tracking.currentPagePath,
+    request_source: input.tracking.requestSource,
+    sport: null,
+    event_start_date: checkInDate ? parseMmDdToDate(checkInDate)?.toISOString().slice(0, 10) ?? null : null,
+    event_end_date: checkOutDate ? parseMmDdToDate(checkOutDate)?.toISOString().slice(0, 10) ?? null : null,
+    request_id: input.requestId,
+    outbound_attribution_id: input.tracking.outboundAttributionId,
+    server_session_id: input.sessionId,
+  };
+
+  try {
+    await (supabaseAdmin.from("ti_map_events" as any) as any).insert({
+      event_name: "team_hotel_request_submitted",
+      properties,
+      page_type: "other",
+      sport: null,
+      state: null,
+      href: input.tracking.currentPagePath ?? input.tracking.sourcePath ?? "/team-hotel-booking",
+      filter_name: input.tracking.entryPlacement ?? null,
+      old_value: input.tracking.entrySource ?? null,
+      new_value: input.requestId,
+      cta: "team_hotel",
+    });
   } catch {
     // best-effort
   }
@@ -693,6 +805,14 @@ export async function POST(request: Request) {
       latencyMs,
       groupRequestId: result.requestId ?? null,
       responseSnapshot: result.raw ?? { requestId: result.requestId ?? null, success: result.success },
+    });
+
+    await insertAcceptedAnalyticsEvent({
+      request,
+      tracking,
+      body,
+      requestId: result.requestId ?? null,
+      sessionId,
     });
 
     const responseBody = {

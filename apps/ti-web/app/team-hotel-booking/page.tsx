@@ -97,6 +97,7 @@ export default async function TeamHotelBookingPage({
   const rooms = cleanRooms(searchParams?.rooms) ?? "10";
 
   const tournamentId = cleanText(searchParams?.tournament_id);
+  const tournamentSlug = cleanText(searchParams?.tournament_slug);
   const venueId = cleanText(searchParams?.venue_id);
   const tournamentName = cleanText(searchParams?.tournament_name);
   const sport = cleanText(searchParams?.sport);
@@ -131,8 +132,13 @@ export default async function TeamHotelBookingPage({
       <TeamHotelLandingTracker
         authState={authState}
         entitlement={entitlement}
+        userId={user?.id ?? null}
         tournamentId={tournamentId}
+        tournamentSlug={tournamentSlug}
         venueId={venueId}
+        sport={sport}
+        eventStartDate={checkin || undefined}
+        eventEndDate={checkout || undefined}
         entrySource={entrySource}
         entryPageType={entryPageType}
         entryPath={entryPath}
@@ -150,8 +156,13 @@ export default async function TeamHotelBookingPage({
               <TeamHotelLandingPrimaryCta
                 authState={authState}
                 entitlement={entitlement}
+                userId={user?.id ?? null}
                 tournamentId={tournamentId}
+                tournamentSlug={tournamentSlug}
                 venueId={venueId}
+                sport={sport}
+                eventStartDate={checkin || undefined}
+                eventEndDate={checkout || undefined}
                 entrySource={entrySource}
                 entryPageType={entryPageType}
                 entryPath={entryPath}
@@ -193,6 +204,7 @@ export default async function TeamHotelBookingPage({
             showToggle={false}
             entitlement={entitlement}
             authState={authState}
+            userId={user?.id ?? null}
             initialValues={{
               destination,
               checkin,
@@ -202,6 +214,7 @@ export default async function TeamHotelBookingPage({
             }}
             plannerTrackingContext={{
               tournament_id: tournamentId,
+              tournament_slug: tournamentSlug,
               venue_id: venueId,
               entry_source: entrySource,
               entry_page_type: entryPageType,
@@ -210,6 +223,9 @@ export default async function TeamHotelBookingPage({
               current_page_type: "team_hotel_booking",
               current_page_path: "/team-hotel-booking",
             }}
+            contextSport={sport}
+            eventStartDate={checkin || null}
+            eventEndDate={checkout || null}
           />
 
           <section className={styles.faq} aria-label="Team hotel booking FAQs">

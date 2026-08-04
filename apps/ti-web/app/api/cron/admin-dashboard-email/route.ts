@@ -10,6 +10,7 @@ import {
   loadTiAdminDashboardEmailSettings,
   resolveTiBaseUrl,
 } from "@/lib/adminDashboardEmail";
+import { isQualifiedTeamHotelAcceptedRequest } from "@/lib/teamHotelReporting";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,18 @@ type TiMapEventRow = {
 
 type HotelOutboundClickRow = {
   source_surface: string | null;
+};
+
+type LodgingSearchSessionRow = {
+  created_at: string | null;
+  status: string | null;
+  group_request_id: string | null;
+  outbound_attribution_id: string | null;
+  source_page_type: string | null;
+  request_source: string | null;
+  search_query: Record<string, unknown> | null;
+  tournament_id: string | null;
+  venue_id: string | null;
 };
 
 type HealthStatus = "ok" | "warn" | "neutral";
@@ -110,10 +123,16 @@ type WeekendPlannerDailySummary =
         arrivalsBySource: Record<"tournament_detail" | "direct" | "unknown", number>;
       };
       teamHotel: {
+        landingViews: number;
+        uniqueLandingSessions: number;
+        headerViews: number;
+        headerClicks: number;
         ctaImpressions: number;
         ctaClicks: number;
         formStarts: number;
         requestsSubmitted: number;
+        uniqueAcceptedRequests: number;
+        qualifiedRequests: number;
         requestsSucceeded: number;
         requestsFailed: number;
       };
@@ -358,6 +377,9 @@ async function loadWeekendPlannerDailySummary(params: {
       "planner_calendar_feed_connect_succeeded",
       "planner_guest_share_created",
       "planner_calendar_feed_created",
+      "team_hotel_landing_viewed",
+      "team_hotel_header_cta_viewed",
+      "team_hotel_header_cta_clicked",
       "team_hotel_cta_viewed",
       "team_hotel_cta_clicked",
       "team_hotel_request_started",
@@ -370,7 +392,7 @@ async function loadWeekendPlannerDailySummary(params: {
       "planner_weekend_pro_gate_clicked",
     ];
 
-    const [{ data, error }, hotelHandoffs] = await Promise.all([
+    const [{ data, error }, hotelHandoffs, acceptedRequestsResult] = await Promise.all([
       supabaseAdmin
         .from("ti_map_events" as any)
         .select("event_name,properties,created_at")
@@ -381,6 +403,12 @@ async function loadWeekendPlannerDailySummary(params: {
         startIso: params.yesterdayStartUtcIso,
         endIso: params.todayStartUtcIso,
       }),
+      supabaseAdmin
+        .from("lodging_search_session" as any)
+        .select("created_at,status,group_request_id,outbound_attribution_id,source_page_type,request_source,search_query,tournament_id,venue_id")
+        .eq("endpoint", "/api/lodging/group-request")
+        .gte("created_at", params.yesterdayStartUtcIso)
+        .lt("created_at", params.todayStartUtcIso),
     ]);
 
     if (error) {
@@ -427,12 +455,40 @@ async function loadWeekendPlannerDailySummary(params: {
     const calendarFeedsConnected = countEvents(rows, "planner_calendar_feed_connect_succeeded");
     const guestSharesCreated = countEvents(rows, "planner_guest_share_created");
     const privateCalendarFeedsCreated = countEvents(rows, "planner_calendar_feed_created");
+    const teamHotelLandingViews = countEvents(rows, "team_hotel_landing_viewed");
+    const teamHotelHeaderViews = countEvents(rows, "team_hotel_header_cta_viewed");
+    const teamHotelHeaderClicks = countEvents(rows, "team_hotel_header_cta_clicked");
     const teamHotelImpressions = countEvents(rows, "team_hotel_cta_viewed");
     const teamHotelClicks = countEvents(rows, "team_hotel_cta_clicked");
     const teamHotelStarts = countEvents(rows, "team_hotel_request_started");
     const teamHotelSubmitted = countEvents(rows, "team_hotel_request_submitted");
     const teamHotelSucceeded = countEvents(rows, "team_hotel_request_succeeded");
     const teamHotelFailed = countEvents(rows, "team_hotel_request_failed");
+    const teamHotelLandingSessionKeys = new Set<string>();
+    for (const row of rows) {
+      if (row.event_name !== "team_hotel_landing_viewed") continue;
+      const key = eventPropertyText(row, "session_id") || eventPropertyText(row, "anonymous_visitor_id");
+      if (key) teamHotelLandingSessionKeys.add(key);
+    }
+    const acceptedRequestRows = ((acceptedRequestsResult.data ?? []) as LodgingSearchSessionRow[]) ?? [];
+    const uniqueAcceptedKeys = new Set<string>();
+    let qualifiedRequests = 0;
+    for (const row of acceptedRequestRows) {
+      const key = row.group_request_id || row.outbound_attribution_id;
+      if (row.status === "succeeded" && key) uniqueAcceptedKeys.add(key);
+      if (
+        isQualifiedTeamHotelAcceptedRequest({
+          status: row.status,
+          group_request_id: row.group_request_id,
+          outbound_attribution_id: row.outbound_attribution_id,
+          search_query: row.search_query,
+          tournament_id: row.tournament_id,
+          venue_id: row.venue_id,
+        })
+      ) {
+        qualifiedRequests += 1;
+      }
+    }
     const premiumViews = countEvents(rows, "premium_modal_viewed");
     const premiumClicks = countEvents(rows, "premium_cta_clicked");
     const plannerGateViews = countEvents(rows, "planner_weekend_pro_gate_viewed");
@@ -638,9 +694,14 @@ async function loadWeekendPlannerDailySummary(params: {
         detail: hotelHandoffsTotal > 0 ? `${formatInt(hotelHandoffsTotal)} /go/hotels clicks` : "Zero HotelPlanner handoffs",
       },
       {
-        status: teamHotelSubmitted > 0 ? "ok" : "neutral",
+        status: uniqueAcceptedKeys.size > 0 ? "ok" : "neutral",
         label: "Team hotel requests",
-        detail: teamHotelSubmitted > 0 ? `${formatInt(teamHotelSubmitted)} submitted` : "Zero team hotel block requests",
+        detail:
+          uniqueAcceptedKeys.size > 0
+            ? `${formatInt(uniqueAcceptedKeys.size)} unique accepted`
+            : teamHotelSubmitted > 0
+            ? `${formatInt(teamHotelSubmitted)} accepted events`
+            : "Zero team hotel block requests",
       },
     ];
 
@@ -662,6 +723,9 @@ async function loadWeekendPlannerDailySummary(params: {
     }
     if (teamHotelClicks > 0 && teamHotelStarts === 0) {
       alerts.push("Team hotel CTA clicks occurred but no team hotel form starts were tracked.");
+    }
+    if (teamHotelSubmitted > 0 && uniqueAcceptedKeys.size === 0) {
+      alerts.push("Team hotel accepted-request analytics fired but no authoritative accepted request rows were found.");
     }
     if (plannerEntries > 0 && authRequiredViews >= Math.ceil(plannerEntries * 0.5)) {
       alerts.push("Planner auth-gate views are high relative to canonical planner entries.");
@@ -742,10 +806,16 @@ async function loadWeekendPlannerDailySummary(params: {
         arrivalsBySource,
       },
       teamHotel: {
+        landingViews: teamHotelLandingViews,
+        uniqueLandingSessions: teamHotelLandingSessionKeys.size,
+        headerViews: teamHotelHeaderViews,
+        headerClicks: teamHotelHeaderClicks,
         ctaImpressions: teamHotelImpressions,
         ctaClicks: teamHotelClicks,
         formStarts: teamHotelStarts,
         requestsSubmitted: teamHotelSubmitted,
+        uniqueAcceptedRequests: uniqueAcceptedKeys.size,
+        qualifiedRequests,
         requestsSucceeded: teamHotelSucceeded,
         requestsFailed: teamHotelFailed,
       },
@@ -913,6 +983,10 @@ function renderWeekendPlannerSummaryHtml(params: {
   const hotelHandoffsHtml = renderMetricRows(hotelHandoffRows);
 
   const teamHotelHtml = renderMetricRows([
+    { label: "Team hotel landing raw views", value: summary.teamHotel.landingViews },
+    { label: "Team hotel landing unique sessions", value: summary.teamHotel.uniqueLandingSessions },
+    { label: "Team Travel header impressions", value: summary.teamHotel.headerViews },
+    { label: "Team Travel header clicks", value: summary.teamHotel.headerClicks, note: formatRatioPercent(summary.teamHotel.headerClicks, summary.teamHotel.headerViews) },
     { label: "Team hotel CTA impressions", value: summary.teamHotel.ctaImpressions },
     {
       label: "Team hotel CTA clicks",
@@ -920,7 +994,9 @@ function renderWeekendPlannerSummaryHtml(params: {
       note: formatRatioPercent(summary.teamHotel.ctaClicks, summary.teamHotel.ctaImpressions),
     },
     { label: "Team hotel form starts", value: summary.teamHotel.formStarts },
-    { label: "Team hotel requests submitted", value: summary.teamHotel.requestsSubmitted },
+    { label: "Team hotel accepted-request events", value: summary.teamHotel.requestsSubmitted },
+    { label: "Team hotel unique accepted requests", value: summary.teamHotel.uniqueAcceptedRequests },
+    { label: "Team hotel qualified requests", value: summary.teamHotel.qualifiedRequests },
     { label: "Team hotel requests succeeded", value: summary.teamHotel.requestsSucceeded },
     { label: "Team hotel requests failed", value: summary.teamHotel.requestsFailed },
   ]);
