@@ -87,6 +87,9 @@ export function RiVenueInternalLink({
   ctaPlacement,
   outboundPartner,
   outboundDestinationType,
+  tournamentId,
+  tournamentSlug,
+  sport,
   onClick,
   children,
   ...rest
@@ -110,6 +113,9 @@ export function RiVenueInternalLink({
           ctaPlacement,
           outboundPartner,
           outboundDestinationType,
+          tournamentId,
+          tournamentSlug,
+          sport,
         },
         onClick
       )}
@@ -134,6 +140,9 @@ export function RiVenueExternalLink({
   ctaPlacement,
   outboundPartner,
   outboundDestinationType,
+  tournamentId,
+  tournamentSlug,
+  sport,
   onClick,
   children,
   ...rest
@@ -157,6 +166,9 @@ export function RiVenueExternalLink({
           ctaPlacement,
           outboundPartner,
           outboundDestinationType,
+          tournamentId,
+          tournamentSlug,
+          sport,
         },
         onClick
       )}
