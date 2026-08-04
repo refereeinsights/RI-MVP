@@ -4606,3 +4606,13 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
     - `npm run lint --workspace referee-app`
     - `npm run build --workspace referee-app` (passes with pre-existing warnings only)
+- 2026-08-04: RI Phase 4A local hotel-handoff retest passes on a clean tab.
+  - Evidence source: clean-session browser rerun after local TI handoff date-format fix.
+  - Result:
+    - RI venue detail live hotel block still renders correctly above Owl's Eye with hotel rows suppressed in Owl's Eye and food/coffee intact.
+    - Clicking a live hotel card opens TI `/go/hotels/property` and then successfully redirects to the HotelPlanner property page.
+    - Dates remained populated (`08/14/26 -> 08/17/26` on the verified case).
+    - `Custom8=app:refereeinsights` survived the handoff.
+    - No console/runtime errors reproduced.
+  - Interpretation:
+    - The earlier `Missing property handoff parameters.` failure did not reproduce on a fresh tab and is treated as a non-confirmed dirty-session artifact rather than a current blocker.
