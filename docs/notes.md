@@ -12,6 +12,10 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-08-04
+
+- TI HotelPlanner group request — three bugs fixed (duplicate submission, stale custom8 override, children count dropped). See `docs/notes-ti.md` for details.
+
 ## 2026-08-03
 
 - RI Modernization Phase 3: added a new shared tournament map layer under `packages/lib/tournament-map/` for coordinate validation, bounds calculation, GeoJSON marker construction, and stable RI map-route URL generation; added focused tests for those helpers plus RI map analytics payload construction in `packages/lib/tournament-map/index.test.ts` and `apps/referee/lib/tournamentMapAnalytics.test.ts`.

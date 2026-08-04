@@ -13,6 +13,15 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-08-04
+
+- TI HotelPlanner group request — three bugs fixed:
+  - **Duplicate submission**: `BookTravelTeamBlockForm` was clearing `outboundAttributionIdRef.current = null` on success while leaving the form visible and the submit button re-enabled. A second submit minted a fresh attribution ID, bypassing the `insertStartedSession` dedup check and sending a second live request to HotelPlanner. Fix: removed the ref clear; submit button now also disables when `success` is truthy.
+  - **Stale `custom8` override**: the group-request API route was passing `custom8: asTrackingString(body, ["customField1", "custom1"])` to `buildHotelPlannerGroupRequestAttribution`. The form never sends `customField1` or `custom1`, so this was always null and the argument was dead code from an earlier architecture. Removed.
+  - **Children count dropped**: `buildGroupRequestBody` in `hotelPlannerProvider.ts` accepted `childrenPerRoom` in `GroupRequestInput` but never included it in the HP API payload. Added `childrenPerRoom: clampInt(input.childrenPerRoom ?? 0, 0)`.
+  - Files: `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx`, `apps/ti-web/app/api/lodging/group-request/route.ts`, `apps/ti-web/lib/lodging/hotelPlannerProvider.ts`.
+  - Note: when a book-travel request has no matched TI venue and no tournament context, `customField1` and `customField2` are legitimately null — the source page type and placement are captured in `custom4`/`custom5` so HP attribution is not lost.
+
 ## 2026-07-31
 
 - TI Weekend Planner Phase 6 analytics audit follow-up:

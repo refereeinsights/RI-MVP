@@ -550,7 +550,6 @@ export async function POST(request: Request) {
     sc: "tournamentinsights",
     keyword: asTrackingString(body, ["keyword", "kw"]) ?? "Team hotel block",
     jobCode: asTrackingString(body, ["jobCode", "jobcode"]) ?? "TI-TEAM-BLOCK",
-    custom8: asTrackingString(body, ["customField1", "custom1"]),
   });
 
   const providerInput: GroupRequestInput = {

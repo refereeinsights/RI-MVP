@@ -332,7 +332,6 @@ export default function BookTravelTeamBlockForm({
       }
 
       setSuccess({ requestId: payload.requestId ?? null });
-      outboundAttributionIdRef.current = null;
       void sendTiAnalytics("team_hotel_request_submitted", {
         surface: "team_hotel",
         source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",
@@ -596,7 +595,7 @@ export default function BookTravelTeamBlockForm({
         {error ? <div className={styles.error}>{error}</div> : null}
 
         <div className={styles.actions}>
-          <button type="submit" className={styles.submitButton} disabled={submitting}>
+          <button type="submit" className={styles.submitButton} disabled={submitting || !!success}>
             {submitting ? "Submitting…" : "Submit team block request"}
           </button>
         </div>
