@@ -50,7 +50,8 @@
 }
 
 .success,
-.error {
+.error,
+.processing {
   border-radius: 14px;
   padding: 12px 14px;
   margin-bottom: 14px;
@@ -61,6 +62,12 @@
   background: rgba(36, 122, 74, 0.12);
   border: 1px solid rgba(36, 122, 74, 0.18);
   color: #123d2c;
+}
+
+.processing {
+  background: rgba(26, 82, 160, 0.07);
+  border: 1px solid rgba(26, 82, 160, 0.14);
+  color: #1a3e70;
 }
 
 .successTitle {

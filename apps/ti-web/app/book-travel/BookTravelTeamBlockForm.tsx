@@ -408,10 +408,13 @@ export default function BookTravelTeamBlockForm({
         <>
       {success ? (
         <div className={styles.success}>
-          <div className={styles.successTitle}>Request submitted</div>
+          <div className={styles.successTitle}>Your request is on its way</div>
           <div>
-            HotelPlanner will follow up with group options for <strong>{readableDestinationContext || providerDestination}</strong>.
-            {success.requestId ? ` Ref ${success.requestId}.` : ""}
+            We&apos;ve sent your team hotel request for{" "}
+            <strong>{readableDestinationContext || providerDestination}</strong> to our group
+            specialists. Expect options within 24–48 hours
+            {form.email ? ` at ${form.email}` : ""}.
+            {success.requestId ? ` Ref: ${success.requestId}.` : ""}
           </div>
         </div>
       ) : null}
@@ -591,6 +594,12 @@ export default function BookTravelTeamBlockForm({
             />
           </label>
         </div>
+
+        {submitting ? (
+          <div className={styles.processing}>
+            Sending your request — this usually takes a few seconds.
+          </div>
+        ) : null}
 
         {error ? <div className={styles.error}>{error}</div> : null}
 

@@ -14,6 +14,7 @@ Maintenance rules:
 
 ## 2026-08-04
 
+- TI HotelPlanner group request — improved submission messaging (processing indicator, warmer success copy with email echo and 24–48h timing). See `docs/notes-ti.md` for details.
 - TI HotelPlanner group request — three bugs fixed (duplicate submission, stale custom8 override, children count dropped). See `docs/notes-ti.md` for details.
 
 ## 2026-08-03

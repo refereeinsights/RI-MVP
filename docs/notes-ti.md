@@ -15,6 +15,12 @@ Maintenance rules:
 
 ## 2026-08-04
 
+- TI HotelPlanner group request — improved submission messaging:
+  - Added a `.processing` in-flight status row ("Sending your request — this usually takes a few seconds.") visible while the request is in transit, so users aren't left wondering if the submit worked.
+  - Rewrote success copy from "Request submitted / HotelPlanner will follow up…" to "Your request is on its way / Expect options within 24–48 hours at [email]." Echoes the user's email back for confidence, removes the vendor name as primary message, and sets timing expectations.
+  - Added `.processing` CSS class to `BookTravelTeamBlockForm.module.css` (neutral blue, same border-radius/padding as `.success`/`.error`).
+  - Files: `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx`, `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.module.css`.
+
 - TI HotelPlanner group request — three bugs fixed:
   - **Duplicate submission**: `BookTravelTeamBlockForm` was clearing `outboundAttributionIdRef.current = null` on success while leaving the form visible and the submit button re-enabled. A second submit minted a fresh attribution ID, bypassing the `insertStartedSession` dedup check and sending a second live request to HotelPlanner. Fix: removed the ref clear; submit button now also disables when `success` is truthy.
   - **Stale `custom8` override**: the group-request API route was passing `custom8: asTrackingString(body, ["customField1", "custom1"])` to `buildHotelPlannerGroupRequestAttribution`. The form never sends `customField1` or `custom1`, so this was always null and the argument was dead code from an earlier architecture. Removed.
