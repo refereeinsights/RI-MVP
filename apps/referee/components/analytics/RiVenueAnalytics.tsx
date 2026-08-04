@@ -13,6 +13,7 @@ type VenueAnalyticsBase = {
   city?: string | null;
   state?: string | null;
   sourcePageType: "venue_detail" | "venue_directory";
+  sourcePage?: string | null;
   targetKind?: string | null;
   nearbyCategory?: string | null;
   linkedTournamentCount?: number | null;
@@ -20,6 +21,9 @@ type VenueAnalyticsBase = {
   ctaPlacement?: string | null;
   outboundPartner?: string | null;
   outboundDestinationType?: string | null;
+  tournamentId?: string | null;
+  tournamentSlug?: string | null;
+  sport?: string | null;
 };
 
 type InternalLinkProps = VenueAnalyticsBase &
@@ -40,9 +44,12 @@ async function capture(payload: VenueAnalyticsBase) {
     properties: {
       venue_id: payload.venueId,
       venue_name: payload.venueName,
+      venue_city: payload.city ?? null,
+      venue_state: payload.state ?? null,
       city: payload.city ?? null,
       state: payload.state ?? null,
       source_page_type: payload.sourcePageType,
+      source_page: payload.sourcePage ?? payload.sourcePageType,
       target_kind: payload.targetKind ?? null,
       nearby_category: payload.nearbyCategory ?? null,
       linked_tournament_count: payload.linkedTournamentCount ?? null,
@@ -50,6 +57,9 @@ async function capture(payload: VenueAnalyticsBase) {
       cta_placement: payload.ctaPlacement ?? null,
       outbound_partner: payload.outboundPartner ?? null,
       outbound_destination_type: payload.outboundDestinationType ?? null,
+      tournament_id: payload.tournamentId ?? null,
+      tournament_slug: payload.tournamentSlug ?? null,
+      sport: payload.sport ?? null,
     },
   });
 }
@@ -69,6 +79,7 @@ export function RiVenueInternalLink({
   city,
   state,
   sourcePageType,
+  sourcePage,
   targetKind,
   nearbyCategory,
   linkedTournamentCount,
@@ -91,6 +102,7 @@ export function RiVenueInternalLink({
           city,
           state,
           sourcePageType,
+          sourcePage,
           targetKind,
           nearbyCategory,
           linkedTournamentCount,
@@ -114,6 +126,7 @@ export function RiVenueExternalLink({
   city,
   state,
   sourcePageType,
+  sourcePage,
   targetKind,
   nearbyCategory,
   linkedTournamentCount,
@@ -136,6 +149,7 @@ export function RiVenueExternalLink({
           city,
           state,
           sourcePageType,
+          sourcePage,
           targetKind,
           nearbyCategory,
           linkedTournamentCount,

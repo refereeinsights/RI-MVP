@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildMapDirectionsLinks,
   buildTournamentMapFeatureCollection,
   buildTournamentMapHref,
   buildTournamentMapSearchParams,
@@ -125,4 +126,30 @@ test("map href builder preserves stable filter query params", () => {
     }),
     "/tournaments/map?q=cup&reviewed=true&includePast=false&state=CA&sports=soccer"
   );
+});
+
+test("directions links prefer coordinates when available", () => {
+  const links = buildMapDirectionsLinks({
+    label: "Alpha Park",
+    address: "123 Main St, San Diego, CA",
+    latitude: 32.72,
+    longitude: -117.16,
+  });
+
+  assert.ok(links);
+  assert.match(links!.google, /query=32\.72%2C-117\.16/);
+  assert.match(links!.apple, /ll=32\.72,-117\.16/);
+  assert.match(links!.waze, /ll=32\.72,-117\.16/);
+});
+
+test("directions links fall back to venue label plus address", () => {
+  const links = buildMapDirectionsLinks({
+    label: "Beta Field",
+    address: "456 Center Rd, Irvine, CA",
+    latitude: null,
+    longitude: null,
+  });
+
+  assert.ok(links);
+  assert.match(links!.google, /Beta%20Field%2C%20456%20Center%20Rd%2C%20Irvine%2C%20CA/);
 });

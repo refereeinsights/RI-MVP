@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import RiVenueDetailAnalytics, { RiVenueExternalLink, RiVenueInternalLink } from "@/components/analytics/RiVenueAnalytics";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import OwlsEyeVenueCard, { type AirportSummary, type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
+import RiVenueMap from "@/components/venues/RiVenueMap";
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import { buildOwlsEyeDemoScores, type VenueReviewChoiceRow } from "@/lib/owlsEyeScores";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
@@ -10,6 +11,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/venues/isUuid";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { buildVenueTitle } from "@/lib/seo/buildTitle";
+import { buildMapDirectionsLinks, hasValidCoordinates } from "../../../../../packages/lib/tournament-map";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import "../../tournaments/tournaments.css";
 
@@ -18,6 +20,8 @@ type LinkedTournament = {
   slug: string | null;
   name: string | null;
   sport: string | null;
+  city: string | null;
+  state: string | null;
   start_date: string | null;
   end_date: string | null;
 };
@@ -29,6 +33,8 @@ type VenueRow = {
   city: string | null;
   state: string | null;
   zip: string | null;
+  latitude: number | null;
+  longitude: number | null;
   notes: string | null;
   venue_url: string | null;
   seo_slug?: string | null;
@@ -80,15 +86,6 @@ function formatDate(iso: string | null) {
   if (!iso) return "";
   const d = new Date(`${iso}T00:00:00`);
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-function buildMapLinks(query: string) {
-  const encoded = encodeURIComponent(query);
-  return {
-    google: `https://www.google.com/maps/search/?api=1&query=${encoded}`,
-    apple: `https://maps.apple.com/?q=${encoded}`,
-    waze: `https://waze.com/ul?q=${encoded}&navigate=yes`,
-  };
 }
 
 function getTiOrigin() {
@@ -171,7 +168,7 @@ export async function generateMetadata({ params }: { params: { venueId: string }
 async function fetchVenueByParam(param: string): Promise<{ venue: VenueRow | null; redirectTo: string | null }> {
   // Try slug first
   const baseSelect =
-    "id,seo_slug,name,address,city,state,zip,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(is_inferred,tournaments(id,slug,name,sport,start_date,end_date))";
+    "id,seo_slug,name,address,city,state,zip,latitude,longitude,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(is_inferred,tournaments(id,slug,name,sport,city,state,start_date,end_date))";
 
   const bySlug = await supabaseAdmin
     .from("venues" as any)
@@ -294,7 +291,15 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const sportSurfaceClass = getVenueCardClassFromSports(sportsFromTournaments);
   const locationLabel = [data.city, data.state].filter(Boolean).join(", ");
   const addressLabel = [data.address, data.city, data.state, data.zip].filter(Boolean).join(", ");
-  const mapLinks = addressLabel ? buildMapLinks(addressLabel) : null;
+  const mapLinks = buildMapDirectionsLinks({
+    latitude: data.latitude,
+    longitude: data.longitude,
+    label: data.name,
+    address: addressLabel,
+  });
+  if (!hasValidCoordinates(data.latitude, data.longitude)) {
+    console.warn("[ri venue detail] missing venue coordinates", { venueId: data.id, venueSlug: data.seo_slug ?? null });
+  }
 
   const runRows = await fetchLatestOwlsEyeRuns([data.id]);
   const latestRun = runRows.find((row) => row.venue_id === data.id) ?? null;
@@ -452,11 +457,22 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                   </RiVenueExternalLink>
                 ) : null}
                 {mapLinks ? (
-                  <MobileMapLink provider="apple" query={addressLabel} fallbackHref={mapLinks.apple} className="primaryLink">
+                  <MobileMapLink provider="apple" query={mapLinks.query} fallbackHref={mapLinks.apple} className="primaryLink">
                     View map
                   </MobileMapLink>
                 ) : null}
               </div>
+
+              <RiVenueMap
+                venueId={data.id}
+                venueName={data.name || "Venue"}
+                addressLabel={addressLabel || null}
+                city={data.city}
+                state={data.state}
+                latitude={data.latitude}
+                longitude={data.longitude}
+                linkedTournamentCount={linkedTournaments.length}
+              />
 
               <OwlsEyeVenueCard
                 venue={{
@@ -473,7 +489,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 airportSummary={airportSummary}
                 premiumNearby={premiumNearby}
                 mapLinks={mapLinks}
-                mapQuery={addressLabel || null}
+                mapQuery={mapLinks?.query ?? null}
                 demoScores={demoScores}
                 defaultNearbyAllCollapsed
               />
@@ -524,39 +540,50 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 </div>
               </div>
 
-              {upcomingTournaments.length > 0 ? (
+              {linkedTournaments.length > 0 ? (
                 <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
-                  <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
+                  <p style={{ margin: 0, fontWeight: 700 }}>Tournaments at this venue</p>
                   <div style={{ display: "grid", gap: 6 }}>
-                    {upcomingTournaments.map((t) => {
+                    {[...linkedTournaments]
+                      .sort((a, b) => (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31"))
+                      .map((t) => {
                       if (!t.slug || !t.name) return null;
                       const start = formatDate(t.start_date);
                       const end = formatDate(t.end_date);
                       const dateLabel = start && end && start !== end ? `${start} - ${end}` : start || end || "Dates TBA";
+                      const tournamentLocation = [t.city, t.state].filter(Boolean).join(", ");
+                      const tournamentMeta = [t.sport, tournamentLocation].filter(Boolean).join(" • ");
                       return (
                         <RiVenueInternalLink
                           key={t.id}
                           href={`/tournaments/${t.slug}`}
                           className="secondaryLink"
                           style={{ justifyContent: "space-between", width: "100%" }}
-                          eventName="ri_venue_linked_tournament_clicked"
+                          eventName="ri_venue_tournament_clicked"
                           sourcePageType="venue_detail"
+                          sourcePage="venue_detail_tournaments"
                           venueId={data.id}
                           venueName={data.name || "Venue"}
                           city={data.city}
                           state={data.state}
                           targetKind="linked_tournament"
                           linkedTournamentCount={linkedTournaments.length}
+                          tournamentId={t.id}
+                          tournamentSlug={t.slug}
+                          sport={t.sport}
                         >
-                          <span>{t.name}</span>
-                          <span style={{ fontSize: 12, opacity: 0.85 }}>{dateLabel}</span>
+                          <span style={{ display: "grid", gap: 2 }}>
+                            <span>{t.name}</span>
+                            {tournamentMeta ? <span style={{ fontSize: 12, opacity: 0.78 }}>{tournamentMeta}</span> : null}
+                          </span>
+                          <span style={{ fontSize: 12, opacity: 0.85, textAlign: "right" }}>{dateLabel}</span>
                         </RiVenueInternalLink>
                       );
                     })}
                   </div>
                 </div>
               ) : (
-                <p style={{ margin: 0, opacity: 0.9 }}>No upcoming tournaments currently linked to this venue.</p>
+                <p style={{ margin: 0, opacity: 0.9 }}>No tournaments are currently linked to this venue.</p>
               )}
 
               {data.notes ? (
