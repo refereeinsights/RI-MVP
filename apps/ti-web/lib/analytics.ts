@@ -7,15 +7,23 @@ type AnalyticsPayload = {
   properties: AnalyticsProperties;
 };
 
-export async function sendTiAnalytics(event: string, properties: AnalyticsProperties) {
+type SendTiAnalyticsOptions = {
+  preferBeacon?: boolean;
+};
+
+export async function sendTiAnalytics(
+  event: string,
+  properties: AnalyticsProperties,
+  options: SendTiAnalyticsOptions = {}
+) {
   const payload: AnalyticsPayload = { event, properties };
 
   try {
+    const supportsBeacon = typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function";
     const shouldPreferBeacon =
-      typeof document !== "undefined" &&
-      document.visibilityState === "hidden" &&
-      typeof navigator !== "undefined" &&
-      typeof navigator.sendBeacon === "function";
+      supportsBeacon &&
+      (options.preferBeacon ||
+        (typeof document !== "undefined" && document.visibilityState === "hidden"));
 
     if (shouldPreferBeacon) {
       const body = new Blob([JSON.stringify(payload)], { type: "application/json" });

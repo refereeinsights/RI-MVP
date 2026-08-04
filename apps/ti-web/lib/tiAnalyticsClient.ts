@@ -5,8 +5,8 @@ import type { TiAnalyticsEventName, TiAnalyticsEventPropertiesByName } from "@/l
 
 export function trackTiEvent<E extends TiAnalyticsEventName>(
   event: E,
-  properties: TiAnalyticsEventPropertiesByName[E]
+  properties: TiAnalyticsEventPropertiesByName[E],
+  options?: { preferBeacon?: boolean }
 ) {
-  return sendTiAnalytics(event, properties as Record<string, unknown>);
+  return sendTiAnalytics(event, properties as Record<string, unknown>, options);
 }
-

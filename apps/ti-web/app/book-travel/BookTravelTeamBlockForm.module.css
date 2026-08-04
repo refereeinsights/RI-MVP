@@ -75,6 +75,46 @@
   margin-bottom: 4px;
 }
 
+.successEyebrow {
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1d6b45;
+  margin-bottom: 6px;
+}
+
+.successSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin: 12px 0 0;
+}
+
+.successSummary dt {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2e5a46;
+}
+
+.successSummary dd {
+  margin: 3px 0 0;
+  font-weight: 700;
+  color: #123020;
+}
+
+.successNextSteps {
+  margin-top: 10px;
+}
+
+.successActions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 14px;
+}
+
 .error {
   background: rgba(140, 42, 42, 0.1);
   border: 1px solid rgba(140, 42, 42, 0.16);
@@ -197,6 +237,17 @@
   cursor: pointer;
 }
 
+.secondaryButton {
+  appearance: none;
+  border: 1px solid rgba(22, 66, 46, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #123020;
+  font-weight: 800;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
 .submitButton:disabled {
   opacity: 0.7;
   cursor: default;
@@ -222,5 +273,9 @@
 
   .submitButton {
     width: 100%;
+  }
+
+  .successSummary {
+    grid-template-columns: 1fr;
   }
 }

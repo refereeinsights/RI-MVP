@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
+import { createTeamHotelCtaInteractionId, rememberPendingTeamHotelEntry, rememberLastTeamHotelCtaInteractionId } from "@/lib/teamHotelClientTracking";
 import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import styles from "./TournamentPlanningCtasClient.module.css";
 
@@ -186,6 +187,14 @@ export default function TournamentPlanningCtasClient(props: {
           className={styles.teamHotelLink}
           href={teamHotelHref}
           onClick={() => {
+            const ctaInteractionId = createTeamHotelCtaInteractionId();
+            rememberLastTeamHotelCtaInteractionId(ctaInteractionId);
+            rememberPendingTeamHotelEntry({
+              key: `tournament:${Date.now().toString(36)}:${ctaInteractionId}`,
+              sourceSurface: "tournament",
+              sourcePath: typeof window !== "undefined" ? window.location.pathname + window.location.search : `/tournaments/${encodeURIComponent(slug)}`,
+              ctaInteractionId,
+            });
             void trackTiEvent("team_hotel_cta_clicked", {
               surface: "tournament",
               source_page_type: "tournament",
@@ -195,13 +204,14 @@ export default function TournamentPlanningCtasClient(props: {
               auth_state: props.authState,
               entitlement: props.entitlement,
               context_type: "team_hotel",
+              cta_interaction_id: ctaInteractionId,
               tournament_id: props.tournamentId,
               venue_id: props.primaryVenueId ?? undefined,
               entry_source: "tournament_detail",
               entry_page_type: "tournament",
               entry_path: typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined,
               entry_placement: "tournament_detail_team_hotel_cta",
-            });
+            }, { preferBeacon: true });
           }}
         >
           Need rooms for the team? Request team hotel options →

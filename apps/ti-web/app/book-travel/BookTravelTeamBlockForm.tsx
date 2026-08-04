@@ -535,6 +535,7 @@ export default function BookTravelTeamBlockForm({
         <>
       {success ? (
         <div ref={successRef} className={styles.success} role="status" aria-live="polite" tabIndex={-1}>
+          <div className={styles.successEyebrow}>Request submitted successfully</div>
           <div className={styles.successTitle}>Your request is on its way</div>
           <div>
             We&apos;ve sent your team hotel request for{" "}
@@ -542,6 +543,41 @@ export default function BookTravelTeamBlockForm({
             specialists. Expect options within 24–48 hours
             {form.email ? ` at ${form.email}` : ""}.
             {success.requestId ? ` Ref: ${success.requestId}.` : ""}
+          </div>
+          <dl className={styles.successSummary}>
+            <div>
+              <dt>Destination</dt>
+              <dd>{readableDestinationContext || providerDestination}</dd>
+            </div>
+            <div>
+              <dt>Dates</dt>
+              <dd>
+                {form.checkin} → {form.checkout}
+              </dd>
+            </div>
+            <div>
+              <dt>Rooms</dt>
+              <dd>{form.rooms}</dd>
+            </div>
+            <div>
+              <dt>Group</dt>
+              <dd>{form.groupName}</dd>
+            </div>
+          </dl>
+          <div className={styles.successNextSteps}>
+            Next: watch for a follow-up from our lodging partner, and keep the tournament’s official stay-to-play guidance in mind if the event requires a specific booking path.
+          </div>
+          <div className={styles.successActions}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => {
+                setSuccess(null);
+                setError(null);
+              }}
+            >
+              Submit another request
+            </button>
           </div>
         </div>
       ) : null}

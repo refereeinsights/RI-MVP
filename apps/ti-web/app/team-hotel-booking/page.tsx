@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import styles from "./page.module.css";
 import BookTravelTeamBlockForm from "../book-travel/BookTravelTeamBlockForm";
-import TeamHotelLandingTracker from "./TeamHotelLandingTracker";
 import TeamHotelLandingPrimaryCta from "./TeamHotelLandingPrimaryCta";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
@@ -129,21 +128,6 @@ export default async function TeamHotelBookingPage({
     <main className="pitchWrap tournamentsWrap">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
-      <TeamHotelLandingTracker
-        authState={authState}
-        entitlement={entitlement}
-        userId={user?.id ?? null}
-        tournamentId={tournamentId}
-        tournamentSlug={tournamentSlug}
-        venueId={venueId}
-        sport={sport}
-        eventStartDate={checkin || undefined}
-        eventEndDate={checkout || undefined}
-        entrySource={entrySource}
-        entryPageType={entryPageType}
-        entryPath={entryPath}
-        entryPlacement={entryPlacement}
-      />
       <section className="field tournamentsField">
         <div className={styles.wrap}>
           <header className={styles.hero}>

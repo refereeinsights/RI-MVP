@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import AccountIconMenu from "@/components/AccountIconMenu";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import TeamTravelHeaderLink from "@/components/TeamTravelHeaderLink";
+import TeamHotelRouteTracker from "@/components/TeamHotelRouteTracker";
 import "./globals.css";
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -79,6 +80,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       <body className="ti-body">
         <div className="ti-app">
+          <TeamHotelRouteTracker authState={authState} entitlement={isLoggedIn ? tier : "unknown"} userId={user?.id ?? null} />
           <header className="ti-header">
             <div className="ti-header-shell">
               <Link href="/" className="ti-logo" aria-label="Tournament Insights home">

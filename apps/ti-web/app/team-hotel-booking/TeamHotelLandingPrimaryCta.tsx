@@ -7,6 +7,7 @@ import {
   currentPathWithSearch,
   getAnonymousVisitorId,
   getTeamHotelSessionId,
+  rememberPendingTeamHotelEntry,
   rememberLastTeamHotelCtaInteractionId,
 } from "@/lib/teamHotelClientTracking";
 
@@ -81,6 +82,12 @@ export default function TeamHotelLandingPrimaryCta(props: TeamHotelLandingPrimar
       onClick={() => {
         const ctaInteractionId = createTeamHotelCtaInteractionId();
         rememberLastTeamHotelCtaInteractionId(ctaInteractionId);
+        rememberPendingTeamHotelEntry({
+          key: `landing:${Date.now().toString(36)}:${ctaInteractionId}`,
+          sourceSurface: "team_hotel_booking_landing",
+          sourcePath: currentPathWithSearch() ?? "/team-hotel-booking",
+          ctaInteractionId,
+        });
         void sendTiAnalytics("team_hotel_cta_clicked", {
           surface: "team_hotel",
           source_surface: "team_hotel_booking_landing",
@@ -106,7 +113,7 @@ export default function TeamHotelLandingPrimaryCta(props: TeamHotelLandingPrimar
           sport: props.sport ?? undefined,
           event_start_date: props.eventStartDate ?? undefined,
           event_end_date: props.eventEndDate ?? undefined,
-        });
+        }, { preferBeacon: true });
       }}
     >
       Request Team Hotel Options

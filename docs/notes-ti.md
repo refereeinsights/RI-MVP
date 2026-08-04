@@ -2532,3 +2532,42 @@ Maintenance rules:
 - 2026-07-27: TI HotelPlanner group-request attribution phase 2B.2 local verification.
   - Report: `docs/reports/ti-hotel-group-request-attribution-phase2b2-verification-2026-07-27.md`
   - Result: local TI-side verification passes, but HotelPlanner response and RFP/report-row preservation of `Custom3`–`Custom6` remain unverified pending controlled external testing.
+
+- 2026-08-04: TI Team Travel SPA measurement follow-up and visible success confirmation.
+  - Files:
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/components/TeamHotelRouteTracker.tsx`
+    - `apps/ti-web/components/TeamTravelHeaderLink.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx`
+    - `apps/ti-web/app/team-hotel-booking/page.tsx`
+    - `apps/ti-web/app/team-hotel-booking/TeamHotelLandingPrimaryCta.tsx`
+    - `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx`
+    - `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.module.css`
+    - `apps/ti-web/lib/analytics.ts`
+    - `apps/ti-web/lib/tiAnalyticsClient.ts`
+    - `apps/ti-web/lib/teamHotelClientTracking.ts`
+  - Changes:
+    - Moved `team_hotel_landing_viewed` ownership to a route-level tracker mounted from TI layout so `/team-hotel-booking` is measured on client-side transitions as well as hard loads.
+    - Added session-scoped dedupe for Team Travel landing views keyed by full path.
+    - Hardened header, landing, and tournament Team Travel click events to prefer beacon transport during route transitions.
+    - Removed the obsolete page-local landing tracker to avoid duplicate ownership of the landing-view event.
+    - Expanded the successful Team Travel request state with explicit confirmation copy, next-step guidance, and a visible “Submit another request” action so success no longer reads like the form silently disappeared.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run lint --workspace ti-web`
+- 2026-08-04: TI Team Travel follow-up fix for SPA header landing measurement and explicit submit confirmation.
+  - Files:
+    - `apps/ti-web/components/TeamHotelRouteTracker.tsx`
+    - `apps/ti-web/components/TeamTravelHeaderLink.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx`
+    - `apps/ti-web/app/team-hotel-booking/TeamHotelLandingPrimaryCta.tsx`
+    - `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx`
+    - `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.module.css`
+    - `apps/ti-web/lib/teamHotelClientTracking.ts`
+  - Changes:
+    - Added pending Team Travel entry handoff storage so the `/team-hotel-booking` route tracker records `team_hotel_landing_viewed` for real SPA arrivals from the header and tournament CTA paths even when the destination path was already visited in the same session.
+    - Included `source_surface`, `source_path`, and `cta_interaction_id` in the landing-view handoff where available.
+    - Expanded the successful Team Travel submit state with an explicit success eyebrow, durable confirmation copy, a submitted-request summary, next-step guidance, and a visible “Submit another request” action.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run lint --workspace ti-web`

@@ -8,6 +8,7 @@ import {
   createTeamHotelCtaInteractionId,
   getAnonymousVisitorId,
   getTeamHotelSessionId,
+  rememberPendingTeamHotelEntry,
   rememberLastTeamHotelCtaInteractionId,
 } from "@/lib/teamHotelClientTracking";
 
@@ -45,6 +46,12 @@ export default function TeamTravelHeaderLink(props: TeamTravelHeaderLinkProps) {
       onClick={() => {
         const ctaInteractionId = createTeamHotelCtaInteractionId();
         rememberLastTeamHotelCtaInteractionId(ctaInteractionId);
+        rememberPendingTeamHotelEntry({
+          key: `header:${Date.now().toString(36)}:${ctaInteractionId}`,
+          sourceSurface: "global_header",
+          sourcePath,
+          ctaInteractionId,
+        });
         void sendTiAnalytics("team_hotel_header_cta_clicked", {
           surface: "global_header",
           source_page_type: "other",
@@ -57,7 +64,7 @@ export default function TeamTravelHeaderLink(props: TeamTravelHeaderLinkProps) {
           current_page_path: sourcePath,
           cta_label: "Team Travel",
           cta_interaction_id: ctaInteractionId,
-        });
+        }, { preferBeacon: true });
       }}
     >
       Team Travel
