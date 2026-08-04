@@ -2582,3 +2582,14 @@ Maintenance rules:
   - Interpretation:
     - The prior missing-landing and silent-success reports are not reproducible in a clean session and are treated as dirty-tab/session-state artifacts, not current product defects.
     - The separate venue-specific Team Travel CTA surface gap remains outside this rerun’s scope.
+- 2026-08-04: TI Team Travel production UAT passes after deploy.
+  - Evidence source: clean-session Claude production browser verification on `https://www.tournamentinsights.com`.
+  - Result:
+    - Direct `/team-hotel-booking` hard load rendered correctly with healthy analytics calls and no console errors.
+    - Header Team Travel SPA navigation fired `team_hotel_header_cta_clicked`, `team_hotel_landing_viewed`, `team_hotel_header_cta_viewed`, and `team_hotel_cta_viewed` once each.
+    - Tournament detail Team Travel CTA SPA navigation preserved full prefill and fired the expected Team Travel event set once each.
+    - Failure-path validation blocked blank and invalid-date submits without false success or lodging requests.
+    - One real production request submitted successfully with a clear visible confirmation state, request summary, and reference `8717651`.
+    - “Submit another request” reset the form without creating a duplicate lodging request.
+    - No console/runtime regressions were observed.
+  - Verdict: production PASS; no further Team Travel patching required for this launch surface.
