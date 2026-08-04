@@ -14,6 +14,7 @@ Maintenance rules:
 
 ## 2026-08-04
 
+- TI Weekend Planner activation measurement repair: added `weekend_planner_first_action_available` (true anonymous-treatment availability denominator) and `weekend_planner_first_action_cta_viewed` (once-per-session viewport visibility) in the planner client, analytics typing, and analytics ingestion path; updated the admin email treatment funnel to insert the new availability step ahead of CTA click/form stages while preserving `weekend_planner_ready` as technical readiness; and extended `team_hotel_request_started` / `team_hotel_request_submitted` to persist `request_id` plus `outbound_attribution_id` for later duplicate/retry reconciliation. Validation passed with focused planner tests and `npx tsc -p apps/ti-web/tsconfig.json --noEmit`. See `docs/notes-ti.md` for details.
 - TI HotelPlanner individual booking — checkout route attribution fixed (`source_surface` hardcode removed, full attribution field set now logged to `ti_outbound_clicks`). See `docs/notes-ti.md` for details.
 - TI HotelPlanner group request — improved submission messaging (processing indicator, warmer success copy with email echo and 24–48h timing). See `docs/notes-ti.md` for details.
 - TI HotelPlanner group request — three bugs fixed (duplicate submission, stale custom8 override, children count dropped). See `docs/notes-ti.md` for details.

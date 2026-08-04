@@ -15,6 +15,30 @@ Maintenance rules:
 
 ## 2026-08-04
 
+- TI Weekend Planner activation measurement repair:
+  - Added two new anonymous-treatment instrumentation events in `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/lib/tiAnalyticsEvents.ts`, and `apps/ti-web/app/api/analytics/route.ts`:
+    - `weekend_planner_first_action_available` — technical activation availability for the signed-out seeded tournament planner path, fired once per `planner_session_id` only after the canonical `Add first event` CTA is rendered, enabled, interactive, and the planner is no longer loading.
+    - `weekend_planner_first_action_cta_viewed` — viewport-level first-action CTA visibility, fired once per `planner_session_id` when the canonical entry-card CTA intersects the viewport.
+  - Preserved `weekend_planner_ready` unchanged as the technical readiness metric.
+  - Updated `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts` so the treatment funnel now reports:
+    - planner ready
+    - first action available
+    - first-action CTA viewed
+    - first-action CTA clicked
+    - form open
+    - form start
+    - submit
+    - temporary event persisted
+    - meaningful activation
+    - save prompt
+  - Extended team-hotel request analytics in `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx`, `apps/ti-web/lib/tiAnalyticsEvents.ts`, and `apps/ti-web/app/api/analytics/route.ts` so `team_hotel_request_started` and `team_hotel_request_submitted` now persist `request_id` and `outbound_attribution_id` alongside `planner_session_id`.
+  - Added focused tests:
+    - `apps/ti-web/lib/planner/firstActionAvailability.test.ts`
+    - extended `apps/ti-web/lib/planner/plannerSession.test.ts`
+  - Validation passed:
+    - `node --import tsx --test apps/ti-web/lib/planner/firstActionAvailability.test.ts apps/ti-web/lib/planner/plannerSession.test.ts apps/ti-web/lib/planner/plannerActivationExperiment.test.ts`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+
 - TI HotelPlanner individual booking — checkout route attribution fixed:
   - `apps/ti-web/app/go/hotels/checkout/route.ts` previously logged almost nothing to `ti_outbound_clicks`: `source_surface` was hardcoded to `"venue_map_room_rate"`, and all attribution fields (`outbound_attribution_id`, `job_code`, `keyword`, `partner_source_code`, `custom_field1–8`, `cta_placement`, `device_type`, `traffic_source`, `source_page_type`) were missing.
   - Route is called by HP's white-label property page (not by TI client code directly), so attribution params arrive via POST form data and optionally URL query params.

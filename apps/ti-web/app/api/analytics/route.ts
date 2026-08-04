@@ -134,6 +134,8 @@ const PLANNER_EVENTS = new Set([
   "weekend_planner_auth_started",
   "weekend_planner_auth_completed",
   "weekend_planner_start_clicked",
+  "weekend_planner_first_action_available",
+  "weekend_planner_first_action_cta_viewed",
   "weekend_planner_first_action_cta_clicked",
   "weekend_planner_manual_event_form_opened",
   "weekend_planner_manual_event_form_started",
@@ -468,6 +470,8 @@ export async function POST(request: Request) {
     const temporaryPlanId = asTextWithLimit((props as any).temporary_plan_id, 128);
     const failureReason = asTextWithLimit((props as any).failure_reason, 256);
     const deviceType = asTextWithLimit((props as any).device_type, 32);
+    const requestId = asTextWithLimit((props as any).request_id, 128);
+    const outboundAttributionId = asTextWithLimit((props as any).outbound_attribution_id, 128);
     const loadedEventCountBucket = asTextWithLimit((props as any).loaded_event_count_bucket, 16);
     const feedCountBucket = asTextWithLimit((props as any).feed_count_bucket, 16);
     const childTeamCountBucket = asTextWithLimit((props as any).child_team_count_bucket, 16);
@@ -507,6 +511,8 @@ export async function POST(request: Request) {
           temporary_plan_id: temporaryPlanId,
           failure_reason: failureReason,
           device_type: deviceType,
+          request_id: requestId,
+          outbound_attribution_id: outboundAttributionId,
           view,
           loaded_event_count_bucket: loadedEventCountBucket,
           feed_count_bucket: feedCountBucket,

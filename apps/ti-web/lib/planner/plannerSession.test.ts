@@ -4,8 +4,10 @@ import {
   buildTournamentPlannerEntryHref,
   buildPlannerHref,
   buildPlannerSessionParams,
+  markPlannerSessionEventSeen,
   normalizePlannerSessionId,
   parsePlannerSessionContext,
+  wasPlannerSessionEventSeen,
 } from "./plannerSession";
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
@@ -68,4 +70,27 @@ test("tournament planner entry href preserves a provided planner session id", ()
   assert.equal(parsed.searchParams.get("feature_flag_state"), "enabled");
   assert.equal(parsed.searchParams.get("venue"), "v-1");
   assert.equal(parsed.searchParams.get("source"), "tournament_detail");
+});
+
+test("planner session event flags suppress duplicate tracking across refresh-like reuse", () => {
+  const store = new Map<string, string>();
+  (globalThis as any).window = {
+    sessionStorage: {
+      getItem(key: string) {
+        return store.has(key) ? store.get(key) ?? null : null;
+      },
+      setItem(key: string, value: string) {
+        store.set(key, value);
+      },
+    },
+  };
+
+  try {
+    assert.equal(wasPlannerSessionEventSeen(SESSION_ID, "weekend_planner_first_action_available"), false);
+    markPlannerSessionEventSeen(SESSION_ID, "weekend_planner_first_action_available");
+    assert.equal(wasPlannerSessionEventSeen(SESSION_ID, "weekend_planner_first_action_available"), true);
+    assert.equal(wasPlannerSessionEventSeen(SESSION_ID, "weekend_planner_first_action_cta_viewed"), false);
+  } finally {
+    delete (globalThis as any).window;
+  }
 });

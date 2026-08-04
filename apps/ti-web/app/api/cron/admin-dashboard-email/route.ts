@@ -332,6 +332,8 @@ async function loadWeekendPlannerDailySummary(params: {
       "weekend_planner_auth_required_viewed",
       "weekend_planner_create_account_clicked",
       "weekend_planner_sign_in_clicked",
+      "weekend_planner_first_action_available",
+      "weekend_planner_first_action_cta_viewed",
       "weekend_planner_first_action_cta_clicked",
       "weekend_planner_manual_event_form_opened",
       "weekend_planner_manual_event_form_started",
@@ -531,6 +533,8 @@ async function loadWeekendPlannerDailySummary(params: {
     const treatmentPlannerEntries = treatmentSessionIds.size;
     const treatmentPlannerReadySessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_ready");
     const treatmentEmptyStateSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_empty_state_viewed");
+    const treatmentFirstActionAvailableSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_first_action_available");
+    const treatmentFirstActionCtaViewedSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_first_action_cta_viewed");
     const treatmentFirstActionCtaSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_first_action_cta_clicked");
     const treatmentFormOpenedSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_manual_event_form_opened");
     const treatmentFormStartedSessions = countSessionsByEvent(treatmentSessionIds, (row) => row.event_name === "weekend_planner_manual_event_form_started");
@@ -560,14 +564,16 @@ async function loadWeekendPlannerDailySummary(params: {
       { label: "Unique CTA sessions", rawEvents: plannerClicks, uniqueSessions: treatmentCtaSessions, conversionFromPrior: formatRatioPercent(treatmentCtaSessions, plannerCtaImpressions) },
       { label: "Tournament-attributed planner entries", rawEvents: plannerEntries, uniqueSessions: treatmentPlannerEntries, conversionFromPrior: formatRatioPercent(treatmentPlannerEntries, treatmentCtaSessions) },
       { label: "Planner-ready sessions", rawEvents: plannerReady, uniqueSessions: treatmentPlannerReadySessions, conversionFromPrior: formatRatioPercent(treatmentPlannerReadySessions, treatmentPlannerEntries) },
-      { label: "Empty-state sessions", rawEvents: emptyStateViewed, uniqueSessions: treatmentEmptyStateSessions, conversionFromPrior: formatRatioPercent(treatmentEmptyStateSessions, treatmentPlannerReadySessions) },
-      { label: "First-action CTA sessions", rawEvents: countEvents(rows, "weekend_planner_first_action_cta_clicked"), uniqueSessions: treatmentFirstActionCtaSessions, conversionFromPrior: formatRatioPercent(treatmentFirstActionCtaSessions, treatmentPlannerReadySessions) },
+      { label: "First-action available sessions", rawEvents: countEvents(rows, "weekend_planner_first_action_available"), uniqueSessions: treatmentFirstActionAvailableSessions, conversionFromPrior: formatRatioPercent(treatmentFirstActionAvailableSessions, treatmentPlannerReadySessions) },
+      { label: "First-action CTA viewed sessions", rawEvents: countEvents(rows, "weekend_planner_first_action_cta_viewed"), uniqueSessions: treatmentFirstActionCtaViewedSessions, conversionFromPrior: formatRatioPercent(treatmentFirstActionCtaViewedSessions, treatmentFirstActionAvailableSessions) },
+      { label: "First-action CTA sessions", rawEvents: countEvents(rows, "weekend_planner_first_action_cta_clicked"), uniqueSessions: treatmentFirstActionCtaSessions, conversionFromPrior: formatRatioPercent(treatmentFirstActionCtaSessions, treatmentFirstActionAvailableSessions) },
       { label: "Form-open sessions", rawEvents: countEvents(rows, "weekend_planner_manual_event_form_opened"), uniqueSessions: treatmentFormOpenedSessions, conversionFromPrior: formatRatioPercent(treatmentFormOpenedSessions, treatmentFirstActionCtaSessions) },
       { label: "Form-start sessions", rawEvents: countEvents(rows, "weekend_planner_manual_event_form_started"), uniqueSessions: treatmentFormStartedSessions, conversionFromPrior: formatRatioPercent(treatmentFormStartedSessions, treatmentFormOpenedSessions) },
       { label: "Submitted sessions", rawEvents: countEvents(rows, "weekend_planner_manual_event_submitted"), uniqueSessions: treatmentSubmittedSessions, conversionFromPrior: formatRatioPercent(treatmentSubmittedSessions, treatmentFormStartedSessions) },
       { label: "Persisted-event sessions", rawEvents: countEvents(rows, "weekend_planner_temporary_event_persisted"), uniqueSessions: treatmentPersistedSessions, conversionFromPrior: formatRatioPercent(treatmentPersistedSessions, treatmentSubmittedSessions) },
       { label: "Activated sessions", rawEvents: meaningfulActivations, uniqueSessions: treatmentActivatedSessions, conversionFromPrior: formatRatioPercent(treatmentActivatedSessions, treatmentPersistedSessions) },
       { label: "Save-prompt sessions", rawEvents: savePromptViewed, uniqueSessions: treatmentSavePromptSessions, conversionFromPrior: formatRatioPercent(treatmentSavePromptSessions, treatmentPersistedSessions) },
+      { label: "Empty-state sessions", rawEvents: emptyStateViewed, uniqueSessions: treatmentEmptyStateSessions, conversionFromPrior: formatRatioPercent(treatmentEmptyStateSessions, treatmentPlannerReadySessions) },
     ];
 
     const directPlannerFunnel = [

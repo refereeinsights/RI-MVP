@@ -26,6 +26,7 @@ import { inferAssignmentFromSourceLabel } from "@/lib/planner/inferAssignmentFro
 import { sanitizeIcsNotesForDisplay } from "@/lib/planner/icsNoteSanitizer";
 import { isMapLinkEligibleLocation, mapsSearchUrl, plannerEventLocationForMaps } from "@/lib/planner/venueResolution";
 import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
+import { shouldEmitPlannerFirstActionAvailable } from "@/lib/planner/firstActionAvailability";
 import type {
   PlannerChildWithTeamsRow,
   PlannerEventCreateBody,
@@ -570,6 +571,19 @@ export default function PlannerClient(props: Props) {
     }
   }
 
+  function isVisiblyInteractiveButton(element: HTMLButtonElement | null) {
+    if (!element) return false;
+    if (!element.isConnected || element.disabled) return false;
+    if (element.getAttribute("aria-hidden") === "true") return false;
+    try {
+      const style = window.getComputedStyle(element);
+      if (style.display === "none" || style.visibility === "hidden" || style.pointerEvents === "none") return false;
+    } catch {
+      return false;
+    }
+    return element.getClientRects().length > 0;
+  }
+
   function trackPlannerFirstAction(firstActionType: "manual_event_created" | "guest_share_created" | "calendar_feed_created" | "team_hotel_clicked" | "view_toggle") {
     const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
     if (!plannerSessionId) return;
@@ -729,6 +743,7 @@ export default function PlannerClient(props: Props) {
   const plannerActivationTrackedRef = useRef(false);
   const createFormStartedTrackedRef = useRef(false);
   const createFormLocationRef = useRef<"entry_card" | "saved_state_card" | "manual_event_card">("manual_event_card");
+  const firstActionEntryCtaRef = useRef<HTMLButtonElement | null>(null);
   const componentMountedRef = useRef(true);
   const emptyStateViewedKeysRef = useRef<Set<string>>(new Set());
   const [anonymousStorageReady, setAnonymousStorageReady] = useState(false);
@@ -1879,6 +1894,93 @@ export default function PlannerClient(props: Props) {
     plannerSourcePageType,
     plannerViewForAnalytics,
     sources.length,
+  ]);
+
+  useEffect(() => {
+    const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
+    if (!plannerSessionId) return;
+    if (
+      !shouldEmitPlannerFirstActionAvailable({
+        allowAnonymousPlanner,
+        initialLoadSettled: initialLoadSettledRef.current,
+        eventsPagingBusy,
+        busy,
+        createOpen,
+        anonymousManualEventCount,
+        plannerSessionContext: props.plannerSessionContext,
+        ctaRendered: Boolean(firstActionEntryCtaRef.current),
+        ctaEnabled: !firstActionEntryCtaRef.current?.disabled,
+        ctaInteractive: isVisiblyInteractiveButton(firstActionEntryCtaRef.current),
+      })
+    ) {
+      return;
+    }
+    if (wasPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action_available")) return;
+    markPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action_available");
+    trackPlannerEvent("weekend_planner_first_action_available", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      cta_type: "add_first_event",
+      auth_state: "signed_out",
+      entitlement: entitlementForAnalytics,
+      form_location: "entry_card",
+      device_type: plannerDeviceType(),
+    });
+  }, [
+    allowAnonymousPlanner,
+    anonymousManualEventCount,
+    busy,
+    createOpen,
+    entitlementForAnalytics,
+    eventsPagingBusy,
+    plannerSourcePageType,
+    props.plannerSessionContext,
+  ]);
+
+  useEffect(() => {
+    const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
+    const cta = firstActionEntryCtaRef.current;
+    if (!plannerSessionId || !cta) return;
+    if (!allowAnonymousPlanner || anonymousManualEventCount !== 0 || createOpen) return;
+    if (!initialLoadSettledRef.current || eventsPagingBusy || busy) return;
+    if (!isVisiblyInteractiveButton(cta)) return;
+    if (wasPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action_cta_viewed")) return;
+
+    let cancelled = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (cancelled) return;
+        const visible = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio > 0);
+        if (!visible) return;
+        markPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action_cta_viewed");
+        trackPlannerEvent("weekend_planner_first_action_cta_viewed", {
+          surface: "planner",
+          source_page_type: plannerSourcePageType,
+          cta_type: "add_first_event",
+          auth_state: "signed_out",
+          entitlement: entitlementForAnalytics,
+          form_location: "entry_card",
+          device_type: plannerDeviceType(),
+        });
+        observer.disconnect();
+      },
+      { threshold: 0.25 },
+    );
+
+    observer.observe(cta);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [
+    allowAnonymousPlanner,
+    anonymousManualEventCount,
+    busy,
+    createOpen,
+    entitlementForAnalytics,
+    eventsPagingBusy,
+    plannerSourcePageType,
+    props.plannerSessionContext,
   ]);
 
   useEffect(() => {
@@ -3704,7 +3806,7 @@ export default function PlannerClient(props: Props) {
                   : "Best next step: add one manual event for your hotel, check-in, meal, or travel plan."}
               </div>
               <div className={styles.eventActions} style={{ marginTop: 10 }}>
-                <button className={styles.primaryBtn} type="button" onClick={() => openManualEventFromTop("entry_card")} disabled={busy}>
+                <button ref={firstActionEntryCtaRef} className={styles.primaryBtn} type="button" onClick={() => openManualEventFromTop("entry_card")} disabled={busy}>
                   {anonymousManualEventCount > 0 ? "Add another event" : "Add first event"}
                 </button>
                 {anonymousManualEventCount > 0 ? (

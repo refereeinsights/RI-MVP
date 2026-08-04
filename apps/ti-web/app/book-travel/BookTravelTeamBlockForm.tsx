@@ -195,6 +195,8 @@ export default function BookTravelTeamBlockForm({
       current_page_path: plannerTrackingContext?.current_page_path ?? undefined,
       tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
       venue_id: plannerTrackingContext?.venue_id ?? undefined,
+      request_id: null,
+      outbound_attribution_id: outboundAttributionIdRef.current,
     });
   }
 
@@ -351,6 +353,8 @@ export default function BookTravelTeamBlockForm({
         current_page_path: plannerTrackingContext?.current_page_path ?? undefined,
         tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
         venue_id: plannerTrackingContext?.venue_id ?? undefined,
+        request_id: payload.requestId ?? null,
+        outbound_attribution_id: outboundAttributionId,
       });
     } catch (submitError: any) {
       const message = submitError?.message || "Unable to submit the team hotel block request right now.";
