@@ -2571,3 +2571,14 @@ Maintenance rules:
   - Validation:
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
     - `npm run lint --workspace ti-web`
+- 2026-08-04: TI Team Travel local UAT rerun clears SPA landing and success-state concerns.
+  - Evidence source: clean-session Claude browser rerun after commit `e600a250`.
+  - Result:
+    - Header SPA navigation now fires `team_hotel_landing_viewed` consistently alongside `team_hotel_header_cta_clicked`, `team_hotel_header_cta_viewed`, and `team_hotel_cta_viewed`.
+    - Tournament CTA SPA navigation fires the expected Team Travel events once each with full prefill preserved.
+    - Successful submit now shows a clear visible confirmation state with destination, dates, contact email, and request reference.
+    - Retry does not create a duplicate lodging request.
+    - No console/runtime errors reproduced.
+  - Interpretation:
+    - The prior missing-landing and silent-success reports are not reproducible in a clean session and are treated as dirty-tab/session-state artifacts, not current product defects.
+    - The separate venue-specific Team Travel CTA surface gap remains outside this rerun’s scope.
