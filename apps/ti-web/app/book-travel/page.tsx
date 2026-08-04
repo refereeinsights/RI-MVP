@@ -1,6 +1,7 @@
 // /weekend-planner renders the same experience and will redirect here once the calendar-based
 // Weekend Planner product is ready to claim that route.
 import "../tournaments/tournaments.css";
+import Link from "next/link";
 import WeekendPlannerClient from "../weekend-planner/WeekendPlannerClient";
 import styles from "../weekend-planner/WeekendPlanner.module.css";
 import BookTravelTeamBlockForm from "./BookTravelTeamBlockForm";
@@ -78,6 +79,12 @@ export default async function BookTravelPage() {
         />
 
         <BookTravelTeamBlockForm authState={authState} entitlement={entitlement} />
+
+        <section style={{ marginTop: 12 }}>
+          <p className={styles.smallHelper} style={{ margin: 0 }}>
+            Planning 5+ rooms for a team? Use the dedicated <Link href="/team-hotel-booking">team hotel booking page</Link>.
+          </p>
+        </section>
 
         <section className={styles.faqBlock} aria-label="Book travel FAQs">
           <h2 className={styles.faqTitle}>FAQs for tournament travel</h2>

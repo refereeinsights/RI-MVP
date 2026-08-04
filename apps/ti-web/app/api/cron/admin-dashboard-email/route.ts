@@ -114,6 +114,8 @@ type WeekendPlannerDailySummary =
         ctaClicks: number;
         formStarts: number;
         requestsSubmitted: number;
+        requestsSucceeded: number;
+        requestsFailed: number;
       };
       weekendProInterest: {
         gateViews: number;
@@ -360,6 +362,8 @@ async function loadWeekendPlannerDailySummary(params: {
       "team_hotel_cta_clicked",
       "team_hotel_request_started",
       "team_hotel_request_submitted",
+      "team_hotel_request_succeeded",
+      "team_hotel_request_failed",
       "premium_modal_viewed",
       "premium_cta_clicked",
       "planner_weekend_pro_gate_viewed",
@@ -427,6 +431,8 @@ async function loadWeekendPlannerDailySummary(params: {
     const teamHotelClicks = countEvents(rows, "team_hotel_cta_clicked");
     const teamHotelStarts = countEvents(rows, "team_hotel_request_started");
     const teamHotelSubmitted = countEvents(rows, "team_hotel_request_submitted");
+    const teamHotelSucceeded = countEvents(rows, "team_hotel_request_succeeded");
+    const teamHotelFailed = countEvents(rows, "team_hotel_request_failed");
     const premiumViews = countEvents(rows, "premium_modal_viewed");
     const premiumClicks = countEvents(rows, "premium_cta_clicked");
     const plannerGateViews = countEvents(rows, "planner_weekend_pro_gate_viewed");
@@ -740,6 +746,8 @@ async function loadWeekendPlannerDailySummary(params: {
         ctaClicks: teamHotelClicks,
         formStarts: teamHotelStarts,
         requestsSubmitted: teamHotelSubmitted,
+        requestsSucceeded: teamHotelSucceeded,
+        requestsFailed: teamHotelFailed,
       },
       weekendProInterest: {
         gateViews: plannerGateViews,
@@ -913,6 +921,8 @@ function renderWeekendPlannerSummaryHtml(params: {
     },
     { label: "Team hotel form starts", value: summary.teamHotel.formStarts },
     { label: "Team hotel requests submitted", value: summary.teamHotel.requestsSubmitted },
+    { label: "Team hotel requests succeeded", value: summary.teamHotel.requestsSucceeded },
+    { label: "Team hotel requests failed", value: summary.teamHotel.requestsFailed },
   ]);
 
   const weekendProHtml = renderMetricRows([

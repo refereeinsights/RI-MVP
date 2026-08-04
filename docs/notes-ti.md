@@ -15,6 +15,30 @@ Maintenance rules:
 
 ## 2026-08-04
 
+- TI team hotel booking SEO and attribution slice:
+  - Added a new indexable, server-rendered landing page at `apps/ti-web/app/team-hotel-booking/page.tsx` with dedicated metadata, self-canonical, Open Graph fields, breadcrumb JSON-LD, FAQ JSON-LD, clear server-rendered explainer copy, and a mobile-friendly team-hotel request flow built on the existing `BookTravelTeamBlockForm`.
+  - Added landing-page measurement and attribution preservation:
+    - new client trackers `apps/ti-web/app/team-hotel-booking/TeamHotelLandingTracker.tsx` and `apps/ti-web/app/team-hotel-booking/TeamHotelLandingPrimaryCta.tsx`
+    - new shared query builder `apps/ti-web/lib/teamHotelBooking.ts`
+    - new focused helper test `apps/ti-web/lib/teamHotelBooking.test.ts`
+  - Reused the existing HotelPlanner group-request infrastructure instead of creating a second submission system; extended `apps/ti-web/app/book-travel/BookTravelTeamBlockForm.tsx` to support the canonical `/team-hotel-booking` surface, URL-prefilled destination/date context, and explicit `team_hotel_request_succeeded` / `team_hotel_request_failed` analytics while preserving the existing request API.
+  - Added contextual internal links into the canonical team-booking flow from:
+    - `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+    - `apps/ti-web/app/book-travel/page.tsx`
+  - Extended team-hotel analytics typing and ingestion in:
+    - `apps/ti-web/lib/tiAnalyticsEvents.ts`
+    - `apps/ti-web/app/api/analytics/route.ts`
+    - `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`
+    so the admin email now includes team-hotel succeeded/failed counts in addition to impressions, clicks, starts, and submitted requests.
+  - Added the new landing page to the static sitemap in `apps/ti-web/app/sitemaps/static.xml/route.ts`.
+  - Validation passed:
+    - `node --import tsx --test apps/ti-web/lib/teamHotelBooking.test.ts apps/ti-web/lib/hotelPlannerAttribution.test.ts apps/ti-web/lib/lodging/hotelPlannerProvider.test.ts`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run lint --workspace ti-web`
+    - `npm run build --workspace ti-web`
+  - Build caveat: the TI production build still emits pre-existing repo warnings and sandboxed Supabase DNS fetch warnings during static page generation, but the build completed successfully and this slice introduced no new type or lint failures.
+
 - TI Weekend Planner activation measurement repair:
   - Added two new anonymous-treatment instrumentation events in `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/lib/tiAnalyticsEvents.ts`, and `apps/ti-web/app/api/analytics/route.ts`:
     - `weekend_planner_first_action_available` — technical activation availability for the signed-out seeded tournament planner path, fired once per `planner_session_id` only after the canonical `Add first event` CTA is rendered, enabled, interactive, and the planner is no longer loading.

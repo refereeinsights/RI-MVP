@@ -10,6 +10,7 @@ import MobileMapLink from "@/components/venues/MobileMapLink";
 import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import VenuePageViewTracker from "@/components/analytics/VenuePageViewTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
+import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import {
   DEMO_STARFIRE_VENUE_ID,
   buildOwlsEyeDemoScores,
@@ -884,6 +885,23 @@ export default async function VenueDetailsPage({
     reviews_last_updated_at: activeScoreSource.reviews_last_updated_at,
     reviewChoices: reviewChoiceRows,
   });
+  const teamHotelHref = selectedTournament?.id
+    ? buildTeamHotelBookingHref({
+        tournamentId: selectedTournament.id,
+        tournamentName: selectedTournament.name ?? null,
+        venueId: data.id,
+        venueName: data.name ?? null,
+        city: data.city ?? null,
+        state: data.state ?? null,
+        sport: requestedVenueSport || selectedTournament?.sport || data.sport || null,
+        checkin: selectedTournament.start_date ?? null,
+        checkout: selectedTournament.end_date ?? null,
+        entrySource: "venue_detail",
+        entryPageType: "venue",
+        entryPath: `/venues/${encodeURIComponent(data.seo_slug || data.id)}${selectedTournament?.id ? `?tournament=${encodeURIComponent(selectedTournament.id)}` : ""}`,
+        entryPlacement: "venue_detail_team_hotel_cta",
+      })
+    : null;
   const venueStructuredData = buildVenueStructuredData(data);
 
   return (
@@ -922,6 +940,11 @@ export default async function VenueDetailsPage({
                     buttonLabel="Share This Weekend"
                     className="secondaryLink"
                   />
+                  {teamHotelHref ? (
+                    <Link href={teamHotelHref} className="secondaryLink">
+                      Book 5+ rooms for your team
+                    </Link>
+                  ) : null}
                 </div>
               ) : null}
 

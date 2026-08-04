@@ -91,11 +91,12 @@ function buildReadableDestinationContext(typedDestination: string, matchedVenue:
 }
 
 type BookTravelTeamBlockFormProps = {
-  surface?: "book_travel_page" | "weekend_planner";
+  surface?: "book_travel_page" | "weekend_planner" | "team_hotel_booking";
   defaultOpen?: boolean;
   showToggle?: boolean;
   entitlement?: "explorer" | "insider" | "weekend_pro" | "unknown";
   authState?: "signed_out" | "unverified" | "verified";
+  initialValues?: Partial<TeamBlockFormState>;
   plannerTrackingContext?: {
     planner_session_id?: string | null;
     experiment_name?: string | null;
@@ -118,10 +119,11 @@ export default function BookTravelTeamBlockForm({
   showToggle = true,
   entitlement = "unknown",
   authState = "signed_out",
+  initialValues,
   plannerTrackingContext = null,
 }: BookTravelTeamBlockFormProps = {}) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const [form, setForm] = useState<TeamBlockFormState>(DEFAULT_FORM);
+  const [form, setForm] = useState<TeamBlockFormState>({ ...DEFAULT_FORM, ...initialValues });
   const [matchedVenue, setMatchedVenue] = useState<VenueSuggestion | null>(null);
   const [venueResults, setVenueResults] = useState<VenueSuggestion[]>([]);
   const [venueSearching, setVenueSearching] = useState(false);
@@ -140,13 +142,16 @@ export default function BookTravelTeamBlockForm({
     () => buildReadableDestinationContext(form.destination, matchedVenue),
     [form.destination, matchedVenue]
   );
+  const sourcePageType =
+    surface === "weekend_planner" ? "planner" : surface === "team_hotel_booking" ? "team_hotel_booking" : "book_travel";
+  const sourceSurface = surface === "weekend_planner" ? "team_hotel" : surface === "team_hotel_booking" ? "team_hotel" : "travel";
 
   useEffect(() => {
     if (!showToggle || ctaViewedRef.current) return;
     ctaViewedRef.current = true;
     void sendTiAnalytics("team_hotel_cta_viewed", {
-      surface: surface === "weekend_planner" ? "team_hotel" : "travel",
-      source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",
+      surface: sourceSurface,
+      source_page_type: sourcePageType,
       cta_type: "team_hotel",
       auth_state: authState,
       entitlement,
@@ -164,7 +169,7 @@ export default function BookTravelTeamBlockForm({
       tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
       venue_id: plannerTrackingContext?.venue_id ?? undefined,
     });
-  }, [authState, entitlement, plannerTrackingContext, showToggle, surface]);
+  }, [authState, entitlement, plannerTrackingContext, showToggle, sourcePageType, sourceSurface]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -178,7 +183,7 @@ export default function BookTravelTeamBlockForm({
     outboundAttributionIdRef.current = outboundAttributionIdRef.current ?? createOutboundAttributionId();
     void sendTiAnalytics("team_hotel_request_started", {
       surface: "team_hotel",
-      source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",
+      source_page_type: sourcePageType,
       action_surface: "team_hotel",
       auth_state: authState,
       entitlement,
@@ -276,7 +281,7 @@ export default function BookTravelTeamBlockForm({
     try {
       const outboundAttributionId = outboundAttributionIdRef.current ?? createOutboundAttributionId();
       outboundAttributionIdRef.current = outboundAttributionId;
-      const sourcePageType = surface === "weekend_planner" ? "weekend_planner" : "book_travel";
+      const sourcePageTypeForRequest = surface === "weekend_planner" ? "weekend_planner" : surface === "team_hotel_booking" ? "team_hotel_booking" : "book_travel";
       const ctaPlacement =
         surface === "weekend_planner"
           ? HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS.weekendPlannerTeamBlock
@@ -315,10 +320,20 @@ export default function BookTravelTeamBlockForm({
           current_page_path:
             plannerTrackingContext?.current_page_path ??
             (typeof window !== "undefined" ? window.location.pathname + window.location.search : "/book-travel"),
-          source_page_type: sourcePageType,
-          source_path: typeof window !== "undefined" ? window.location.pathname + window.location.search : "/book-travel",
+          source_page_type: sourcePageTypeForRequest,
+          source_path:
+            typeof window !== "undefined"
+              ? window.location.pathname + window.location.search
+              : surface === "team_hotel_booking"
+                ? "/team-hotel-booking"
+                : "/book-travel",
           cta_placement: ctaPlacement,
-          page_url: typeof window !== "undefined" ? window.location.pathname + window.location.search : "/book-travel",
+          page_url:
+            typeof window !== "undefined"
+              ? window.location.pathname + window.location.search
+              : surface === "team_hotel_booking"
+                ? "/team-hotel-booking"
+                : "/book-travel",
           request_source: surface,
           outbound_attribution_id: outboundAttributionId,
         }),
@@ -336,7 +351,29 @@ export default function BookTravelTeamBlockForm({
       setSuccess({ requestId: payload.requestId ?? null });
       void sendTiAnalytics("team_hotel_request_submitted", {
         surface: "team_hotel",
-        source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",
+        source_page_type: sourcePageType,
+        action_surface: "team_hotel",
+        auth_state: authState,
+        entitlement,
+        context_type: "team_hotel",
+        planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+        experiment_name: plannerTrackingContext?.experiment_name ?? undefined,
+        experiment_variant: plannerTrackingContext?.experiment_variant ?? undefined,
+        feature_flag_state: plannerTrackingContext?.feature_flag_state ?? undefined,
+        entry_source: plannerTrackingContext?.entry_source ?? undefined,
+        entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
+        entry_path: plannerTrackingContext?.entry_path ?? undefined,
+        entry_placement: plannerTrackingContext?.entry_placement ?? undefined,
+        current_page_type: plannerTrackingContext?.current_page_type ?? undefined,
+        current_page_path: plannerTrackingContext?.current_page_path ?? undefined,
+        tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
+        venue_id: plannerTrackingContext?.venue_id ?? undefined,
+        request_id: payload.requestId ?? null,
+        outbound_attribution_id: outboundAttributionId,
+      });
+      void sendTiAnalytics("team_hotel_request_succeeded", {
+        surface: "team_hotel",
+        source_page_type: sourcePageType,
         action_surface: "team_hotel",
         auth_state: authState,
         entitlement,
@@ -359,6 +396,29 @@ export default function BookTravelTeamBlockForm({
     } catch (submitError: any) {
       const message = submitError?.message || "Unable to submit the team hotel block request right now.";
       setError(message);
+      void sendTiAnalytics("team_hotel_request_failed", {
+        surface: "team_hotel",
+        source_page_type: sourcePageType,
+        action_surface: "team_hotel",
+        auth_state: authState,
+        entitlement,
+        context_type: "team_hotel",
+        planner_session_id: plannerTrackingContext?.planner_session_id ?? undefined,
+        experiment_name: plannerTrackingContext?.experiment_name ?? undefined,
+        experiment_variant: plannerTrackingContext?.experiment_variant ?? undefined,
+        feature_flag_state: plannerTrackingContext?.feature_flag_state ?? undefined,
+        entry_source: plannerTrackingContext?.entry_source ?? undefined,
+        entry_page_type: plannerTrackingContext?.entry_page_type ?? undefined,
+        entry_path: plannerTrackingContext?.entry_path ?? undefined,
+        entry_placement: plannerTrackingContext?.entry_placement ?? undefined,
+        current_page_type: plannerTrackingContext?.current_page_type ?? undefined,
+        current_page_path: plannerTrackingContext?.current_page_path ?? undefined,
+        tournament_id: plannerTrackingContext?.tournament_id ?? undefined,
+        venue_id: plannerTrackingContext?.venue_id ?? undefined,
+        request_id: null,
+        outbound_attribution_id: outboundAttributionIdRef.current,
+        error_message: message,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -380,8 +440,8 @@ export default function BookTravelTeamBlockForm({
             aria-expanded={isOpen}
             onClick={() => {
               void sendTiAnalytics("team_hotel_cta_clicked", {
-                surface: surface === "weekend_planner" ? "team_hotel" : "travel",
-                source_page_type: surface === "weekend_planner" ? "planner" : "book_travel",
+                surface: sourceSurface,
+                source_page_type: sourcePageType,
                 cta_type: "team_hotel",
                 auth_state: authState,
                 entitlement,

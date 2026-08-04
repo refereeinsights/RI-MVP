@@ -177,6 +177,8 @@ const PLANNER_EVENTS = new Set([
   "team_hotel_cta_clicked",
   "team_hotel_request_started",
   "team_hotel_request_submitted",
+  "team_hotel_request_succeeded",
+  "team_hotel_request_failed",
 ]);
 
 function asText(value: unknown) {

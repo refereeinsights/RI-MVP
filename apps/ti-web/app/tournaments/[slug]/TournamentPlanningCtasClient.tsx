@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import styles from "./TournamentPlanningCtasClient.module.css";
 
@@ -37,6 +38,19 @@ export default function TournamentPlanningCtasClient(props: {
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
   const plannerSessionId = props.plannerSessionId;
   const weekendHref = props.weekendHref;
+  const teamHotelHref = buildTeamHotelBookingHref({
+    tournamentId: props.tournamentId,
+    tournamentName: props.tournamentName ?? null,
+    venueId: props.primaryVenueId ?? null,
+    city: props.city,
+    state: props.state,
+    checkin: props.startDate,
+    checkout: props.endDate,
+    entrySource: "tournament_detail",
+    entryPageType: "tournament",
+    entryPath: `/tournaments/${encodeURIComponent(slug)}`,
+    entryPlacement: "tournament_detail_team_hotel_cta",
+  });
   const travelHref = (() => {
     const qp = new URLSearchParams();
     const city = String(props.city ?? "").trim();
@@ -81,6 +95,8 @@ export default function TournamentPlanningCtasClient(props: {
       auth_state: props.authState,
       entitlement: props.entitlement,
       context_type: "team_hotel",
+      tournament_id: props.tournamentId,
+      venue_id: props.primaryVenueId ?? undefined,
     });
   }, [props.authState, props.entitlement]);
 
@@ -168,7 +184,7 @@ export default function TournamentPlanningCtasClient(props: {
       <div className={styles.teamHotelRow}>
         <Link
           className={styles.teamHotelLink}
-          href="/book-travel#team-hotel-blocks"
+          href={teamHotelHref}
           onClick={() => {
             void trackTiEvent("team_hotel_cta_clicked", {
               surface: "tournament",
@@ -179,6 +195,12 @@ export default function TournamentPlanningCtasClient(props: {
               auth_state: props.authState,
               entitlement: props.entitlement,
               context_type: "team_hotel",
+              tournament_id: props.tournamentId,
+              venue_id: props.primaryVenueId ?? undefined,
+              entry_source: "tournament_detail",
+              entry_page_type: "tournament",
+              entry_path: typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined,
+              entry_placement: "tournament_detail_team_hotel_cta",
             });
           }}
         >

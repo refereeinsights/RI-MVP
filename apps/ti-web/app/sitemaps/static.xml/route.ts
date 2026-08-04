@@ -13,6 +13,7 @@ const STATIC_PATHS = [
   "/list-your-tournament",
   "/premium",
   "/privacy",
+  "/team-hotel-booking",
   "/terms",
   "/tournaments",
   "/venues",
