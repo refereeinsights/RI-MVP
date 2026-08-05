@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import { createTeamHotelCtaInteractionId, rememberPendingTeamHotelEntry, rememberLastTeamHotelCtaInteractionId } from "@/lib/teamHotelClientTracking";
+import { evaluateTournamentTeamTravelEligibility } from "@/lib/teamTravelEligibility";
 import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import styles from "./TournamentPlanningCtasClient.module.css";
 
@@ -22,6 +23,7 @@ export default function TournamentPlanningCtasClient(props: {
   tournamentId: string;
   tournamentSlug: string;
   tournamentName?: string | null;
+  sport?: string | null;
   plannerSessionId: string;
   weekendHref: string;
   primaryVenueId?: string | null;
@@ -39,12 +41,23 @@ export default function TournamentPlanningCtasClient(props: {
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
   const plannerSessionId = props.plannerSessionId;
   const weekendHref = props.weekendHref;
-  const teamHotelHref = buildTeamHotelBookingHref({
+  const teamTravelEligibility = evaluateTournamentTeamTravelEligibility({
     tournamentId: props.tournamentId,
     tournamentName: props.tournamentName ?? null,
     venueId: props.primaryVenueId ?? null,
     city: props.city,
     state: props.state,
+    startDate: props.startDate,
+    endDate: props.endDate,
+  });
+  const teamHotelHref = buildTeamHotelBookingHref({
+    tournamentId: props.tournamentId,
+    tournamentSlug: props.tournamentSlug,
+    tournamentName: props.tournamentName ?? null,
+    venueId: props.primaryVenueId ?? null,
+    city: props.city,
+    state: props.state,
+    sport: props.sport ?? null,
     checkin: props.startDate,
     checkout: props.endDate,
     entrySource: "tournament_detail",
@@ -71,6 +84,7 @@ export default function TournamentPlanningCtasClient(props: {
   useEffect(() => {
     if (viewedRef.current) return;
     if (!slug) return;
+    if (!teamTravelEligibility.eligible) return;
     viewedRef.current = true;
     void trackTiEvent("weekend_planner_contextual_cta_viewed", {
       surface: "tournament",
@@ -97,9 +111,28 @@ export default function TournamentPlanningCtasClient(props: {
       entitlement: props.entitlement,
       context_type: "team_hotel",
       tournament_id: props.tournamentId,
+      tournament_slug: slug,
       venue_id: props.primaryVenueId ?? undefined,
+      sport: props.sport ?? undefined,
+      team_travel_intent_level: teamTravelEligibility.intentLevel,
+      team_travel_eligibility_reason: teamTravelEligibility.reason,
+      team_travel_cta_level: teamTravelEligibility.ctaLevel,
     });
-  }, [props.authState, props.entitlement]);
+  }, [
+    props.authState,
+    props.entitlement,
+    props.plannerActivationExperiment.experimentName,
+    props.plannerActivationExperiment.featureFlagState,
+    props.plannerActivationExperiment.variant,
+    props.primaryVenueId,
+    props.sport,
+    props.tournamentId,
+    slug,
+    teamTravelEligibility.ctaLevel,
+    teamTravelEligibility.eligible,
+    teamTravelEligibility.intentLevel,
+    teamTravelEligibility.reason,
+  ]);
 
   if (!slug) return null;
 
@@ -182,41 +215,48 @@ export default function TournamentPlanningCtasClient(props: {
         </Link>
       </div>
 
-      <div className={styles.teamHotelRow}>
-        <Link
-          className={styles.teamHotelLink}
-          href={teamHotelHref}
-          onClick={() => {
-            const ctaInteractionId = createTeamHotelCtaInteractionId();
-            rememberLastTeamHotelCtaInteractionId(ctaInteractionId);
-            rememberPendingTeamHotelEntry({
-              key: `tournament:${Date.now().toString(36)}:${ctaInteractionId}`,
-              sourceSurface: "tournament",
-              sourcePath: typeof window !== "undefined" ? window.location.pathname + window.location.search : `/tournaments/${encodeURIComponent(slug)}`,
-              ctaInteractionId,
-            });
-            void trackTiEvent("team_hotel_cta_clicked", {
-              surface: "tournament",
-              source_page_type: "tournament",
-              current_page_type: "tournament",
-              current_page_path: typeof window !== "undefined" ? window.location.pathname : undefined,
-              cta_type: "team_hotel",
-              auth_state: props.authState,
-              entitlement: props.entitlement,
-              context_type: "team_hotel",
-              cta_interaction_id: ctaInteractionId,
-              tournament_id: props.tournamentId,
-              venue_id: props.primaryVenueId ?? undefined,
-              entry_source: "tournament_detail",
-              entry_page_type: "tournament",
-              entry_path: typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined,
-              entry_placement: "tournament_detail_team_hotel_cta",
-            }, { preferBeacon: true });
-          }}
-        >
-          Need rooms for the team? Request team hotel options →
-        </Link>
-      </div>
+      {teamTravelEligibility.eligible ? (
+        <div className={styles.teamHotelRow}>
+          <Link
+            className={styles.teamHotelLink}
+            href={teamHotelHref}
+            onClick={() => {
+              const ctaInteractionId = createTeamHotelCtaInteractionId();
+              rememberLastTeamHotelCtaInteractionId(ctaInteractionId);
+              rememberPendingTeamHotelEntry({
+                key: `tournament:${Date.now().toString(36)}:${ctaInteractionId}`,
+                sourceSurface: "tournament",
+                sourcePath: typeof window !== "undefined" ? window.location.pathname + window.location.search : `/tournaments/${encodeURIComponent(slug)}`,
+                ctaInteractionId,
+              });
+              void trackTiEvent("team_hotel_cta_clicked", {
+                surface: "tournament",
+                source_page_type: "tournament",
+                current_page_type: "tournament",
+                current_page_path: typeof window !== "undefined" ? window.location.pathname : undefined,
+                cta_type: "team_hotel",
+                auth_state: props.authState,
+                entitlement: props.entitlement,
+                context_type: "team_hotel",
+                cta_interaction_id: ctaInteractionId,
+                tournament_id: props.tournamentId,
+                tournament_slug: slug,
+                venue_id: props.primaryVenueId ?? undefined,
+                sport: props.sport ?? undefined,
+                entry_source: "tournament_detail",
+                entry_page_type: "tournament",
+                entry_path: typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined,
+                entry_placement: "tournament_detail_team_hotel_cta",
+                team_travel_intent_level: teamTravelEligibility.intentLevel,
+                team_travel_eligibility_reason: teamTravelEligibility.reason,
+                team_travel_cta_level: teamTravelEligibility.ctaLevel,
+              }, { preferBeacon: true });
+            }}
+          >
+            Need rooms for the team? Request team hotel options →
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }

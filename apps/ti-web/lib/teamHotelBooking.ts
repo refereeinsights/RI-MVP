@@ -6,6 +6,7 @@ export type TeamHotelBookingLinkContext = {
   checkout?: string | null;
   rooms?: number | string | null;
   tournamentId?: string | null;
+  tournamentSlug?: string | null;
   tournamentName?: string | null;
   venueId?: string | null;
   venueName?: string | null;
@@ -27,6 +28,23 @@ function cleanIsoDate(value: string | null | undefined) {
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
 }
 
+function addDays(isoDate: string, days: number) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
+
+function normalizeStayDates(checkinValue: string | null, checkoutValue: string | null) {
+  const checkin = cleanIsoDate(checkinValue);
+  let checkout = cleanIsoDate(checkoutValue);
+
+  if (checkin && checkout && checkout <= checkin) {
+    checkout = addDays(checkin, 1);
+  }
+
+  return { checkin, checkout };
+}
+
 export function buildTeamHotelBookingDestination(context: Pick<TeamHotelBookingLinkContext, "destination" | "venueName" | "city" | "state">) {
   const explicitDestination = cleanText(context.destination);
   if (explicitDestination) return explicitDestination;
@@ -46,9 +64,9 @@ export function buildTeamHotelBookingHref(context: TeamHotelBookingLinkContext =
   const params = new URLSearchParams();
 
   const destination = buildTeamHotelBookingDestination(context);
-  const checkin = cleanIsoDate(context.checkin);
-  const checkout = cleanIsoDate(context.checkout);
+  const { checkin, checkout } = normalizeStayDates(context.checkin ?? null, context.checkout ?? null);
   const tournamentId = cleanText(context.tournamentId);
+  const tournamentSlug = cleanText(context.tournamentSlug);
   const tournamentName = cleanText(context.tournamentName);
   const venueId = cleanText(context.venueId);
   const venueName = cleanText(context.venueName);
@@ -64,6 +82,7 @@ export function buildTeamHotelBookingHref(context: TeamHotelBookingLinkContext =
   if (checkin) params.set("checkin", checkin);
   if (checkout) params.set("checkout", checkout);
   if (tournamentId) params.set("tournament_id", tournamentId);
+  if (tournamentSlug) params.set("tournament_slug", tournamentSlug);
   if (tournamentName) params.set("tournament_name", tournamentName);
   if (venueId) params.set("venue_id", venueId);
   if (venueName) params.set("venue_name", venueName);

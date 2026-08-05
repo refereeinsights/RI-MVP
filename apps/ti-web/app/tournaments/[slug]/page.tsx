@@ -351,6 +351,7 @@ async function TournamentUserActions({
         tournamentId={tournament.id}
         tournamentSlug={tournament.slug ?? paramsSlug}
         tournamentName={tournament.name ?? null}
+        sport={tournament.sport ?? null}
         plannerSessionId={plannerSessionId}
         weekendHref={weekendHref}
         primaryVenueId={primaryVenueIdForPlan}

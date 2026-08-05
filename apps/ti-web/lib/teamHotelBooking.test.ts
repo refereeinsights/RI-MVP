@@ -35,6 +35,7 @@ test("buildTeamHotelBookingHref preserves canonical attribution query params", (
     checkout: "2026-07-03",
     rooms: 12,
     tournamentId: "tid_123",
+    tournamentSlug: "california-state-games-basketball-championship-san-diego-ca",
     tournamentName: "California State Games Basketball Championship",
     venueId: "vid_456",
     sport: "basketball",
@@ -51,8 +52,22 @@ test("buildTeamHotelBookingHref preserves canonical attribution query params", (
   assert.equal(url.searchParams.get("checkout"), "2026-07-03");
   assert.equal(url.searchParams.get("rooms"), "12");
   assert.equal(url.searchParams.get("tournament_id"), "tid_123");
+  assert.equal(url.searchParams.get("tournament_slug"), "california-state-games-basketball-championship-san-diego-ca");
   assert.equal(url.searchParams.get("venue_id"), "vid_456");
+  assert.equal(url.searchParams.get("sport"), "basketball");
   assert.equal(url.searchParams.get("entry_source"), "tournament_detail");
   assert.equal(url.searchParams.get("entry_page_type"), "tournament");
   assert.equal(url.searchParams.get("entry_placement"), "tournament_detail_team_hotel_cta");
+});
+
+test("buildTeamHotelBookingHref normalizes one-day tournament checkout to the next day", () => {
+  const href = buildTeamHotelBookingHref({
+    destination: "Gig Harbor, WA",
+    checkin: "2026-08-07",
+    checkout: "2026-08-07",
+  });
+
+  const url = new URL(`https://www.tournamentinsights.com${href}`);
+  assert.equal(url.searchParams.get("checkin"), "2026-08-07");
+  assert.equal(url.searchParams.get("checkout"), "2026-08-08");
 });

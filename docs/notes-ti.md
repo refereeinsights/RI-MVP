@@ -13,6 +13,26 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-08-05
+
+- TI Team Travel eligibility UAT follow-up:
+  - Patched the three proven local defects from the final eligibility browser pass without changing the overall Team Travel design.
+  - `apps/ti-web/lib/teamHotelBooking.ts` now:
+    - preserves `tournament_slug` on generated Team Travel URLs
+    - normalizes same-day `checkin/checkout` pairs to a next-day checkout so one-day tournaments no longer prefill a 0-night stay
+  - `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx` and `apps/ti-web/app/tournaments/[slug]/page.tsx` now pass consistent `sport` and `tournament_slug` context from tournament detail into both:
+    - the `/team-hotel-booking` destination URL
+    - the Team Travel CTA analytics payloads
+  - `apps/ti-web/app/venues/[venueId]/page.tsx` now also includes `tournament_slug` in venue-detail Team Travel URLs so tournament-detail and venue-detail attribution are aligned.
+  - Added focused test coverage in `apps/ti-web/lib/teamHotelBooking.test.ts` for both:
+    - `tournament_slug` / `sport` preservation
+    - one-day stay normalization
+  - Validation passed:
+    - `node --import tsx --test apps/ti-web/lib/teamHotelBooking.test.ts apps/ti-web/lib/teamTravelEligibility.test.ts`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run lint --workspace ti-web`
+    - `npm run build --workspace ti-web`
+
 ## 2026-08-04
 
 - TI team travel pre-launch measurement fixes:

@@ -10,7 +10,9 @@ import MobileMapLink from "@/components/venues/MobileMapLink";
 import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import VenuePageViewTracker from "@/components/analytics/VenuePageViewTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
+import TeamTravelVenueLink from "@/components/TeamTravelVenueLink";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
+import { evaluateVenueTeamTravelEligibility } from "@/lib/teamTravelEligibility";
 import {
   DEMO_STARFIRE_VENUE_ID,
   buildOwlsEyeDemoScores,
@@ -288,6 +290,7 @@ export default async function VenueDetailsPage({
         } | null,
       };
   const tier = getTier(user, entitlementProfile ?? null);
+  const authState: "signed_out" | "unverified" | "verified" = !user ? "signed_out" : user.email_confirmed_at ? "verified" : "unverified";
   const isPaid = canAccessWeekendPro(user, entitlementProfile ?? null);
 
   const data = resolvedVenue;
@@ -349,6 +352,17 @@ export default async function VenueDetailsPage({
     null;
 
   const contextTournament = selectedTournament ?? upcomingTournaments[0] ?? null;
+  const teamTravelEligibility = evaluateVenueTeamTravelEligibility({
+    selectedTournament,
+    upcomingTournaments,
+    venueId: data.id,
+    venueName: data.name ?? null,
+    city: data.city ?? null,
+    state: data.state ?? null,
+  });
+  const teamTravelTournament = teamTravelEligibility.tournamentId
+    ? linkedTournaments.find((t) => t.id === teamTravelEligibility.tournamentId) ?? null
+    : null;
 
   const semanticLocationSentence = (() => {
     const name = data.name ?? "This venue";
@@ -693,20 +707,21 @@ export default async function VenueDetailsPage({
     reviews_last_updated_at: activeScoreSource.reviews_last_updated_at,
     reviewChoices: reviewChoiceRows,
   });
-  const teamHotelHref = selectedTournament?.id
+  const teamHotelHref = teamTravelEligibility.eligible
     ? buildTeamHotelBookingHref({
-        tournamentId: selectedTournament.id,
-        tournamentName: selectedTournament.name ?? null,
+        tournamentId: teamTravelTournament?.id ?? null,
+        tournamentSlug: teamTravelTournament?.slug ?? null,
+        tournamentName: teamTravelTournament?.name ?? null,
         venueId: data.id,
         venueName: data.name ?? null,
         city: data.city ?? null,
         state: data.state ?? null,
-        sport: requestedVenueSport || selectedTournament?.sport || data.sport || null,
-        checkin: selectedTournament.startDate ?? null,
-        checkout: selectedTournament.endDate ?? null,
+        sport: requestedVenueSport || teamTravelTournament?.sport || data.sport || null,
+        checkin: teamTravelTournament?.startDate ?? null,
+        checkout: teamTravelTournament?.endDate ?? null,
         entrySource: "venue_detail",
         entryPageType: "venue",
-        entryPath: `/venues/${encodeURIComponent(data.seo_slug || data.id)}${selectedTournament?.id ? `?tournament=${encodeURIComponent(selectedTournament.id)}` : ""}`,
+        entryPath: `/venues/${encodeURIComponent(data.seo_slug || data.id)}${teamTravelTournament?.id ? `?tournament=${encodeURIComponent(teamTravelTournament.id)}` : ""}`,
         entryPlacement: "venue_detail_team_hotel_cta",
       })
     : null;
@@ -737,9 +752,9 @@ export default async function VenueDetailsPage({
                 {addressLabel || "Address TBA"}
               </p>
 
-              {selectedTournament?.id ? (
+              {selectedTournament?.id || teamHotelHref ? (
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {selectedTournament.slug ? (
+                  {selectedTournament?.slug ? (
                     <ShareWeekendButton
                       tournamentSlug={selectedTournament.slug}
                       tournamentName={selectedTournament.name ?? "Tournament"}
@@ -751,9 +766,26 @@ export default async function VenueDetailsPage({
                     />
                   ) : null}
                   {teamHotelHref ? (
-                    <Link href={teamHotelHref} className="secondaryLink">
-                      Book 5+ rooms for your team
-                    </Link>
+                    <TeamTravelVenueLink
+                      href={teamHotelHref}
+                      className="secondaryLink"
+                      label={teamTravelEligibility.ctaLevel === "link" ? "Explore team lodging options" : "Book 5+ rooms for your team"}
+                      authState={authState}
+                      entitlement={tier}
+                      tournamentId={teamTravelTournament?.id ?? null}
+                      tournamentSlug={teamTravelTournament?.slug ?? null}
+                      venueId={data.id}
+                      sport={requestedVenueSport || teamTravelTournament?.sport || data.sport || null}
+                      eventStartDate={teamTravelTournament?.startDate ?? null}
+                      eventEndDate={teamTravelTournament?.endDate ?? null}
+                      entrySource="venue_detail"
+                      entryPageType="venue"
+                      entryPath={`/venues/${encodeURIComponent(data.seo_slug || data.id)}${teamTravelTournament?.id ? `?tournament=${encodeURIComponent(teamTravelTournament.id)}` : ""}`}
+                      entryPlacement="venue_detail_team_hotel_cta"
+                      intentLevel={teamTravelEligibility.intentLevel}
+                      eligibilityReason={teamTravelEligibility.reason}
+                      ctaLevel={teamTravelEligibility.ctaLevel}
+                    />
                   ) : null}
                 </div>
               ) : null}
