@@ -1,3 +1,4 @@
+export * from "./airport";
 export * from "./nearby";
 export * from "./normalize";
 export * from "./service";

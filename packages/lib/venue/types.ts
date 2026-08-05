@@ -78,6 +78,11 @@ export type AirportSummary = {
   distance_miles: number;
 };
 
+export type VenueAirportLookup = {
+  nearest_airport?: AirportSummary | null;
+  nearest_major_airport?: AirportSummary | null;
+};
+
 export type SharedVenueNearbyGroups = {
   food: NearbyPlace[];
   coffee: NearbyPlace[];

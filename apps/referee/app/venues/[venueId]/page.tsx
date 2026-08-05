@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import RiVenueDetailAnalytics, { RiVenueExternalLink, RiVenueInternalLink } from "@/components/analytics/RiVenueAnalytics";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
+import RiVenueAirportSection from "@/components/venues/RiVenueAirportSection";
 import RiVenueNearbySection from "@/components/venues/RiVenueNearbySection";
 import RiVenueHotelResultsTracker from "@/components/venues/RiVenueHotelResultsTracker";
 import RiVenueMap from "@/components/venues/RiVenueMap";
@@ -11,9 +12,11 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { buildVenueTitle } from "@/lib/seo/buildTitle";
 import {
+  selectVenueAirport,
   buildNearbyCounts,
   groupNearbyPlaces,
   resolveSharedVenueByParam,
+  type VenueAirportLookup,
   type NearbyPlaceRow,
   type SharedVenueSourceRow,
   type SharedVenueTournamentSummary,
@@ -29,6 +32,9 @@ type OwlsEyeRunRow = {
   status: string | null;
   updated_at?: string | null;
   created_at?: string | null;
+  outputs?: {
+    airports?: VenueAirportLookup | null;
+  } | null;
 };
 
 type RiVenueHotelResult = {
@@ -186,7 +192,7 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
 
   const primary = await supabaseAdmin
     .from("owls_eye_runs" as any)
-    .select("id,run_id,venue_id,status,updated_at,created_at")
+    .select("id,run_id,venue_id,status,updated_at,created_at,outputs")
     .in("venue_id", venueIds)
     .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false });
@@ -199,7 +205,7 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
   if (primaryErrCode === "42703" || primaryErrCode === "PGRST204") {
     const fallback = await supabaseAdmin
       .from("owls_eye_runs" as any)
-      .select("id,run_id,venue_id,status,created_at")
+      .select("id,run_id,venue_id,status,created_at,outputs")
       .in("venue_id", venueIds)
       .order("created_at", { ascending: false });
     return (fallback.data as OwlsEyeRunRow[] | null) ?? [];
@@ -371,6 +377,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const runRows = await fetchLatestOwlsEyeRuns([data.id]);
   const latestRun = runRows.find((row) => row.venue_id === data.id) ?? null;
   const latestRunId = latestRun ? latestRun.run_id ?? latestRun.id : null;
+  const airportSelection = selectVenueAirport(latestRun?.outputs?.airports ?? null);
 
   let nearbyCounts = { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
   let nearbyGroups = null as ReturnType<typeof groupNearbyPlaces> | null;
@@ -570,6 +577,20 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                     })}
                   </div>
                 </div>
+              ) : null}
+
+              {airportSelection ? (
+                <RiVenueAirportSection
+                  venue={{
+                    id: data.id,
+                    name: data.name || "Venue",
+                    city: data.city,
+                    state: data.state,
+                  }}
+                  airport={airportSelection.airport}
+                  sourceKind={airportSelection.sourceKind}
+                  linkedTournamentCount={linkedTournaments.length}
+                />
               ) : null}
 
               {nearbyGroups ? (

@@ -4624,3 +4624,15 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
     - No console/runtime errors reproduced.
   - Interpretation:
     - The earlier `Missing property handoff parameters.` failure did not reproduce on a fresh tab and is treated as a non-confirmed dirty-session artifact rather than a current blocker.
+
+- 2026-08-05: RI airport travel context restored on venue detail without reintroducing TI-branded nearby UI.
+  - Restored RI venue access to Owl's Eye airport outputs by re-adding `outputs` to the latest-run fetch in `apps/referee/app/venues/[venueId]/page.tsx`, then selecting one venue-level airport summary from the persisted `nearest_major_airport` / `nearest_airport` lookup.
+  - Added shared venue-airport helpers in `packages/lib/venue/airport.ts` plus `VenueAirportLookup` in `packages/lib/venue/types.ts` so airport selection, label formatting, directions query construction, and distance bucketing now live in the shared venue layer instead of a removed RI-only component.
+  - Added `apps/referee/components/venues/RiVenueAirportSection.tsx` and inserted it between live hotel results and `Nearby for Officials` on RI venue detail pages. The new RI section restores airport name/code/location/distance plus a single directions CTA, while keeping Phase B behavior intact (no TI branding, no Owl's Eye™ copy, no hotel duplication inside nearby sections).
+  - Added RI-only airport analytics events in `apps/referee/lib/riAnalyticsEvents.ts`: `ri_venue_airport_viewed` and `ri_venue_airport_directions_clicked`.
+  - Validation passed:
+    - `node --import tsx --test packages/lib/venue/index.test.ts`
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run build --workspace referee-app`
+    - `npm run build --workspace ti-web`

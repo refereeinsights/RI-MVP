@@ -2655,6 +2655,33 @@ Test by finding any tournament with a year in its slug and confirming sibling-ye
 - If a venue has no nearby coffee / food / gear data, verify the RI page simply omits `Nearby for Officials` and does not show TI-branded fallback copy.
 - Known intentional gap for this phase: airport summary content previously shown through the TI-branded nearby card is not carried into the RI nearby section yet; note it as a follow-up candidate, not a regression.
 
+### RI Airport Restoration UAT
+- Start on `http://localhost:3000/venues` and open one RI venue detail page that has:
+  - linked tournaments
+  - live HotelPlanner hotel results
+  - nearby coffee / food / gear data
+  - an airport summary from the latest Owl's Eye run
+- Verify the RI venue detail page order is:
+  - live hotel results
+  - airport travel section
+  - `Nearby for Officials`
+- Confirm the airport section shows:
+  - airport heading (`Airport for Longer-Distance Travel` or `Closest Airport`)
+  - airport name
+  - airport code when available
+  - airport city / region text
+  - approximate distance when available
+  - one directions CTA
+- Click the airport directions CTA and confirm it opens a maps/directions URL for the displayed airport.
+- Confirm the RI venue page still has:
+  - no `TournamentInsights` branding
+  - no `Owl's Eye™` copy
+  - no Insider / Weekend Pro / planner gating copy
+  - no hotel rows duplicated inside `Nearby for Officials`
+- Confirm at least one linked tournament still routes to an RI tournament detail page.
+- Re-run at a narrow/mobile width (~375px if possible) and confirm the airport section remains readable with no horizontal overflow or overlapping CTA.
+- If a venue has no airport summary in the latest Owl's Eye run, verify the RI venue page simply omits the airport section and does not fall back to TI-branded nearby UI.
+
 ### RI Phase 5 Metadata / Sitemap UAT
 - Open these local RI routes and inspect the page title, meta description, and canonical tag:
   - `http://localhost:3000/tournaments`

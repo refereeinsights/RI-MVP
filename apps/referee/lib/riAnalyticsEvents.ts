@@ -23,6 +23,8 @@ export const RI_PERSISTED_EVENTS = [
   "ri_venue_tournament_clicked",
   "ri_venue_site_clicked",
   "ri_venue_directions_clicked",
+  "ri_venue_airport_viewed",
+  "ri_venue_airport_directions_clicked",
   "ri_venue_hotels_cta_clicked",
   "ri_venue_rentals_clicked",
   "ri_venue_nearby_section_toggled",

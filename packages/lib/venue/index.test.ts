@@ -1,13 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildVenueAirportQuery,
   buildNearbyCounts,
   buildSharedVenueFromRow,
+  bucketVenueAirportDistance,
+  formatVenueAirportCode,
   formatVenueAddress,
   groupNearbyPlaces,
   hasValidVenueCoordinates,
   parseLegacyVenueAddressSlug,
   resolveSharedVenueByParam,
+  selectVenueAirport,
   sortSharedVenueTournaments,
   type SharedVenueDbClient,
   type SharedVenueSourceRow,
@@ -130,6 +134,52 @@ test("groupNearbyPlaces maps shared nearby rows into stable RI/TI categories", (
   assert.equal(counts.hotels, 1);
   assert.equal(counts.sportingGoods, 2);
   assert.equal(groups.hotels[0]?.sponsor_click_url, "https://sponsor.example/hotel");
+});
+
+test("selectVenueAirport prefers major airport, formats code/query, and buckets distance", () => {
+  const selection = selectVenueAirport({
+    nearest_airport: {
+      id: "airport-1",
+      ident: "KHIO",
+      iata_code: null,
+      name: "Hillsboro Airport",
+      municipality: "Hillsboro",
+      iso_country: "US",
+      iso_region: "OR",
+      airport_type: "medium_airport",
+      scheduled_service: true,
+      is_commercial: true,
+      is_major: false,
+      distance_miles: 8.3,
+    },
+    nearest_major_airport: {
+      id: "airport-2",
+      ident: "KPDX",
+      iata_code: "PDX",
+      name: "Portland International Airport",
+      municipality: "Portland",
+      iso_country: "US",
+      iso_region: "OR",
+      airport_type: "large_airport",
+      scheduled_service: true,
+      is_commercial: true,
+      is_major: true,
+      distance_miles: 24.8,
+    },
+  });
+
+  assert.equal(selection?.sourceKind, "nearest_major_airport");
+  assert.equal(selection?.airport.name, "Portland International Airport");
+  assert.equal(formatVenueAirportCode(selection?.airport), "PDX");
+  assert.equal(buildVenueAirportQuery(selection?.airport), "Portland International Airport, Portland, OR, US");
+  assert.equal(bucketVenueAirportDistance(selection?.airport.distance_miles), "under_25");
+});
+
+test("airport helpers omit malformed values cleanly", () => {
+  assert.equal(selectVenueAirport(null), null);
+  assert.equal(buildVenueAirportQuery(null), null);
+  assert.equal(formatVenueAirportCode({} as any), null);
+  assert.equal(bucketVenueAirportDistance(null), null);
 });
 
 function createMockVenueDb(rows: SharedVenueSourceRow[]): SharedVenueDbClient {
