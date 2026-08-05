@@ -611,7 +611,7 @@ export default async function TournamentDetailPage({
                     <span className="detailVenueTile__eyebrow">Venue</span>
                     <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
                     {hasOwlsEyeByVenueId.get(venue.id) ? (
-                      <span className="detailVenueTile__flag">Owl&apos;s Eye™</span>
+                      <span className="detailVenueTile__flag">Nearby for officials</span>
                     ) : (
                       <span className="detailVenueTile__flag">Open details</span>
                     )}
