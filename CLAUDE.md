@@ -80,6 +80,54 @@ Fixture note:
 
 ---
 
+## Global UAT Safety Rules
+
+These rules apply to every TI / RI browser UAT run unless the founder gives explicit one-run approval to do otherwise.
+
+### Never create live partner transactions by default
+
+Do not:
+- create a real hotel reservation or checkout
+- submit a real group hotel request / RFP
+- submit a real team travel request
+- trigger HotelPlanner sales outreach or partner fulfillment workflows
+- create duplicate live leads for the same tournament / venue / stay window
+- use real customer contact information
+- repeat a live submit just to “confirm” behavior
+
+### Default verification boundary
+
+For hotel / travel / partner UAT, testing must stop before the final irreversible provider submit unless the prompt explicitly says a single live submit is approved for that exact run.
+
+If the flow reaches a final submit button tied to a live provider action, stop and report:
+- exact page URL
+- visible form state
+- captured outbound URL or request payload, if inspectable
+- whether the submit appears live, mocked, or sandboxed
+- what evidence is still missing
+
+### Safe alternatives
+
+Prefer these by default:
+- pre-submit browser verification only
+- local or dev verification against mocked endpoints
+- outbound URL / query-param inspection
+- network payload inspection without sending if tooling allows
+- seeded fixtures
+- provider sandbox only when explicitly confirmed as sandboxed
+
+### Live-submit exception rule
+
+Only perform a live booking / live RFP / live team-travel submit when the prompt explicitly says:
+- one real submit is approved
+- the environment is named
+- the exact flow is named
+- cleanup expectations are named
+
+If any one of those is missing, do not submit.
+
+---
+
 ## UAT Variables (TI)
 
 Use these keys consistently in the steps below:
@@ -610,6 +658,17 @@ Run this on `http://localhost:3001/weekend-planner` or `https://www.tournamentin
 
 Use this after the lodging implementation is in place and before any staging/public push.
 
+### Safety override for this section
+
+Unless the task explicitly says a single live submission is approved, this section is **pre-submit only**.
+
+Do not:
+- complete a live HotelPlanner checkout
+- submit a live group-request / RFP
+- submit a live team-travel request
+
+Stop at the final irreversible submit and report the exact outbound URL / payload / visible state instead.
+
 Implementation docs:
 - `docs/prompts/ti-lodging-provider-integration-v2.md`
 - `docs/prompts/ti-lodging-provider-integration-v2-spec.md`
@@ -630,6 +689,27 @@ Copy/paste prompt:
    - no TI-hosted payment screen appears.
 6. Validate “Need 5+ rooms?” CTA opens group-request flow and requires required fields.
 7. Check Network for `/api/lodging/search`, `/api/lodging/availability`, `/go/hotels/checkout`, `/api/lodging/group-request`, `/api/analytics`.
+
+### Copy/paste prompt (safe hotel / team-travel UAT — no live submit)
+
+Use this whenever you want browser verification without creating real HotelPlanner bookings or group leads:
+
+1. Open the target TI or RI page and verify the entry path, context, and CTA placement.
+2. Follow the hotel / travel flow only up to the final irreversible provider submit.
+3. Do **not** create any real hotel booking, reservation, team-travel request, or group hotel request / RFP.
+4. Do **not** trigger HotelPlanner sales outreach or fulfillment workflows.
+5. Inspect and report:
+   - page URL at each step
+   - visible tournament / venue / date context
+   - outbound URL and query params
+   - captured request payload, if inspectable before submit
+   - analytics/network requests that fire before submit
+   - whether the final submit appears live, mocked, or sandboxed
+6. If the flow requires a real submit to continue, stop there and report the missing evidence instead of submitting.
+7. Final output must explicitly state:
+   - `No live booking created`
+   - `No live group request submitted`
+   - `No live team travel request submitted`
 
 Optional targeted UAT for handoff compatibility:
 1) Open `http://localhost:3001/go/hotels?provider=hotelplanner&venueId=ecd43a1e-d24a-4f0d-807b-2084ac24131e&checkin=2026-07-01&checkout=2026-07-03&source=tournament_detail&lat=47.69741&lng=-117.23642&kw=Plantes%20Ferry&jobcode=TI-DEV-TEST&custom1=ven%3Aecd43a1e-d24a-4f0d-807b-2084ac24131e`
@@ -2553,24 +2633,27 @@ Test by finding any tournament with a year in its slug and confirming sibling-ye
 - Verify `Find hotels near the venue`, `Find rentals`, `Open venue map →`, `Travel search →`, and `Weekend Planner →` all have visible button styling and remain tappable.
 - On tournament detail mobile, check the sticky CTA bar for visual bleed-through. The sticky container and `Hotels` button should appear solid enough that underlying content does not show through.
 
-### RI Phase 4 Venue Detail UAT
-- Start on `http://localhost:3000/venues` and open one venue with linked tournaments plus Owl's Eye data.
+### RI Shared Venue Phase B UAT
+- Start on `http://localhost:3000/venues` and open one venue with linked tournaments, live hotel results, and nearby Owl's Eye data.
 - Verify the RI venue detail page shows:
   - venue identity and address
   - linked tournaments
-  - nearby hotels
-  - nearby coffee
-  - nearby food
-  - Google / Apple / Waze directions links
-- Confirm there is **no** TI branding and **no** user-facing premium / Insider / Weekend Pro gate language anywhere on the RI venue page.
-- Expand the nearby sections and verify:
-  - coffee entries open directions
-  - food entries open directions
-  - hotel entries open hotel outbound links or hotel sponsor links
-- Verify the venue hotel CTA (`Find hotels near this venue`) is visible and opens the expected outbound TI hotel handoff path with RI source context.
+  - live HotelPlanner hotel results when available
+  - `Nearby for Officials`
+  - coffee / food / gear sections when nearby data exists
+  - Google / Apple / Waze venue directions links
+- Confirm there is **no** TournamentInsights branding, **no** `Owl's Eye™` copy, and **no** user-facing premium / Insider / Weekend Pro gate language anywhere on the RI venue page.
+- Confirm the old TI-branded nearby card is gone from the RI venue page and is replaced by the RI-branded nearby section.
+- Expand the `Nearby for Officials` sections and verify:
+  - coffee entries open map/directions links
+  - food entries open map/directions links
+  - gear / supply entries open map/directions links when present
+  - hotel entries do **not** appear inside `Nearby for Officials`
+- Verify the live hotel block remains above the nearby section and still opens the expected TI hotel handoff path with RI attribution (`source=referee_venue_detail`, `custom8=app:refereeinsights`).
 - Verify at least one linked tournament card opens an RI tournament detail route, not a TI route.
-- Re-run the page at a narrow/mobile width (~375px if possible) and confirm the nearby sections and directions links remain usable without horizontal overflow.
-- If a venue has no nearby data, verify the page fails gracefully with “No nearby Owl's Eye results captured yet for this venue.”
+- Re-run the page at a narrow/mobile width (~375px if possible) and confirm the nearby sections and hotel cards remain usable without horizontal overflow.
+- If a venue has no nearby coffee / food / gear data, verify the RI page simply omits `Nearby for Officials` and does not show TI-branded fallback copy.
+- Known intentional gap for this phase: airport summary content previously shown through the TI-branded nearby card is not carried into the RI nearby section yet; note it as a follow-up candidate, not a regression.
 
 ### RI Phase 5 Metadata / Sitemap UAT
 - Open these local RI routes and inspect the page title, meta description, and canonical tag:

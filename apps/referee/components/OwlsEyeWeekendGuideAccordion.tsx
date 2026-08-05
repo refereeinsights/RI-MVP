@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import type { NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
+import type { NearbyPlace } from "../../../packages/lib/venue";
 
 type Group = {
   label: "Coffee" | "Food" | "Hotels";

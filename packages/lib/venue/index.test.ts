@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildNearbyCounts,
   buildSharedVenueFromRow,
   formatVenueAddress,
+  groupNearbyPlaces,
   hasValidVenueCoordinates,
   parseLegacyVenueAddressSlug,
   resolveSharedVenueByParam,
@@ -82,6 +84,52 @@ test("buildSharedVenueFromRow normalizes address, coordinates, tournaments, and 
   assert.equal(venue.tournaments.length, 1);
   assert.equal(venue.tournaments[0]?.id, "future");
   assert.equal(venue.readiness.hotelSearchReady, true);
+  assert.equal(venue.readiness.hotelSearchNotReadyReason, null);
+});
+
+test("buildSharedVenueFromRow exposes hotel search not-ready reason when coordinates and city/state fallback are missing", () => {
+  const sourceRow: SharedVenueSourceRow = {
+    id: "venue-2",
+    seo_slug: "venue-two",
+    name: "Venue Two",
+    address: "Unknown complex",
+    city: null,
+    state: null,
+    zip: null,
+    latitude: null,
+    longitude: null,
+    notes: null,
+    venue_url: null,
+    sport: null,
+    restroom_cleanliness_avg: null,
+    shade_score_avg: null,
+    vendor_score_avg: null,
+    parking_convenience_score_avg: null,
+    review_count: null,
+    reviews_last_updated_at: null,
+    tournament_venues: [],
+  };
+
+  const venue = buildSharedVenueFromRow(sourceRow, new Date("2026-08-05T12:00:00Z"));
+  assert.equal(venue.readiness.hotelSearchReady, false);
+  assert.equal(venue.readiness.hotelSearchNotReadyReason, "no_city_state");
+});
+
+test("groupNearbyPlaces maps shared nearby rows into stable RI/TI categories", () => {
+  const groups = groupNearbyPlaces([
+    { run_id: "run-1", category: "coffee", name: "Cafe", distance_meters: 120, maps_url: "https://maps.example/cafe", is_sponsor: false, sponsor_click_url: null },
+    { run_id: "run-1", category: "restaurant", name: "Diner", distance_meters: 240, maps_url: "https://maps.example/diner", is_sponsor: false, sponsor_click_url: null },
+    { run_id: "run-1", category: "hotel", name: "Hotel", distance_meters: 500, maps_url: "https://maps.example/hotel", is_sponsor: true, sponsor_click_url: "https://sponsor.example/hotel" },
+    { run_id: "run-1", category: "sporting_goods", name: "Sports Store", distance_meters: 640, maps_url: "https://maps.example/store", is_sponsor: false, sponsor_click_url: null },
+    { run_id: "run-1", category: "big_box_fallback", name: "Big Box", distance_meters: 720, maps_url: "https://maps.example/bigbox", is_sponsor: false, sponsor_click_url: null },
+  ]);
+
+  const counts = buildNearbyCounts(groups);
+  assert.equal(counts.coffee, 1);
+  assert.equal(counts.food, 1);
+  assert.equal(counts.hotels, 1);
+  assert.equal(counts.sportingGoods, 2);
+  assert.equal(groups.hotels[0]?.sponsor_click_url, "https://sponsor.example/hotel");
 });
 
 function createMockVenueDb(rows: SharedVenueSourceRow[]): SharedVenueDbClient {

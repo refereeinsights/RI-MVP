@@ -2,16 +2,22 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import RiVenueDetailAnalytics, { RiVenueExternalLink, RiVenueInternalLink } from "@/components/analytics/RiVenueAnalytics";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
-import OwlsEyeVenueCard, { type AirportSummary, type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
+import RiVenueNearbySection from "@/components/venues/RiVenueNearbySection";
 import RiVenueHotelResultsTracker from "@/components/venues/RiVenueHotelResultsTracker";
 import RiVenueMap from "@/components/venues/RiVenueMap";
 import MobileMapLink from "@/components/venues/MobileMapLink";
-import { buildOwlsEyeDemoScores, type VenueReviewChoiceRow } from "@/lib/owlsEyeScores";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { buildVenueTitle } from "@/lib/seo/buildTitle";
-import { resolveSharedVenueByParam, type SharedVenueSourceRow, type SharedVenueTournamentSummary } from "../../../../../packages/lib/venue";
+import {
+  buildNearbyCounts,
+  groupNearbyPlaces,
+  resolveSharedVenueByParam,
+  type NearbyPlaceRow,
+  type SharedVenueSourceRow,
+  type SharedVenueTournamentSummary,
+} from "../../../../../packages/lib/venue";
 import { buildMapDirectionsLinks, hasValidCoordinates } from "../../../../../packages/lib/tournament-map";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import "../../tournaments/tournaments.css";
@@ -23,22 +29,6 @@ type OwlsEyeRunRow = {
   status: string | null;
   updated_at?: string | null;
   created_at?: string | null;
-  outputs?: {
-    airports?: {
-      nearest_airport?: AirportSummary | null;
-      nearest_major_airport?: AirportSummary | null;
-    };
-  } | null;
-};
-
-type NearbyPlaceRow = {
-  run_id: string;
-  category: string | null;
-  name: string;
-  distance_meters: number | null;
-  maps_url: string | null;
-  is_sponsor: boolean | null;
-  sponsor_click_url?: string | null;
 };
 
 type RiVenueHotelResult = {
@@ -196,7 +186,7 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
 
   const primary = await supabaseAdmin
     .from("owls_eye_runs" as any)
-    .select("id,run_id,venue_id,status,updated_at,created_at,outputs")
+    .select("id,run_id,venue_id,status,updated_at,created_at")
     .in("venue_id", venueIds)
     .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false });
@@ -209,7 +199,7 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
   if (primaryErrCode === "42703" || primaryErrCode === "PGRST204") {
     const fallback = await supabaseAdmin
       .from("owls_eye_runs" as any)
-      .select("id,run_id,venue_id,status,created_at,outputs")
+      .select("id,run_id,venue_id,status,created_at")
       .in("venue_id", venueIds)
       .order("created_at", { ascending: false });
     return (fallback.data as OwlsEyeRunRow[] | null) ?? [];
@@ -280,20 +270,6 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   if (redirectTo) redirect(redirectTo);
   if (!venue?.id) notFound();
   const data = venue;
-
-  const venueInsightsExtra = await supabaseAdmin
-    .from("venues" as any)
-    .select("id,player_parking_fee,parking_notes,bring_field_chairs,seating_notes")
-    .eq("id", data.id)
-    .maybeSingle<{
-      id: string;
-      player_parking_fee: string | null;
-      parking_notes: string | null;
-      bring_field_chairs: boolean | null;
-      seating_notes: string | null;
-    }>();
-  const extraCode = (venueInsightsExtra as any)?.error?.code;
-  const resolvedVenueInsights = !venueInsightsExtra.error || extraCode === "42703" || extraCode === "PGRST204" ? venueInsightsExtra.data : null;
 
   const linkedTournaments = sharedVenue?.tournaments ?? [];
   const today = new Date().toISOString().slice(0, 10);
@@ -397,10 +373,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const latestRunId = latestRun ? latestRun.run_id ?? latestRun.id : null;
 
   let nearbyCounts = { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
-  let premiumNearby:
-    | { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; sporting_goods: NearbyPlace[]; captured_at: string | null }
-    | null = null;
-  const airportSummary = latestRun?.outputs?.airports ?? null;
+  let nearbyGroups = null as ReturnType<typeof groupNearbyPlaces> | null;
 
   if (latestRunId) {
     const { data: nearbyRows } = await supabaseAdmin
@@ -411,98 +384,23 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
       .order("distance_meters", { ascending: true })
       .order("name", { ascending: true });
 
-    const toPlace = (row: NearbyPlaceRow): NearbyPlace => ({
-      name: row.name,
-      distance_meters: row.distance_meters,
-      maps_url: row.maps_url,
-      is_sponsor: Boolean(row.is_sponsor),
-      sponsor_click_url: row.sponsor_click_url ?? null,
-    });
-
     const rows = (nearbyRows as NearbyPlaceRow[] | null) ?? [];
-    const food = rows
-      .filter((row) => {
-        const category = (row.category ?? "food").toLowerCase();
-        return (
-          category !== "coffee" &&
-          category !== "hotel" &&
-          category !== "hotels" &&
-          category !== "sporting_goods" &&
-          category !== "big_box_fallback"
-        );
-      })
-      .map(toPlace);
-    const coffee = rows.filter((row) => (row.category ?? "").toLowerCase() === "coffee").map(toPlace);
-    const hotels = rows
-      .filter((row) => {
-      const category = (row.category ?? "").toLowerCase();
-      return category === "hotel" || category === "hotels";
-    })
-      .map(toPlace);
-    const sportingGoods = rows
-      .filter((row) => {
-        const category = (row.category ?? "").toLowerCase();
-        return category === "sporting_goods" || category === "big_box_fallback";
-      })
-      .map(toPlace);
-
-    nearbyCounts = { food: food.length, coffee: coffee.length, hotels: hotels.length, sporting_goods: sportingGoods.length };
-    premiumNearby = {
-      food,
-      coffee,
-      hotels,
-      sporting_goods: sportingGoods,
-      captured_at: latestRun?.updated_at ?? latestRun?.created_at ?? null,
+    nearbyGroups = groupNearbyPlaces(rows);
+    const counts = buildNearbyCounts(nearbyGroups);
+    nearbyCounts = {
+      food: counts.food,
+      coffee: counts.coffee,
+      hotels: counts.hotels,
+      sporting_goods: counts.sportingGoods,
     };
   }
-
-  const displayedNearbyCounts = { ...nearbyCounts, hotels: 0 };
-  const displayedPremiumNearby = premiumNearby
-    ? {
-        ...premiumNearby,
-        hotels: [] as NearbyPlace[],
-      }
-    : null;
-  const hasOwlsEye =
-    displayedNearbyCounts.food +
-      displayedNearbyCounts.coffee +
-      displayedNearbyCounts.hotels +
-      displayedNearbyCounts.sporting_goods >
-    0;
-
-  const reviewChoicesPrimary = await supabaseAdmin
-    .from("venue_reviews" as any)
-    .select("restrooms,parking_distance,parking_convenience_score,food_vendors,coffee_vendors,bring_field_chairs,player_parking_fee,parking_notes,seating_notes,created_at,updated_at")
-    .eq("venue_id", data.id)
-    .eq("status", "active");
-  const reviewChoicesCode = (reviewChoicesPrimary as any)?.error?.code;
-  const reviewChoicesFallback =
-    reviewChoicesPrimary.error && (reviewChoicesCode === "42703" || reviewChoicesCode === "PGRST204")
-      ? await supabaseAdmin
-          .from("venue_reviews" as any)
-          .select("restrooms,parking_distance,parking_convenience_score,food_vendors,coffee_vendors,bring_field_chairs,player_parking_fee,created_at,updated_at")
-          .eq("venue_id", data.id)
-          .eq("status", "active")
-      : null;
-  const reviewChoiceRows =
-    (reviewChoicesPrimary.data as VenueReviewChoiceRow[] | null) ??
-    (reviewChoicesFallback?.data as VenueReviewChoiceRow[] | null) ??
-    [];
-
-  const demoScores = buildOwlsEyeDemoScores({
-    nearbyCounts,
-    vendor_score_avg: data.vendor_score_avg,
-    restroom_cleanliness_avg: data.restroom_cleanliness_avg,
-    shade_score_avg: data.shade_score_avg,
-    parking_convenience_score_avg: data.parking_convenience_score_avg,
-    venue_player_parking_fee: resolvedVenueInsights?.player_parking_fee ?? null,
-    parking_notes: resolvedVenueInsights?.parking_notes ?? null,
-    venue_bring_field_chairs: resolvedVenueInsights?.bring_field_chairs ?? null,
-    seating_notes: resolvedVenueInsights?.seating_notes ?? null,
-    review_count: data.review_count,
-    reviews_last_updated_at: data.reviews_last_updated_at,
-    reviewChoices: reviewChoiceRows,
-  });
+  const visibleNearbyCounts = {
+    food: nearbyCounts.food,
+    coffee: nearbyCounts.coffee,
+    hotels: 0,
+    sporting_goods: nearbyCounts.sporting_goods,
+  };
+  const hasNearbyData = visibleNearbyCounts.food + visibleNearbyCounts.coffee + visibleNearbyCounts.hotels + visibleNearbyCounts.sporting_goods > 0;
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -512,10 +410,10 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
         city={data.city}
         state={data.state}
         linkedTournamentCount={linkedTournaments.length}
-        nearbyHotelCount={displayedNearbyCounts.hotels}
+        nearbyHotelCount={visibleNearbyCounts.hotels}
         nearbyCoffeeCount={nearbyCounts.coffee}
         nearbyFoodCount={nearbyCounts.food}
-        hasOwlsEye={hasOwlsEye}
+        hasOwlsEye={hasNearbyData}
       />
       <section className={`detailHero ${sportSurfaceClass}`}>
         <div className="detailHero__overlay">
@@ -674,25 +572,27 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 </div>
               ) : null}
 
-              <OwlsEyeVenueCard
-                venue={{
-                  id: data.id,
-                  name: data.name,
-                  address: data.address,
-                  city: data.city,
-                  state: data.state,
-                  zip: data.zip,
-                  venue_url: data.venue_url,
-                }}
-                hasOwlsEye={hasOwlsEye}
-                nearbyCounts={displayedNearbyCounts}
-                airportSummary={airportSummary}
-                premiumNearby={displayedPremiumNearby}
-                mapLinks={mapLinks}
-                mapQuery={mapLinks?.query ?? null}
-                demoScores={demoScores}
-                defaultNearbyAllCollapsed
-              />
+              {nearbyGroups ? (
+                <RiVenueNearbySection
+                  venue={{
+                    id: data.id,
+                    name: data.name || "Venue",
+                    city: data.city,
+                    state: data.state,
+                  }}
+                  linkedTournamentCount={linkedTournaments.length}
+                  nearbyCounts={{
+                    food: visibleNearbyCounts.food,
+                    coffee: visibleNearbyCounts.coffee,
+                    hotels: 0,
+                    sportingGoods: visibleNearbyCounts.sporting_goods,
+                  }}
+                  nearbyGroups={{
+                    ...nearbyGroups,
+                    hotels: [],
+                  }}
+                />
+              ) : null}
 
               <div className="detailCard" style={{ width: "min(720px, 100%)" }}>
                 <div className="detailLinksRow">

@@ -5,31 +5,9 @@ import OwlsEyeWeekendGuideAccordion from "@/components/OwlsEyeWeekendGuideAccord
 import type { OwlsEyeDemoScores } from "@/lib/owlsEyeScores";
 import { captureRiEvent } from "@/lib/riAnalytics";
 import MobileMapLink from "@/components/venues/MobileMapLink";
+import type { AirportSummary, NearbyPlace } from "../../../../packages/lib/venue";
 
 const BRAND_OWL = "Owl's Eye™";
-
-export type NearbyPlace = {
-  name: string;
-  distance_meters: number | null;
-  maps_url: string | null;
-  is_sponsor: boolean;
-  sponsor_click_url: string | null;
-};
-
-export type AirportSummary = {
-  id: string;
-  ident: string;
-  iata_code?: string | null;
-  name: string;
-  municipality?: string | null;
-  iso_country: string;
-  iso_region?: string | null;
-  airport_type: string;
-  scheduled_service: boolean;
-  is_commercial: boolean;
-  is_major: boolean;
-  distance_miles: number;
-};
 
 type OwlsEyeVenueCardProps = {
   venue: {

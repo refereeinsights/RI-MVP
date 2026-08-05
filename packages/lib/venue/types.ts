@@ -45,6 +45,53 @@ export type SharedVenueSourceRow = {
   tournament_venues?: SharedVenueTournamentJoinRow[] | null;
 };
 
+export type NearbyPlace = {
+  name: string;
+  distance_meters: number | null;
+  maps_url: string | null;
+  is_sponsor: boolean;
+  sponsor_click_url: string | null;
+};
+
+export type NearbyPlaceRow = {
+  run_id: string;
+  category: string | null;
+  name: string;
+  distance_meters: number | null;
+  maps_url: string | null;
+  is_sponsor: boolean | null;
+  sponsor_click_url?: string | null;
+};
+
+export type AirportSummary = {
+  id: string;
+  ident: string;
+  iata_code?: string | null;
+  name: string;
+  municipality?: string | null;
+  iso_country: string;
+  iso_region?: string | null;
+  airport_type: string;
+  scheduled_service: boolean;
+  is_commercial: boolean;
+  is_major: boolean;
+  distance_miles: number;
+};
+
+export type SharedVenueNearbyGroups = {
+  food: NearbyPlace[];
+  coffee: NearbyPlace[];
+  hotels: NearbyPlace[];
+  sportingGoods: NearbyPlace[];
+};
+
+export type SharedVenueNearbyCounts = {
+  food: number;
+  coffee: number;
+  hotels: number;
+  sportingGoods: number;
+};
+
 export type SharedVenue = {
   id: string;
   routeKey: string;
@@ -84,6 +131,7 @@ export type SharedVenue = {
     addressReady: boolean;
     mapReady: boolean;
     hotelSearchReady: boolean;
+    hotelSearchNotReadyReason: string | null;
     nearbyEnrichmentReady: boolean | null;
   };
 };

@@ -52,6 +52,10 @@ export function hasValidVenueCoordinates(latitude: number | null | undefined, lo
   return typeof latitude === "number" && typeof longitude === "number" && Number.isFinite(latitude) && Number.isFinite(longitude) && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 }
 
+function hasHotelSearchCityState(city: string | null, state: string | null) {
+  return Boolean(city && state);
+}
+
 export function formatVenueAddress(parts: {
   address: string | null | undefined;
   city: string | null | undefined;
@@ -124,6 +128,8 @@ export function buildSharedVenueFromRow(row: SharedVenueSourceRow, now = new Dat
   const destinationLabel = normalizeText(row.name) ?? formattedAddress ?? "Venue";
   const addressReady = Boolean(formattedAddress);
   const mapReady = coordinatesValid;
+  const hotelSearchReady = Boolean(row.id) && (coordinatesValid || hasHotelSearchCityState(city, state));
+  const hotelSearchNotReadyReason = hotelSearchReady ? null : coordinatesValid ? null : hasHotelSearchCityState(city, state) ? null : addressReady ? "no_city_state" : "no_coordinates";
 
   return {
     id: row.id,
@@ -163,8 +169,9 @@ export function buildSharedVenueFromRow(row: SharedVenueSourceRow, now = new Dat
     readiness: {
       addressReady,
       mapReady,
-      hotelSearchReady: Boolean(row.id) && (addressReady || mapReady),
-      nearbyEnrichmentReady: row.id ? addressReady || mapReady : null,
+      hotelSearchReady,
+      hotelSearchNotReadyReason,
+      nearbyEnrichmentReady: row.id ? coordinatesValid || hasHotelSearchCityState(city, state) : null,
     },
   };
 }
