@@ -22,154 +22,11 @@ import { SITE_ORIGIN } from "@/lib/sitemaps";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { isUuid } from "@/lib/venues/isUuid";
 import { getVenueCardClassFromSports } from "../sportSurface";
+import { resolveSharedVenueByParam, type SharedVenueSourceRow, type SharedVenueTournamentSummary } from "../../../../../packages/lib/venue";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { isValidLatLng } from "@/lib/staticTournamentMaps";
 import "../../tournaments/tournaments.css";
 import styles from "./VenueDetail.module.css";
-
-const US_STATE_CODES = new Set(
-  [
-    "AL",
-    "AK",
-    "AZ",
-    "AR",
-    "CA",
-    "CO",
-    "CT",
-    "DE",
-    "FL",
-    "GA",
-    "HI",
-    "ID",
-    "IL",
-    "IN",
-    "IA",
-    "KS",
-    "KY",
-    "LA",
-    "ME",
-    "MD",
-    "MA",
-    "MI",
-    "MN",
-    "MS",
-    "MO",
-    "MT",
-    "NE",
-    "NV",
-    "NH",
-    "NJ",
-    "NM",
-    "NY",
-    "NC",
-    "ND",
-    "OH",
-    "OK",
-    "OR",
-    "PA",
-    "RI",
-    "SC",
-    "SD",
-    "TN",
-    "TX",
-    "UT",
-    "VT",
-    "VA",
-    "WA",
-    "WV",
-    "WI",
-    "WY",
-    "DC",
-  ].sort()
-);
-
-const STREET_TOKENS = new Set([
-  "st",
-  "street",
-  "ave",
-  "avenue",
-  "rd",
-  "road",
-  "dr",
-  "drive",
-  "blvd",
-  "boulevard",
-  "ln",
-  "lane",
-  "ct",
-  "court",
-  "way",
-  "pkwy",
-  "parkway",
-  "pl",
-  "place",
-  "cir",
-  "circle",
-  "ter",
-  "terrace",
-  "hwy",
-  "highway",
-]);
-
-function parseLegacyAddressSlug(param: string): { state: string; number: string; keyword: string | null } | null {
-  const raw = param.trim().toLowerCase();
-  if (!raw || raw.length > 140) return null;
-  // Heuristic: looks like "425-woodward-st-austin-tx" or "32200-del-obispo-street-san-juan-capistrano-ca".
-  if (!/^\d{1,6}-[a-z0-9-]{3,140}-[a-z]{2}$/.test(raw)) return null;
-  const parts = raw.split("-").filter(Boolean);
-  if (parts.length < 4) return null;
-  const number = parts[0] ?? "";
-  const stateRaw = (parts[parts.length - 1] ?? "").toUpperCase();
-  if (!/^\d{1,6}$/.test(number)) return null;
-  if (!US_STATE_CODES.has(stateRaw)) return null;
-
-  const body = parts.slice(1, -1);
-  const hasStreetSignal = body.some((p) => STREET_TOKENS.has(p));
-  if (!hasStreetSignal) return null;
-
-  const keyword =
-    body.find((p) => p.length >= 4 && !STREET_TOKENS.has(p) && !/^\d+$/.test(p) && !["of", "the", "and", "at", "in"].includes(p)) ??
-    null;
-  return { state: stateRaw, number, keyword };
-}
-
-type LinkedTournament = {
-  id: string;
-  slug: string | null;
-  name: string | null;
-  sport: string | null;
-  start_date: string | null;
-  end_date: string | null;
-};
-
-type VenueRow = {
-  id: string;
-  seo_slug?: string | null;
-  name: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  notes: string | null;
-  venue_url: string | null;
-  sport: string | null;
-  restroom_cleanliness_avg: number | null;
-  shade_score_avg: number | null;
-  vendor_score_avg: number | null;
-  parking_convenience_score_avg: number | null;
-  player_parking_fee?: string | null;
-  parking_notes?: string | null;
-  bring_field_chairs?: boolean | null;
-  seating_notes?: string | null;
-  review_count: number | null;
-  reviews_last_updated_at: string | null;
-  tournament_venues?: {
-    is_inferred?: boolean | null;
-    tournaments?: LinkedTournament | null;
-  }[] | null;
-};
 
 type OwlsEyeRunRow = {
   id: string;
@@ -273,7 +130,7 @@ function buildVenueAbsoluteUrl(venue: { id: string; seo_slug?: string | null }) 
   return `${SITE_ORIGIN}${getVenueHref(venue)}`;
 }
 
-function buildVenueStructuredData(venue: VenueRow) {
+function buildVenueStructuredData(venue: SharedVenueSourceRow) {
   const url = buildVenueAbsoluteUrl(venue);
   const hasAddress = [venue.address, venue.city, venue.state, venue.zip].some(Boolean);
   const sameAs = (venue.venue_url ?? "").trim();
@@ -383,49 +240,17 @@ export async function generateMetadata({ params }: { params: { venueId: string }
   };
 }
 
-async function fetchVenueByParam(param: string): Promise<{ venue: VenueRow | null; redirectTo: string | null }> {
-  const baseSelect =
-    "id,seo_slug,name,address,city,state,zip,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(is_inferred,tournaments(id,slug,name,sport,start_date,end_date))";
-
-  const bySlug = await supabaseAdmin
-    .from("venues" as any)
-    .select(baseSelect)
-    .eq("seo_slug", param)
-    .maybeSingle<VenueRow>();
-  if (!bySlug.error && bySlug.data?.id) {
-    return { venue: bySlug.data, redirectTo: null };
-  }
-
-  if (isUuid(param)) {
-    const byId = await supabaseAdmin.from("venues" as any).select(baseSelect).eq("id", param).maybeSingle<VenueRow>();
-    if (!byId.error && byId.data?.id) {
-      if (byId.data.seo_slug && byId.data.seo_slug !== param) {
-        return { venue: byId.data, redirectTo: getVenueHref(byId.data) };
-      }
-      return { venue: byId.data, redirectTo: null };
-    }
-  }
-
-  const legacy = parseLegacyAddressSlug(param);
-  if (legacy) {
-    try {
-      let query = supabaseAdmin
-        .from("venues" as any)
-        .select(baseSelect)
-        .eq("state", legacy.state)
-        .ilike("address", `%${legacy.number}%`);
-      if (legacy.keyword) query = query.ilike("address", `%${legacy.keyword}%`);
-      const resp = await query.limit(5);
-      if (!resp.error && Array.isArray(resp.data) && resp.data.length) {
-        const pick = resp.data[0] as VenueRow;
-        return { venue: pick, redirectTo: getVenueHref(pick) };
-      }
-    } catch {
-      // best-effort only
-    }
-  }
-
-  return { venue: null, redirectTo: null };
+async function fetchVenueByParam(param: string): Promise<{
+  venue: SharedVenueSourceRow | null;
+  sharedVenue: { tournaments: SharedVenueTournamentSummary[] } | null;
+  redirectTo: string | null;
+}> {
+  const resolved = await resolveSharedVenueByParam(supabaseAdmin, param, { allowLegacyAddressSlugLookup: true });
+  return {
+    venue: resolved.sourceRow,
+    sharedVenue: resolved.venue,
+    redirectTo: resolved.canonicalParam && resolved.sourceRow ? getVenueHref({ id: resolved.sourceRow.id, seo_slug: resolved.canonicalParam }) : null,
+  };
 }
 
 export default async function VenueDetailsPage({
@@ -435,7 +260,7 @@ export default async function VenueDetailsPage({
   params: { venueId: string };
   searchParams?: { tournament?: string; venue_sport?: string };
 }) {
-  const { venue: resolvedVenue, redirectTo } = await fetchVenueByParam(params.venueId);
+  const { venue: resolvedVenue, sharedVenue, redirectTo } = await fetchVenueByParam(params.venueId);
   if (redirectTo) permanentRedirect(redirectTo);
   if (!resolvedVenue?.id) notFound();
 
@@ -466,6 +291,7 @@ export default async function VenueDetailsPage({
   const isPaid = canAccessWeekendPro(user, entitlementProfile ?? null);
 
   const data = resolvedVenue;
+  const linkedTournaments = sharedVenue?.tournaments ?? [];
   const canReviewVenue = tier !== "explorer";
   const venueInsightsExtra = await supabaseAdmin
     .from("venues" as any)
@@ -485,26 +311,8 @@ export default async function VenueDetailsPage({
       ? venueInsightsExtra.data
       : null;
 
-  // Optional geo columns (weather/planning helpers). Keep the page resilient if the columns aren't in this DB yet.
-  const venueGeo = await supabaseAdmin
-    .from("venues" as any)
-    .select("latitude,longitude")
-    .eq("id", data.id)
-    .maybeSingle<{ latitude: number | null; longitude: number | null }>();
-  const geoCode = (venueGeo as any)?.error?.code;
-  const resolvedGeo =
-    !venueGeo.error || geoCode === "42703" || geoCode === "PGRST204"
-      ? venueGeo.data
-      : null;
   const isDemoVenue = data.id === DEMO_STARFIRE_VENUE_ID;
-
-  const linkedTournaments = (data.tournament_venues ?? [])
-    .filter((tv) => !tv?.is_inferred)
-    .map((tv) => tv?.tournaments)
-    .filter((t): t is LinkedTournament => Boolean(t?.id));
   const requestedTournamentRaw = typeof searchParams?.tournament === "string" ? searchParams.tournament.trim() : "";
-  const isUuid = (value: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   const requestedTournamentId = requestedTournamentRaw && isUuid(requestedTournamentRaw) ? requestedTournamentRaw : "";
   const requestedTournamentSlug = requestedTournamentId ? "" : requestedTournamentRaw.toLowerCase();
   const selectedTournament =
@@ -524,15 +332,15 @@ export default async function VenueDetailsPage({
   const cutoffIso = cutoff.toISOString().slice(0, 10);
   const upcomingTournaments = linkedTournaments
     .filter((t) => {
-      const startOk = Boolean(t.start_date && t.start_date >= today);
-      const endOk = Boolean(t.end_date && t.end_date >= today);
+      const startOk = Boolean(t.startDate && t.startDate >= today);
+      const endOk = Boolean(t.endDate && t.endDate >= today);
       return startOk || endOk;
     })
-    .sort((a, b) => (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31"));
+    .sort((a, b) => (a.startDate ?? "9999-12-31").localeCompare(b.startDate ?? "9999-12-31"));
 
   const hasStaticMapPreview =
     Boolean((process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim()) &&
-    isValidLatLng(resolvedGeo?.latitude, resolvedGeo?.longitude);
+    isValidLatLng(data.latitude, data.longitude);
 
   const mapContextTournamentSlug =
     (selectedTournament?.slug ?? "").trim() ||
@@ -553,12 +361,12 @@ export default async function VenueDetailsPage({
 
   const semanticTournamentCandidates = linkedTournaments
     .filter((t) => {
-      const start = (t.start_date ?? "").trim();
+      const start = (t.startDate ?? "").trim();
       if (!start) return false;
       return start >= cutoffIso;
     })
     .sort((a, b) => {
-      const dateCmp = (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31");
+      const dateCmp = (a.startDate ?? "9999-12-31").localeCompare(b.startDate ?? "9999-12-31");
       if (dateCmp !== 0) return dateCmp;
       return (a.name ?? "").localeCompare(b.name ?? "");
     });
@@ -894,8 +702,8 @@ export default async function VenueDetailsPage({
         city: data.city ?? null,
         state: data.state ?? null,
         sport: requestedVenueSport || selectedTournament?.sport || data.sport || null,
-        checkin: selectedTournament.start_date ?? null,
-        checkout: selectedTournament.end_date ?? null,
+        checkin: selectedTournament.startDate ?? null,
+        checkout: selectedTournament.endDate ?? null,
         entrySource: "venue_detail",
         entryPageType: "venue",
         entryPath: `/venues/${encodeURIComponent(data.seo_slug || data.id)}${selectedTournament?.id ? `?tournament=${encodeURIComponent(selectedTournament.id)}` : ""}`,
@@ -1069,15 +877,15 @@ export default async function VenueDetailsPage({
                   state: data.state,
                   zip: data.zip,
                   venue_url: data.venue_url,
-                  latitude: resolvedGeo?.latitude ?? null,
-                  longitude: resolvedGeo?.longitude ?? null,
+                  latitude: data.latitude ?? null,
+                  longitude: data.longitude ?? null,
                 }}
                 hasOwlsEye={hasOwlsEye}
                 canViewPremiumDetails={canViewPremiumDetails}
                 selectedTournamentId={contextTournament?.id ?? null}
                 selectedTournamentSlug={mapContextTournamentSlug}
-                selectedTournamentStartDate={contextTournament?.start_date ?? null}
-                selectedTournamentEndDate={contextTournament?.end_date ?? null}
+                selectedTournamentStartDate={contextTournament?.startDate ?? null}
+                selectedTournamentEndDate={contextTournament?.endDate ?? null}
                 nearbyCounts={nearbyCounts}
                 airportSummary={airportSummary}
                 premiumNearby={premiumNearby}
@@ -1097,7 +905,7 @@ export default async function VenueDetailsPage({
 
                 if (upcomingCount === 1) {
                   const t = upcomingValid[0]!;
-                  const dateLabel = formatDateRangeLabel(t.start_date, t.end_date);
+                  const dateLabel = formatDateRangeLabel(t.startDate, t.endDate);
                   const meta = [dateLabel, locationLabel].filter(Boolean).join(" · ");
                   const href = t.slug ? `/tournaments/${t.slug}` : "";
                   return (
@@ -1158,7 +966,7 @@ export default async function VenueDetailsPage({
                       <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
                       <div className={styles.upcomingList}>
                         {upcomingValid.map((t) => {
-                          const dateLabel = formatDateRangeLabel(t.start_date, t.end_date);
+                          const dateLabel = formatDateRangeLabel(t.startDate, t.endDate);
                           const href = t.slug ? `/tournaments/${t.slug}` : "";
                           return (
                             <div key={t.id}>

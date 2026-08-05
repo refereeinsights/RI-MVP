@@ -9,49 +9,12 @@ import MobileMapLink from "@/components/venues/MobileMapLink";
 import { buildOwlsEyeDemoScores, type VenueReviewChoiceRow } from "@/lib/owlsEyeScores";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isUuid } from "@/lib/venues/isUuid";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { buildVenueTitle } from "@/lib/seo/buildTitle";
+import { resolveSharedVenueByParam, type SharedVenueSourceRow, type SharedVenueTournamentSummary } from "../../../../../packages/lib/venue";
 import { buildMapDirectionsLinks, hasValidCoordinates } from "../../../../../packages/lib/tournament-map";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import "../../tournaments/tournaments.css";
-
-type LinkedTournament = {
-  id: string;
-  slug: string | null;
-  name: string | null;
-  sport: string | null;
-  city: string | null;
-  state: string | null;
-  start_date: string | null;
-  end_date: string | null;
-};
-
-type VenueRow = {
-  id: string;
-  name: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  notes: string | null;
-  venue_url: string | null;
-  seo_slug?: string | null;
-  sport: string | null;
-  restroom_cleanliness_avg: number | null;
-  shade_score_avg: number | null;
-  vendor_score_avg: number | null;
-  parking_convenience_score_avg: number | null;
-  player_parking_fee?: string | null;
-  parking_notes?: string | null;
-  bring_field_chairs?: boolean | null;
-  seating_notes?: string | null;
-  review_count: number | null;
-  reviews_last_updated_at: string | null;
-  tournament_venues?: { is_inferred?: boolean | null; tournaments?: LinkedTournament | null }[] | null;
-};
 
 type OwlsEyeRunRow = {
   id: string;
@@ -299,36 +262,21 @@ export async function generateMetadata({ params }: { params: { venueId: string }
   };
 }
 
-async function fetchVenueByParam(param: string): Promise<{ venue: VenueRow | null; redirectTo: string | null }> {
-  // Try slug first
-  const baseSelect =
-    "id,seo_slug,name,address,city,state,zip,latitude,longitude,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(is_inferred,tournaments(id,slug,name,sport,city,state,start_date,end_date))";
-
-  const bySlug = await supabaseAdmin
-    .from("venues" as any)
-    .select(baseSelect)
-    .eq("seo_slug", param)
-    .maybeSingle<VenueRow>();
-  if (!bySlug.error && bySlug.data?.id) {
-    return { venue: bySlug.data, redirectTo: null };
-  }
-
-  // Fallback UUID lookup
-  if (isUuid(param)) {
-    const byId = await supabaseAdmin.from("venues" as any).select(baseSelect).eq("id", param).maybeSingle<VenueRow>();
-    if (!byId.error && byId.data?.id) {
-      if (byId.data.seo_slug && byId.data.seo_slug !== param) {
-        return { venue: byId.data, redirectTo: getVenueHref(byId.data) };
-      }
-      return { venue: byId.data, redirectTo: null };
-    }
-  }
-
-  return { venue: null, redirectTo: null };
+async function fetchVenueByParam(param: string): Promise<{
+  venue: SharedVenueSourceRow | null;
+  sharedVenue: { tournaments: SharedVenueTournamentSummary[] } | null;
+  redirectTo: string | null;
+}> {
+  const resolved = await resolveSharedVenueByParam(supabaseAdmin, param);
+  return {
+    venue: resolved.sourceRow,
+    sharedVenue: resolved.venue,
+    redirectTo: resolved.canonicalParam && resolved.sourceRow ? getVenueHref({ id: resolved.sourceRow.id, seo_slug: resolved.canonicalParam }) : null,
+  };
 }
 
 export default async function VenueDetailsPage({ params }: { params: { venueId: string } }) {
-  const { venue, redirectTo } = await fetchVenueByParam(params.venueId);
+  const { venue, sharedVenue, redirectTo } = await fetchVenueByParam(params.venueId);
   if (redirectTo) redirect(redirectTo);
   if (!venue?.id) notFound();
   const data = venue;
@@ -347,17 +295,14 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const extraCode = (venueInsightsExtra as any)?.error?.code;
   const resolvedVenueInsights = !venueInsightsExtra.error || extraCode === "42703" || extraCode === "PGRST204" ? venueInsightsExtra.data : null;
 
-  const linkedTournaments = (data.tournament_venues ?? [])
-    .filter((tv) => !tv?.is_inferred)
-    .map((tv) => tv?.tournaments)
-    .filter((t): t is LinkedTournament => Boolean(t?.id));
+  const linkedTournaments = sharedVenue?.tournaments ?? [];
   const today = new Date().toISOString().slice(0, 10);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 7);
   const cutoffIso = cutoff.toISOString().slice(0, 10);
   const upcomingTournaments = linkedTournaments
-    .filter((t) => Boolean((t.start_date && t.start_date >= today) || (t.end_date && t.end_date >= today)))
-    .sort((a, b) => (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31"));
+    .filter((t) => Boolean((t.startDate && t.startDate >= today) || (t.endDate && t.endDate >= today)))
+    .sort((a, b) => (a.startDate ?? "9999-12-31").localeCompare(b.startDate ?? "9999-12-31"));
 
   const tiOrigin = getTiOrigin();
   const venuePath = getVenueHref(data);
@@ -399,12 +344,12 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
 
   const semanticTournamentCandidates = linkedTournaments
     .filter((t) => {
-      const start = (t.start_date ?? "").trim();
+      const start = (t.startDate ?? "").trim();
       if (!start) return false;
       return start >= cutoffIso;
     })
     .sort((a, b) => {
-      const dateCmp = (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31");
+      const dateCmp = (a.startDate ?? "9999-12-31").localeCompare(b.startDate ?? "9999-12-31");
       if (dateCmp !== 0) return dateCmp;
       return (a.name ?? "").localeCompare(b.name ?? "");
     });
@@ -809,11 +754,11 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                   <p style={{ margin: 0, fontWeight: 700 }}>Tournaments at this venue</p>
                   <div style={{ display: "grid", gap: 6 }}>
                     {[...linkedTournaments]
-                      .sort((a, b) => (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31"))
+                      .sort((a, b) => (a.startDate ?? "9999-12-31").localeCompare(b.startDate ?? "9999-12-31"))
                       .map((t) => {
                       if (!t.slug || !t.name) return null;
-                      const start = formatDate(t.start_date);
-                      const end = formatDate(t.end_date);
+                      const start = formatDate(t.startDate);
+                      const end = formatDate(t.endDate);
                       const dateLabel = start && end && start !== end ? `${start} - ${end}` : start || end || "Dates TBA";
                       const tournamentLocation = [t.city, t.state].filter(Boolean).join(", ");
                       const tournamentMeta = [t.sport, tournamentLocation].filter(Boolean).join(" • ");
