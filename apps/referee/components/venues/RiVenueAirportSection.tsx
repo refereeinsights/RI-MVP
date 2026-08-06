@@ -69,13 +69,15 @@ export default function RiVenueAirportSection({
   return (
     <div className="detailCard" style={{ width: "min(720px, 100%)", display: "grid", gap: 10 }}>
       <div style={{ display: "grid", gap: 4 }}>
-        <div style={{ fontWeight: 900, fontSize: 18 }}>{heading}</div>
-        <div style={{ fontWeight: 700, color: "#0f172a" }}>
+        <div style={{ fontWeight: 900, fontSize: 18, color: "rgba(248, 250, 252, 0.98)" }}>{heading}</div>
+        <div style={{ fontWeight: 700, color: "#f8fbff" }}>
           {airport.name}
           {code ? ` (${code})` : ""}
         </div>
-        {location ? <div style={{ color: "#475569", fontSize: 14 }}>{location}</div> : null}
-        {distanceLabel ? <div style={{ color: "#475569", fontSize: 14 }}>{distanceLabel}</div> : null}
+        {location ? <div style={{ color: "rgba(226, 232, 240, 0.92)", fontSize: 14 }}>{location}</div> : null}
+        {distanceLabel ? (
+          <div style={{ color: "rgba(226, 232, 240, 0.92)", fontSize: 14 }}>{distanceLabel}</div>
+        ) : null}
       </div>
 
       <div className="detailLinksRow">

@@ -51,8 +51,8 @@ export default function RiVenueNearbySection({
   return (
     <div className="detailCard" style={{ width: "min(720px, 100%)", display: "grid", gap: 12 }}>
       <div style={{ display: "grid", gap: 4 }}>
-        <div style={{ fontWeight: 900, fontSize: 18 }}>Nearby for Officials</div>
-        <div style={{ color: "#4b5563", fontSize: 14 }}>
+        <div style={{ fontWeight: 900, fontSize: 18, color: "rgba(248, 250, 252, 0.98)" }}>Nearby for Officials</div>
+        <div style={{ color: "rgba(226, 232, 240, 0.9)", fontSize: 14, lineHeight: 1.5 }}>
           {summaryParts.length > 0 ? `${summaryParts.join(" • ")} around this venue.` : "Coffee and meal options around this venue."}
         </div>
       </div>

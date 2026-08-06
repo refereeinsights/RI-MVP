@@ -1730,10 +1730,10 @@
 
 .detailCard {
   margin-top: 12px;
-  background: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.2);
   border-radius: 14px;
   padding: 12px 14px;
-  border: 1px solid rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.28);
   width: min(720px, 100%);
 }
 
@@ -1830,8 +1830,8 @@
   margin-top: 10px;
   padding: 10px;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.25);
-  background: rgba(0,0,0,0.12);
+  border: 1px solid rgba(255,255,255,0.28);
+  background: rgba(0,0,0,0.18);
   display: grid;
   gap: 8px;
   width: min(720px, 100%);
@@ -1867,15 +1867,15 @@
 }
 
 .detailVenueNearbyPreview__teaser {
-  color: rgba(248, 251, 255, 0.9);
+  color: rgba(241, 245, 249, 0.92);
   font-size: 14px;
 }
 
 .detailVenueNearbyGuide {
   margin-top: 4px;
-  border: 1px solid rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.28);
   border-radius: 10px;
-  background: rgba(0,0,0,0.12);
+  background: rgba(0,0,0,0.18);
   padding: 10px;
   display: grid;
   gap: 8px;
@@ -1906,7 +1906,7 @@
 .premiumNearbyLink__meta {
   font-size: 12px;
   font-weight: 700;
-  color: #cffafe;
+  color: #ecfeff;
 }
 
 .premiumNearbyLink--row {
@@ -1923,6 +1923,12 @@
   min-height: 36px !important;
   padding: 8px 12px !important;
   box-shadow: none !important;
+}
+
+.detailCard .secondaryLink:focus-visible,
+.premiumNearbyLink:focus-visible {
+  outline: 2px solid rgba(248, 250, 252, 0.92);
+  outline-offset: 2px;
 }
 
 .detailHero.bg-sport-default,

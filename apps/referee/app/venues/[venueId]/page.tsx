@@ -494,8 +494,10 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
               {showVenueHotelResults ? (
                 <div className="detailCard" style={{ width: "min(720px, 100%)", display: "grid", gap: 12 }}>
                   <div style={{ display: "grid", gap: 4 }}>
-                    <div style={{ fontWeight: 900, fontSize: 18 }}>Hotels near this venue</div>
-                    <div style={{ color: "#4b5563", fontSize: 14 }}>
+                    <div style={{ fontWeight: 900, fontSize: 18, color: "rgba(248, 250, 252, 0.98)" }}>
+                      Hotels near this venue
+                    </div>
+                    <div style={{ color: "rgba(226, 232, 240, 0.9)", fontSize: 14, lineHeight: 1.5 }}>
                       Live HotelPlanner results
                       {hotelSearch.resolvedCheckIn || hotelSearch.resolvedCheckOut
                         ? ` • ${hotelSearch.resolvedCheckIn || "—"} → ${hotelSearch.resolvedCheckOut || "—"}`
@@ -664,7 +666,15 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                     🏠 Search rentals near this venue
                   </RiVenueExternalLink>
                 </div>
-                <div style={{ marginTop: 8, fontSize: 12, opacity: 0.82, textAlign: "center" }}>
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontSize: 12,
+                    color: "rgba(226, 232, 240, 0.9)",
+                    lineHeight: 1.45,
+                    textAlign: "center",
+                  }}
+                >
                   This page may contain affiliate links. RefereeInsights may earn a commission if you book through these links, at
                   no additional cost to you.
                 </div>
@@ -672,7 +682,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
 
               {linkedTournaments.length > 0 ? (
                 <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
-                  <p style={{ margin: 0, fontWeight: 700 }}>Tournaments at this venue</p>
+                  <p style={{ margin: 0, fontWeight: 700, color: "rgba(248, 250, 252, 0.98)" }}>Tournaments at this venue</p>
                   <div style={{ display: "grid", gap: 6 }}>
                     {[...linkedTournaments]
                       .sort((a, b) => (a.startDate ?? "9999-12-31").localeCompare(b.startDate ?? "9999-12-31"))
@@ -704,26 +714,30 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                         >
                           <span style={{ display: "grid", gap: 2 }}>
                             <span>{t.name}</span>
-                            {tournamentMeta ? <span style={{ fontSize: 12, opacity: 0.78 }}>{tournamentMeta}</span> : null}
+                            {tournamentMeta ? (
+                              <span style={{ fontSize: 12, color: "rgba(226, 232, 240, 0.88)" }}>{tournamentMeta}</span>
+                            ) : null}
                           </span>
-                          <span style={{ fontSize: 12, opacity: 0.85, textAlign: "right" }}>{dateLabel}</span>
+                          <span style={{ fontSize: 12, color: "rgba(226, 232, 240, 0.92)", textAlign: "right" }}>
+                            {dateLabel}
+                          </span>
                         </RiVenueInternalLink>
                       );
                     })}
                   </div>
                 </div>
               ) : (
-                <p style={{ margin: 0, opacity: 0.9 }}>No tournaments are currently linked to this venue.</p>
+                <p style={{ margin: 0, color: "rgba(226, 232, 240, 0.92)" }}>No tournaments are currently linked to this venue.</p>
               )}
 
               {data.notes ? (
                 <div style={{ marginTop: 6 }}>
-                  <p style={{ margin: 0, fontWeight: 700 }}>Notes</p>
-                  <p style={{ margin: "4px 0 0", opacity: 0.95 }}>{data.notes}</p>
+                  <p style={{ margin: 0, fontWeight: 700, color: "rgba(248, 250, 252, 0.98)" }}>Notes</p>
+                  <p style={{ margin: "4px 0 0", color: "rgba(241, 245, 249, 0.95)", lineHeight: 1.55 }}>{data.notes}</p>
                 </div>
               ) : null}
 
-              <div style={{ marginTop: 10, fontSize: 13, opacity: 0.78, lineHeight: 1.35 }}>
+              <div style={{ marginTop: 10, fontSize: 13, color: "rgba(226, 232, 240, 0.9)", lineHeight: 1.5 }}>
                 <p style={{ margin: 0 }}>{semanticLocationSentence}</p>
                 {semanticTournaments.totalUnique > 0 ? (
                   <p style={{ margin: "6px 0 0" }}>
