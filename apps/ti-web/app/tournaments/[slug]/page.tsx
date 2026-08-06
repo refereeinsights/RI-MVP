@@ -759,7 +759,14 @@ async function TournamentVenueDetails({
     null;
 
   const bestOwlVenueRow = displayVenueRows.find((v) => v.hasOwl) ?? null;
-  const bookingVenueRow = displayVenueRows.find((v) => canShowBookingCta({ zip: v.venue.zip })) ?? null;
+  const bookingVenueRow =
+    displayVenueRows.find((v) =>
+      canShowBookingCta({
+        zip: v.venue.zip,
+        latitude: v.venue.latitude,
+        longitude: v.venue.longitude,
+      })
+    ) ?? null;
   const hotelClickVenueId =
     bookingVenueRow?.venue.id ?? bestWeatherVenueRow?.venue.id ?? displayVenueRows[0]?.venue.id ?? null;
   const hotelClickVenue = hotelClickVenueId ? displayVenueRows.find((r) => r.venue.id === hotelClickVenueId)?.venue ?? null : null;

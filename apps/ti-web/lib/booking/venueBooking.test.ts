@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBookingSearchString, buildHotelsHref, canShowBookingCta, isValidZip5 } from "./venueBooking";
+import {
+  buildBookingSearchString,
+  buildHotelsHref,
+  canShowBookingCta,
+  hasValidVenueCoordinates,
+  isValidZip5,
+} from "./venueBooking";
 
 test("isValidZip5: accepts trimmed 5-digit ZIP", () => {
   assert.equal(isValidZip5("80601"), true);
@@ -15,11 +21,21 @@ test("isValidZip5: rejects invalid ZIPs", () => {
   assert.equal(isValidZip5("ABCDE"), false);
 });
 
-test("canShowBookingCta: true only when venue has a valid ZIP", () => {
+test("hasValidVenueCoordinates: accepts valid latitude/longitude pairs only", () => {
+  assert.equal(hasValidVenueCoordinates({ latitude: 39.7392, longitude: -104.9903 }), true);
+  assert.equal(hasValidVenueCoordinates({ latitude: "39.7392", longitude: "-104.9903" }), true);
+  assert.equal(hasValidVenueCoordinates({ latitude: null, longitude: -104.9903 }), false);
+  assert.equal(hasValidVenueCoordinates({ latitude: 91, longitude: -104.9903 }), false);
+  assert.equal(hasValidVenueCoordinates({ latitude: 39.7392, longitude: -181 }), false);
+});
+
+test("canShowBookingCta: true when venue has a valid ZIP or valid coordinates", () => {
   assert.equal(canShowBookingCta({ zip: "80601" }), true);
   assert.equal(canShowBookingCta({ zip: " 80601 " }), true);
+  assert.equal(canShowBookingCta({ zip: null, latitude: 39.7392, longitude: -104.9903 }), true);
   assert.equal(canShowBookingCta({ zip: null }), false);
   assert.equal(canShowBookingCta({ zip: "Denver" }), false);
+  assert.equal(canShowBookingCta({ zip: "Denver", latitude: 91, longitude: -104.9903 }), false);
   assert.equal(canShowBookingCta(null), false);
 });
 

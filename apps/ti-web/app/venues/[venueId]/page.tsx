@@ -738,7 +738,11 @@ export default async function VenueDetailsPage({
     checkin: contextTournament?.startDate ?? null,
     checkout: contextTournament?.endDate ?? null,
   });
-  const showPrimaryHotelBooking = canShowBookingCta({ zip: data.zip });
+  const showPrimaryHotelBooking = canShowBookingCta({
+    zip: data.zip,
+    latitude: data.latitude,
+    longitude: data.longitude,
+  });
   const venueStructuredData = buildVenueStructuredData(data);
 
   return (
@@ -850,18 +854,10 @@ export default async function VenueDetailsPage({
                 if (upcomingCount === 1) {
                   const t = upcomingValid[0]!;
                   return (
-                    <>
-                      <div className={styles.upcomingMobileOnly} style={{ marginTop: 4 }}>
-                        <div className={styles.upcomingCard}>
-                          <div className={styles.upcomingEyebrow}>UPCOMING AT THIS VENUE</div>
-                          {renderTournamentRow(t, "mobile")}
-                        </div>
-                      </div>
-                      <div className={styles.upcomingDesktopOnly} style={{ display: "grid", gap: 8, marginTop: 4 }}>
-                        <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
-                        <div className={styles.upcomingList}>{renderTournamentRow(t, "desktop")}</div>
-                      </div>
-                    </>
+                    <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
+                      <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
+                      <div className={styles.upcomingList}>{renderTournamentRow(t, "desktop")}</div>
+                    </div>
                   );
                 }
 

@@ -88,7 +88,7 @@ export default function VenueCard({
     latitude,
     longitude,
   });
-  const showBooking = canShowBookingCta({ zip });
+  const showBooking = canShowBookingCta({ zip, latitude, longitude });
   const hotelsHrefWithSource = buildHotelsHref({
     venueId,
     source: "venue_directory",

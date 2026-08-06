@@ -117,7 +117,11 @@ export default function OwlsEyeVenueCard({
     latitude: venue.latitude,
     longitude: venue.longitude,
   });
-  const showBooking = canShowBookingCta({ zip: venue.zip });
+  const showBooking = canShowBookingCta({
+    zip: venue.zip,
+    latitude: venue.latitude,
+    longitude: venue.longitude,
+  });
   const hasValidCoordinates = isValidLatLng(venue.latitude, venue.longitude);
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim();
   const zoomForVenue = (() => {

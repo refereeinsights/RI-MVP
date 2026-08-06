@@ -3,8 +3,30 @@ export function isValidZip5(zip: string | null | undefined): boolean {
   return /^\d{5}$/.test(value);
 }
 
-export function canShowBookingCta(venue: { zip?: string | null } | null | undefined): boolean {
-  return isValidZip5(venue?.zip);
+function parseCoordinate(value: HotelUrlValue, maxAbs: number) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return null;
+  if (Math.abs(num) > maxAbs) return null;
+  return num;
+}
+
+export function hasValidVenueCoordinates(venue: {
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+} | null | undefined): boolean {
+  const lat = parseCoordinate(venue?.latitude, 90);
+  const lng = parseCoordinate(venue?.longitude, 180);
+  return lat !== null && lng !== null;
+}
+
+export function canShowBookingCta(venue: {
+  zip?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+} | null | undefined): boolean {
+  return isValidZip5(venue?.zip) || hasValidVenueCoordinates(venue);
 }
 
 function isValidState2(state: string | null | undefined): boolean {
@@ -91,15 +113,6 @@ function addQueryNumber(qp: URLSearchParams, key: string, value: HotelUrlValue) 
   const n = Number(raw);
   if (!Number.isFinite(n)) return;
   qp.set(key, String(n));
-}
-
-function parseCoordinate(value: HotelUrlValue, maxAbs: number) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return null;
-  const num = Number(raw);
-  if (!Number.isFinite(num)) return null;
-  if (Math.abs(num) > maxAbs) return null;
-  return num;
 }
 
 export function buildHotelsHref(args: {
