@@ -110,12 +110,18 @@ export function buildHotelsHref(args: {
   ss?: string | null;
   latitude?: number | string | null;
   longitude?: number | string | null;
+  checkin?: string | null;
+  checkout?: string | null;
 }): string {
   const qp = new URLSearchParams({ venueId: args.venueId });
   if (args.tournamentId) qp.set("tournamentId", args.tournamentId);
   if (args.source?.trim()) qp.set("source", args.source.trim());
   qp.set("provider", args.provider?.trim() || "hotelplanner");
   if (args.ss?.trim()) qp.set("ss", args.ss.trim());
+  const checkin = String(args.checkin ?? "").trim();
+  const checkout = String(args.checkout ?? "").trim();
+  if (checkin) qp.set("checkin", checkin);
+  if (checkout) qp.set("checkout", checkout);
   const lat = parseCoordinate(args.latitude, 90);
   const lng = parseCoordinate(args.longitude, 180);
   if (lat !== null && lng !== null) {

@@ -39,6 +39,7 @@ import {
 import { ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY } from "@/lib/featureFlags";
 import { getPlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
+import type { TournamentHotelVenueInput } from "@/lib/tournamentHotelSelection";
 import { mapStateCodeToName, mapStateCodeToSlug, normalizeSportSlug, sportDisplayName } from "@/lib/seoHub";
 import "../tournaments.css";
 
@@ -269,12 +270,14 @@ async function TournamentUserActions({
   searchParams,
   viewerContext,
   primaryVenueIdForPlan,
+  hotelSearchVenues,
 }: {
   tournament: TournamentDetailCoreRow;
   paramsSlug: string;
   searchParams?: { claim?: string; saved?: string };
   viewerContext: Promise<ViewerContext>;
   primaryVenueIdForPlan: string | null;
+  hotelSearchVenues: TournamentHotelVenueInput[];
 }) {
   const viewer = await viewerContext;
   const resolvedSlug = (tournament.slug ?? paramsSlug ?? "").toLowerCase();
@@ -355,6 +358,7 @@ async function TournamentUserActions({
         plannerSessionId={plannerSessionId}
         weekendHref={weekendHref}
         primaryVenueId={primaryVenueIdForPlan}
+        hotelSearchVenues={hotelSearchVenues}
         city={tournament.city ?? null}
         state={tournament.state ?? null}
         startDate={tournament.start_date ?? null}
@@ -1762,6 +1766,38 @@ export default async function TournamentDetailPage({
     }
   })();
 
+  const hotelSearchVenues = await (async () => {
+    try {
+      const { data: rows } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("venue_id,is_primary,created_at,venues(id,name,city,state,zip,latitude,longitude)")
+        .eq("tournament_id", data.id)
+        .eq("is_inferred", false)
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true });
+      return (((rows as any[]) ?? [])
+        .map((row): TournamentHotelVenueInput | null => {
+          const venue = row?.venues;
+          const id = String(venue?.id ?? row?.venue_id ?? "").trim();
+          if (!id) return null;
+          return {
+            id,
+            name: typeof venue?.name === "string" ? venue.name : null,
+            city: typeof venue?.city === "string" ? venue.city : null,
+            state: typeof venue?.state === "string" ? venue.state : null,
+            zip: typeof venue?.zip === "string" ? venue.zip : null,
+            latitude: typeof venue?.latitude === "number" ? venue.latitude : null,
+            longitude: typeof venue?.longitude === "number" ? venue.longitude : null,
+            isPrimary: Boolean(row?.is_primary),
+            createdAt: typeof row?.created_at === "string" ? row.created_at : null,
+          } satisfies TournamentHotelVenueInput;
+        })
+        .filter((row): row is TournamentHotelVenueInput => row !== null));
+    } catch {
+      return [] as TournamentHotelVenueInput[];
+    }
+  })();
+
   const locationLabel = buildLocationLabel(data.city, data.state) || "Location TBA";
   const start = formatDate(data.start_date);
   const end = formatDate(data.end_date);
@@ -1909,12 +1945,13 @@ export default async function TournamentDetailPage({
 	          {metroLabel ? <div className="detailMeta">{metroLabel}</div> : null}
 
 		          <Suspense fallback={<div style={{ height: 44 }} />}>
-		            <TournamentUserActionsComponent
+	            <TournamentUserActionsComponent
 		              tournament={data}
 		              paramsSlug={params.slug}
 	              searchParams={searchParams}
 	              viewerContext={viewerContext}
                 primaryVenueIdForPlan={primaryVenueIdForPlan}
+                hotelSearchVenues={hotelSearchVenues}
 	            />
 	          </Suspense>
 

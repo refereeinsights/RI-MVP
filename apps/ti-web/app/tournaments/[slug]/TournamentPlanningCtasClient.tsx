@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import { createTeamHotelCtaInteractionId, rememberPendingTeamHotelEntry, rememberLastTeamHotelCtaInteractionId } from "@/lib/teamHotelClientTracking";
 import { evaluateTournamentTeamTravelEligibility } from "@/lib/teamTravelEligibility";
+import { resolveTournamentHotelSearchCta, type TournamentHotelVenueInput } from "@/lib/tournamentHotelSelection";
 import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import styles from "./TournamentPlanningCtasClient.module.css";
 
@@ -27,6 +28,7 @@ export default function TournamentPlanningCtasClient(props: {
   plannerSessionId: string;
   weekendHref: string;
   primaryVenueId?: string | null;
+  hotelSearchVenues: TournamentHotelVenueInput[];
   city: string | null;
   state: string | null;
   startDate: string | null;
@@ -37,6 +39,8 @@ export default function TournamentPlanningCtasClient(props: {
 }) {
   const slug = String(props.tournamentSlug ?? "").trim();
   const viewedRef = useRef(false);
+  const selectorViewedRef = useRef(false);
+  const [hotelSelectorOpen, setHotelSelectorOpen] = useState(false);
 
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
   const plannerSessionId = props.plannerSessionId;
@@ -65,7 +69,7 @@ export default function TournamentPlanningCtasClient(props: {
     entryPath: `/tournaments/${encodeURIComponent(slug)}`,
     entryPlacement: "tournament_detail_team_hotel_cta",
   });
-  const travelHref = (() => {
+  const travelFallbackHref = (() => {
     const qp = new URLSearchParams();
     const city = String(props.city ?? "").trim();
     const state = String(props.state ?? "").trim();
@@ -80,6 +84,37 @@ export default function TournamentPlanningCtasClient(props: {
     const qs = qp.toString();
     return qs ? `/book-travel?${qs}` : "/book-travel";
   })();
+  const hotelSearchCta = useMemo(
+    () =>
+      resolveTournamentHotelSearchCta({
+        tournamentId: props.tournamentId,
+        startDate: props.startDate,
+        endDate: props.endDate,
+        fallbackHref: travelFallbackHref,
+        venues: props.hotelSearchVenues,
+      }),
+    [props.endDate, props.hotelSearchVenues, props.startDate, props.tournamentId, travelFallbackHref]
+  );
+
+  function trackHotelCtaClick(args: {
+    href: string;
+    travelMode: "direct" | "selector" | "fallback";
+    selectedVenueId?: string | null;
+    selectedVenueName?: string | null;
+  }) {
+    void trackTiEvent("tournament_detail_travel_search_clicked", {
+      page_type: "tournament_detail",
+      tournament_id: props.tournamentId,
+      tournament_slug: slug,
+      source_page: "tournament_detail",
+      cta: "travel_search",
+      href: args.href,
+      hotel_search_mode: args.travelMode,
+      hotel_search_linked_venue_count: props.hotelSearchVenues.length,
+      selected_venue_id: args.selectedVenueId ?? undefined,
+      selected_venue_name: args.selectedVenueName ?? undefined,
+    });
+  }
 
   useEffect(() => {
     if (viewedRef.current) return;
@@ -197,22 +232,88 @@ export default function TournamentPlanningCtasClient(props: {
         >
           Open venue map →
         </Link>
-        <Link
-          className={`secondaryLink ${styles.secondaryCta}`}
-          href={travelHref}
-          onClick={() => {
-            void trackTiEvent("tournament_detail_travel_search_clicked", {
-              page_type: "tournament_detail",
-              tournament_id: props.tournamentId,
-              tournament_slug: slug,
-              source_page: "tournament_detail",
-              cta: "travel_search",
-              href: travelHref,
-            });
-          }}
-        >
-          Find hotels & travel →
-        </Link>
+        {hotelSearchCta.mode === "selector" ? (
+          <div className={styles.hotelSelectorWrap}>
+            <button
+              type="button"
+              className={`secondaryLink ${styles.secondaryCta} ${styles.selectorButton}`}
+              aria-expanded={hotelSelectorOpen}
+              aria-controls={`hotel-selector-${props.tournamentId}`}
+              onClick={() => {
+                const nextOpen = !hotelSelectorOpen;
+                setHotelSelectorOpen(nextOpen);
+                if (nextOpen && !selectorViewedRef.current) {
+                  selectorViewedRef.current = true;
+                  void trackTiEvent("tournament_detail_hotel_selector_viewed", {
+                    page_type: "tournament_detail",
+                    tournament_id: props.tournamentId,
+                    tournament_slug: slug,
+                    source_page: "tournament_detail",
+                    selector_venue_count: hotelSearchCta.options.length,
+                  });
+                }
+              }}
+            >
+              Find tournament hotels
+            </button>
+            {hotelSelectorOpen ? (
+              <div id={`hotel-selector-${props.tournamentId}`} className={styles.hotelSelectorPanel}>
+                <div className={styles.hotelSelectorHeading}>Choose a venue to search nearby hotels</div>
+                <div className={styles.hotelSelectorList}>
+                  {hotelSearchCta.options.map((option) => (
+                    <Link
+                      key={option.id}
+                      className={styles.hotelSelectorOption}
+                      href={option.href}
+                      onClick={() => {
+                        void trackTiEvent("tournament_detail_hotel_selector_venue_selected", {
+                          page_type: "tournament_detail",
+                          tournament_id: props.tournamentId,
+                          tournament_slug: slug,
+                          source_page: "tournament_detail",
+                          selected_venue_id: option.id,
+                          selected_venue_name: option.name,
+                          selector_venue_count: hotelSearchCta.options.length,
+                          href: option.href,
+                        });
+                        trackHotelCtaClick({
+                          href: option.href,
+                          travelMode: "selector",
+                          selectedVenueId: option.id,
+                          selectedVenueName: option.name,
+                        });
+                      }}
+                    >
+                      <span className={styles.hotelSelectorOptionTitle}>
+                        {option.name}
+                        {option.isPrimary ? <span className={styles.hotelSelectorPrimaryBadge}>Primary venue</span> : null}
+                      </span>
+                      {option.locationLabel ? (
+                        <span className={styles.hotelSelectorOptionMeta}>{option.locationLabel}</span>
+                      ) : null}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <Link
+            className={`secondaryLink ${styles.secondaryCta}`}
+            href={hotelSearchCta.mode === "direct" ? hotelSearchCta.href : travelFallbackHref}
+            onClick={() => {
+              const selectedVenue = hotelSearchCta.options[0] ?? null;
+              trackHotelCtaClick({
+                href: hotelSearchCta.mode === "direct" ? hotelSearchCta.href : travelFallbackHref,
+                travelMode: hotelSearchCta.mode === "direct" ? "direct" : "fallback",
+                selectedVenueId: selectedVenue?.id ?? null,
+                selectedVenueName: selectedVenue?.name ?? null,
+              });
+            }}
+          >
+            Find tournament hotels
+          </Link>
+        )}
       </div>
 
       {teamTravelEligibility.eligible ? (

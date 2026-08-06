@@ -12,6 +12,8 @@ export type TiAnalyticsEventName =
   | "tournament_detail_weekend_plan_clicked"
   | "tournament_detail_venue_map_clicked"
   | "tournament_detail_travel_search_clicked"
+  | "tournament_detail_hotel_selector_viewed"
+  | "tournament_detail_hotel_selector_venue_selected"
   | "tournament_detail_hotel_cta_clicked"
   | "tournament_detail_page_viewed"
   | "tournament_card_plan_weekend_clicked"
@@ -199,7 +201,7 @@ type PlannerReasonCode =
 type FeedCountBucket = "0" | "1" | "2" | "3_plus";
 type LoadedEventCountBucket = "0" | "1" | "2_5" | "6_10" | "11_25" | "26_plus";
 type ChildTeamCountBucket = "0" | "1" | "2" | "3_plus";
-type CanonicalPlannerPageType = "tournament" | "planner_entry" | "planner" | "auth" | "other";
+type CanonicalPlannerPageType = "tournament" | "venue" | "book_travel" | "team_hotel_booking" | "planner_entry" | "planner" | "auth" | "other";
 type PlannerFirstActionType =
   | "save_weekend_plan"
   | "manual_event_created"
@@ -225,6 +227,20 @@ type PlannerCanonicalContext = {
   experiment_name?: "anonymous_planner_activation_v1";
   experiment_variant?: "control" | "treatment";
   feature_flag_state?: "disabled" | "enabled";
+};
+
+type TeamTravelEligibilityProperties = {
+  team_travel_intent_level?: "strong" | "moderate" | "passive" | "none";
+  team_travel_eligibility_reason?:
+    | "future_tournament_with_destination"
+    | "future_tournament_with_incomplete_dates"
+    | "venue_with_selected_future_tournament"
+    | "venue_with_upcoming_tournament"
+    | "venue_destination_only"
+    | "past_event"
+    | "missing_destination"
+    | "no_future_tournament_context";
+  team_travel_cta_level?: "primary" | "secondary" | "link" | "hidden";
 };
 
 type TeamHotelSourceSurface =
@@ -304,6 +320,27 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_slug: string;
     source_page: "tournament_detail";
     cta: "travel_search";
+    href: string;
+    hotel_search_mode?: "direct" | "selector" | "fallback";
+    hotel_search_linked_venue_count?: number;
+    selected_venue_id?: string;
+    selected_venue_name?: string;
+  };
+  tournament_detail_hotel_selector_viewed: {
+    page_type: "tournament_detail";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "tournament_detail";
+    selector_venue_count: number;
+  };
+  tournament_detail_hotel_selector_venue_selected: {
+    page_type: "tournament_detail";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "tournament_detail";
+    selected_venue_id: string;
+    selected_venue_name: string;
+    selector_venue_count: number;
     href: string;
   };
   tournament_detail_hotel_cta_clicked: {
@@ -1272,7 +1309,7 @@ export type TiAnalyticsEventPropertiesByName = {
       auth_state: PlannerAuthState;
       entitlement: PlannerEntitlement;
       context_type: "team_hotel";
-    };
+    } & TeamTravelEligibilityProperties;
   team_hotel_header_cta_viewed: TeamHotelTrackingIdentity & {
     surface: "global_header";
     source_page_type: "other";
@@ -1299,7 +1336,7 @@ export type TiAnalyticsEventPropertiesByName = {
     auth_state: PlannerAuthState;
     entitlement: PlannerEntitlement;
     context_type: "team_hotel";
-  } & TeamHotelTrackingIdentity;
+  } & TeamHotelTrackingIdentity & TeamTravelEligibilityProperties;
   team_hotel_cta_clicked: PlannerCanonicalContext & {
     surface: "team_hotel" | "travel" | "tournament" | "venue";
     source_page_type: "planner" | "book_travel" | "travel" | "tournament" | "venue" | "team_hotel_booking";
@@ -1307,7 +1344,7 @@ export type TiAnalyticsEventPropertiesByName = {
     auth_state: PlannerAuthState;
     entitlement: PlannerEntitlement;
     context_type: "team_hotel";
-  } & TeamHotelTrackingIdentity;
+  } & TeamHotelTrackingIdentity & TeamTravelEligibilityProperties;
   team_hotel_request_started: PlannerCanonicalContext & {
     surface: "team_hotel";
     source_page_type: "planner" | "book_travel" | "team_hotel_booking";
@@ -1317,7 +1354,7 @@ export type TiAnalyticsEventPropertiesByName = {
     context_type: "team_hotel";
     request_id?: string | null;
     outbound_attribution_id?: string | null;
-  } & TeamHotelTrackingIdentity;
+  } & TeamHotelTrackingIdentity & TeamTravelEligibilityProperties;
   team_hotel_request_submitted: PlannerCanonicalContext & {
     surface: "team_hotel";
     source_page_type: "planner" | "book_travel" | "team_hotel_booking";
@@ -1327,7 +1364,7 @@ export type TiAnalyticsEventPropertiesByName = {
     context_type: "team_hotel";
     request_id?: string | null;
     outbound_attribution_id?: string | null;
-  } & TeamHotelTrackingIdentity;
+  } & TeamHotelTrackingIdentity & TeamTravelEligibilityProperties;
   team_hotel_request_succeeded: PlannerCanonicalContext & {
     surface: "team_hotel";
     source_page_type: "planner" | "book_travel" | "team_hotel_booking";
@@ -1337,7 +1374,7 @@ export type TiAnalyticsEventPropertiesByName = {
     context_type: "team_hotel";
     request_id?: string | null;
     outbound_attribution_id?: string | null;
-  } & TeamHotelTrackingIdentity;
+  } & TeamHotelTrackingIdentity & TeamTravelEligibilityProperties;
   team_hotel_request_failed: PlannerCanonicalContext & {
     surface: "team_hotel";
     source_page_type: "planner" | "book_travel" | "team_hotel_booking";
@@ -1348,7 +1385,7 @@ export type TiAnalyticsEventPropertiesByName = {
     request_id?: string | null;
     outbound_attribution_id?: string | null;
     error_message?: string | null;
-  } & TeamHotelTrackingIdentity;
+  } & TeamHotelTrackingIdentity & TeamTravelEligibilityProperties;
   "Tournament Save Clicked": {
     tournamentId: string;
     saved_before: boolean;

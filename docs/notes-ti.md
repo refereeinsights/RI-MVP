@@ -37,6 +37,42 @@ Maintenance rules:
     - `npm run lint --workspace ti-web`
     - `npm run build --workspace ti-web`
 
+## 2026-08-06
+
+- TI multi-venue tournament hotel search:
+  - Replaced the above-the-fold tournament-detail `Find hotels & travel` link with a more specific `Find tournament hotels` CTA in `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx`.
+  - The CTA now branches by usable linked-venue context via new helper `apps/ti-web/lib/tournamentHotelSelection.ts`:
+    - **single usable linked venue** → direct `/go/hotels` handoff with:
+      - `venueId`
+      - `tournamentId`
+      - `source=tournament_detail`
+      - `provider=hotelplanner`
+      - venue-derived `ss`
+      - venue `lat` / `lng`
+      - normalized tournament `checkin` / `checkout`
+    - **multiple usable linked venues** → deterministic pre-HotelPlanner venue chooser rendered inline on tournament detail, with primary venue first, then stable created-at/name ordering
+    - **no usable linked venues** → preserve the existing generic `/book-travel` fallback instead of inventing a broken HotelPlanner handoff
+  - Added server-side linked venue shaping for the CTA in `apps/ti-web/app/tournaments/[slug]/page.tsx` so the selector does not guess from client-only tournament city/state.
+  - Extended hotel search analytics additively:
+    - `tournament_detail_travel_search_clicked` now records:
+      - `hotel_search_mode`
+      - `hotel_search_linked_venue_count`
+      - selected venue id/name when relevant
+    - new selector-specific events:
+      - `tournament_detail_hotel_selector_viewed`
+      - `tournament_detail_hotel_selector_venue_selected`
+  - Expanded helper coverage:
+    - `apps/ti-web/lib/booking/venueBooking.ts`
+    - `apps/ti-web/lib/booking/venueBooking.test.ts`
+    - `apps/ti-web/lib/tournamentHotelSelection.test.ts`
+  - Validation passed:
+    - `node --import tsx --test apps/ti-web/lib/tournamentHotelSelection.test.ts apps/ti-web/lib/booking/venueBooking.test.ts apps/ti-web/lib/teamHotelBooking.test.ts apps/ti-web/lib/teamTravelEligibility.test.ts`
+    - `npm run lint --workspace ti-web`
+    - `npm run build --workspace ti-web`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+  - Build note:
+    - the TI build still emitted the existing external Supabase DNS fetch failures during static generation in this sandboxed environment, but the build completed successfully.
+
 ## 2026-08-04
 
 - TI team travel pre-launch measurement fixes:

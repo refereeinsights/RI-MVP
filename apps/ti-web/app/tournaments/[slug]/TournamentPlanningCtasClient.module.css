@@ -63,6 +63,89 @@
   flex: 0 0 auto;
 }
 
+.hotelSelectorWrap {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.selectorButton {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+}
+
+.hotelSelectorPanel {
+  width: min(440px, 100%);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(9, 16, 28, 0.92);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+}
+
+.hotelSelectorHeading {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.hotelSelectorList {
+  display: grid;
+  gap: 8px;
+}
+
+.hotelSelectorOption {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  text-decoration: none;
+}
+
+.hotelSelectorOption:hover,
+.hotelSelectorOption:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  text-decoration: none;
+}
+
+.hotelSelectorOptionTitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hotelSelectorPrimaryBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(15, 107, 74, 0.28);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hotelSelectorOptionMeta {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
 .teamHotelRow {
   display: flex;
   justify-content: flex-start;
@@ -96,7 +179,12 @@
   }
 
   .primaryCta,
-  .secondaryCta {
+  .secondaryCta,
+  .hotelSelectorWrap {
+    width: 100%;
+  }
+
+  .hotelSelectorPanel {
     width: 100%;
   }
 }
