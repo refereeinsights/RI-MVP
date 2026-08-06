@@ -4651,3 +4651,12 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
     - `npm run build --workspace referee-app`
     - `npm run build --workspace ti-web`
+
+- 2026-08-06: TI venue cluster analytics added locally.
+  - Added `apps/ti-web/app/venues/[venueId]/VenueClusterModule.tsx` as the client-side analytics wrapper for the existing venue-cluster block so TI can measure both `venue_cluster_viewed` and `venue_cluster_venue_clicked` without changing cluster ranking or rendering behavior.
+  - Updated `apps/ti-web/lib/tiAnalyticsEvents.ts` with the new venue-cluster event contracts, including source/destination venue IDs, relationship tier (`same_tournament` / `same_city_active`), destination candidate counts, page path, and device type.
+  - Rewired `apps/ti-web/app/venues/[venueId]/page.tsx` to render the existing cluster section through the new module while preserving the same destination URLs, labels, and CSS module classes.
+  - Validation passed:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run lint --workspace ti-web`
+    - `npm run build --workspace ti-web` (build completed; static-generation logs included existing network `fetch failed` warnings from unreachable Supabase host resolution during offline build, but exit status was successful)

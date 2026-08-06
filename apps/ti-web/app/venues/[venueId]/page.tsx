@@ -12,6 +12,7 @@ import VenuePageViewTracker from "@/components/analytics/VenuePageViewTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import TeamTravelVenueLink from "@/components/TeamTravelVenueLink";
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
+import VenueClusterModule from "./VenueClusterModule";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import { evaluateVenueTeamTravelEligibility } from "@/lib/teamTravelEligibility";
 import {
@@ -1067,53 +1068,47 @@ export default async function VenueDetailsPage({
               />
 
               {venueClusterCandidates.length > 0 ? (
-                <section className={styles.clusterSection} aria-labelledby="venue-cluster-heading">
-                  <div className={styles.clusterHeader}>
-                    <h2 id="venue-cluster-heading" className={styles.clusterHeading}>
-                      Other tournament venues nearby
-                    </h2>
-                    <p className={styles.clusterIntro}>
-                      Continue planning in this travel market with other venue guides that also have current or upcoming tournament activity.
-                    </p>
-                  </div>
-                  <div className={styles.clusterList}>
-                    {venueClusterCandidates.map((candidate) => {
-                      const tournamentCountLabel =
-                        candidate.upcomingTournamentCount === 1
-                          ? "1 upcoming tournament"
-                          : `${String(candidate.upcomingTournamentCount)} upcoming tournaments`;
-                      const nearestLabel = candidate.nearestUpcomingTournament
-                        ? `${candidate.nearestUpcomingTournament.name ?? "Upcoming tournament"} • ${formatDateRangeLabel(
-                            candidate.nearestUpcomingTournament.startDate,
-                            candidate.nearestUpcomingTournament.endDate
-                          )}`
-                        : null;
-                      return (
-                        <article key={candidate.venue.id} className={styles.clusterCard}>
-                          <div className={styles.clusterCardBody}>
-                            <div className={styles.clusterCardTop}>
-                              <div>
-                                <p className={styles.clusterVenueName}>{candidate.venue.name ?? "Venue"}</p>
-                                <p className={styles.clusterVenueMeta}>
-                                  {[candidate.venue.address.city, candidate.venue.address.state].filter(Boolean).join(", ")}
-                                </p>
-                              </div>
-                              <span className={styles.clusterTierBadge}>
-                                {candidate.tier === "same_tournament" ? "Same tournament" : "Same city"}
-                              </span>
-                            </div>
-                            <p className={styles.clusterReason}>{candidate.reason}</p>
-                            <p className={styles.clusterTournamentCount}>{tournamentCountLabel}</p>
-                            {nearestLabel ? <p className={styles.clusterNearest}>{nearestLabel}</p> : null}
-                          </div>
-                          <Link href={getVenueHref({ id: candidate.venue.id, seo_slug: candidate.venue.seoSlug })} className={styles.clusterLink}>
-                            View venue →
-                          </Link>
-                        </article>
-                      );
-                    })}
-                  </div>
-                </section>
+                <VenueClusterModule
+                  heading="Other tournament venues nearby"
+                  intro="Continue planning in this travel market with other venue guides that also have current or upcoming tournament activity."
+                  sourceVenueId={data.id}
+                  sourceVenueSlug={data.seo_slug ?? null}
+                  sourceCity={data.city ?? null}
+                  sourceState={data.state ?? null}
+                  candidates={venueClusterCandidates.map((candidate) => ({
+                    venueId: candidate.venue.id,
+                    venueName: candidate.venue.name ?? "Venue",
+                    venueHref: getVenueHref({ id: candidate.venue.id, seo_slug: candidate.venue.seoSlug }),
+                    city: candidate.venue.address.city,
+                    state: candidate.venue.address.state,
+                    tier: candidate.tier,
+                    reason: candidate.reason,
+                    upcomingTournamentCount: candidate.upcomingTournamentCount,
+                    nearestUpcomingTournamentLabel: candidate.nearestUpcomingTournament
+                      ? `${candidate.nearestUpcomingTournament.name ?? "Upcoming tournament"} • ${formatDateRangeLabel(
+                          candidate.nearestUpcomingTournament.startDate,
+                          candidate.nearestUpcomingTournament.endDate
+                        )}`
+                      : null,
+                  }))}
+                  classNames={{
+                    section: styles.clusterSection,
+                    header: styles.clusterHeader,
+                    heading: styles.clusterHeading,
+                    intro: styles.clusterIntro,
+                    list: styles.clusterList,
+                    card: styles.clusterCard,
+                    cardBody: styles.clusterCardBody,
+                    cardTop: styles.clusterCardTop,
+                    venueName: styles.clusterVenueName,
+                    venueMeta: styles.clusterVenueMeta,
+                    tierBadge: styles.clusterTierBadge,
+                    reason: styles.clusterReason,
+                    tournamentCount: styles.clusterTournamentCount,
+                    nearest: styles.clusterNearest,
+                    link: styles.clusterLink,
+                  }}
+                />
               ) : null}
 
               {data.notes && canViewPremiumDetails ? (

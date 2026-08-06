@@ -20,6 +20,8 @@ export type TiAnalyticsEventName =
   | "tournament_directory_page_viewed"
   | "search_submitted"
   | "venue_page_viewed"
+  | "venue_cluster_viewed"
+  | "venue_cluster_venue_clicked"
   | "venue_map_opened"
   | "venue_map_loaded"
   | "tournament_map_loaded_from_venue"
@@ -464,6 +466,36 @@ export type TiAnalyticsEventPropertiesByName = {
     state: string | null;
     source_tournament_id: string | null;
     source_tournament_slug: string | null;
+  };
+  venue_cluster_viewed: {
+    page_type: "venue_detail";
+    source_venue_id: string;
+    source_venue_slug: string | null;
+    source_city: string | null;
+    source_state: string | null;
+    candidate_count: number;
+    relationship_tiers: Array<"same_tournament" | "same_city_active">;
+    destination_venue_ids: string[];
+    destination_upcoming_tournament_counts: number[];
+    current_page_path: string | null;
+    device_type: "mobile" | "desktop" | null;
+  };
+  venue_cluster_venue_clicked: {
+    page_type: "venue_detail";
+    source_venue_id: string;
+    source_venue_slug: string | null;
+    source_city: string | null;
+    source_state: string | null;
+    destination_venue_id: string;
+    destination_venue_name: string;
+    destination_city: string | null;
+    destination_state: string | null;
+    destination_upcoming_tournament_count: number;
+    relationship_tier: "same_tournament" | "same_city_active";
+    relationship_reason: string;
+    href: string;
+    current_page_path: string | null;
+    device_type: "mobile" | "desktop" | null;
   };
   venue_map_opened: {
     page_type: "venue_map";
