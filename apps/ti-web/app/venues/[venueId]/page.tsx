@@ -448,6 +448,7 @@ export default async function VenueDetailsPage({
   );
   const availableVenueSports = Array.from(new Set([...sportsFromTournaments, ...Array.from(profilesBySport.keys())])).sort();
   const selectedSportProfile = requestedVenueSport ? profilesBySport.get(requestedVenueSport) ?? null : null;
+  const teamTravelSport = teamTravelTournament ? requestedVenueSport || teamTravelTournament.sport || data.sport || null : null;
   const activeScoreSource = selectedSportProfile
     ? {
         restroom_cleanliness_avg: selectedSportProfile.restroom_cleanliness_avg ?? null,
@@ -716,7 +717,7 @@ export default async function VenueDetailsPage({
         venueName: data.name ?? null,
         city: data.city ?? null,
         state: data.state ?? null,
-        sport: requestedVenueSport || teamTravelTournament?.sport || data.sport || null,
+        sport: teamTravelSport,
         checkin: teamTravelTournament?.startDate ?? null,
         checkout: teamTravelTournament?.endDate ?? null,
         entrySource: "venue_detail",

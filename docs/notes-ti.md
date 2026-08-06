@@ -15,6 +15,10 @@ Maintenance rules:
 
 ## 2026-08-05
 
+- TI Team Travel destination-only fallback follow-up:
+  - Removed the remaining `sport` leak from venue-detail Team Travel URLs when the CTA is in the true destination-only / passive fallback state.
+  - `apps/ti-web/app/venues/[venueId]/page.tsx` now only passes `sport` into `/team-hotel-booking` when a real future tournament context exists.
+  - Passive destination-only fallback now carries only honest venue/destination context plus attribution, with no fabricated tournament fields, no dates, and no `sport`.
 - TI Team Travel eligibility UAT follow-up:
   - Patched the three proven local defects from the final eligibility browser pass without changing the overall Team Travel design.
   - `apps/ti-web/lib/teamHotelBooking.ts` now:
