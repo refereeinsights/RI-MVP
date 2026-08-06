@@ -39,6 +39,30 @@ Maintenance rules:
 
 ## 2026-08-06
 
+- TI Team Travel tournament-detail CTA visibility + new-tab UX:
+  - Replaced the buried plain-text Team Travel link in `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx` with a clearly secondary full-callout link.
+  - The callout now:
+    - keeps group-lodging intent distinct from `Find tournament hotels`
+    - uses a single clickable surface
+    - opens the existing `/team-hotel-booking` destination in a new tab
+    - preserves the existing Team Travel analytics click path and attribution context
+  - New-tab behavior is implemented with:
+    - `target="_blank"`
+    - `rel="noopener noreferrer"`
+  - Accessibility refinement:
+    - added screen-reader-only `Opens in a new tab.` copy inside the headline
+    - retained visible focus treatment
+    - avoided nested interactive elements
+  - Added a small tested config helper:
+    - `apps/ti-web/lib/teamHotelTournamentCallout.ts`
+    - `apps/ti-web/lib/teamHotelTournamentCallout.test.ts`
+  - Validation passed:
+    - `node --import tsx --test apps/ti-web/lib/teamHotelTournamentCallout.test.ts apps/ti-web/lib/teamHotelBooking.test.ts apps/ti-web/lib/teamTravelEligibility.test.ts`
+    - `npm run lint --workspace ti-web`
+    - `npm run build --workspace ti-web`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+  - Build note:
+    - TI build still emitted the known sandbox Supabase DNS fetch failures during static generation, but completed successfully.
 - TI multi-venue tournament hotel search:
   - Replaced the above-the-fold tournament-detail `Find hotels & travel` link with a more specific `Find tournament hotels` CTA in `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx`.
   - The CTA now branches by usable linked-venue context via new helper `apps/ti-web/lib/tournamentHotelSelection.ts`:

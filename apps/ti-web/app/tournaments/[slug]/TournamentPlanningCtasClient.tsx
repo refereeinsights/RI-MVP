@@ -7,6 +7,7 @@ import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import { createTeamHotelCtaInteractionId, rememberPendingTeamHotelEntry, rememberLastTeamHotelCtaInteractionId } from "@/lib/teamHotelClientTracking";
 import { evaluateTournamentTeamTravelEligibility } from "@/lib/teamTravelEligibility";
 import { resolveTournamentHotelSearchCta, type TournamentHotelVenueInput } from "@/lib/tournamentHotelSelection";
+import { buildTeamHotelTournamentCalloutConfig } from "@/lib/teamHotelTournamentCallout";
 import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import styles from "./TournamentPlanningCtasClient.module.css";
 
@@ -45,6 +46,7 @@ export default function TournamentPlanningCtasClient(props: {
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
   const plannerSessionId = props.plannerSessionId;
   const weekendHref = props.weekendHref;
+  const teamHotelCallout = buildTeamHotelTournamentCalloutConfig();
   const teamTravelEligibility = evaluateTournamentTeamTravelEligibility({
     tournamentId: props.tournamentId,
     tournamentName: props.tournamentName ?? null,
@@ -323,8 +325,11 @@ export default function TournamentPlanningCtasClient(props: {
       {teamTravelEligibility.eligible ? (
         <div className={styles.teamHotelRow}>
           <Link
-            className={styles.teamHotelLink}
+            className={styles.teamHotelCallout}
             href={teamHotelHref}
+            target={teamHotelCallout.target}
+            rel={teamHotelCallout.rel}
+            title={teamHotelCallout.title}
             onClick={() => {
               const ctaInteractionId = createTeamHotelCtaInteractionId();
               rememberLastTeamHotelCtaInteractionId(ctaInteractionId);
@@ -358,7 +363,11 @@ export default function TournamentPlanningCtasClient(props: {
               }, { preferBeacon: true });
             }}
           >
-            Need rooms for the team? Request team hotel options →
+            <span className={styles.teamHotelCalloutHeadline}>
+              {teamHotelCallout.headline}
+              <span className={styles.srOnly}> Opens in a new tab.</span>
+            </span>
+            <span className={styles.teamHotelCalloutLabel}>{teamHotelCallout.label}</span>
           </Link>
         </div>
       ) : null}
