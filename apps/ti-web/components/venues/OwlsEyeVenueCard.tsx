@@ -83,6 +83,7 @@ type OwlsEyeVenueCardProps = {
   demoScores?: OwlsEyeDemoScores | null;
   demoScoresIsDemo?: boolean;
   defaultNearbyAllCollapsed?: boolean;
+  showHotelBookingCta?: boolean;
 };
 
 export default function OwlsEyeVenueCard({
@@ -104,6 +105,7 @@ export default function OwlsEyeVenueCard({
   demoScores,
   demoScoresIsDemo = false,
   defaultNearbyAllCollapsed = false,
+  showHotelBookingCta = true,
 }: OwlsEyeVenueCardProps) {
   const locationLine = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
   const hotels = (publicHotels ?? []).filter(Boolean);
@@ -276,7 +278,7 @@ export default function OwlsEyeVenueCard({
           ) : null}
         </div>
 
-        {showBooking && !hasOwlsEye ? (
+        {showHotelBookingCta && showBooking && !hasOwlsEye ? (
           <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
             <HotelBookingCta href={bookingHref} venueId={venue.id} tournamentId={selectedTournamentId ?? null} />
             <div className="detailVenueNearbyPreview__teaser" style={{ marginTop: -4, textAlign: "center" }}>
@@ -288,7 +290,7 @@ export default function OwlsEyeVenueCard({
         {hasOwlsEye ? (
           <div className="detailVenueNearbyPreview">
             <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
-            {showBooking ? (
+            {showHotelBookingCta && showBooking ? (
               <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
                 <HotelBookingCta href={bookingHref} venueId={venue.id} tournamentId={selectedTournamentId ?? null} />
                 <div className="detailVenueNearbyPreview__teaser" style={{ marginTop: -4, textAlign: "center" }}>

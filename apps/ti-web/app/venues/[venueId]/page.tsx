@@ -11,6 +11,7 @@ import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import VenuePageViewTracker from "@/components/analytics/VenuePageViewTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import TeamTravelVenueLink from "@/components/TeamTravelVenueLink";
+import HotelBookingCta from "@/components/venues/HotelBookingCta";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import { evaluateVenueTeamTravelEligibility } from "@/lib/teamTravelEligibility";
 import {
@@ -23,6 +24,7 @@ import { isPremiumPreviewTournamentSlug } from "@/lib/premiumPreview";
 import { SITE_ORIGIN } from "@/lib/sitemaps";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { isUuid } from "@/lib/venues/isUuid";
+import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
 import { getVenueCardClassFromSports } from "../sportSurface";
 import { resolveSharedVenueByParam, type SharedVenueSourceRow, type SharedVenueTournamentSummary } from "../../../../../packages/lib/venue";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
@@ -726,6 +728,17 @@ export default async function VenueDetailsPage({
         entryPlacement: "venue_detail_team_hotel_cta",
       })
     : null;
+  const hotelBookingHref = buildHotelsHref({
+    venueId: data.id,
+    tournamentId: contextTournament?.id ?? null,
+    source: "venue_directory",
+    provider: "hotelplanner",
+    latitude: data.latitude,
+    longitude: data.longitude,
+    checkin: contextTournament?.startDate ?? null,
+    checkout: contextTournament?.endDate ?? null,
+  });
+  const showPrimaryHotelBooking = canShowBookingCta({ zip: data.zip });
   const venueStructuredData = buildVenueStructuredData(data);
 
   return (
@@ -753,8 +766,17 @@ export default async function VenueDetailsPage({
                 {addressLabel || "Address TBA"}
               </p>
 
-              {selectedTournament?.id || teamHotelHref ? (
+              {showPrimaryHotelBooking || selectedTournament?.id || teamHotelHref ? (
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {showPrimaryHotelBooking ? (
+                    <HotelBookingCta
+                      href={hotelBookingHref}
+                      venueId={data.id}
+                      tournamentId={contextTournament?.id ?? null}
+                      label="Find hotels near this venue"
+                      align="start"
+                    />
+                  ) : null}
                   {selectedTournament?.slug ? (
                     <ShareWeekendButton
                       tournamentSlug={selectedTournament.slug}
@@ -790,6 +812,78 @@ export default async function VenueDetailsPage({
                   ) : null}
                 </div>
               ) : null}
+
+              {(() => {
+                const upcomingValid = upcomingTournaments.filter((t) => Boolean(t.name));
+                const upcomingCount = upcomingValid.length;
+
+                const renderTournamentRow = (t: typeof upcomingValid[number], variant: "mobile" | "desktop") => {
+                  const dateLabel = formatDateRangeLabel(t.startDate, t.endDate);
+                  const tournamentLocation = [t.city, t.state].filter(Boolean).join(", ");
+                  const tournamentMeta = [t.sport, tournamentLocation].filter(Boolean).join(" • ");
+                  const href = t.slug ? `/tournaments/${t.slug}` : "";
+
+                  const content = (
+                    <>
+                      <div className={styles.upcomingRowTop}>
+                        <span className={styles.upcomingRowName}>{t.name}</span>
+                        {t.slug ? (
+                          <span className={styles.upcomingRowChevron} aria-hidden="true">
+                            ›
+                          </span>
+                        ) : null}
+                      </div>
+                      {tournamentMeta ? <div className={styles.upcomingRowMeta}>{tournamentMeta}</div> : null}
+                      <div className={styles.upcomingRowDate}>{variant === "mobile" && tournamentLocation ? `${dateLabel}` : dateLabel}</div>
+                    </>
+                  );
+
+                  return t.slug ? (
+                    <Link href={href} className={styles.upcomingRowLink}>
+                      {content}
+                    </Link>
+                  ) : (
+                    <div className={styles.upcomingRowPlain}>{content}</div>
+                  );
+                };
+
+                if (upcomingCount === 1) {
+                  const t = upcomingValid[0]!;
+                  return (
+                    <>
+                      <div className={styles.upcomingMobileOnly} style={{ marginTop: 4 }}>
+                        <div className={styles.upcomingCard}>
+                          <div className={styles.upcomingEyebrow}>UPCOMING AT THIS VENUE</div>
+                          {renderTournamentRow(t, "mobile")}
+                        </div>
+                      </div>
+                      <div className={styles.upcomingDesktopOnly} style={{ display: "grid", gap: 8, marginTop: 4 }}>
+                        <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
+                        <div className={styles.upcomingList}>{renderTournamentRow(t, "desktop")}</div>
+                      </div>
+                    </>
+                  );
+                }
+
+                if (upcomingCount > 1) {
+                  return (
+                    <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
+                      <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
+                      <div className={styles.upcomingList}>
+                        {upcomingValid.map((t) => (
+                          <div key={t.id}>{renderTournamentRow(t, "desktop")}</div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <p className={styles.upcomingEmptyDesktopOnly} style={{ margin: 0, opacity: 0.9 }}>
+                    No upcoming tournaments currently linked to this venue.
+                  </p>
+                );
+              })()}
 
               {canViewPremiumDetails || tier !== "explorer" ? (
                 <div style={{ display: "grid", gap: 10 }}>
@@ -930,111 +1024,8 @@ export default async function VenueDetailsPage({
                 demoScores={demoScores}
                 demoScoresIsDemo={isDemoVenue}
                 defaultNearbyAllCollapsed
+                showHotelBookingCta={false}
               />
-
-              {(() => {
-                const upcomingValid = upcomingTournaments.filter((t) => Boolean(t.name));
-                const upcomingCount = upcomingValid.length;
-
-                if (upcomingCount === 1) {
-                  const t = upcomingValid[0]!;
-                  const dateLabel = formatDateRangeLabel(t.startDate, t.endDate);
-                  const meta = [dateLabel, locationLabel].filter(Boolean).join(" · ");
-                  const href = t.slug ? `/tournaments/${t.slug}` : "";
-                  return (
-                    <>
-                      <div className={styles.upcomingMobileOnly} style={{ marginTop: 4 }}>
-                        <div className={styles.upcomingCard}>
-                          <div className={styles.upcomingEyebrow}>UPCOMING AT THIS VENUE</div>
-                          {t.slug ? (
-                            <Link href={href} className={styles.upcomingRowLink}>
-                              <div className={styles.upcomingRowTop}>
-                                <span className={styles.upcomingRowName}>{t.name}</span>
-                                <span className={styles.upcomingRowChevron} aria-hidden="true">
-                                  ›
-                                </span>
-                              </div>
-                              <div className={styles.upcomingRowDate}>{meta}</div>
-                            </Link>
-                          ) : (
-                            <div className={styles.upcomingRowPlain}>
-                              <div className={styles.upcomingRowTop}>
-                                <span className={styles.upcomingRowName}>{t.name}</span>
-                              </div>
-                              <div className={styles.upcomingRowDate}>{meta}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className={styles.upcomingDesktopOnly} style={{ display: "grid", gap: 8, marginTop: 4 }}>
-                        <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
-                        <div className={styles.upcomingList}>
-                          {t.slug ? (
-                            <Link href={href} className={styles.upcomingRowLink}>
-                              <div className={styles.upcomingRowTop}>
-                                <span className={styles.upcomingRowName}>{t.name}</span>
-                                <span className={styles.upcomingRowChevron} aria-hidden="true">
-                                  ›
-                                </span>
-                              </div>
-                              <div className={styles.upcomingRowDate}>{dateLabel}</div>
-                            </Link>
-                          ) : (
-                            <div className={styles.upcomingRowPlain}>
-                              <div className={styles.upcomingRowTop}>
-                                <span className={styles.upcomingRowName}>{t.name}</span>
-                              </div>
-                              <div className={styles.upcomingRowDate}>{dateLabel}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  );
-                }
-
-                if (upcomingCount > 1) {
-                  return (
-                    <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
-                      <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
-                      <div className={styles.upcomingList}>
-                        {upcomingValid.map((t) => {
-                          const dateLabel = formatDateRangeLabel(t.startDate, t.endDate);
-                          const href = t.slug ? `/tournaments/${t.slug}` : "";
-                          return (
-                            <div key={t.id}>
-                              {t.slug ? (
-                                <Link href={href} className={styles.upcomingRowLink}>
-                                  <div className={styles.upcomingRowTop}>
-                                    <span className={styles.upcomingRowName}>{t.name}</span>
-                                    <span className={styles.upcomingRowChevron} aria-hidden="true">
-                                      ›
-                                    </span>
-                                  </div>
-                                  <div className={styles.upcomingRowDate}>{dateLabel}</div>
-                                </Link>
-                              ) : (
-                                <div className={styles.upcomingRowPlain}>
-                                  <div className={styles.upcomingRowTop}>
-                                    <span className={styles.upcomingRowName}>{t.name}</span>
-                                  </div>
-                                  <div className={styles.upcomingRowDate}>{dateLabel}</div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <p className={styles.upcomingEmptyDesktopOnly} style={{ margin: 0, opacity: 0.9 }}>
-                    No upcoming tournaments currently linked to this venue.
-                  </p>
-                );
-              })()}
 
               {data.notes && canViewPremiumDetails ? (
                 <div style={{ marginTop: 6 }}>

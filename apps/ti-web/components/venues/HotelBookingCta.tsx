@@ -8,14 +8,16 @@ export default function HotelBookingCta({
   venueId,
   tournamentId,
   label = "Check hotel availability",
+  align = "center",
 }: {
   href: string;
   venueId: string;
   tournamentId?: string | null;
   label?: string;
+  align?: "center" | "start";
 }) {
   return (
-    <div className="detailLinksRow" style={{ justifyContent: "center" }}>
+    <div className="detailLinksRow" style={{ justifyContent: align === "start" ? "flex-start" : "center" }}>
       <VenueHotelLink
         className="secondaryLink hotelBookingCta"
         href={href}
