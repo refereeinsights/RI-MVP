@@ -363,11 +363,13 @@ export default function TournamentPlanningCtasClient(props: {
               }, { preferBeacon: true });
             }}
           >
-            <span className={styles.teamHotelCalloutHeadline}>
-              {teamHotelCallout.headline}
-              <span className={styles.srOnly}> Opens in a new tab.</span>
+            <span className={styles.teamHotelCalloutCopy}>
+              <span className={styles.teamHotelCalloutHeadline}>{teamHotelCallout.headline}</span>
+              <span className={styles.teamHotelCalloutLabel}>
+                {teamHotelCallout.label}
+                <span className={styles.srOnly}> Opens in a new tab.</span>
+              </span>
             </span>
-            <span className={styles.teamHotelCalloutLabel}>{teamHotelCallout.label}</span>
           </Link>
         </div>
       ) : null}

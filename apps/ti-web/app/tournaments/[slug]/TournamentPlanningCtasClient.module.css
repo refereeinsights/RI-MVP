@@ -149,39 +149,47 @@
 .teamHotelRow {
   display: flex;
   justify-content: flex-start;
+  margin-top: 2px;
+  padding-top: 2px;
 }
 
 .teamHotelCallout {
-  display: grid;
-  gap: 4px;
-  width: min(460px, 100%);
-  min-height: 58px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: min(420px, 100%);
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #fff;
   text-decoration: none;
 }
 
 .teamHotelCallout:hover,
 .teamHotelCallout:focus-visible {
-  background: rgba(255, 255, 255, 0.11);
   color: #fff;
   text-decoration: none;
 }
 
+.teamHotelCalloutCopy {
+  display: grid;
+  gap: 2px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
 .teamHotelCalloutHeadline {
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 13px;
-  font-weight: 800;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 12px;
+  font-weight: 700;
   line-height: 1.35;
 }
 
 .teamHotelCalloutLabel {
-  color: rgba(255, 255, 255, 0.84);
+  color: rgba(255, 255, 255, 0.96);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.4;
 }
 
@@ -190,6 +198,11 @@
   color: #fff;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.teamHotelCallout:hover .teamHotelCalloutHeadline,
+.teamHotelCallout:focus-visible .teamHotelCalloutHeadline {
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .srOnly {
@@ -216,8 +229,18 @@
   .primaryCta,
   .secondaryCta,
   .hotelSelectorWrap,
-  .teamHotelCallout {
+  .teamHotelCallout,
+  .teamHotelCalloutCopy {
     width: 100%;
+  }
+
+  .teamHotelRow {
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .teamHotelCalloutCopy {
+    padding-top: 8px;
   }
 
   .hotelSelectorPanel {

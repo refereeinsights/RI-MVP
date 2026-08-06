@@ -8,7 +8,7 @@ export type TeamHotelTournamentCalloutConfig = {
 
 export function buildTeamHotelTournamentCalloutConfig(): TeamHotelTournamentCalloutConfig {
   return {
-    headline: "Booking 5+ rooms for the team?",
+    headline: "Traveling with the whole team?",
     label: "Request team hotel options →",
     target: "_blank",
     rel: "noopener noreferrer",
