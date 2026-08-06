@@ -74,6 +74,10 @@ function buildLocationLabel(city: string | null, state: string | null) {
   return city || state || null;
 }
 
+function hasUsableCoordinates(latitude: number | null | undefined, longitude: number | null | undefined) {
+  return Number.isFinite(latitude) && Number.isFinite(longitude);
+}
+
 function byDeterministicVenueOrder(a: TournamentHotelVenueInput, b: TournamentHotelVenueInput) {
   const primaryDelta = Number(Boolean(b.isPrimary)) - Number(Boolean(a.isPrimary));
   if (primaryDelta !== 0) return primaryDelta;
@@ -105,7 +109,8 @@ export function resolveTournamentHotelSearchCta(args: {
         state,
         zip: venue.zip ?? null,
       });
-      if (!search) return null;
+      const hasCoords = hasUsableCoordinates(venue.latitude ?? null, venue.longitude ?? null);
+      if (!search && !hasCoords) return null;
       return {
         id: venue.id,
         name: cleanName(venue.name),

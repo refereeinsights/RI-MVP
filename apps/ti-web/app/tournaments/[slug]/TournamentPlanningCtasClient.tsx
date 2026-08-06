@@ -265,6 +265,8 @@ export default function TournamentPlanningCtasClient(props: {
                       key={option.id}
                       className={styles.hotelSelectorOption}
                       href={option.href}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
                       onClick={() => {
                         void trackTiEvent("tournament_detail_hotel_selector_venue_selected", {
                           page_type: "tournament_detail",
@@ -301,6 +303,8 @@ export default function TournamentPlanningCtasClient(props: {
           <Link
             className={`secondaryLink ${styles.secondaryCta}`}
             href={hotelSearchCta.mode === "direct" ? hotelSearchCta.href : travelFallbackHref}
+            target={hotelSearchCta.mode === "direct" ? "_blank" : undefined}
+            rel={hotelSearchCta.mode === "direct" ? "noopener noreferrer sponsored" : undefined}
             onClick={() => {
               const selectedVenue = hotelSearchCta.options[0] ?? null;
               trackHotelCtaClick({

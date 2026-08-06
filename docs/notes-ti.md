@@ -72,6 +72,21 @@ Maintenance rules:
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
   - Build note:
     - the TI build still emitted the existing external Supabase DNS fetch failures during static generation in this sandboxed environment, but the build completed successfully.
+- TI tournament hotel search follow-up:
+  - Fixed the selector/venue-map contract mismatch by allowing coordinate-only linked venues to count as usable HotelPlanner search targets in `apps/ti-web/lib/tournamentHotelSelection.ts`.
+  - This matches the existing production venue-map hotel behavior, where `/go/hotels` can resolve from:
+    - `venueId`
+    - venue/tournament context
+    - lat/lng
+    - without requiring a text `ss` destination string
+  - Updated `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx` so direct `/go/hotels` tournament hotel handoffs open in a new tab:
+    - single-venue direct handoff
+    - multi-venue selector option clicks
+  - The generic `/book-travel` fallback intentionally remains same-tab because it is not a direct HotelPlanner handoff.
+  - Added focused regression coverage for coordinate-only venues in `apps/ti-web/lib/tournamentHotelSelection.test.ts`.
+  - Validation passed:
+    - `node --import tsx --test apps/ti-web/lib/tournamentHotelSelection.test.ts apps/ti-web/lib/booking/venueBooking.test.ts`
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
 
 ## 2026-08-04
 

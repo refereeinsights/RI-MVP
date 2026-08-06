@@ -85,6 +85,32 @@ test("resolveTournamentHotelSearchCta falls back when linked venues have no usab
   assert.equal(result.options.length, 0);
 });
 
+test("resolveTournamentHotelSearchCta uses coordinate-only venues like the venue map flow", () => {
+  const result = resolveTournamentHotelSearchCta({
+    tournamentId: "t1",
+    startDate: "2026-08-20",
+    endDate: "2026-08-22",
+    fallbackHref: "/book-travel?city=Denver&state=CO",
+    venues: [
+      {
+        id: "v1",
+        name: "Unnamed Complex",
+        city: null,
+        state: null,
+        zip: null,
+        latitude: 39.7392,
+        longitude: -104.9903,
+      },
+    ],
+  });
+
+  assert.equal(result.mode, "direct");
+  assert.match(result.href, /venueId=v1/);
+  assert.match(result.href, /lat=39.7392/);
+  assert.match(result.href, /lng=-104.9903/);
+  assert.doesNotMatch(result.href, /[?&]ss=/);
+});
+
 test("resolveTournamentHotelSearchCta normalizes same-day tournament dates to a one-night stay", () => {
   const result = resolveTournamentHotelSearchCta({
     tournamentId: "t1",
