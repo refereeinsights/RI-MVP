@@ -76,3 +76,27 @@ export async function resolveSharedVenueByParam(
 
   return { venue: null, sourceRow: null, canonicalParam: null };
 }
+
+export async function listSharedVenuesByIds(db: SharedVenueDbClient, ids: string[], now = new Date()) {
+  const uniqueIds = Array.from(new Set(ids.map((value) => value.trim()).filter(Boolean)));
+  if (uniqueIds.length === 0) return [];
+  const rows = await maybeSelectMany(db, (query) => query.in("id", uniqueIds).limit(Math.min(uniqueIds.length, 24)));
+  return rows.map((row) => buildSharedVenueFromRow(row, now));
+}
+
+export async function listSharedVenuesByCityState(
+  db: SharedVenueDbClient,
+  input: { city: string | null | undefined; state: string | null | undefined; excludeVenueId?: string | null; limit?: number },
+  now = new Date()
+) {
+  const city = String(input.city ?? "").trim();
+  const state = String(input.state ?? "").trim();
+  if (!city || !state) return [];
+  const limit = Math.max(1, Math.min(input.limit ?? 24, 24));
+  const rows = await maybeSelectMany(db, (query) => {
+    let next = query.eq("city", city).eq("state", state);
+    if (input.excludeVenueId?.trim()) next = next.neq("id", input.excludeVenueId.trim());
+    return next.limit(limit);
+  });
+  return rows.map((row) => buildSharedVenueFromRow(row, now));
+}

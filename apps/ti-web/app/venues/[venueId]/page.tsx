@@ -26,7 +26,14 @@ import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { isUuid } from "@/lib/venues/isUuid";
 import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
 import { getVenueCardClassFromSports } from "../sportSurface";
-import { resolveSharedVenueByParam, type SharedVenueSourceRow, type SharedVenueTournamentSummary } from "../../../../../packages/lib/venue";
+import {
+  buildVenueClusterCandidates,
+  listSharedVenuesByCityState,
+  listSharedVenuesByIds,
+  resolveSharedVenueByParam,
+  type SharedVenue,
+  type SharedVenueSourceRow,
+} from "../../../../../packages/lib/venue";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { isValidLatLng } from "@/lib/staticTournamentMaps";
 import "../../tournaments/tournaments.css";
@@ -246,7 +253,7 @@ export async function generateMetadata({ params }: { params: { venueId: string }
 
 async function fetchVenueByParam(param: string): Promise<{
   venue: SharedVenueSourceRow | null;
-  sharedVenue: { tournaments: SharedVenueTournamentSummary[] } | null;
+  sharedVenue: SharedVenue | null;
   redirectTo: string | null;
 }> {
   const resolved = await resolveSharedVenueByParam(supabaseAdmin, param, { allowLegacyAddressSlugLookup: true });
@@ -342,6 +349,42 @@ export default async function VenueDetailsPage({
       return startOk || endOk;
     })
     .sort((a, b) => (a.startDate ?? "9999-12-31").localeCompare(b.startDate ?? "9999-12-31"));
+
+  const upcomingTournamentIds = Array.from(new Set(upcomingTournaments.map((tournament) => tournament.id).filter(Boolean)));
+  const sameTournamentVenueIds =
+    upcomingTournamentIds.length > 0
+      ? Array.from(
+          new Set(
+            (
+              (
+                await (supabaseAdmin.from("tournament_venues" as any) as any)
+                  .select("venue_id")
+                  .in("tournament_id", upcomingTournamentIds)
+                  .neq("venue_id", data.id)
+              ).data as Array<{ venue_id?: string | null }> | null
+            )?.map((row) => String(row.venue_id ?? "").trim()).filter(Boolean) ?? []
+          )
+        )
+      : [];
+  const sameTournamentVenues = await listSharedVenuesByIds(supabaseAdmin as any, sameTournamentVenueIds);
+  const sameCityVenues = await listSharedVenuesByCityState(
+    supabaseAdmin as any,
+    {
+      city: data.city,
+      state: data.state,
+      excludeVenueId: data.id,
+      limit: 24,
+    }
+  );
+  const venueClusterCandidates =
+    sharedVenue
+      ? buildVenueClusterCandidates({
+          currentVenue: sharedVenue,
+          sameTournamentVenues,
+          sameCityVenues,
+          now: new Date(`${today}T12:00:00Z`),
+        })
+      : [];
 
   const hasStaticMapPreview =
     Boolean((process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim()) &&
@@ -1022,6 +1065,56 @@ export default async function VenueDetailsPage({
                 defaultNearbyAllCollapsed
                 showHotelBookingCta={false}
               />
+
+              {venueClusterCandidates.length > 0 ? (
+                <section className={styles.clusterSection} aria-labelledby="venue-cluster-heading">
+                  <div className={styles.clusterHeader}>
+                    <h2 id="venue-cluster-heading" className={styles.clusterHeading}>
+                      Other tournament venues nearby
+                    </h2>
+                    <p className={styles.clusterIntro}>
+                      Continue planning in this travel market with other venue guides that also have current or upcoming tournament activity.
+                    </p>
+                  </div>
+                  <div className={styles.clusterList}>
+                    {venueClusterCandidates.map((candidate) => {
+                      const tournamentCountLabel =
+                        candidate.upcomingTournamentCount === 1
+                          ? "1 upcoming tournament"
+                          : `${String(candidate.upcomingTournamentCount)} upcoming tournaments`;
+                      const nearestLabel = candidate.nearestUpcomingTournament
+                        ? `${candidate.nearestUpcomingTournament.name ?? "Upcoming tournament"} • ${formatDateRangeLabel(
+                            candidate.nearestUpcomingTournament.startDate,
+                            candidate.nearestUpcomingTournament.endDate
+                          )}`
+                        : null;
+                      return (
+                        <article key={candidate.venue.id} className={styles.clusterCard}>
+                          <div className={styles.clusterCardBody}>
+                            <div className={styles.clusterCardTop}>
+                              <div>
+                                <p className={styles.clusterVenueName}>{candidate.venue.name ?? "Venue"}</p>
+                                <p className={styles.clusterVenueMeta}>
+                                  {[candidate.venue.address.city, candidate.venue.address.state].filter(Boolean).join(", ")}
+                                </p>
+                              </div>
+                              <span className={styles.clusterTierBadge}>
+                                {candidate.tier === "same_tournament" ? "Same tournament" : "Same city"}
+                              </span>
+                            </div>
+                            <p className={styles.clusterReason}>{candidate.reason}</p>
+                            <p className={styles.clusterTournamentCount}>{tournamentCountLabel}</p>
+                            {nearestLabel ? <p className={styles.clusterNearest}>{nearestLabel}</p> : null}
+                          </div>
+                          <Link href={getVenueHref({ id: candidate.venue.id, seo_slug: candidate.venue.seoSlug })} className={styles.clusterLink}>
+                            View venue →
+                          </Link>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
 
               {data.notes && canViewPremiumDetails ? (
                 <div style={{ marginTop: 6 }}>

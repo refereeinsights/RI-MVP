@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildVenueClusterCandidates,
   buildVenueAirportQuery,
   buildNearbyCounts,
   buildSharedVenueFromRow,
@@ -14,6 +15,7 @@ import {
   selectVenueAirport,
   sortSharedVenueTournaments,
   type SharedVenueDbClient,
+  type SharedVenue,
   type SharedVenueSourceRow,
 } from "./index";
 
@@ -271,4 +273,166 @@ test("resolveSharedVenueByParam resolves slug, id redirect, and legacy address l
   const byLegacy = await resolveSharedVenueByParam(db, "111-w-harbor-dr-san-diego-ca", { allowLegacyAddressSlugLookup: true });
   assert.equal(byLegacy.venue?.id, rows[0]?.id);
   assert.equal(byLegacy.canonicalParam, "san-diego-convention-center");
+});
+
+function makeSharedVenue(input: Partial<SharedVenue> & Pick<SharedVenue, "id" | "routeKey" | "address" | "coordinates" | "tournaments">): SharedVenue {
+  return {
+    id: input.id,
+    routeKey: input.routeKey,
+    seoSlug: input.seoSlug ?? input.routeKey,
+    name: input.name ?? input.routeKey,
+    address: input.address,
+    coordinates: input.coordinates,
+    notes: null,
+    venueUrl: null,
+    sport: null,
+    reviewAverages: {
+      restroomCleanliness: null,
+      shade: null,
+      vendors: null,
+      parkingConvenience: null,
+    },
+    reviewCount: null,
+    reviewsLastUpdatedAt: null,
+    tournaments: input.tournaments,
+    directions: {
+      destinationLabel: input.name ?? input.routeKey,
+      destinationAddress: input.address.formatted,
+      destinationLatitude: input.coordinates.latitude,
+      destinationLongitude: input.coordinates.longitude,
+    },
+    readiness: {
+      addressReady: true,
+      mapReady: true,
+      hotelSearchReady: true,
+      hotelSearchNotReadyReason: null,
+      nearbyEnrichmentReady: true,
+    },
+  };
+}
+
+test("buildVenueClusterCandidates prioritizes same-tournament venues and rejects same-city venues without activity", () => {
+  const currentVenue = makeSharedVenue({
+    id: "venue-1",
+    routeKey: "venue-one",
+    address: { line1: "1 Main", city: "Coral Springs", state: "FL", postalCode: "33065", formatted: "1 Main, Coral Springs, FL" },
+    coordinates: { latitude: 26.27, longitude: -80.29, valid: true },
+    tournaments: [
+      {
+        id: "tournament-a",
+        slug: "amerigol",
+        name: "AMERIGOL",
+        sport: "hockey",
+        city: "Coral Springs",
+        state: "FL",
+        startDate: "2026-08-10",
+        endDate: "2026-08-12",
+      },
+    ],
+  });
+  const sameTournamentVenue = makeSharedVenue({
+    id: "venue-2",
+    routeKey: "venue-two",
+    address: { line1: "2 Main", city: "Lake Worth", state: "FL", postalCode: "33461", formatted: "2 Main, Lake Worth, FL" },
+    coordinates: { latitude: 26.61, longitude: -80.12, valid: true },
+    tournaments: [
+      {
+        id: "tournament-a",
+        slug: "amerigol",
+        name: "AMERIGOL",
+        sport: "hockey",
+        city: "Coral Springs",
+        state: "FL",
+        startDate: "2026-08-10",
+        endDate: "2026-08-12",
+      },
+    ],
+  });
+  const sameCityActive = makeSharedVenue({
+    id: "venue-3",
+    routeKey: "venue-three",
+    address: { line1: "3 Main", city: "Coral Springs", state: "FL", postalCode: "33065", formatted: "3 Main, Coral Springs, FL" },
+    coordinates: { latitude: 26.28, longitude: -80.30, valid: true },
+    tournaments: [
+      {
+        id: "tournament-b",
+        slug: "fall-classic",
+        name: "Fall Classic",
+        sport: "baseball",
+        city: "Coral Springs",
+        state: "FL",
+        startDate: "2026-09-01",
+        endDate: "2026-09-03",
+      },
+    ],
+  });
+  const sameCityInactive = makeSharedVenue({
+    id: "venue-4",
+    routeKey: "venue-four",
+    address: { line1: "4 Main", city: "Coral Springs", state: "FL", postalCode: "33065", formatted: "4 Main, Coral Springs, FL" },
+    coordinates: { latitude: 26.29, longitude: -80.31, valid: true },
+    tournaments: [
+      {
+        id: "tournament-old",
+        slug: "old-event",
+        name: "Old Event",
+        sport: "hockey",
+        city: "Coral Springs",
+        state: "FL",
+        startDate: "2026-07-01",
+        endDate: "2026-07-03",
+      },
+    ],
+  });
+
+  const candidates = buildVenueClusterCandidates({
+    currentVenue,
+    sameTournamentVenues: [sameTournamentVenue],
+    sameCityVenues: [sameTournamentVenue, sameCityActive, sameCityInactive],
+    now: new Date("2026-08-06T12:00:00Z"),
+  });
+
+  assert.deepEqual(
+    candidates.map((candidate) => candidate.venue.id),
+    ["venue-2", "venue-3"]
+  );
+  assert.equal(candidates[0]?.tier, "same_tournament");
+  assert.equal(candidates.some((candidate) => candidate.venue.id === "venue-4"), false);
+});
+
+test("buildVenueClusterCandidates omits weak result sets below threshold and dedupes self/current venue", () => {
+  const currentVenue = makeSharedVenue({
+    id: "venue-10",
+    routeKey: "venue-ten",
+    address: { line1: "10 Main", city: "Cheney", state: "WA", postalCode: "99004", formatted: "10 Main, Cheney, WA" },
+    coordinates: { latitude: 47.48, longitude: -117.57, valid: true },
+    tournaments: [],
+  });
+  const sameCitySingle = makeSharedVenue({
+    id: "venue-11",
+    routeKey: "venue-eleven",
+    address: { line1: "11 Main", city: "Cheney", state: "WA", postalCode: "99004", formatted: "11 Main, Cheney, WA" },
+    coordinates: { latitude: 47.49, longitude: -117.58, valid: true },
+    tournaments: [
+      {
+        id: "future-1",
+        slug: "future-one",
+        name: "Future One",
+        sport: "baseball",
+        city: "Cheney",
+        state: "WA",
+        startDate: "2026-08-20",
+        endDate: "2026-08-21",
+      },
+    ],
+  });
+
+  const candidates = buildVenueClusterCandidates({
+    currentVenue,
+    sameTournamentVenues: [currentVenue],
+    sameCityVenues: [currentVenue, sameCitySingle, sameCitySingle],
+    now: new Date("2026-08-06T12:00:00Z"),
+  });
+
+  assert.equal(candidates.length, 0);
 });

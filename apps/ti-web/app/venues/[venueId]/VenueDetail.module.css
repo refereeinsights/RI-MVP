@@ -73,6 +73,119 @@
   text-align: left;
 }
 
+.clusterSection {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.clusterHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.clusterHeading {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.clusterIntro {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.86;
+  line-height: 1.45;
+}
+
+.clusterList {
+  display: grid;
+  gap: 10px;
+}
+
+.clusterCard {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.clusterCardBody {
+  display: grid;
+  gap: 6px;
+}
+
+.clusterCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.clusterVenueName {
+  margin: 0;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.clusterVenueMeta,
+.clusterReason,
+.clusterTournamentCount,
+.clusterNearest {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.clusterVenueMeta {
+  opacity: 0.88;
+}
+
+.clusterReason {
+  opacity: 0.94;
+}
+
+.clusterTournamentCount {
+  font-weight: 700;
+}
+
+.clusterNearest {
+  opacity: 0.86;
+}
+
+.clusterTierBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.clusterLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 44px;
+  width: fit-content;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 800;
+}
+
+.clusterLink:focus-visible,
+.clusterLink:hover {
+  text-decoration-thickness: 2px;
+}
+
 @media (max-width: 768px) {
   .actionsCluster {
     display: grid;
@@ -172,5 +285,14 @@
   .upcomingMeta {
     font-size: 12px;
     opacity: 0.88;
+  }
+
+  .clusterCardTop {
+    display: grid;
+    gap: 8px;
+  }
+
+  .clusterTierBadge {
+    width: fit-content;
   }
 }
