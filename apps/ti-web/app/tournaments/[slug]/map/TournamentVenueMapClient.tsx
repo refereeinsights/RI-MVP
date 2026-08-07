@@ -131,6 +131,21 @@ const DEFAULT_TEAM_BLOCK_FORM: TeamBlockFormState = {
   notes: "",
 };
 
+const HOTEL_SESSION_STORAGE_KEY = "ti_venue_hotel_session_id";
+
+function readOrCreateHotelSessionId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const existing = window.sessionStorage.getItem(HOTEL_SESSION_STORAGE_KEY);
+    if (existing) return existing;
+    const created = globalThis.crypto?.randomUUID?.() ?? null;
+    if (created) window.sessionStorage.setItem(HOTEL_SESSION_STORAGE_KEY, created);
+    return created;
+  } catch {
+    return null;
+  }
+}
+
 function buildVenueHotelsHref(args: {
   venue: MapVenue;
   tournamentId: string;
@@ -2764,13 +2779,23 @@ export default function TournamentVenueMapClient({
                         })}
                         target="_blank"
                         rel="noopener noreferrer sponsored"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.preventDefault();
                           void trackTiEvent("venue_map_hotels_clicked", {
                             page_type: "venue_map",
                             tournament_id: tournament.id,
                             tournament_slug: tournament.slug,
                             venue_id: hotelVenueId,
                           });
+                          const baseHref = buildVenueHotelsHref({
+                            venue: hotelVenueForRedirect,
+                            tournamentId: tournament.id,
+                          });
+                          const url = new URL(baseHref, window.location.origin);
+                          const sid = readOrCreateHotelSessionId();
+                          if (sid) url.searchParams.set("session_id", sid);
+                          const w = window.open(`${url.pathname}${url.search}`, "_blank", "noopener,noreferrer");
+                          if (w) w.opener = null;
                         }}
                       >
                         View all nearby hotels

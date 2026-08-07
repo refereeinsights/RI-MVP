@@ -431,6 +431,18 @@ export default function WeekendPlannerClient(props: {
     if (attribution.custom5) qp.set("custom5", attribution.custom5);
     if (attribution.custom6) qp.set("custom6", attribution.custom6);
     if (attribution.custom7) qp.set("custom7", attribution.custom7);
+    // Propagate the shared hotel session id so the /go/hotels DB row carries a non-null session_id.
+    if (typeof window !== "undefined") {
+      try {
+        const SESSION_KEY = "ti_venue_hotel_session_id";
+        let sid = window.sessionStorage.getItem(SESSION_KEY);
+        if (!sid) {
+          sid = globalThis.crypto?.randomUUID?.() ?? null;
+          if (sid) window.sessionStorage.setItem(SESSION_KEY, sid);
+        }
+        if (sid) qp.set("session_id", sid);
+      } catch {}
+    }
     return qp;
   }
 

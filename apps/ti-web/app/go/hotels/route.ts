@@ -631,7 +631,7 @@ export async function GET(request: Request) {
 
   if (!local && !bot) {
     try {
-      await supabaseAdmin.from("ti_outbound_clicks" as any).upsert({
+      const { error: persistError } = await supabaseAdmin.from("ti_outbound_clicks" as any).upsert({
         destination_type: "hotels",
         partner: "hotelplanner",
         outbound_partner: "hotelplanner",
@@ -675,9 +675,25 @@ export async function GET(request: Request) {
         onConflict: "outbound_request_id",
         ignoreDuplicates: true,
       });
-    } catch {
+      if (persistError) {
+        // 23505 = unique_violation: attribution already recorded under this request or attribution id. Safe.
+        if (persistError.code !== "23505") {
+          console.error("[go/hotels] outbound click persist failed", {
+            code: persistError.code,
+            message: String(persistError.message ?? "").slice(0, 200),
+            attribution_id: stableOutboundAttributionId,
+            source_surface: sourceSurface,
+            cta_placement: ctaPlacement ?? null,
+          });
+        }
+      }
+    } catch (err) {
       // Don't block redirects on logging failures.
-      console.warn("[go/hotels] outbound click insert failed");
+      console.error("[go/hotels] outbound click threw unexpectedly", {
+        error: String(err).slice(0, 200),
+        attribution_id: stableOutboundAttributionId,
+        source_surface: sourceSurface,
+      });
     }
   }
 
