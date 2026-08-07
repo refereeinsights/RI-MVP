@@ -2511,6 +2511,10 @@
   display: none;
 }
 
+.venueMobileAccordion:not([open]) > :not(summary) {
+  display: none;
+}
+
 .venueMobileAccordionSummary::after {
   content: "▸";
   opacity: 0.85;

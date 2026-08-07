@@ -15,6 +15,13 @@ Maintenance rules:
 
 ## 2026-08-07
 
+- TI venue-detail weather accordion gap fix:
+  - Followed up on the signed-out browser UAT blank-space report on venue detail.
+  - Added a defensive collapsed-details rule in `apps/ti-web/app/tournaments/tournaments.css` so `.venueMobileAccordion` hides all non-summary children unless the native `details` element is open.
+  - This prevents the closed `10-Day Weather Planner` content from reserving vertical space in the layout.
+  - Scope stayed presentation-only; no hotel discovery, HotelPlanner routing, or entitlement behavior changed.
+  - Validation passed:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
 - TI HotelPlanner canonical hotel-layer UAT follow-up:
   - Browser UAT against commit `e8b340ed` found one remaining TI inconsistency on the tournament venue map: venue tiles still rendered Owl’s Eye-sourced `🏨 N hotels` counts alongside coffee/food/quick-eats stats even though tournament detail and venue detail had already removed Owl’s Eye hotel counts.
   - Patched `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx` so the map venue-tile nearby summary no longer renders hotel counts from either:
