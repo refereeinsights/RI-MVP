@@ -4,7 +4,6 @@
 export const CURRENT_OWL_CATEGORIES = [
   "food",
   "coffee",
-  "hotel",
   "sporting_goods",
   "quick_eats",
   "hangouts",
