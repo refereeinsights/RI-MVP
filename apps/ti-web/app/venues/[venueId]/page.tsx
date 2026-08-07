@@ -537,7 +537,6 @@ export default async function VenueDetailsPage({
     : [];
 
   let nearbyCounts = { food: 0, coffee: 0, hotels: 0, sporting_goods: 0, quick_eats: 0, hangouts: 0 };
-  let publicHotels: NearbyPlace[] = [];
   let premiumNearby:
     | {
         food: NearbyPlace[];
@@ -670,8 +669,6 @@ export default async function VenueDetailsPage({
       hangouts: hangoutRows.length,
     };
 
-    publicHotels = [...partnerPlaces.hotels, ...hotelRows.map(toPlace)];
-
     if (canViewPremiumDetails) {
       premiumNearby = {
         food: [...partnerPlaces.food, ...foodRows.map(toPlace)],
@@ -692,7 +689,6 @@ export default async function VenueDetailsPage({
       quick_eats: 0,
       hangouts: 0,
     };
-    publicHotels = [...partnerPlaces.hotels];
     if (canViewPremiumDetails) {
       premiumNearby = {
         food: partnerPlaces.food,
@@ -709,7 +705,6 @@ export default async function VenueDetailsPage({
   const hasOwlsEye =
     nearbyCounts.food +
       nearbyCounts.coffee +
-      nearbyCounts.hotels +
       nearbyCounts.sporting_goods +
       nearbyCounts.quick_eats +
       nearbyCounts.hangouts >
@@ -1056,7 +1051,6 @@ export default async function VenueDetailsPage({
                 nearbyCounts={nearbyCounts}
                 airportSummary={airportSummary}
                 premiumNearby={premiumNearby}
-                publicHotels={publicHotels}
                 tier={tier}
                 showAllDetails={canViewPremiumDetails}
                 mapLinks={mapLinks}

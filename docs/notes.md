@@ -12,6 +12,12 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-08-07
+
+- TI HotelPlanner canonical public hotel layer cleanup: removed legacy Owl’s Eye hotel presentation from the two highest-risk TI surfaces without changing shared nearby grouping or HotelPlanner routing. `apps/ti-web/app/tournaments/[slug]/page.tsx` now drops hotel counts from `formatOwlCountsLine`, excludes hotel-only nearby data from `hasOwlsEyeByVenueId`, removes dead unused nearby-summary helpers, and updates the logged-out Weekend Pro upsell copy so visible premium messaging no longer frames hotels as Owl’s Eye value while preserving the existing `owl_eye` analytics variant and `source_context`.
+- TI venue-detail Owl’s Eye cleanup: `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx` now removes Owl’s Eye hotel count rows, hotel accordions, and premium hotel grouping from the venue-detail nearby/premium UI while keeping the public HotelPlanner booking CTA path intact; Owl’s Eye copy now emphasizes rentals/food/coffee/gear instead of premium hotel discovery. `apps/ti-web/app/venues/[venueId]/page.tsx` now treats hotel-only nearby data as insufficient for `hasOwlsEye` and drops the dead `publicHotels` prop path into the TI card.
+- Validation passed: `npx tsc -p apps/ti-web/tsconfig.json --noEmit`, `npm run lint --workspace ti-web`, and `npm run build --workspace ti-web`.
+
 ## 2026-08-05
 
 - TI Team Travel destination-only fallback follow-up: removed the remaining `sport` leak from venue-detail Team Travel URLs when the CTA is in true destination-only/passive mode. `apps/ti-web/app/venues/[venueId]/page.tsx` now only passes `sport` into `/team-hotel-booking` when a real future tournament context was selected; passive fallback now carries only venue/destination attribution with no fabricated tournament or sport context.

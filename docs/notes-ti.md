@@ -13,6 +13,32 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-08-07
+
+- TI HotelPlanner canonical public hotel layer cleanup:
+  - Removed the highest-risk legacy Owl’s Eye hotel presentation on tournament detail and venue detail without changing shared nearby grouping or HotelPlanner routing.
+  - `apps/ti-web/app/tournaments/[slug]/page.tsx` now:
+    - removes hotel counts from `formatOwlCountsLine`, so tournament venue-tile Owl summaries no longer claim Owl’s Eye hotel inventory
+    - treats hotel-only nearby data as insufficient for `hasOwlsEyeByVenueId`, so venue tiles are no longer marked as Owl’s Eye surfaces on hotels alone
+    - removes dead unused nearby-summary helpers
+    - updates only the visible logged-out Weekend Pro upsell copy so it no longer markets hotels as Owl’s Eye premium intelligence, while preserving the existing `owl_eye` analytics variant and `source_context`
+  - `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx` now:
+    - removes Owl’s Eye hotel count rows from the nearby preview UI
+    - removes hotel accordion rows from both the expanded and collapsed nearby sections
+    - removes the Hotels group from the premium Owl’s Eye accordion
+    - updates the visible premium summary/lock copy to emphasize rentals, food, coffee, and gear instead of premium hotel discovery
+  - `apps/ti-web/app/venues/[venueId]/page.tsx` now:
+    - treats hotel-only nearby data as insufficient for `hasOwlsEye`
+    - removes the dead `publicHotels` prop path into the TI card
+  - Intentionally preserved:
+    - shared `packages/lib/venue/nearby.ts` hotel grouping
+    - existing public HotelPlanner CTA and outbound routing behavior
+    - tournament upsell analytics identifiers
+  - Validation passed:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run lint --workspace ti-web`
+    - `npm run build --workspace ti-web`
+
 ## 2026-08-05
 
 - TI Team Travel destination-only fallback follow-up:

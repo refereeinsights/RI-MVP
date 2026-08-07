@@ -720,7 +720,7 @@ async function TournamentVenueDetails({
       Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
         const runId = (run.run_id ?? run.id) as string;
         const counts = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0, quick_eats: 0, hangouts: 0 };
-        return [venueId, counts.food + counts.coffee + counts.hotels + counts.quick_eats + counts.hangouts + counts.sporting_goods > 0] as const;
+        return [venueId, counts.food + counts.coffee + counts.quick_eats + counts.hangouts + counts.sporting_goods > 0] as const;
       })
     );
   }
@@ -865,17 +865,6 @@ async function TournamentVenueDetails({
   const primaryVenue = displayVenueRows[0]?.venue ?? null;
   const primaryVenueName = (primaryVenue?.name ?? "").trim() || null;
   const primaryVenueLocationLabel = [primaryVenue?.city, primaryVenue?.state].filter(Boolean).join(", ") || null;
-  const bestNearbyCounts = bestOwlVenueRow?.counts
-    ? {
-        coffee: bestOwlVenueRow.counts.coffee,
-        food: bestOwlVenueRow.counts.food,
-        hotels: bestOwlVenueRow.counts.hotels,
-        quick_eats: bestOwlVenueRow.counts.quick_eats,
-        hangouts: bestOwlVenueRow.counts.hangouts,
-        sporting_goods: bestOwlVenueRow.counts.sporting_goods,
-      }
-    : null;
-
   const formatOwlCountsLine = (counts: {
     coffee: number;
     food: number;
@@ -887,38 +876,12 @@ async function TournamentVenueDetails({
     const parts: Array<string | null> = [
       `☕ ${counts.coffee}`,
       `🍔 ${counts.food}`,
-      counts.hotels ? `🏨 ${counts.hotels}` : null,
       counts.quick_eats ? `🌮 ${counts.quick_eats}` : null,
       counts.hangouts ? `🎳 ${counts.hangouts}` : null,
       counts.sporting_goods ? `⚽ ${counts.sporting_goods}` : null,
     ];
     return parts.filter(Boolean).join(" • ");
   };
-
-  const planFoodCoffeeLine = (() => {
-    if (!bestOwlVenueRow) return null;
-    const counts = bestOwlVenueRow.counts;
-    if (!counts) return "Nearby options available";
-    const total = counts.food + counts.coffee + counts.hotels + counts.quick_eats + counts.hangouts + counts.sporting_goods;
-    if (!total) return "Nearby options available";
-    const parts: Array<string | null> = [
-      `☕ ${counts.coffee}`,
-      `🍔 ${counts.food}`,
-      counts.hotels ? `🏨 ${counts.hotels}` : null,
-      counts.quick_eats ? `🌮 ${counts.quick_eats}` : null,
-      counts.hangouts ? `🎳 ${counts.hangouts}` : null,
-      counts.sporting_goods ? `⚽ ${counts.sporting_goods}` : null,
-    ];
-    return parts.filter(Boolean).join(" • ");
-  })();
-
-  const planHotelsLine = (() => {
-    if (!bestOwlVenueRow) return null;
-    const counts = bestOwlVenueRow.counts;
-    if (!counts) return "Nearby options available";
-    if (!counts.hotels) return "Nearby options available";
-    return `🏨 ${counts.hotels} hotels nearby`;
-  })();
 
   const tournamentHotelsSearchString = (() => {
     const city = String(bestWeatherLocation.city ?? "").trim();
@@ -997,7 +960,7 @@ async function TournamentVenueDetails({
             ) : null}
             <p className="premiumDetailCard__copy">
               {variant === "owl_eye"
-                ? "Unlock Owl’s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and directions around where games are played."
+                ? "Unlock Owl’s Eye™ venue intelligence: nearby rentals, coffee, food, gear, and directions around where games are played."
                 : "Unlock premium planning tools for tournament weekends, including venue-focused travel planning shortcuts and deeper local context."}
             </p>
             {viewer.needsEmailVerification ? (

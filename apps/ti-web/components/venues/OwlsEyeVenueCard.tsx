@@ -56,7 +56,6 @@ type OwlsEyeVenueCardProps = {
   hasOwlsEye: boolean;
   canViewPremiumDetails: boolean;
   nearbyCounts: { food: number; coffee: number; hotels: number; sporting_goods: number; quick_eats?: number; hangouts?: number };
-  publicHotels?: NearbyPlace[] | null;
   selectedTournamentId?: string | null;
   selectedTournamentSlug?: string | null;
   selectedTournamentStartDate?: string | null;
@@ -91,7 +90,6 @@ export default function OwlsEyeVenueCard({
   hasOwlsEye,
   canViewPremiumDetails,
   nearbyCounts,
-  publicHotels,
   selectedTournamentId,
   selectedTournamentSlug,
   selectedTournamentStartDate,
@@ -108,7 +106,6 @@ export default function OwlsEyeVenueCard({
   showHotelBookingCta = true,
 }: OwlsEyeVenueCardProps) {
   const locationLine = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
-  const hotels = (publicHotels ?? []).filter(Boolean);
   const bookingHref = buildHotelsHref({
     venueId: venue.id,
     tournamentId: selectedTournamentId ?? null,
@@ -220,8 +217,8 @@ export default function OwlsEyeVenueCard({
                         href={mapPreviewHref}
                         ariaLabel={
                           venue.name
-                            ? `Plan around this venue: see hotels, food, coffee, rentals, and directions nearby for ${venue.name}`
-                            : "Plan around this venue: see hotels, food, coffee, rentals, and directions nearby"
+                            ? `Plan around this venue: see hotels, food, coffee, gear, rentals, and directions nearby for ${venue.name}`
+                            : "Plan around this venue: see hotels, food, coffee, gear, rentals, and directions nearby"
                         }
                         className="detailVenueStaticMap__overlayLink"
                         event={{
@@ -235,7 +232,7 @@ export default function OwlsEyeVenueCard({
                         }}
                       >
                         <span className="detailVenueStaticMap__overlayCta" aria-hidden="true">
-                          <span className="detailVenueStaticMap__overlayDesktop">Click map to see hotels, food &amp; coffee nearby →</span>
+                          <span className="detailVenueStaticMap__overlayDesktop">Click map to see hotels, food, coffee &amp; gear nearby →</span>
                           <span className="detailVenueStaticMap__overlayMobile">Tap to plan nearby →</span>
                         </span>
                       </VenuePlanningMapLinkClient>
@@ -304,14 +301,13 @@ export default function OwlsEyeVenueCard({
             ) : null}
             {showAllDetails ? (
               <>
-	                <div className="detailVenueNearbyPreview__counts">
-	                  <div>☕ {nearbyCounts.coffee} coffee nearby</div>
-	                  <div>🍔 {nearbyCounts.food} food options nearby</div>
-	                  {typeof nearbyCounts.quick_eats === "number" ? <div>🥪 {nearbyCounts.quick_eats} quick eats</div> : null}
-	                  {typeof nearbyCounts.hangouts === "number" ? <div>🎯 {nearbyCounts.hangouts} hangouts</div> : null}
-	                  <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
-	                  <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div>
-	                </div>
+                <div className="detailVenueNearbyPreview__counts">
+                  <div>☕ {nearbyCounts.coffee} coffee nearby</div>
+                  <div>🍔 {nearbyCounts.food} food options nearby</div>
+                  {typeof nearbyCounts.quick_eats === "number" ? <div>🥪 {nearbyCounts.quick_eats} quick eats</div> : null}
+                  {typeof nearbyCounts.hangouts === "number" ? <div>🎯 {nearbyCounts.hangouts} hangouts</div> : null}
+                  <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div>
+                </div>
 
                   <details className="venueMobileAccordion" style={{ marginTop: 8 }}>
                     <summary className="venueMobileAccordionSummary">
@@ -330,48 +326,6 @@ export default function OwlsEyeVenueCard({
                     />
                   </details>
 
-                  {hotels.length ? (
-                    <details className="venueMobileAccordion" style={{ marginTop: 8 }}>
-                      <summary className="venueMobileAccordionSummary">
-                        <span>Hotels near this venue</span>
-                        <span className="venueMobileAccordionMeta">({hotels.length}) Tap to expand</span>
-                      </summary>
-                      <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
-                        <div className="premiumNearbyGroup__list">
-                          {hotels.slice(0, 5).map((item, idx) => {
-                            const miles =
-                              typeof item.distance_meters === "number" && Number.isFinite(item.distance_meters)
-                                ? `${(item.distance_meters / 1609.344).toFixed(1)} mi`
-                                : "Distance unavailable";
-                            const sponsorLink = item.is_sponsor && item.sponsor_click_url ? item.sponsor_click_url : null;
-                            const mapsLink = !sponsorLink && canViewPremiumDetails ? item.maps_url : null;
-                            const ctaHref = sponsorLink ?? mapsLink;
-                            const ctaLabel = sponsorLink ? "View" : mapsLink ? "Directions" : "Directions (Premium)";
-                            const rel = sponsorLink ? "noopener noreferrer sponsored" : "noopener noreferrer";
-                            return (
-                              <div className="premiumNearbyLink premiumNearbyLink--row" key={`hotel-${item.name}-${idx}`}>
-                                <div className="premiumNearbyLink__content">
-                                  <span style={item.is_sponsor ? { fontWeight: 800, color: "#f7d774" } : undefined}>
-                                    {item.name}
-                                  </span>
-                                  <span className="premiumNearbyLink__meta">{miles}</span>
-                                </div>
-                                {ctaHref ? (
-                                  <a className="secondaryLink premiumNearbyLink__cta" href={ctaHref} target="_blank" rel={rel}>
-                                    {ctaLabel}
-                                  </a>
-                                ) : (
-                                  <a className="secondaryLink premiumNearbyLink__cta" href="#quick-venue-check">
-                                    Unlock
-                                  </a>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </details>
-                  ) : null}
                 {primaryAirport ? (
                   <div style={{ marginTop: -3, display: "grid", gap: 1, justifyItems: "center" }}>
                     <div style={{ fontWeight: 700, lineHeight: 1.1 }}>✈️ Nearest Major Airport</div>
@@ -434,20 +388,16 @@ export default function OwlsEyeVenueCard({
               <>
                 {nearbyCounts.coffee > 0 ||
                 nearbyCounts.food > 0 ||
-                nearbyCounts.hotels > 0 ||
                 nearbyCounts.sporting_goods > 0 ||
-                primaryAirport ||
-                hotels.length ? (
+                primaryAirport ? (
                   <>
                     {nearbyCounts.coffee > 0 ||
                     nearbyCounts.food > 0 ||
-                    nearbyCounts.hotels > 0 ||
-                    nearbyCounts.sporting_goods > 0 ||
+	                    nearbyCounts.sporting_goods > 0 ||
 	                    primaryAirport ? (
 	                      <div className="detailVenueNearbyPreview__counts" style={{ marginTop: 2 }}>
 	                        {nearbyCounts.coffee > 0 ? <div>☕ {nearbyCounts.coffee} coffee nearby</div> : null}
 	                        {nearbyCounts.food > 0 ? <div>🍔 {nearbyCounts.food} food options nearby</div> : null}
-	                        {nearbyCounts.hotels > 0 ? <div>🏨 {nearbyCounts.hotels} hotels nearby</div> : null}
 	                        {nearbyCounts.sporting_goods > 0 ? <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div> : null}
 	                        {primaryAirport ? (
 	                          <div title={primaryAirportFullLabel}>
@@ -474,54 +424,6 @@ export default function OwlsEyeVenueCard({
                         tournamentEndDate={selectedTournamentEndDate ?? null}
                       />
                     </details>
-
-                    {hotels.length ? (
-                      <details className="venueMobileAccordion" style={{ marginTop: 8 }}>
-                        <summary className="venueMobileAccordionSummary">
-                          <span>Hotels near this venue</span>
-                          <span className="venueMobileAccordionMeta">({hotels.length}) Tap to expand</span>
-                        </summary>
-                        <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
-                          <div className="premiumNearbyGroup__list">
-                            {hotels.slice(0, 3).map((item, idx) => {
-                              const miles =
-                                typeof item.distance_meters === "number" && Number.isFinite(item.distance_meters)
-                                  ? `${(item.distance_meters / 1609.344).toFixed(1)} mi`
-                                  : "Distance unavailable";
-                              const sponsorLink = item.is_sponsor && item.sponsor_click_url ? item.sponsor_click_url : null;
-                              const mapsLink = !sponsorLink && canViewPremiumDetails ? item.maps_url : null;
-                              const ctaHref = sponsorLink ?? mapsLink;
-                              const ctaLabel = sponsorLink ? "View" : mapsLink ? "Directions" : "Directions (Premium)";
-                              const rel = sponsorLink ? "noopener noreferrer sponsored" : "noopener noreferrer";
-                              return (
-                                <div className="premiumNearbyLink premiumNearbyLink--row" key={`hotel-preview-${item.name}-${idx}`}>
-                                  <div className="premiumNearbyLink__content">
-                                    <span style={item.is_sponsor ? { fontWeight: 800, color: "#f7d774" } : undefined}>
-                                      {item.name}
-                                    </span>
-                                    <span className="premiumNearbyLink__meta">{miles}</span>
-                                  </div>
-                                  {ctaHref ? (
-                                    <a className="secondaryLink premiumNearbyLink__cta" href={ctaHref} target="_blank" rel={rel}>
-                                      {ctaLabel}
-                                    </a>
-                                  ) : (
-                                    <a className="secondaryLink premiumNearbyLink__cta" href="#quick-venue-check">
-                                      Unlock
-                                    </a>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                          {!canViewPremiumDetails ? (
-                            <div className="detailVenueNearbyPreview__teaser" style={{ marginTop: -2 }}>
-                              Directions are Premium — unlock Weekend Pro to open maps.
-                            </div>
-                          ) : null}
-                        </div>
-                      </details>
-                    ) : null}
                   </>
                 ) : (
                   <div className="detailVenueNearbyPreview__teaser">
@@ -536,7 +438,7 @@ export default function OwlsEyeVenueCard({
         ) : null}
 
         <details className="detailVenuePremium">
-          <summary className="detailVenuePremium__summary">See closest hotels, food & coffee</summary>
+          <summary className="detailVenuePremium__summary">See closest food, coffee & gear</summary>
           <div className="detailVenuePremium__body">
             {demoScores ? (
               <div style={{ marginBottom: 12 }}>
@@ -569,7 +471,6 @@ export default function OwlsEyeVenueCard({
 	                      { label: "Food", items: premiumNearby.food.slice(0, 10) },
 	                      ...(premiumNearby.quick_eats?.length ? [{ label: "Quick Eats", items: premiumNearby.quick_eats.slice(0, 10) }] : []),
 	                      ...(premiumNearby.hangouts?.length ? [{ label: "Hangouts", items: premiumNearby.hangouts.slice(0, 10) }] : []),
-	                      { label: "Hotels", items: premiumNearby.hotels.slice(0, 10) },
 	                      { label: "Gear", items: premiumNearby.sporting_goods.slice(0, 10) },
 	                    ]}
 	                  />
@@ -588,7 +489,7 @@ export default function OwlsEyeVenueCard({
               <div className="detailVenuePremiumLock">
                 <p style={{ margin: 0, fontWeight: 900 }}>Stay close to where games are played.</p>
                 <p style={{ margin: "6px 0 0", opacity: 0.92 }}>
-                  Weekend Pro unlocks full Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and mobile-friendly directions.
+                  Weekend Pro unlocks full Owl&apos;s Eye™ venue intelligence: nearby rentals, coffee, food, gear, and mobile-friendly directions.
                 </p>
                 <div style={{ marginTop: 10 }}>
                   <Link href="/premium" className="primaryLink">
