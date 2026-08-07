@@ -10,6 +10,7 @@ import type {
 import { upsertTournamentFromSource } from "@/lib/tournaments/upsertFromSource";
 import { TOURNAMENT_SPORTS } from "@/lib/tournaments/sports";
 import { findVenueMatch, type VenueMatchInput } from "@/lib/tournaments/venueNormalization";
+import { buildVenueAddressFingerprint, buildVenueNameCityStateFingerprint } from "@/lib/identity/fingerprints";
 
 export type CsvRow = Record<string, string>;
 
@@ -720,7 +721,7 @@ async function upsertVenueAndLinkTournament(params: {
   tournamentId: string;
   venue: VenueCandidate;
   setPrimary: boolean;
-}): Promise<{ attempted: boolean; linked: boolean; error?: string }> {
+}): Promise<{ attempted: boolean; linked: boolean; fingerprintMatched?: boolean; error?: string }> {
   const { supabase, tournamentId, venue, setPrimary } = params;
 
   try {
@@ -729,9 +730,44 @@ async function upsertVenueAndLinkTournament(params: {
       return query.eq(field, value);
     };
 
-    // Broad city+state fetch → fuzzy match (Tier 1: address, Tier 2: normalized name).
-    // Falls back to exact match when city or state is missing.
+    // Tier 0: fingerprint lookup — fast indexed match, consistent with manual venue-accept flow.
+    // Try address fingerprint first; fall back to name+city+state fingerprint.
     let venueId: string | undefined;
+    let fingerprintMatched = false;
+
+    const addressFp = buildVenueAddressFingerprint({ address: venue.address, city: venue.city, state: venue.state });
+    const nameFp = buildVenueNameCityStateFingerprint({ name: venue.name, city: venue.city, state: venue.state });
+
+    if (addressFp) {
+      const { data: fpHits, error: fpErr } = await (supabase.from("venues") as any)
+        .select("id, name, name_city_state_fingerprint")
+        .eq("address_fingerprint", addressFp)
+        .limit(10);
+      if (!fpErr && (fpHits ?? []).length) {
+        const rows = fpHits as any[];
+        let pick = rows[0];
+        if (nameFp) {
+          const exact = rows.find((r: any) => String(r?.name_city_state_fingerprint ?? "") === nameFp);
+          if (exact) pick = exact;
+        }
+        venueId = String(pick.id);
+        fingerprintMatched = true;
+      }
+    }
+
+    if (!venueId && nameFp) {
+      const { data: fpHits, error: fpErr } = await (supabase.from("venues") as any)
+        .select("id")
+        .eq("name_city_state_fingerprint", nameFp)
+        .limit(5);
+      if (!fpErr && (fpHits ?? []).length) {
+        venueId = String((fpHits as any[])[0].id);
+        fingerprintMatched = true;
+      }
+    }
+
+    // Tier 1 (fallback): broad city+state fetch → fuzzy match.
+    if (!venueId) {
     if (venue.city && venue.state) {
       const { data: candidates, error: candidatesErr } = await (supabase.from("venues") as any)
         .select("id, name, address, city, state")
@@ -801,6 +837,7 @@ async function upsertVenueAndLinkTournament(params: {
         venueId = (insertRes.data as any)?.id as string | undefined;
       }
     }
+    } // end Tier 1 fallback
 
     if (!venueId) return { attempted: true, linked: false, error: "missing_venue_id" };
 
@@ -822,7 +859,7 @@ async function upsertVenueAndLinkTournament(params: {
       }
     }
 
-    return { attempted: true, linked: true };
+    return { attempted: true, linked: true, fingerprintMatched };
   } catch (error) {
     return { attempted: true, linked: false, error: error instanceof Error ? error.message : "failed_link_venue" };
   }
@@ -838,6 +875,7 @@ export async function importTournamentRecords(records: TournamentRow[]) {
   let venue_links_attempted = 0;
   let venue_links_created = 0;
   let venue_link_errors = 0;
+  let venue_links_fingerprint_matched = 0;
 
   const supabase = supabaseAdmin();
 
@@ -939,6 +977,7 @@ export async function importTournamentRecords(records: TournamentRow[]) {
               continue;
             }
             venue_links_created += 1;
+            if (res.fingerprintMatched) venue_links_fingerprint_matched += 1;
             if (setPrimary) hasPrimary = true;
           }
         }
@@ -948,7 +987,7 @@ export async function importTournamentRecords(records: TournamentRow[]) {
     }
   }
 
-  return { success, failures, tournamentIds, newCount, existingCount, venue_links_attempted, venue_links_created, venue_link_errors };
+  return { success, failures, tournamentIds, newCount, existingCount, venue_links_attempted, venue_links_created, venue_link_errors, venue_links_fingerprint_matched };
 }
 
 // Extract events from JSON-LD scripts (schema.org Event)

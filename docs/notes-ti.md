@@ -15,6 +15,8 @@ Maintenance rules:
 
 ## 2026-08-07
 
+- RI CSV ingestion venue fingerprint matching: see `docs/notes.md` for full entry (RI-side change).
+
 - TI venue-detail weather accordion gap fix:
   - Followed up on the signed-out browser UAT blank-space report on venue detail.
   - Added a defensive collapsed-details rule in `apps/ti-web/app/tournaments/tournaments.css` so `.venueMobileAccordion` hides all non-summary children unless the native `details` element is open.
