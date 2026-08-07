@@ -15,6 +15,15 @@ Maintenance rules:
 
 ## 2026-08-07
 
+- TI HotelPlanner canonical hotel-layer UAT follow-up:
+  - Browser UAT against commit `e8b340ed` found one remaining TI inconsistency on the tournament venue map: venue tiles still rendered Owl’s Eye-sourced `🏨 N hotels` counts alongside coffee/food/quick-eats stats even though tournament detail and venue detail had already removed Owl’s Eye hotel counts.
+  - Patched `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx` so the map venue-tile nearby summary no longer renders hotel counts from either:
+    - `v.counts.hotels`
+    - the temporary live hotel pin count
+  - Preserved the public HotelPlanner CTA/handoff path and existing venue-map hotel tracking behavior.
+  - Focused validation passed:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+    - `npm run lint --workspace ti-web -- --file app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`
 - TI HotelPlanner canonical public hotel layer cleanup:
   - Removed the highest-risk legacy Owl’s Eye hotel presentation on tournament detail and venue detail without changing shared nearby grouping or HotelPlanner routing.
   - `apps/ti-web/app/tournaments/[slug]/page.tsx` now:

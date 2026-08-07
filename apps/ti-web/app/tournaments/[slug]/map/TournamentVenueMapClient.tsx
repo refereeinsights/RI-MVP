@@ -1482,10 +1482,7 @@ export default function TournamentVenueMapClient({
   };
   const countsLine = (v: MapVenue) => {
     if (!v.hasOwl || !v.counts) return null;
-    const liveHotelCount = hotelVenueId === v.id && !hotelPinsLoading && !hotelPinsError ? hotelResultCount : null;
     const parts = [`☕ ${v.counts.coffee}`, `🍔 ${v.counts.food}`];
-    const hotelCount = liveHotelCount ?? v.counts.hotels;
-    if (hotelCount || hotelCount === 0) parts.push(`🏨 ${hotelCount} hotels`);
     if (v.counts.quick_eats) parts.push(`🌮 ${v.counts.quick_eats} quick eats`);
     return parts.join(" • ");
   };
