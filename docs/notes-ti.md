@@ -15,6 +15,12 @@ Maintenance rules:
 
 ## 2026-08-10
 
+- TI generic HotelPlanner outbound persistence constraint fix prepared locally:
+  - Added forward migration `supabase/migrations/20260810_ti_outbound_clicks_allow_generic_hotels.sql` to drop the obsolete `ti_outbound_clicks_destination_type_hotels_requires_venue_id` check without rewriting rows or changing other constraints. Hotel outbounds may now legitimately retain `venue_id = null` for Book Travel, Weekend Planner, and tournament location-only searches; venue-backed flows continue storing their real venue IDs.
+  - Added rollback-safe six-case SQL validation at `scripts/analysis/ti_generic_hotel_outbound_constraint_validation.sql` for Book Travel, Weekend Planner, tournament fallback, venue detail, venue map, and RI venue detail. The script verifies attribution/session/placement fields and rolls back all fixtures.
+  - Downstream inspection found general hotel totals and attribution queries already support null venues; the top-venues RPC intentionally filters to venue-backed rows. No app or report changes were required, and HotelPlanner URLs/traffic were untouched.
+  - Validation passed: HotelPlanner attribution tests (4/4), TI typecheck, and `git diff --check`. Transactional database execution was not performed because the local Supabase Docker runtime was unavailable; production migration/deployment and production writes were not performed.
+
 - TI cron now triggers RI admin email as a fire-and-forget companion send after each successful TI email. `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts` reads `RI_ADMIN_EMAIL_CRON_URL` from env and fetches it without blocking the TI response. Errors and non-ok statuses are logged as warnings only. This replaces the RI standalone cron as the effective daily trigger, moving the RI email from 1:15 AM EDT to 9:05 AM EDT alongside the TI email. Validation passed: `npx tsc -p apps/ti-web/tsconfig.json --noEmit`.
 
 ## 2026-08-07

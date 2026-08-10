@@ -14,6 +14,8 @@ Maintenance rules:
 
 ## 2026-08-10
 
+- TI generic HotelPlanner outbound persistence constraint fix prepared locally: added forward, no-rewrite migration `supabase/migrations/20260810_ti_outbound_clicks_allow_generic_hotels.sql` to drop `ti_outbound_clicks_destination_type_hotels_requires_venue_id`, allowing legitimate Book Travel, Weekend Planner, and tournament location-only hotel rows to retain `venue_id = null` while venue-backed rows keep their real IDs. Added a rollback-safe six-flow regression script at `scripts/analysis/ti_generic_hotel_outbound_constraint_validation.sql`. Focused downstream inspection found general reporting already handles venue-less hotel rows and the top-venues RPC is intentionally venue-only, so no app/report changes were needed. HotelPlanner attribution tests (4/4), TI typecheck, and diff checks passed. Transactional DB execution was unavailable because local Supabase Docker was not running; no production migration, deployment, validation writes, or partner traffic was performed.
+
 - RI admin dashboard email cron reliability: TI cron (`apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`) now fire-and-forgets a GET to the RI email endpoint after each successful TI send, using `RI_ADMIN_EMAIL_CRON_URL` from env. This makes the RI email arrive alongside the TI email at 9:05 AM EDT instead of 1:15 AM EDT (when it was being suppressed or lost). Separately hardened the RI cron auth in `apps/referee/app/api/cron/admin-dashboard-email/route.ts` to also accept Vercel's `x-vercel-cron: 1` header in production alongside the existing token-based check, matching the TI pattern. Both typechecks passed. Next step: add `RI_ADMIN_EMAIL_CRON_URL` env var to TI Vercel project (value: full RI cron URL with token).
 
 ## 2026-08-07
