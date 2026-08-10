@@ -12,6 +12,7 @@ import VenuePageViewTracker from "@/components/analytics/VenuePageViewTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import TeamTravelVenueLink from "@/components/TeamTravelVenueLink";
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
+import CampspotAffiliateLink from "@/components/affiliates/CampspotAffiliateLink";
 import VenueClusterModule from "./VenueClusterModule";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import { evaluateVenueTeamTravelEligibility } from "@/lib/teamTravelEligibility";
@@ -26,6 +27,11 @@ import { SITE_ORIGIN } from "@/lib/sitemaps";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { isUuid } from "@/lib/venues/isUuid";
 import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
+import {
+  buildCampingHref,
+  CAMPSPOT_CTA_PLACEMENTS,
+  hasValidCampspotDestination,
+} from "@/lib/affiliates/campspot";
 import { getVenueCardClassFromSports } from "../sportSurface";
 import {
   buildVenueClusterCandidates,
@@ -782,6 +788,19 @@ export default async function VenueDetailsPage({
     latitude: data.latitude,
     longitude: data.longitude,
   });
+  const campspotHref = hasValidCampspotDestination({
+    city: data.city,
+    state: data.state,
+    latitude: data.latitude,
+    longitude: data.longitude,
+  })
+    ? buildCampingHref({
+        venueId: data.id,
+        tournamentId: contextTournament?.id ?? null,
+        sourceSurface: "venue_detail",
+        ctaPlacement: CAMPSPOT_CTA_PLACEMENTS.venueDetail,
+      })
+    : null;
   const venueStructuredData = buildVenueStructuredData(data);
 
   return (
@@ -853,6 +872,23 @@ export default async function VenueDetailsPage({
                       ctaLevel={teamTravelEligibility.ctaLevel}
                     />
                   ) : null}
+                </div>
+              ) : null}
+
+              {campspotHref ? (
+                <div className={styles.campingSecondaryBlock}>
+                  <span className={styles.campingSecondaryLabel}>Camping or bringing an RV?</span>
+                  <CampspotAffiliateLink
+                    href={campspotHref}
+                    sourceSurface="venue_detail"
+                    ctaPlacement={CAMPSPOT_CTA_PLACEMENTS.venueDetail}
+                    venueId={data.id}
+                    tournamentId={contextTournament?.id ?? null}
+                    tournamentSlug={contextTournament?.slug ?? null}
+                    className={styles.campingSecondaryLink}
+                  >
+                    Find campgrounds &amp; RV parks near this venue →
+                  </CampspotAffiliateLink>
                 </div>
               ) : null}
 

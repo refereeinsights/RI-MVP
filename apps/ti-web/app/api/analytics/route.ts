@@ -20,6 +20,7 @@ const QUICK_CHECK_EVENTS = new Set([
 const MAP_EVENTS = new Set([
   "hotel_cta_impression",
   "hotel_cta_clicked",
+  "camping_cta_impression",
   "map_viewed",
   "map_filter_changed",
   "map_state_clicked",

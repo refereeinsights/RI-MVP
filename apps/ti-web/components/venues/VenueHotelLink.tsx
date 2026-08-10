@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { sendTiAnalytics } from "@/lib/analytics";
+import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
 import {
   acceptVenueHotelClickAttempt,
   appendVenueHotelTrackingToHref,
@@ -16,21 +17,6 @@ import {
   resolveVenueHotelContext,
   type VenueHotelPlacement,
 } from "@/lib/venueHotelFunnel";
-
-const SESSION_STORAGE_KEY = "ti_venue_hotel_session_id";
-
-function getSessionId() {
-  if (typeof window === "undefined") return null;
-  try {
-    const existing = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
-    if (existing) return existing;
-    const created = makeAnalyticsUuid();
-    window.sessionStorage.setItem(SESSION_STORAGE_KEY, created);
-    return created;
-  } catch {
-    return null;
-  }
-}
 
 function currentPageUrl() {
   if (typeof window === "undefined") return null;
@@ -66,7 +52,7 @@ export default function VenueHotelLink({
   const clickCooldownTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    sessionIdRef.current = getSessionId();
+    sessionIdRef.current = readOrCreateLodgingSessionId();
     return () => {
       if (clickCooldownTimeoutRef.current !== null && typeof window !== "undefined") {
         window.clearTimeout(clickCooldownTimeoutRef.current);

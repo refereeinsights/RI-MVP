@@ -34,6 +34,28 @@ type HotelOutboundClickRow = {
   source_surface: string | null;
 };
 
+type CampspotOutboundClickRow = {
+  source_surface: string | null;
+  cta_placement: string | null;
+  session_id: string | null;
+  outbound_attribution_id: string | null;
+  venue_id: string | null;
+};
+
+type CampspotWindowMetrics = {
+  impressions: number;
+  outboundClicks: number;
+  impressionSessions: number;
+  outboundSessions: number;
+  bySurface: Record<string, number>;
+  byPlacement: Record<string, number>;
+  missing: { attributionId: number; sessionId: number; venueId: number };
+};
+
+type CampspotExperimentSummary =
+  | { ok: true; windowLabel: string; yesterday: CampspotWindowMetrics; trailing7d: CampspotWindowMetrics }
+  | { ok: false; windowLabel: string; error: string };
+
 type LodgingSearchSessionRow = {
   created_at: string | null;
   status: string | null;
@@ -317,6 +339,97 @@ async function loadHotelOutboundBySurface(params: { startIso: string; endIso: st
   }
 
   return { total, bySurface, uncapped: true as const };
+}
+
+async function loadCampspotImpressions(params: { startIso: string; endIso: string }) {
+  const rows: TiMapEventRow[] = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabaseAdmin
+      .from("ti_map_events" as any)
+      .select("event_name,properties,created_at")
+      .eq("event_name", "camping_cta_impression")
+      .gte("created_at", params.startIso)
+      .lt("created_at", params.endIso)
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const page = ((data ?? []) as TiMapEventRow[]) ?? [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+async function loadCampspotOutboundClicks(params: { startIso: string; endIso: string }) {
+  const rows: CampspotOutboundClickRow[] = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabaseAdmin
+      .from("ti_outbound_clicks" as any)
+      .select("source_surface,cta_placement,session_id,outbound_attribution_id,venue_id")
+      .eq("destination_type", "camping")
+      .eq("partner", "campspot")
+      .gte("created_at", params.startIso)
+      .lt("created_at", params.endIso)
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const page = ((data ?? []) as CampspotOutboundClickRow[]) ?? [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+function summarizeCampspotWindow(impressions: TiMapEventRow[], outbound: CampspotOutboundClickRow[]): CampspotWindowMetrics {
+  const impressionSessions = new Set(
+    impressions.map((row) => eventPropertyText(row, "session_id")).filter(Boolean),
+  );
+  const outboundSessions = new Set(outbound.map((row) => row.session_id?.trim()).filter((value): value is string => Boolean(value)));
+  const bySurface: Record<string, number> = {};
+  const byPlacement: Record<string, number> = {};
+  for (const row of outbound) {
+    const surface = row.source_surface?.trim() || "unknown";
+    const placement = row.cta_placement?.trim() || "unknown";
+    bySurface[surface] = (bySurface[surface] ?? 0) + 1;
+    byPlacement[placement] = (byPlacement[placement] ?? 0) + 1;
+  }
+  return {
+    impressions: impressions.length,
+    outboundClicks: outbound.length,
+    impressionSessions: impressionSessions.size,
+    outboundSessions: outboundSessions.size,
+    bySurface,
+    byPlacement,
+    missing: {
+      attributionId: outbound.filter((row) => !row.outbound_attribution_id).length,
+      sessionId: outbound.filter((row) => !row.session_id).length,
+      venueId: outbound.filter((row) => !row.venue_id).length,
+    },
+  };
+}
+
+async function loadCampspotExperimentSummary(params: {
+  yesterdayStartUtcIso: string;
+  todayStartUtcIso: string;
+  trailing7dStartUtcIso: string;
+  yesterdayStart: Date;
+  timeZone: string;
+}): Promise<CampspotExperimentSummary> {
+  const windowLabel = formatDateLabelInTimeZone(params.yesterdayStart, params.timeZone);
+  try {
+    const [yesterdayImpressions, yesterdayOutbound, trailingImpressions, trailingOutbound] = await Promise.all([
+      loadCampspotImpressions({ startIso: params.yesterdayStartUtcIso, endIso: params.todayStartUtcIso }),
+      loadCampspotOutboundClicks({ startIso: params.yesterdayStartUtcIso, endIso: params.todayStartUtcIso }),
+      loadCampspotImpressions({ startIso: params.trailing7dStartUtcIso, endIso: params.todayStartUtcIso }),
+      loadCampspotOutboundClicks({ startIso: params.trailing7dStartUtcIso, endIso: params.todayStartUtcIso }),
+    ]);
+    return {
+      ok: true,
+      windowLabel,
+      yesterday: summarizeCampspotWindow(yesterdayImpressions, yesterdayOutbound),
+      trailing7d: summarizeCampspotWindow(trailingImpressions, trailingOutbound),
+    };
+  } catch (error: any) {
+    return { ok: false, windowLabel, error: String(error?.message ?? error ?? "unknown_error") };
+  }
 }
 
 function formatDateLabelInTimeZone(date: Date, timeZone: string) {
@@ -1077,6 +1190,47 @@ function renderWeekendPlannerSummaryHtml(params: {
   );
 }
 
+function renderCampspotExperimentHtml(summary: CampspotExperimentSummary | null) {
+  if (!summary) return "";
+  if (!summary.ok) {
+    return renderSectionCard(
+      "Campspot Camping + RV Experiment",
+      `TI-only affiliate metrics for ${summary.windowLabel}`,
+      `<div style="color:#b91c1c;font-weight:800;">Metrics unavailable; the rest of this email is unaffected: ${htmlEscape(summary.error)}</div>`,
+    );
+  }
+  const breakdownRows = (label: string, values: Record<string, number>, total: number) =>
+    Object.entries(values)
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, value]) => ({ label: `${label}: ${key}`, value, note: formatRatioPercent(value, total) }));
+  const metricRows = [
+    { label: "Yesterday", value: summary.windowLabel },
+    { label: "Eligible CTA impressions", value: summary.yesterday.impressions },
+    { label: "Outbound affiliate clicks", value: summary.yesterday.outboundClicks, note: formatRatioPercent(summary.yesterday.outboundClicks, summary.yesterday.impressions) },
+    { label: "Unique impression sessions", value: summary.yesterday.impressionSessions },
+    { label: "Unique outbound sessions", value: summary.yesterday.outboundSessions },
+    ...breakdownRows("Source", summary.yesterday.bySurface, summary.yesterday.outboundClicks),
+    ...breakdownRows("Placement", summary.yesterday.byPlacement, summary.yesterday.outboundClicks),
+    { label: "Missing outbound attribution ID", value: summary.yesterday.missing.attributionId },
+    { label: "Missing session ID", value: summary.yesterday.missing.sessionId },
+    { label: "Missing venue ID", value: summary.yesterday.missing.venueId },
+    { label: "Trailing 7d impressions", value: summary.trailing7d.impressions },
+    { label: "Trailing 7d outbound clicks", value: summary.trailing7d.outboundClicks, note: formatRatioPercent(summary.trailing7d.outboundClicks, summary.trailing7d.impressions) },
+    { label: "Trailing 7d unique impression sessions", value: summary.trailing7d.impressionSessions },
+    { label: "Trailing 7d unique outbound sessions", value: summary.trailing7d.outboundSessions },
+    ...breakdownRows("Trailing 7d source", summary.trailing7d.bySurface, summary.trailing7d.outboundClicks),
+    ...breakdownRows("Trailing 7d placement", summary.trailing7d.byPlacement, summary.trailing7d.outboundClicks),
+    { label: "Trailing 7d missing outbound attribution ID", value: summary.trailing7d.missing.attributionId },
+    { label: "Trailing 7d missing session ID", value: summary.trailing7d.missing.sessionId },
+    { label: "Trailing 7d missing venue ID", value: summary.trailing7d.missing.venueId },
+  ];
+  return renderSectionCard(
+    "Campspot Camping + RV Experiment",
+    "TI-only. CTR is outbound clicks divided by eligible CTA impressions; both reporting windows use uncapped pagination.",
+    renderMetricRows(metricRows),
+  );
+}
+
 const SPORT_LABELS_ANY = TI_SPORT_LABELS as unknown as Record<string, string>;
 function getSportLabel(sport: unknown) {
   const raw = typeof sport === "string" ? sport : "";
@@ -1348,6 +1502,7 @@ function buildEmailHtml(params: {
   weekendProCheckouts?: { total: number; yesterday: number } | null;
   weekendPassPurchases?: { total: number; yesterday: number } | null;
   weekendPlannerSummary?: WeekendPlannerDailySummary | null;
+  campspotExperimentSummary?: CampspotExperimentSummary | null;
 }) {
   const {
     generatedAtIso,
@@ -1363,6 +1518,7 @@ function buildEmailHtml(params: {
     weekendProCheckouts,
     weekendPassPurchases,
     weekendPlannerSummary,
+    campspotExperimentSummary,
   } = params;
   const dashboardUrl = `${baseUrl}/admin/outreach-dashboard`;
 
@@ -1467,6 +1623,7 @@ function buildEmailHtml(params: {
     weekendProCheckouts: weekendProCheckouts ?? null,
     weekendPassPurchases: weekendPassPurchases ?? null,
   });
+  const campspotExperimentHtml = renderCampspotExperimentHtml(campspotExperimentSummary ?? null);
 
   const tilesHtml =
     includeTiles && tiles
@@ -1486,9 +1643,10 @@ function buildEmailHtml(params: {
           ${renderUsersTile({ insiderTotal: tiInsiderTotal, insiderNew: tiInsiderNew, weekendTotal: tiWeekendTotal, weekendNew: tiWeekendNew })}
         </div>
         ${weekendPlannerHtml}
+        ${campspotExperimentHtml}
         ${sportTilesHtml}
         ${heatmapHtml}`
-      : weekendPlannerHtml;
+      : `${weekendPlannerHtml}${campspotExperimentHtml}`;
 
   const rows = totalsBySport
     .map((row) => {
@@ -1669,8 +1827,9 @@ export async function GET(req: Request) {
     const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
     const todayIso = todayStart.toISOString();
     const yesterdayIso = yesterdayStart.toISOString();
+    const trailing7dStartIso = new Date(yesterdayStart.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [tiles, tiUserCounts, totalsBySport, riSummary, lowestStates, weekendPlannerSummary] = await Promise.all([
+    const [tiles, tiUserCounts, totalsBySport, riSummary, lowestStates, weekendPlannerSummary, campspotExperimentSummary] = await Promise.all([
       includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null),
       includeTiles ? loadTiUserCountsExcludingInternal({ todayStartUtcIso: todayIso, yesterdayStartUtcIso: yesterdayIso }) : Promise.resolve(null),
       includeOutreach ? Promise.all(TI_SPORTS.map((sport) => loadOutreachTotals(sport))) : Promise.resolve([]),
@@ -1681,6 +1840,13 @@ export async function GET(req: Request) {
         todayStartUtcIso: todayIso,
         yesterdayStart,
         todayStart,
+        timeZone,
+      }),
+      loadCampspotExperimentSummary({
+        yesterdayStartUtcIso: yesterdayIso,
+        todayStartUtcIso: todayIso,
+        trailing7dStartUtcIso: trailing7dStartIso,
+        yesterdayStart,
         timeZone,
       }),
     ]);
@@ -1729,6 +1895,7 @@ export async function GET(req: Request) {
         ? { total: weekendPassPurchases.total, yesterday: weekendPassPurchases.yesterday }
         : null,
       weekendPlannerSummary,
+      campspotExperimentSummary,
     });
     const subject =
       weekendPlannerSummary && weekendPlannerSummary.ok
@@ -1753,6 +1920,7 @@ export async function GET(req: Request) {
       weekendProCheckouts: weekendProCheckouts ?? null,
       weekendPassPurchases: weekendPassPurchases ?? null,
       weekendPlannerSummary: weekendPlannerSummary ?? null,
+      campspotExperimentSummary: campspotExperimentSummary ?? null,
       riSummary: riSummary ?? null,
       lowestStates: lowestStates ?? null,
     };

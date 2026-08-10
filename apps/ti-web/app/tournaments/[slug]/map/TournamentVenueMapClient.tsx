@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
+import CampspotAffiliateLink from "@/components/affiliates/CampspotAffiliateLink";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import WeekendProUpgradeModalTrigger from "@/components/premium/WeekendProUpgradeModalTrigger";
@@ -11,6 +12,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { DEMO_STARFIRE_VENUE_ID } from "@/lib/owlsEyeScores";
 import { isPremiumPreviewTournamentSlug } from "@/lib/premiumPreview";
 import { buildHotelsHref } from "@/lib/booking/venueBooking";
+import { buildCampingHref, CAMPSPOT_CTA_PLACEMENTS, hasValidCampspotDestination } from "@/lib/affiliates/campspot";
+import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
 import {
   buildHotelPlannerBookingAttribution,
   createOutboundAttributionId,
@@ -130,21 +133,6 @@ const DEFAULT_TEAM_BLOCK_FORM: TeamBlockFormState = {
   childrenPerRoom: "0",
   notes: "",
 };
-
-const HOTEL_SESSION_STORAGE_KEY = "ti_venue_hotel_session_id";
-
-function readOrCreateHotelSessionId(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const existing = window.sessionStorage.getItem(HOTEL_SESSION_STORAGE_KEY);
-    if (existing) return existing;
-    const created = globalThis.crypto?.randomUUID?.() ?? null;
-    if (created) window.sessionStorage.setItem(HOTEL_SESSION_STORAGE_KEY, created);
-    return created;
-  } catch {
-    return null;
-  }
-}
 
 function buildVenueHotelsHref(args: {
   venue: MapVenue;
@@ -2792,7 +2780,7 @@ export default function TournamentVenueMapClient({
                             tournamentId: tournament.id,
                           });
                           const url = new URL(baseHref, window.location.origin);
-                          const sid = readOrCreateHotelSessionId();
+                          const sid = readOrCreateLodgingSessionId();
                           if (sid) url.searchParams.set("session_id", sid);
                           const w = window.open(`${url.pathname}${url.search}`, "_blank", "noopener,noreferrer");
                           if (w) w.opener = null;
@@ -2840,6 +2828,32 @@ export default function TournamentVenueMapClient({
                         Need 5+ rooms? Request team block
                       </button>
                     </div>
+                    {hasValidCampspotDestination({
+                      city: selectedVenue.city,
+                      state: selectedVenue.state,
+                      latitude: selectedVenue.latitude,
+                      longitude: selectedVenue.longitude,
+                    }) ? (
+                      <div className={styles.campingSecondaryBlock}>
+                        <span className={styles.campingSecondaryLabel}>Camping or bringing an RV?</span>
+                        <CampspotAffiliateLink
+                          href={buildCampingHref({
+                            venueId: selectedVenue.id,
+                            tournamentId: tournament.id,
+                            sourceSurface: "venue_map",
+                            ctaPlacement: CAMPSPOT_CTA_PLACEMENTS.venueMap,
+                          })}
+                          sourceSurface="venue_map"
+                          ctaPlacement={CAMPSPOT_CTA_PLACEMENTS.venueMap}
+                          venueId={selectedVenue.id}
+                          tournamentId={tournament.id}
+                          tournamentSlug={tournament.slug}
+                          className={styles.campingSecondaryLink}
+                        >
+                          Find campgrounds &amp; RV parks near this venue →
+                        </CampspotAffiliateLink>
+                      </div>
+                    ) : null}
                     {!teamBlockAnchorPin ? (
                       <div className={styles.teamBlockQuickHint}>Hotel results are required before requesting a team block.</div>
                     ) : !getCurrentTeamBlockDates(teamBlockAnchorPin) ? (

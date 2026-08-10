@@ -3,6 +3,7 @@ import type { PlannerEventType } from "@/lib/planner/types";
 export type TiAnalyticsEventName =
   | "hotel_cta_impression"
   | "hotel_cta_clicked"
+  | "camping_cta_impression"
   | "map_viewed"
   | "map_filter_changed"
   | "map_state_clicked"
@@ -381,6 +382,16 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_id: string | null;
     referrer: string | null;
     outbound_request_id: string;
+  };
+  camping_cta_impression: {
+    page_type: "venue_detail" | "venue_map";
+    source_surface: "venue_detail" | "venue_map";
+    cta_placement: "venue_detail_camping" | "venue_map_camping";
+    session_id: string | null;
+    tournament_id: string | null;
+    tournament_slug: string | null;
+    venue_id: string;
+    device_type: "mobile" | "desktop" | null;
   };
   venue_hotels_cta_clicked: {
     session_id: string | null;

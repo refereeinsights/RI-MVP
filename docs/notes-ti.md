@@ -15,6 +15,14 @@ Maintenance rules:
 
 ## 2026-08-10
 
+- TI Campspot Camping + RV affiliate MVP implemented locally:
+  - Added a secondary Campspot link below the primary hotel/team action row on eligible venue-detail pages and in the tournament map's selected-venue panel. Canonical venue city/state/coordinates drive the search; reliable tournament dates are included when available, while invalid, past, partial, or implausibly long stays omit both dates.
+  - Added `/go/camping` as the TI-only Awin redirect boundary with advertiser `22326`, affiliate `2854179`, and a canonical 32-character `clickref` identical to `ti_outbound_clicks.outbound_attribution_id`. Click rows use `destination_type=camping`, Campspot partner fields, surface/placement attribution, direct `target_url`, wrapped `redirect_url`, and the shared lodging session. Persistence errors are logged but never block the affiliate redirect; localhost/bot requests do not persist.
+  - Added durable `camping_cta_impression` ingestion through the existing TI analytics endpoint and a separate Campspot section in the TI daily analytics email for yesterday/trailing-7-day impressions, clicks, unique sessions, CTR, source/placement breakdowns, and missing attribution/session/venue counts. Campspot query failures render a visible unavailable state without blocking the rest of the email.
+  - No RI application code or RI analytics behavior changed. No new database migration was required after the obsolete hotel-only venue constraint was removed.
+  - Validation passed: focused Campspot tests (7/7), TI typecheck, clean TI lint, successful TI production build, `git diff --check`, and local Playwright UAT against a read-only production-backed fixture. Venue and map pages returned 200 with no console/error overlay; both links rendered with their exact expected surface/placement. The build retained existing repo warnings and two non-fatal restricted-network Supabase DNS messages.
+  - Implementation/verification report: `docs/reports/ti-campspot-camping-rv-affiliate-mvp-2026-08-10.md`.
+
 - TI generic HotelPlanner outbound persistence constraint fix prepared locally:
   - Added forward migration `supabase/migrations/20260810_ti_outbound_clicks_allow_generic_hotels.sql` to drop the obsolete `ti_outbound_clicks_destination_type_hotels_requires_venue_id` check without rewriting rows or changing other constraints. Hotel outbounds may now legitimately retain `venue_id = null` for Book Travel, Weekend Planner, and tournament location-only searches; venue-backed flows continue storing their real venue IDs.
   - Added rollback-safe six-case SQL validation at `scripts/analysis/ti_generic_hotel_outbound_constraint_validation.sql` for Book Travel, Weekend Planner, tournament fallback, venue detail, venue map, and RI venue detail. The script verifies attribution/session/placement fields and rolls back all fixtures.
