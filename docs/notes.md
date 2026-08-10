@@ -12,6 +12,10 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-08-10
+
+- RI admin dashboard email cron reliability: TI cron (`apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`) now fire-and-forgets a GET to the RI email endpoint after each successful TI send, using `RI_ADMIN_EMAIL_CRON_URL` from env. This makes the RI email arrive alongside the TI email at 9:05 AM EDT instead of 1:15 AM EDT (when it was being suppressed or lost). Separately hardened the RI cron auth in `apps/referee/app/api/cron/admin-dashboard-email/route.ts` to also accept Vercel's `x-vercel-cron: 1` header in production alongside the existing token-based check, matching the TI pattern. Both typechecks passed. Next step: add `RI_ADMIN_EMAIL_CRON_URL` env var to TI Vercel project (value: full RI cron URL with token).
+
 ## 2026-08-07
 
 - RI CSV ingestion venue fingerprint matching: upgraded `upsertVenueAndLinkTournament()` in `apps/referee/lib/tournaments/importUtils.ts` to try fingerprint-based venue lookup before the existing city+state fuzzy match pool. Now mirrors the `venue-accept` route's pattern: computes `address_fingerprint` and `name_city_state_fingerprint` from `apps/referee/lib/identity/fingerprints.ts`, queries the indexed columns first, and falls back to the original 50-row city+state fuzzy pool only when no fingerprint hit is found. When a fingerprint match lands on an already-enriched venue, that tournament links directly to the existing venue without creating a duplicate or triggering a new Owl's Eye run. Return value gains `venue_links_fingerprint_matched` counter for visibility in import results. Validation passed with `npx tsc -p apps/referee/tsconfig.json --noEmit`.

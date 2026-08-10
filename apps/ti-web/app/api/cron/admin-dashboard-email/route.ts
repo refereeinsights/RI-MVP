@@ -1776,6 +1776,20 @@ export async function GET(req: Request) {
         error: null,
         payload: responsePayload,
       });
+
+      // Fire RI admin email as a companion send — fire-and-forget, does not block TI response.
+      if (!dryRun) {
+        const riCronUrl = process.env.RI_ADMIN_EMAIL_CRON_URL;
+        if (riCronUrl) {
+          fetch(riCronUrl, { method: "GET" })
+            .then((r) => {
+              if (!r.ok) console.warn("[ti-cron] RI admin email returned non-ok status", r.status);
+              else console.info("[ti-cron] RI admin email triggered ok");
+            })
+            .catch((err) => console.warn("[ti-cron] RI admin email trigger failed", String(err?.message ?? err)));
+        }
+      }
+
       return NextResponse.json(responsePayload);
     } catch (err: any) {
       const message = String(err?.message ?? err ?? "unknown_error");

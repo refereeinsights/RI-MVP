@@ -13,6 +13,10 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-08-10
+
+- TI cron now triggers RI admin email as a fire-and-forget companion send after each successful TI email. `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts` reads `RI_ADMIN_EMAIL_CRON_URL` from env and fetches it without blocking the TI response. Errors and non-ok statuses are logged as warnings only. This replaces the RI standalone cron as the effective daily trigger, moving the RI email from 1:15 AM EDT to 9:05 AM EDT alongside the TI email. Validation passed: `npx tsc -p apps/ti-web/tsconfig.json --noEmit`.
+
 ## 2026-08-07
 
 - RI CSV ingestion venue fingerprint matching: see `docs/notes.md` for full entry (RI-side change).

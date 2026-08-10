@@ -10,7 +10,11 @@ function isAuthorized(req: Request) {
   const tokenFromQuery = url.searchParams.get("token");
   const tokenFromHeader = req.headers.get("x-cron-secret");
   const token = (tokenFromQuery ?? tokenFromHeader ?? "").trim();
-  return Boolean(process.env.CRON_SECRET && token && token === process.env.CRON_SECRET);
+  if (Boolean(process.env.CRON_SECRET && token && token === process.env.CRON_SECRET)) return true;
+  // Accept Vercel's own cron invocation header in production as a fallback.
+  const isVercelCron = req.headers.get("x-vercel-cron") === "1";
+  const isProd = process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production";
+  return Boolean(isVercelCron && isProd);
 }
 
 export async function GET(req: Request) {
