@@ -248,6 +248,7 @@ export default function TournamentVenueMapClient({
   const [hotelPinsLoading, setHotelPinsLoading] = useState<boolean>(false);
   const [hotelPinsError, setHotelPinsError] = useState<string | null>(null);
   const [hotelPinsFallback, setHotelPinsFallback] = useState<HotelSearchFallback | null>(null);
+  const [hotelPinsVenueId, setHotelPinsVenueId] = useState<string | null>(null);
   const [hotelSearchResolvedCheckIn, setHotelSearchResolvedCheckIn] = useState<string | null>(null);
   const [hotelSearchResolvedCheckOut, setHotelSearchResolvedCheckOut] = useState<string | null>(null);
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
@@ -257,11 +258,15 @@ export default function TournamentVenueMapClient({
   const [hotelPinCap, setHotelPinCap] = useState<number>(10);
   const [mapHotelPinVisibleCount, setMapHotelPinVisibleCount] = useState<number>(0);
   const [teamBlockOpen, setTeamBlockOpen] = useState(false);
+  const [pendingTeamBlockVenueId, setPendingTeamBlockVenueId] = useState<string | null>(null);
   const [teamBlockSubmitting, setTeamBlockSubmitting] = useState(false);
   const [teamBlockError, setTeamBlockError] = useState<string | null>(null);
   const [teamBlockSuccess, setTeamBlockSuccess] = useState<TeamBlockSuccessState | null>(null);
   const [teamBlockForm, setTeamBlockForm] = useState<TeamBlockFormState>(DEFAULT_TEAM_BLOCK_FORM);
   const teamBlockAttributionIdRef = useRef<string | null>(null);
+  const teamBlockCtaPlacementRef = useRef<"venue_map_selected_team_block" | "venue_map_venue_list_team_block">(
+    "venue_map_selected_team_block",
+  );
   const [entitlementTier, setEntitlementTier] = useState<TiTier>("unknown");
   const [navSheet, setNavSheet] = useState<NavSheetState>(() => ({
     open: false,
@@ -973,6 +978,7 @@ export default function TournamentVenueMapClient({
     if (!venue) return;
     const runId = ++lodgingSearchInFlightRef.current;
     setHotelPinsLoading(true);
+    setHotelPinsVenueId(null);
     setHotelPinsError(null);
     setHotelPinsFallback(null);
     setHotelPins([]);
@@ -1087,6 +1093,7 @@ export default function TournamentVenueMapClient({
       setHotelPinsFallback({ showHotelFallback: true, showVrboFallback: true, reason: "provider_error" });
     } finally {
       if (runId === lodgingSearchInFlightRef.current) {
+        setHotelPinsVenueId(venue.id);
         setHotelPinsLoading(false);
       }
     }
@@ -1572,23 +1579,31 @@ export default function TournamentVenueMapClient({
     [teamBlockAnchorPin?.city, teamBlockAnchorPin?.state].filter(Boolean).join(", ") ||
     getTeamBlockAreaLabel();
 
-  const openTeamBlockForm = () => {
+  const openTeamBlockForm = (options?: {
+    trackClick?: boolean;
+    ctaPlacement?: "venue_map_selected_team_block" | "venue_map_venue_list_team_block";
+  }) => {
     const dateRange = getCurrentTeamBlockDates(teamBlockAnchorPin);
     const venueId = selectedVenue?.id ?? hotelVenueId ?? null;
-    trackLodgingEvent("team_block_cta_click", {
-      page_type: "venue_map",
-      tournament_id: tournament.id,
-      tournament_slug: tournament.slug,
-      venue_id: venueId ?? "",
-      property_id: teamBlockAnchorPin?.propertyId ?? null,
-      checkin: dateRange?.checkIn ?? null,
-      checkout: dateRange?.checkOut ?? null,
-    });
+    const ctaPlacement = options?.ctaPlacement ?? "venue_map_selected_team_block";
+    if (options?.trackClick !== false) {
+      trackLodgingEvent("team_block_cta_click", {
+        page_type: "venue_map",
+        tournament_id: tournament.id,
+        tournament_slug: tournament.slug,
+        venue_id: venueId ?? "",
+        property_id: teamBlockAnchorPin?.propertyId ?? null,
+        checkin: dateRange?.checkIn ?? null,
+        checkout: dateRange?.checkOut ?? null,
+        cta_placement: ctaPlacement,
+      });
+    }
     if (!teamBlockAnchorPin) return;
     if (!dateRange) return;
     setTeamBlockError(null);
     setTeamBlockSuccess(null);
     setTeamBlockOpen(true);
+    teamBlockCtaPlacementRef.current = ctaPlacement;
     teamBlockAttributionIdRef.current = teamBlockAttributionIdRef.current ?? createOutboundAttributionId();
     trackLodgingEvent("team_block_rfp_start", {
       page_type: "venue_map",
@@ -1598,8 +1613,24 @@ export default function TournamentVenueMapClient({
       property_id: teamBlockAnchorPin.propertyId,
       checkin: dateRange.checkIn,
       checkout: dateRange.checkOut,
+      cta_placement: ctaPlacement,
     });
   };
+
+  useEffect(() => {
+    if (
+      !pendingTeamBlockVenueId ||
+      selectedVenue?.id !== pendingTeamBlockVenueId ||
+      hotelPinsLoading ||
+      hotelPinsVenueId !== pendingTeamBlockVenueId
+    ) return;
+    setPendingTeamBlockVenueId(null);
+    setIsHotelResultsCollapsed(false);
+    if (!teamBlockAnchorPin || !getCurrentTeamBlockDates(teamBlockAnchorPin)) return;
+    openTeamBlockForm({ trackClick: false, ctaPlacement: "venue_map_venue_list_team_block" });
+    // The pending venue is the one-shot trigger; hotel state completes the existing selected-venue flow.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingTeamBlockVenueId, selectedVenue?.id, hotelPinsLoading, hotelPinsVenueId, teamBlockAnchorPin]);
 
   useEffect(() => {
     if (!teamBlockOpen) return;
@@ -1700,6 +1731,7 @@ export default function TournamentVenueMapClient({
           success: false,
           request_id: null,
           error: message,
+          cta_placement: teamBlockCtaPlacementRef.current,
         });
         return;
       }
@@ -1720,6 +1752,7 @@ export default function TournamentVenueMapClient({
         success: true,
         request_id: payload.requestId ?? null,
         error: null,
+        cta_placement: teamBlockCtaPlacementRef.current,
       });
     } catch {
       const message = "Unable to submit the team hotel block request right now.";
@@ -1736,6 +1769,7 @@ export default function TournamentVenueMapClient({
         success: false,
         request_id: null,
         error: message,
+        cta_placement: teamBlockCtaPlacementRef.current,
       });
     } finally {
       setTeamBlockSubmitting(false);
@@ -2512,6 +2546,56 @@ export default function TournamentVenueMapClient({
                         >
                           View
                         </Link>
+                        {venues.length > 1 ? (
+                          <button
+                            type="button"
+                            className={`${styles.venueActionBtn} ${styles.venueActionBtnBlue}`}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              trackLodgingEvent("team_block_cta_click", {
+                                page_type: "venue_map",
+                                tournament_id: tournament.id,
+                                tournament_slug: tournament.slug,
+                                venue_id: v.id,
+                                property_id: null,
+                                checkin: null,
+                                checkout: null,
+                                cta_placement: "venue_map_venue_list_team_block",
+                              });
+                              setPendingTeamBlockVenueId(v.id);
+                              setSelectedVenueId(v.id);
+                              setDetailMode(true);
+                              setIsHotelResultsCollapsed(false);
+                            }}
+                          >
+                            5+ Rooms
+                          </button>
+                        ) : null}
+                        {venues.length > 1 &&
+                        hasValidCampspotDestination({
+                          city: v.city,
+                          state: v.state,
+                          latitude: v.latitude,
+                          longitude: v.longitude,
+                        }) ? (
+                          <CampspotAffiliateLink
+                            href={buildCampingHref({
+                              venueId: v.id,
+                              tournamentId: tournament.id,
+                              sourceSurface: "venue_map",
+                              ctaPlacement: CAMPSPOT_CTA_PLACEMENTS.venueMapVenueList,
+                            })}
+                            sourceSurface="venue_map"
+                            ctaPlacement={CAMPSPOT_CTA_PLACEMENTS.venueMapVenueList}
+                            venueId={v.id}
+                            tournamentId={tournament.id}
+                            tournamentSlug={tournament.slug}
+                            className={`${styles.venueActionBtn} ${styles.venueActionBtnBlue}`}
+                          >
+                            Camping/RV
+                          </CampspotAffiliateLink>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -2818,7 +2902,7 @@ export default function TournamentVenueMapClient({
                       </Link>
                       <button
                         type="button"
-                        className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary} ${styles.teamBlockQuickCta}`}
+                        className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary} ${styles.quickBlueCta}`}
                         disabled={!teamBlockAnchorPin || !getCurrentTeamBlockDates(teamBlockAnchorPin)}
                         onClick={() => {
                           setIsHotelResultsCollapsed(false);
@@ -2827,15 +2911,12 @@ export default function TournamentVenueMapClient({
                       >
                         Need 5+ rooms? Request team block
                       </button>
-                    </div>
-                    {hasValidCampspotDestination({
-                      city: selectedVenue.city,
-                      state: selectedVenue.state,
-                      latitude: selectedVenue.latitude,
-                      longitude: selectedVenue.longitude,
-                    }) ? (
-                      <div className={styles.campingSecondaryBlock}>
-                        <span className={styles.campingSecondaryLabel}>Camping or bringing an RV?</span>
+                      {hasValidCampspotDestination({
+                        city: selectedVenue.city,
+                        state: selectedVenue.state,
+                        latitude: selectedVenue.latitude,
+                        longitude: selectedVenue.longitude,
+                      }) ? (
                         <CampspotAffiliateLink
                           href={buildCampingHref({
                             venueId: selectedVenue.id,
@@ -2848,12 +2929,12 @@ export default function TournamentVenueMapClient({
                           venueId={selectedVenue.id}
                           tournamentId={tournament.id}
                           tournamentSlug={tournament.slug}
-                          className={styles.campingSecondaryLink}
+                          className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary} ${styles.quickBlueCta}`}
                         >
-                          Find campgrounds &amp; RV parks near this venue →
+                          Camping or bringing an RV?
                         </CampspotAffiliateLink>
-                      </div>
-                    ) : null}
+                      ) : null}
+                    </div>
                     {!teamBlockAnchorPin ? (
                       <div className={styles.teamBlockQuickHint}>Hotel results are required before requesting a team block.</div>
                     ) : !getCurrentTeamBlockDates(teamBlockAnchorPin) ? (

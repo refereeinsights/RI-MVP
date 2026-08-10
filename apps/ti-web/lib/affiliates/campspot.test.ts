@@ -88,6 +88,7 @@ test("accepts only supported destination and source/placement combinations", () 
   assert.equal(hasValidCampspotDestination({ city: "Denver", state: "CO", latitude: 91, longitude: -104.9903 }), false);
   assert.equal(isValidCampspotSourcePlacement("venue_detail", CAMPSPOT_CTA_PLACEMENTS.venueDetail), true);
   assert.equal(isValidCampspotSourcePlacement("venue_detail", CAMPSPOT_CTA_PLACEMENTS.venueMap), false);
+  assert.equal(isValidCampspotSourcePlacement("venue_map", CAMPSPOT_CTA_PLACEMENTS.venueMapVenueList), true);
   assert.equal(
     buildCampingHref({
       venueId: "00000000-0000-4000-8000-000000000000",

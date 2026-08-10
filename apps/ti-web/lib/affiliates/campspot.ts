@@ -7,12 +7,13 @@ export type CampspotSourceSurface = (typeof CAMPSPOT_SOURCE_SURFACES)[number];
 export const CAMPSPOT_CTA_PLACEMENTS = {
   venueDetail: "venue_detail_camping",
   venueMap: "venue_map_camping",
+  venueMapVenueList: "venue_map_venue_list_camping",
 } as const;
 export type CampspotCtaPlacement = (typeof CAMPSPOT_CTA_PLACEMENTS)[keyof typeof CAMPSPOT_CTA_PLACEMENTS];
 
-const SOURCE_PLACEMENTS: Record<CampspotSourceSurface, CampspotCtaPlacement> = {
-  venue_detail: CAMPSPOT_CTA_PLACEMENTS.venueDetail,
-  venue_map: CAMPSPOT_CTA_PLACEMENTS.venueMap,
+const SOURCE_PLACEMENTS: Record<CampspotSourceSurface, readonly CampspotCtaPlacement[]> = {
+  venue_detail: [CAMPSPOT_CTA_PLACEMENTS.venueDetail],
+  venue_map: [CAMPSPOT_CTA_PLACEMENTS.venueMap, CAMPSPOT_CTA_PLACEMENTS.venueMapVenueList],
 };
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -156,7 +157,7 @@ export function isCampspotPlacement(value: string): value is CampspotCtaPlacemen
 }
 
 export function isValidCampspotSourcePlacement(source: string, placement: string) {
-  return isCampspotSourceSurface(source) && isCampspotPlacement(placement) && SOURCE_PLACEMENTS[source] === placement;
+  return isCampspotSourceSurface(source) && isCampspotPlacement(placement) && SOURCE_PLACEMENTS[source].includes(placement);
 }
 
 export function buildCampingHref(input: {

@@ -67,7 +67,7 @@
 .venueRowActions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .venueActionBtn {
@@ -76,9 +76,10 @@
   background: rgba(255,255,255,0.10);
   color: #fff;
   border-radius: 999px;
-  padding: 7px 10px;
+  padding: 7px 4px;
   font-weight: 900;
-  font-size: 12px;
+  font-size: 11px;
+  white-space: nowrap;
   cursor: pointer;
   text-decoration: none;
 }
@@ -88,6 +89,18 @@
   outline: none;
   border-color: rgba(255,255,255,0.28);
   background: rgba(255,255,255,0.14);
+}
+
+.venueActionBtnBlue {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: rgba(147, 197, 253, 0.75);
+  color: #fff;
+}
+
+.venueActionBtnBlue:hover,
+.venueActionBtnBlue:focus-visible {
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  border-color: rgba(191, 219, 254, 0.95);
 }
 
 .affiliateCtaPrimary {
@@ -663,37 +676,6 @@
   line-height: 1.1;
 }
 
-.campingSecondaryBlock {
-  display: grid;
-  gap: 2px;
-  margin-top: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.14);
-  text-align: left;
-}
-
-.campingSecondaryLabel {
-  color: rgba(255,255,255,0.96);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-.campingSecondaryLink {
-  color: rgba(219,234,254,0.96);
-  font-size: 12px;
-  line-height: 1.35;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.campingSecondaryLink:hover,
-.campingSecondaryLink:focus-visible {
-  color: #ffffff;
-}
-
 @media (max-width: 768px) {
   .mapHotelLoadingBadge {
     top: 10px;
@@ -1080,7 +1062,7 @@
   gap: 8px;
 }
 
-.teamBlockQuickCta {
+.quickBlueCta {
   flex: 1 1 100%;
   max-width: none;
   min-height: 46px;
@@ -1090,16 +1072,16 @@
   box-shadow: 0 10px 24px rgba(29, 78, 216, 0.26);
 }
 
-.teamBlockQuickCta:hover,
-.teamBlockQuickCta:focus-visible {
+.quickBlueCta:hover,
+.quickBlueCta:focus-visible {
   background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
   border-color: rgba(191, 219, 254, 0.95);
   transform: translateY(-1px);
 }
 
-.teamBlockQuickCta:disabled,
-.teamBlockQuickCta:disabled:hover,
-.teamBlockQuickCta:disabled:focus-visible {
+.quickBlueCta:disabled,
+.quickBlueCta:disabled:hover,
+.quickBlueCta:disabled:focus-visible {
   background: rgba(59, 130, 246, 0.28);
   border-color: rgba(147, 197, 253, 0.35);
   color: rgba(255, 255, 255, 0.72);

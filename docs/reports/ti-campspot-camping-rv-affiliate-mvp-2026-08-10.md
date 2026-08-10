@@ -9,11 +9,12 @@ Status: implemented, verified locally, committed locally after review
 TI now offers a small secondary camping/RV affiliate option without displacing HotelPlanner as the primary lodging path.
 
 - Venue detail: directly below the hero hotel/share/team action row and before upcoming tournaments.
-- Tournament venue map: inside the selected-venue panel, directly below the existing action row and before the team-hotel hint/form.
+- Tournament venue map selected panel: a blue `Camping or bringing an RV?` button beside the blue team-block button in the existing action grid.
+- Multi-venue selection list: compact inline `5+ Rooms` and `Camping/RV` pills beside Directions, Hotels, and View for each eligible venue.
 - Eligibility: the venue must have a city, state, and finite latitude/longitude within normal bounds.
 - Copy: `Camping or bringing an RV?` followed by `Find campgrounds & RV parks near this venue →`.
 
-No Campspot CTA was added to RI, the tournament directory, generic travel search, or unrelated venue cards.
+The multi-venue group action selects its exact venue, waits for that venue's hotel results, and opens the existing team-block form when valid inventory/date context is available. No Campspot CTA was added to RI, the tournament directory, generic travel search, or unrelated venue cards.
 
 ## Redirect and attribution
 
@@ -47,6 +48,8 @@ Returned and thrown persistence errors are logged with bounded metadata and stil
 
 Eligible CTA visibility emits `camping_cta_impression` after at least 500 ms at 50% visibility. The event uses the existing TI analytics endpoint and persists through `ti_map_events` in production. Both Campspot and existing direct hotel CTAs now reuse the same session-storage lodging session helper.
 
+Multi-venue Campspot impressions/outbounds use `venue_map_venue_list_camping`, separate from the selected-panel `venue_map_camping` placement. Team-block click/start/submit events now persist through the same TI analytics endpoint and carry either `venue_map_venue_list_team_block` or `venue_map_selected_team_block` so downstream analysis can distinguish entry points.
+
 The TI daily admin email has a separate failure-isolated `Campspot Camping + RV Experiment` section with uncapped pagination and:
 
 - yesterday and trailing-seven-day impressions/clicks
@@ -75,5 +78,6 @@ No RI application, RI analytics, RI email, or shared RI presentation code change
 - Venue link attribution: `source_surface=venue_detail`, `cta_placement=venue_detail_camping`.
 - Map link attribution: `source_surface=venue_map`, `cta_placement=venue_map_camping`, with the canonical tournament ID.
 - Visual inspection confirmed the Campspot treatment is subordinate to HotelPlanner on both desktop surfaces.
+- Multi-venue follow-up UAT used the two-venue Temecula Summer Finale at 1280px and 390px widths. Each venue row showed Directions, Hotels, View, 5+ Rooms, and Camping/RV on one line; both Campspot impressions used `venue_map_venue_list_camping`; the group click used `venue_map_venue_list_team_block`; and the existing form opened for the selected venue.
 
 The unavailable `agent-browser` CLI was replaced with the repository's installed Playwright runtime for the browser pass.

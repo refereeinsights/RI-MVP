@@ -386,7 +386,7 @@ export type TiAnalyticsEventPropertiesByName = {
   camping_cta_impression: {
     page_type: "venue_detail" | "venue_map";
     source_surface: "venue_detail" | "venue_map";
-    cta_placement: "venue_detail_camping" | "venue_map_camping";
+    cta_placement: "venue_detail_camping" | "venue_map_camping" | "venue_map_venue_list_camping";
     session_id: string | null;
     tournament_id: string | null;
     tournament_slug: string | null;
@@ -714,6 +714,7 @@ export type TiAnalyticsEventPropertiesByName = {
     property_id: string | null;
     checkin: string | null;
     checkout: string | null;
+    cta_placement: "venue_map_selected_team_block" | "venue_map_venue_list_team_block";
   };
   team_block_rfp_start: {
     page_type: "venue_map";
@@ -723,6 +724,7 @@ export type TiAnalyticsEventPropertiesByName = {
     property_id: string | null;
     checkin: string;
     checkout: string;
+    cta_placement: "venue_map_selected_team_block" | "venue_map_venue_list_team_block";
   };
   team_block_rfp_submit: {
     page_type: "venue_map";
@@ -736,6 +738,7 @@ export type TiAnalyticsEventPropertiesByName = {
     success: boolean;
     request_id: string | null;
     error: string | null;
+    cta_placement: "venue_map_selected_team_block" | "venue_map_venue_list_team_block";
   };
   weekend_share_clicked: {
     source_page: "tournament_detail" | "venue_map" | "venue_detail" | "weekend_page";

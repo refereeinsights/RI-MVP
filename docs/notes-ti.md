@@ -15,6 +15,13 @@ Maintenance rules:
 
 ## 2026-08-10
 
+- TI Campspot/team-block multi-venue map follow-up:
+  - Moved the selected-venue Campspot action into the existing action grid beside the team-block CTA, with both using the same blue treatment.
+  - Added compact inline `5+ Rooms` and `Camping/RV` actions to every eligible venue row when a tournament has multiple venues. All five actions remain on one line at verified desktop and 390px mobile widths.
+  - `5+ Rooms` selects the exact venue, waits for that venue's hotel search to finish, and opens the existing team-block form when dates/inventory permit. Analytics now persist click/start/submit events with `venue_map_venue_list_team_block` versus `venue_map_selected_team_block` placement.
+  - `Camping/RV` retains canonical venue/tournament routing and uses the new `venue_map_venue_list_camping` placement for durable impressions, outbound rows, and TI email breakdowns.
+  - Validation passed: Campspot tests (7/7), TI typecheck, focused lint, diff checks, and Playwright UAT against the two-venue Temecula Summer Finale on desktop/mobile. Both venue rows rendered all five actions inline, both list impressions carried the new placement, the list group click carried its placement, and the existing team-block form opened with no console/error overlay.
+
 - TI Campspot Camping + RV affiliate MVP implemented locally:
   - Added a secondary Campspot link below the primary hotel/team action row on eligible venue-detail pages and in the tournament map's selected-venue panel. Canonical venue city/state/coordinates drive the search; reliable tournament dates are included when available, while invalid, past, partial, or implausibly long stays omit both dates.
   - Added `/go/camping` as the TI-only Awin redirect boundary with advertiser `22326`, affiliate `2854179`, and a canonical 32-character `clickref` identical to `ti_outbound_clicks.outbound_attribution_id`. Click rows use `destination_type=camping`, Campspot partner fields, surface/placement attribution, direct `target_url`, wrapped `redirect_url`, and the shared lodging session. Persistence errors are logged but never block the affiliate redirect; localhost/bot requests do not persist.
