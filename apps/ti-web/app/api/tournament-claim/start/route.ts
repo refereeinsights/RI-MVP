@@ -80,7 +80,7 @@ export async function POST(req: Request) {
       ip,
       userAgent,
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, requiresReview: true });
   }
 
   const { data: tRowRaw } = await (supabaseAdmin.from("tournaments" as any) as any)
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
       ip,
       userAgent,
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, requiresReview: true });
   }
 
   if (!matches) {
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
       ip,
       userAgent,
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, requiresReview: true });
   }
 
   if (!slug) {
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
       ip,
       userAgent,
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, requiresReview: true });
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
       ip,
       userAgent,
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, requiresReview: true });
   }
 
   const authClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -158,7 +158,7 @@ export async function POST(req: Request) {
       userAgent,
       meta: { message: error.message },
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, requiresReview: true });
   }
 
   await logTournamentClaimEvent({

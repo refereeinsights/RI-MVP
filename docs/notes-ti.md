@@ -13,6 +13,10 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-08-11
+
+- Tournament claim Phase 1 improvements implemented locally: three-file rewrite to make the claim flow feel intentional and give the admin queue actionable evidence. (1) `apps/ti-web/app/api/tournament-claim/start/route.ts` — all failure paths now return `requiresReview: true` so the client can show the structured review form instead of the generic magic-link message; bot-trap and success paths unchanged. (2) `apps/ti-web/app/api/tournament-claim/review/route.ts` — complete rewrite; now accepts structured claimant fields (name/120, role/60, organization/200, website/500 + http/https validation, phone/30, note/2000) and stores them in `tournament_claim_events.meta` alongside `has_website` and `has_organization` flags. (3) `apps/ti-web/components/tournaments/ClaimThisTournament.tsx` — full rewrite with a typed `Step` machine (`email → review | done-magic-link | done-review`); review form has name+role auto-fit grid, org, website with help text, readonly email + phone grid, note textarea, and required-field markers; fails open to magic-link message on network error. (4) `apps/referee/app/admin/tournaments/claims/page.tsx` — items builder now extracts `reviewMeta` and `failureReasons` from the event history; table adds failure-reason chips on the latest-event cell and a collapsible evidence sub-row (name, role, org, clickable website, phone, note) that only renders when the claimant submitted structured evidence. Both typechecks passed.
+
 ## 2026-08-10
 
 - TI Campspot/team-block multi-venue map follow-up:

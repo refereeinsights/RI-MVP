@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
@@ -103,6 +104,16 @@ export default async function TournamentClaimsAdminPage({
     const resolved = list.some((r) => isResolvedEventType(r.event_type));
     const open = list.some((r) => isOpenEventType(r.event_type)) && !resolved;
 
+    // Structured claimant evidence from the most recent review event.
+    const reviewEvent = list.find((r) => r.event_type === "Tournament Claim Request Review");
+    const reviewMeta = (reviewEvent?.meta ?? null) as Record<string, unknown> | null;
+
+    // Why automatic verification failed — derive from event history.
+    const failureReasons: string[] = [];
+    if (missingEmailCount > 0) failureReasons.push("No director email on file");
+    if (mismatchCount > 0) failureReasons.push("Email mismatch");
+    if (reviewCount > 0 && !missingEmailCount && !mismatchCount) failureReasons.push("Manual review request");
+
     return {
       tournamentId,
       tournament,
@@ -116,6 +127,8 @@ export default async function TournamentClaimsAdminPage({
       dismissedCount,
       open,
       resolved,
+      reviewMeta,
+      failureReasons,
     };
   });
 
@@ -240,8 +253,28 @@ export default async function TournamentClaimsAdminPage({
                     ? `/admin?tab=tournament-listings&q=${encodeURIComponent(slug)}#tournament-listings`
                     : `/admin?tab=tournament-listings&q=${encodeURIComponent(name)}#tournament-listings`;
 
+                  const m = item.reviewMeta;
+                  const claimantName = typeof m?.name === "string" ? m.name : "";
+                  const claimantRole = typeof m?.role === "string" ? m.role : "";
+                  const claimantOrg = typeof m?.organization === "string" ? m.organization : "";
+                  const claimantWebsiteRaw = typeof m?.website === "string" ? m.website : "";
+                  const claimantPhone = typeof m?.phone === "string" ? m.phone : "";
+                  const claimantNote = typeof m?.note === "string" ? m.note : "";
+                  const hasEvidence = Boolean(claimantName || claimantOrg || claimantRole || claimantWebsiteRaw);
+                  // Ensure website is http/https before rendering as href.
+                  let claimantWebsite = "";
+                  if (claimantWebsiteRaw) {
+                    try {
+                      const parsed = new URL(claimantWebsiteRaw);
+                      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+                        claimantWebsite = parsed.toString();
+                      }
+                    } catch { /* ignore */ }
+                  }
+
                   return (
-                    <tr key={item.tournamentId} style={{ borderTop: "1px solid #e5e7eb" }}>
+                    <React.Fragment key={item.tournamentId}>
+                    <tr style={{ borderTop: "1px solid #e5e7eb" }}>
                       <td style={{ padding: "10px 12px" }}>
                         <div style={{ fontWeight: 900, display: "flex", alignItems: "center", gap: 8 }}>
                           <span title={item.mismatchCount > 0 ? "Has email mismatches" : undefined}>
@@ -276,6 +309,15 @@ export default async function TournamentClaimsAdminPage({
                       <td style={{ padding: "10px 12px" }}>
                         <div style={{ fontWeight: 800 }}>{item.latestEventType || "—"}</div>
                         <div style={{ fontSize: 12, color: "#64748b" }}>{fmtDate(item.latest?.created_at ?? null)}</div>
+                        {item.failureReasons.length > 0 && (
+                          <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {item.failureReasons.map((r) => (
+                              <span key={r} style={{ fontSize: 11, background: "#fef3c7", color: "#92400e", borderRadius: 6, padding: "2px 6px", fontWeight: 700 }}>
+                                {r}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: "10px 12px", fontSize: 12 }}>
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -339,6 +381,54 @@ export default async function TournamentClaimsAdminPage({
                         </div>
                       </td>
                     </tr>
+                    {hasEvidence && (
+                      <tr style={{ borderTop: "none", background: "#f8fafc" }}>
+                        <td colSpan={6} style={{ padding: "8px 12px 12px 36px" }}>
+                          <div style={{ display: "grid", gap: 4 }}>
+                            <div style={{ fontSize: 11, fontWeight: 900, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                              Claimant evidence
+                            </div>
+                            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13 }}>
+                              {claimantName && (
+                                <span>
+                                  <span style={{ fontWeight: 700 }}>Name: </span>{claimantName}
+                                  {claimantRole && <span style={{ color: "#64748b" }}> · {claimantRole}</span>}
+                                </span>
+                              )}
+                              {claimantOrg && (
+                                <span>
+                                  <span style={{ fontWeight: 700 }}>Org: </span>{claimantOrg}
+                                </span>
+                              )}
+                              {claimantWebsite && (
+                                <span>
+                                  <span style={{ fontWeight: 700 }}>Website: </span>
+                                  <a
+                                    href={claimantWebsite}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    style={{ color: "#1d4ed8" }}
+                                  >
+                                    {claimantWebsite}
+                                  </a>
+                                </span>
+                              )}
+                              {claimantPhone && (
+                                <span>
+                                  <span style={{ fontWeight: 700 }}>Phone: </span>{claimantPhone}
+                                </span>
+                              )}
+                            </div>
+                            {claimantNote && (
+                              <div style={{ fontSize: 13, color: "#334155", fontStyle: "italic", maxWidth: 700 }}>
+                                &ldquo;{claimantNote}&rdquo;
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })
               ) : (
