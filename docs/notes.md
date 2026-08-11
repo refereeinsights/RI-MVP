@@ -12,6 +12,10 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-08-11
+
+- RI admin tournament claim approval now sends magic link: `apps/referee/app/admin/tournaments/claims/actions.ts` updated so that clicking Approve in the claims admin queue immediately sends the claimant a TI-branded magic-link email via Resend, rather than silently writing the email to the DB and leaving them with no notification. After updating `tournament_director_email`, the action fetches the tournament slug, calls `supabaseAdmin.auth.admin.generateLink()` to produce the link, sends it with `from: TournamentInsights <noreply@mail.tournamentinsights.com>`, and logs a `Tournament Claim Magic Link Sent` event with `triggered_by: admin_approve`. The send is best-effort and non-fatal — if it fails, the approval still lands and the admin can retry. Typecheck passed: `npx tsc -p apps/referee/tsconfig.json --noEmit`.
+
 ## 2026-08-10
 
 - TI multi-venue map monetization follow-up: aligned the selected-venue Camping/RV action beside the blue team-block button and added compact inline `5+ Rooms` plus `Camping/RV` actions to each eligible venue row for multi-venue tournaments. Group clicks select the exact venue and continue into the existing team-block form after its hotel context loads; Campspot retains canonical server routing. Added distinct persisted placements (`venue_map_venue_list_team_block`, `venue_map_selected_team_block`, and `venue_map_venue_list_camping`) through group click/start/submit and Campspot impression/outbound reporting. Focused tests, typecheck, lint, diff checks, and desktop/mobile Playwright UAT passed.
