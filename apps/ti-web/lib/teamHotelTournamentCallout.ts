@@ -8,10 +8,10 @@ export type TeamHotelTournamentCalloutConfig = {
 
 export function buildTeamHotelTournamentCalloutConfig(): TeamHotelTournamentCalloutConfig {
   return {
-    headline: "Traveling with the whole team?",
-    label: "Request team hotel options →",
+    headline: "Booking rooms for the whole team?",
+    label: "Request a team hotel block →",
     target: "_blank",
     rel: "noopener noreferrer",
-    title: "Request team hotel options",
+    title: "Request a team hotel block",
   };
 }

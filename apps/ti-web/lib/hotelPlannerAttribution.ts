@@ -3,6 +3,7 @@ export const HOTEL_PLANNER_SOURCE_PAGE_TYPES = [
   "tournament",
   "weekend_planner",
   "book_travel",
+  "team_hotel_booking",
   "venue_map",
   "weekend",
   "referee",
@@ -21,6 +22,7 @@ export const HOTEL_PLANNER_BOOKING_PLACEMENTS = {
 } as const;
 
 export const HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS = {
+  teamHotelBookingForm: "team_hotel_booking_form",
   bookTravelTeamBlock: "book_travel_team_block",
   weekendPlannerTeamBlock: "weekend_planner_team_block",
   venueMapTeamBlock: "venue_map_team_block",
@@ -127,11 +129,13 @@ export function deriveHotelPlannerSourcePageType(args: {
   if (pageType === "tournament") return "tournament";
   if (pageType === "planner" || pageType === "weekend_planner") return "weekend_planner";
   if (pageType === "book_travel") return "book_travel";
+  if (pageType === "team_hotel_booking") return "team_hotel_booking";
   if (pageType === "venue_map") return "venue_map";
   if (pageType === "weekend") return "weekend";
   if (pageType === "referee") return "referee";
 
   if (source === "book_travel") return "book_travel";
+  if (source === "team_hotel_booking") return "team_hotel_booking";
   if (source === "weekend_planner") return "weekend_planner";
   if (source === "venue_map") return "venue_map";
   if (source === "tournament_detail" || source === "tournament_directory") return "tournament";
@@ -140,6 +144,7 @@ export function deriveHotelPlannerSourcePageType(args: {
   if (source.startsWith("referee")) return "referee";
 
   if (sourcePath.startsWith("/book-travel")) return "book_travel";
+  if (sourcePath.startsWith("/team-hotel-booking")) return "team_hotel_booking";
   if (sourcePath.startsWith("/weekend-planner")) return "weekend_planner";
   if (sourcePath.startsWith("/weekend/")) return "weekend";
   if (sourcePath.startsWith("/tournaments/")) return "tournament";

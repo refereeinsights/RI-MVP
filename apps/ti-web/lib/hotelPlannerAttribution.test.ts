@@ -21,6 +21,10 @@ test("creates compact outbound attribution ids from uuid sources", () => {
 
 test("derives canonical source page types without collapsing book travel", () => {
   assert.equal(deriveHotelPlannerSourcePageType({ source: "book_travel", hasVenueId: false }), "book_travel");
+  assert.equal(
+    deriveHotelPlannerSourcePageType({ sourcePath: "/team-hotel-booking", hasVenueId: false }),
+    "team_hotel_booking"
+  );
   assert.equal(deriveHotelPlannerSourcePageType({ source: "weekend_planner", hasVenueId: false }), "weekend_planner");
   assert.equal(deriveHotelPlannerSourcePageType({ source: "venue_map", hasVenueId: true }), "venue_map");
   assert.equal(deriveHotelPlannerSourcePageType({ sourcePath: "/weekend/abc", hasVenueId: true }), "weekend");

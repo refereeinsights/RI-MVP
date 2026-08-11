@@ -8,7 +8,7 @@ export const DEFAULT_LODGING_PROVIDER: TiLodgingProvider = "hotelplanner";
 
 export const LODGING_SEARCH_DEFAULTS = {
   minRooms: 1,
-  maxRooms: 12,
+  maxSearchRooms: 12,
   maxAdultCount: 12,
   minAdultCount: 1,
   childCount: 0,

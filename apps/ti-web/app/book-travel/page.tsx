@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
   return {
-    title: "Tournament Travel Hotels & Rentals | TournamentInsights",
+    title: "Tournament Travel Hotels & Rentals",
     description:
       "Find hotels and vacation rentals near youth sports tournaments, venues, fields, gyms, and event locations. Compare tournament-friendly stays for families and teams.",
     alternates: { canonical: "/book-travel" },

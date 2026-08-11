@@ -323,7 +323,7 @@ export async function POST(request: Request) {
     roomCount = parseInteger(
       body.rooms,
       LODGING_SEARCH_DEFAULTS.minRooms,
-      LODGING_SEARCH_DEFAULTS.maxRooms,
+      LODGING_SEARCH_DEFAULTS.maxSearchRooms,
       LODGING_SEARCH_DEFAULTS.defaultRooms
     );
 

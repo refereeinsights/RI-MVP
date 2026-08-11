@@ -854,7 +854,7 @@ export default async function VenueDetailsPage({
                     <TeamTravelVenueLink
                       href={teamHotelHref}
                       className="secondaryLink"
-                      label={teamTravelEligibility.ctaLevel === "link" ? "Explore team lodging options" : "Book 5+ rooms for your team"}
+                      label={teamTravelEligibility.ctaLevel === "link" ? "Team hotel rooms" : "Request 5+ rooms for your team"}
                       authState={authState}
                       entitlement={tier}
                       tournamentId={teamTravelTournament?.id ?? null}

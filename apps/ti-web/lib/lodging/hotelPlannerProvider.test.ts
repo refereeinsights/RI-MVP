@@ -316,7 +316,7 @@ test("buildGroupRequestBody preserves canonical attribution and operational fiel
     destination: "San Diego, CA",
     checkIn: "08/01/2026",
     checkOut: "08/03/2026",
-    rooms: 12,
+    rooms: 48,
     adultsPerRoom: 2,
     childrenPerRoom: 1,
     firstName: "Casey",
@@ -344,7 +344,7 @@ test("buildGroupRequestBody preserves canonical attribution and operational fiel
   });
 
   assert.equal(payload.hotelID, "12345");
-  assert.equal(payload.numRooms, 12);
+  assert.equal(payload.numRooms, 48);
   assert.equal(payload.adultsPerRoom, 2);
   assert.equal(payload.firstName, "Casey");
   assert.equal(payload.groupName, "Blue Hawks");
@@ -355,6 +355,33 @@ test("buildGroupRequestBody preserves canonical attribution and operational fiel
   assert.equal(payload.customField3, "attr:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
   assert.equal(payload.customField4, "srcp:venue_map");
   assert.equal(payload.customField5, "place:venue_map_team_block");
+});
+
+test("buildGroupRequestBody uses production-safe comments when optional notes are blank", () => {
+  const baseInput = {
+    destination: "San Diego, CA",
+    checkIn: "08/01/2026",
+    checkOut: "08/03/2026",
+    rooms: 120,
+    adultsPerRoom: 2,
+    firstName: "Casey",
+    lastName: "Coach",
+    email: "casey@example.com",
+    split: 1,
+    rating: "5",
+    roomTypeCode: "8",
+  };
+
+  const productionPayload = buildGroupRequestBody(baseInput);
+  assert.equal(productionPayload.numRooms, 120);
+  assert.equal(
+    productionPayload.comments,
+    "Team hotel block request submitted through TournamentInsights."
+  );
+  assert.notEqual(productionPayload.comments, "test test");
+
+  const explicitTestPayload = buildGroupRequestBody({ ...baseInput, comments: "test test" });
+  assert.equal(explicitTestPayload.comments, "test test");
 });
 
 test("searchHotels accepts provider payload with code 200 and message", async () => {

@@ -18,8 +18,9 @@ import {
   buildHotelPlannerBookingAttribution,
   createOutboundAttributionId,
   HOTEL_PLANNER_BOOKING_PLACEMENTS,
-  HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS,
 } from "@/lib/hotelPlannerAttribution";
+import { getTeamHotelAcquisitionContext, getTeamHotelSessionId } from "@/lib/teamHotelClientTracking";
+import { parseTeamHotelRoomCount, TEAM_HOTEL_REQUEST_DEFAULTS } from "@/lib/teamHotelRequest";
 import NavigationChooser, { type NavProvider } from "./NavigationChooser";
 import styles from "./TournamentVenueMap.module.css";
 
@@ -113,8 +114,6 @@ type TeamBlockFormState = {
   email: string;
   phone: string;
   rooms: string;
-  adultsPerRoom: string;
-  childrenPerRoom: string;
   notes: string;
 };
 
@@ -129,8 +128,6 @@ const DEFAULT_TEAM_BLOCK_FORM: TeamBlockFormState = {
   email: "",
   phone: "",
   rooms: "10",
-  adultsPerRoom: "2",
-  childrenPerRoom: "0",
   notes: "",
 };
 
@@ -1645,15 +1642,6 @@ export default function TournamentVenueMapClient({
     return () => window.clearTimeout(timer);
   }, [teamBlockOpen]);
 
-  const buildTeamBlockComments = () => {
-    const parts = [
-      teamBlockForm.teamName ? `Team: ${teamBlockForm.teamName}` : null,
-      teamBlockForm.phone ? `Phone: ${teamBlockForm.phone}` : null,
-      teamBlockForm.notes ? `Notes: ${teamBlockForm.notes}` : null,
-    ].filter(Boolean);
-    return parts.join("\n");
-  };
-
   const submitTeamBlockForm = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!teamBlockAnchorPin) {
@@ -1666,9 +1654,11 @@ export default function TournamentVenueMapClient({
       return;
     }
 
-    const rooms = Number(teamBlockForm.rooms);
-    if (!Number.isInteger(rooms) || rooms < 5) {
-      setTeamBlockError("Enter at least 5 rooms for a team hotel block request.");
+    let rooms: number;
+    try {
+      rooms = parseTeamHotelRoomCount(teamBlockForm.rooms);
+    } catch (roomError) {
+      setTeamBlockError((roomError as Error).message);
       return;
     }
 
@@ -1679,6 +1669,7 @@ export default function TournamentVenueMapClient({
     try {
       const outboundAttributionId = teamBlockAttributionIdRef.current ?? createOutboundAttributionId();
       teamBlockAttributionIdRef.current = outboundAttributionId;
+      const acquisition = getTeamHotelAcquisitionContext();
       const response = await fetch(new URL("/api/lodging/group-request", window.location.origin), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1688,8 +1679,6 @@ export default function TournamentVenueMapClient({
           checkin: dateRange.checkIn,
           checkout: dateRange.checkOut,
           rooms,
-          adults: Number(teamBlockForm.adultsPerRoom),
-          children: Number(teamBlockForm.childrenPerRoom),
           split: 1,
           rating: "3",
           roomTypeCode: "8",
@@ -1698,16 +1687,19 @@ export default function TournamentVenueMapClient({
           email: teamBlockForm.email,
           groupName: teamBlockForm.teamName,
           phone: teamBlockForm.phone,
-          comments: buildTeamBlockComments(),
+          comments: teamBlockForm.notes.trim() || undefined,
           source: "venue_map",
           groupTypeCode: "143",
           source_page_type: "venue_map",
           source_path: `${window.location.pathname}${window.location.search}`,
-          cta_placement: HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS.venueMapTeamBlock,
+          cta_placement: teamBlockCtaPlacementRef.current,
           page_url: `${window.location.pathname}${window.location.search}`,
           request_source: "venue_map",
           tournament_id: tournament.id,
           venue_id: selectedVenue?.id ?? hotelVenueId ?? undefined,
+          session_id: getTeamHotelSessionId() ?? undefined,
+          traffic_source: acquisition?.trafficSource ?? undefined,
+          referrer: acquisition?.referrer ?? undefined,
           outbound_attribution_id: outboundAttributionId,
         }),
       });
@@ -2948,7 +2940,7 @@ export default function TournamentVenueMapClient({
                       <div className={styles.teamBlockHeader}>
                         <div className={styles.teamBlockTitle}>Request team hotel block</div>
                         <div className={styles.teamBlockSub}>
-                          Tell us about your group and HotelPlanner will follow up with options for this venue area.
+                          Share the core trip details and we’ll send the request to HotelPlanner for this venue area.
                         </div>
                       </div>
 
@@ -2956,7 +2948,7 @@ export default function TournamentVenueMapClient({
                         <div className={styles.teamBlockSuccess}>
                           <div className={styles.teamBlockSuccessTitle}>Request submitted</div>
                           <div>
-                            HotelPlanner will follow up with group options for this venue area.
+                            Your request was sent to HotelPlanner. They may follow up with hotel options or clarifying questions.
                             {teamBlockSuccess.requestId ? ` Ref ${teamBlockSuccess.requestId}.` : ""}
                           </div>
                         </div>
@@ -2977,12 +2969,11 @@ export default function TournamentVenueMapClient({
                         <form className={styles.teamBlockForm} onSubmit={submitTeamBlockForm}>
                           <div className={styles.teamBlockFieldGrid}>
                             <label className={styles.teamBlockField}>
-                              <span className={styles.hotelFilterLabel}>Team name</span>
+                              <span className={styles.hotelFilterLabel}>Team name (optional)</span>
                               <input
                                 ref={teamBlockFirstInputRef}
                                 className={styles.teamBlockInput}
                                 type="text"
-                                required
                                 value={teamBlockForm.teamName}
                                 onChange={(event) => setTeamBlockForm((current) => ({ ...current, teamName: event.target.value }))}
                               />
@@ -3022,11 +3013,10 @@ export default function TournamentVenueMapClient({
                               />
                             </label>
                             <label className={styles.teamBlockField}>
-                              <span className={styles.hotelFilterLabel}>Phone</span>
+                              <span className={styles.hotelFilterLabel}>Phone (optional)</span>
                               <input
                                 className={styles.teamBlockInput}
                                 type="tel"
-                                required
                                 value={teamBlockForm.phone}
                                 onChange={(event) => setTeamBlockForm((current) => ({ ...current, phone: event.target.value }))}
                               />
@@ -3036,35 +3026,10 @@ export default function TournamentVenueMapClient({
                               <input
                                 className={styles.teamBlockInput}
                                 type="number"
-                                min={5}
+                                min={TEAM_HOTEL_REQUEST_DEFAULTS.minRooms}
                                 required
                                 value={teamBlockForm.rooms}
                                 onChange={(event) => setTeamBlockForm((current) => ({ ...current, rooms: event.target.value }))}
-                              />
-                            </label>
-                            <label className={styles.teamBlockField}>
-                              <span className={styles.hotelFilterLabel}>Adults / room</span>
-                              <input
-                                className={styles.teamBlockInput}
-                                type="number"
-                                min={1}
-                                required
-                                value={teamBlockForm.adultsPerRoom}
-                                onChange={(event) =>
-                                  setTeamBlockForm((current) => ({ ...current, adultsPerRoom: event.target.value }))
-                                }
-                              />
-                            </label>
-                            <label className={styles.teamBlockField}>
-                              <span className={styles.hotelFilterLabel}>Children / room</span>
-                              <input
-                                className={styles.teamBlockInput}
-                                type="number"
-                                min={0}
-                                value={teamBlockForm.childrenPerRoom}
-                                onChange={(event) =>
-                                  setTeamBlockForm((current) => ({ ...current, childrenPerRoom: event.target.value }))
-                                }
                               />
                             </label>
                           </div>

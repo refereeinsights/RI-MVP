@@ -11,11 +11,13 @@ import {
   createTeamHotelCtaInteractionId,
   currentPathWithSearch,
   getAnonymousVisitorId,
+  getTeamHotelAcquisitionContext,
   getTeamHotelSessionId,
   readLastTeamHotelCtaInteractionId,
   rememberLastTeamHotelCtaInteractionId,
 } from "@/lib/teamHotelClientTracking";
 import styles from "./BookTravelTeamBlockForm.module.css";
+import { parseTeamHotelRoomCount, TEAM_HOTEL_REQUEST_DEFAULTS } from "@/lib/teamHotelRequest";
 
 type VenueSuggestion = {
   id: string;
@@ -46,8 +48,6 @@ type TeamBlockFormState = {
   checkin: string;
   checkout: string;
   rooms: string;
-  adultsPerRoom: string;
-  childrenPerRoom: string;
   groupName: string;
   contactFirstName: string;
   contactLastName: string;
@@ -61,8 +61,6 @@ const DEFAULT_FORM: TeamBlockFormState = {
   checkin: "",
   checkout: "",
   rooms: "10",
-  adultsPerRoom: "2",
-  childrenPerRoom: "0",
   groupName: "",
   contactFirstName: "",
   contactLastName: "",
@@ -323,6 +321,13 @@ export default function BookTravelTeamBlockForm({
       setError("Check-out must be after check-in.");
       return;
     }
+    let rooms: number;
+    try {
+      rooms = parseTeamHotelRoomCount(form.rooms);
+    } catch (roomError) {
+      setError((roomError as Error).message);
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -332,8 +337,11 @@ export default function BookTravelTeamBlockForm({
       const ctaPlacement =
         surface === "weekend_planner"
           ? HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS.weekendPlannerTeamBlock
+          : surface === "team_hotel_booking"
+            ? HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS.teamHotelBookingForm
           : HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS.bookTravelTeamBlock;
       const matchedVenueId = matchedVenue?.id ?? null;
+      const acquisition = getTeamHotelAcquisitionContext();
       const response = await fetch("/api/lodging/group-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -341,9 +349,7 @@ export default function BookTravelTeamBlockForm({
           destination: providerDestination,
           checkin: formatDateToMmDdYyyy(checkInDate),
           checkout: formatDateToMmDdYyyy(checkOutDate),
-          rooms: Number(form.rooms),
-          adultsPerRoom: Number(form.adultsPerRoom),
-          childrenPerRoom: Number(form.childrenPerRoom),
+          rooms,
           firstName: form.contactFirstName.trim(),
           lastName: form.contactLastName.trim(),
           email: form.email.trim(),
@@ -366,7 +372,12 @@ export default function BookTravelTeamBlockForm({
           entry_path: plannerTrackingContext?.entry_path ?? undefined,
           entry_placement: plannerTrackingContext?.entry_placement ?? undefined,
           current_page_type:
-            plannerTrackingContext?.current_page_type ?? (surface === "weekend_planner" ? "planner" : "book_travel"),
+            plannerTrackingContext?.current_page_type ??
+            (surface === "weekend_planner"
+              ? "planner"
+              : surface === "team_hotel_booking"
+                ? "team_hotel_booking"
+                : "book_travel"),
           current_page_path:
             plannerTrackingContext?.current_page_path ??
             (typeof window !== "undefined" ? window.location.pathname + window.location.search : "/book-travel"),
@@ -385,6 +396,8 @@ export default function BookTravelTeamBlockForm({
                 ? "/team-hotel-booking"
                 : "/book-travel",
           request_source: surface,
+          traffic_source: acquisition?.trafficSource ?? undefined,
+          referrer: acquisition?.referrer ?? undefined,
           outbound_attribution_id: outboundAttributionId,
         }),
       });
@@ -540,7 +553,7 @@ export default function BookTravelTeamBlockForm({
           <div>
             We&apos;ve sent your team hotel request for{" "}
             <strong>{readableDestinationContext || providerDestination}</strong> to our group
-            specialists. Expect options within 24–48 hours
+            lodging partner. The partner may follow up with hotel options or clarifying questions
             {form.email ? ` at ${form.email}` : ""}.
             {success.requestId ? ` Ref: ${success.requestId}.` : ""}
           </div>
@@ -559,10 +572,12 @@ export default function BookTravelTeamBlockForm({
               <dt>Rooms</dt>
               <dd>{form.rooms}</dd>
             </div>
-            <div>
-              <dt>Group</dt>
-              <dd>{form.groupName}</dd>
-            </div>
+            {form.groupName ? (
+              <div>
+                <dt>Group</dt>
+                <dd>{form.groupName}</dd>
+              </div>
+            ) : null}
           </dl>
           <div className={styles.successNextSteps}>
             Next: watch for a follow-up from our lodging partner, and keep the tournament’s official stay-to-play guidance in mind if the event requires a specific booking path.
@@ -651,8 +666,7 @@ export default function BookTravelTeamBlockForm({
             <input
               className={styles.input}
               type="number"
-              min={5}
-              max={12}
+              min={TEAM_HOTEL_REQUEST_DEFAULTS.minRooms}
               required
               value={form.rooms}
               onFocus={trackStart}
@@ -661,37 +675,10 @@ export default function BookTravelTeamBlockForm({
           </label>
 
           <label className={styles.field}>
-            <span className={styles.label}>Adults / room</span>
-            <input
-              className={styles.input}
-              type="number"
-              min={1}
-              max={12}
-              required
-              value={form.adultsPerRoom}
-              onFocus={trackStart}
-              onChange={(event) => updateForm("adultsPerRoom", event.target.value)}
-            />
-          </label>
-
-          <label className={styles.field}>
-            <span className={styles.label}>Children / room</span>
-            <input
-              className={styles.input}
-              type="number"
-              min={0}
-              value={form.childrenPerRoom}
-              onFocus={trackStart}
-              onChange={(event) => updateForm("childrenPerRoom", event.target.value)}
-            />
-          </label>
-
-          <label className={styles.field}>
-            <span className={styles.label}>Team / Group name</span>
+            <span className={styles.label}>Team / Group name (optional)</span>
             <input
               className={styles.input}
               type="text"
-              required
               value={form.groupName}
               onFocus={trackStart}
               onChange={(event) => updateForm("groupName", event.target.value)}
@@ -735,11 +722,10 @@ export default function BookTravelTeamBlockForm({
           </label>
 
           <label className={styles.field}>
-            <span className={styles.label}>Phone</span>
+            <span className={styles.label}>Phone (optional)</span>
             <input
               className={styles.input}
               type="tel"
-              required
               value={form.phone}
               onFocus={trackStart}
               onChange={(event) => updateForm("phone", event.target.value)}

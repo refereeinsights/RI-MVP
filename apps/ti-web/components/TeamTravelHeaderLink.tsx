@@ -7,6 +7,7 @@ import { sendTiAnalytics } from "@/lib/analytics";
 import {
   createTeamHotelCtaInteractionId,
   getAnonymousVisitorId,
+  getTeamHotelAcquisitionContext,
   getTeamHotelSessionId,
   rememberPendingTeamHotelEntry,
   rememberLastTeamHotelCtaInteractionId,
@@ -23,6 +24,7 @@ export default function TeamTravelHeaderLink(props: TeamTravelHeaderLinkProps) {
   const sourcePath = `${pathname}${searchParams?.toString() ? `?${searchParams}` : ""}`;
 
   useEffect(() => {
+    getTeamHotelAcquisitionContext();
     const viewedKey = `team-travel-header:${sourcePath}`;
     if (viewedKeyRef.current === viewedKey) return;
     viewedKeyRef.current = viewedKey;
@@ -36,7 +38,7 @@ export default function TeamTravelHeaderLink(props: TeamTravelHeaderLinkProps) {
       source_path: sourcePath,
       current_page_type: "other",
       current_page_path: sourcePath,
-      cta_label: "Team Travel",
+      cta_label: "Team Hotels",
     });
   }, [props.authState, sourcePath]);
 
@@ -62,12 +64,12 @@ export default function TeamTravelHeaderLink(props: TeamTravelHeaderLinkProps) {
           source_path: sourcePath,
           current_page_type: "other",
           current_page_path: sourcePath,
-          cta_label: "Team Travel",
+          cta_label: "Team Hotels",
           cta_interaction_id: ctaInteractionId,
         }, { preferBeacon: true });
       }}
     >
-      Team Travel
+      Team Hotels
     </Link>
   );
 }

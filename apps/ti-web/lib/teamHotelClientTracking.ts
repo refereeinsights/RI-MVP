@@ -1,10 +1,16 @@
 "use client";
 
+import {
+  deriveTeamHotelAcquisitionContext,
+  type TeamHotelAcquisitionContext,
+} from "./teamHotelAcquisition";
+
 const ANONYMOUS_VISITOR_KEY = "ti_anonymous_visitor_id";
 const TEAM_HOTEL_SESSION_KEY = "ti_team_hotel_session_id";
 const LAST_CTA_INTERACTION_KEY = "ti_team_hotel_last_cta_interaction_id";
 const LANDING_VIEW_PREFIX = "ti_team_hotel_landing_viewed:";
 const PENDING_ENTRY_KEY = "ti_team_hotel_pending_entry";
+const ACQUISITION_CONTEXT_KEY = "ti_team_hotel_acquisition_v1";
 
 type PendingTeamHotelEntry = {
   key: string;
@@ -53,6 +59,32 @@ export function getAnonymousVisitorId() {
 
 export function getTeamHotelSessionId() {
   return getOrCreateStorageId("session", TEAM_HOTEL_SESSION_KEY);
+}
+
+export function getTeamHotelAcquisitionContext(): TeamHotelAcquisitionContext | null {
+  if (typeof window === "undefined") return null;
+  const storage = readStorage("session");
+  const existing = storage?.getItem(ACQUISITION_CONTEXT_KEY);
+  if (existing) {
+    try {
+      const parsed = JSON.parse(existing) as TeamHotelAcquisitionContext;
+      if (typeof parsed.trafficSource === "string") return parsed;
+    } catch {
+      // Replace malformed session data with a freshly derived context.
+    }
+  }
+
+  const context = deriveTeamHotelAcquisitionContext({
+    pageUrl: window.location.href,
+    referrer: document.referrer,
+    siteOrigin: window.location.origin,
+  });
+  try {
+    storage?.setItem(ACQUISITION_CONTEXT_KEY, JSON.stringify(context));
+  } catch {
+    // Attribution is best-effort; submission must remain available.
+  }
+  return context;
 }
 
 export function createTeamHotelCtaInteractionId() {

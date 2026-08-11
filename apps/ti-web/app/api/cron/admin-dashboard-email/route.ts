@@ -1098,8 +1098,8 @@ function renderWeekendPlannerSummaryHtml(params: {
   const teamHotelHtml = renderMetricRows([
     { label: "Team hotel landing raw views", value: summary.teamHotel.landingViews },
     { label: "Team hotel landing unique sessions", value: summary.teamHotel.uniqueLandingSessions },
-    { label: "Team Travel header impressions", value: summary.teamHotel.headerViews },
-    { label: "Team Travel header clicks", value: summary.teamHotel.headerClicks, note: formatRatioPercent(summary.teamHotel.headerClicks, summary.teamHotel.headerViews) },
+    { label: "Team Hotels header impressions", value: summary.teamHotel.headerViews },
+    { label: "Team Hotels header clicks", value: summary.teamHotel.headerClicks, note: formatRatioPercent(summary.teamHotel.headerClicks, summary.teamHotel.headerViews) },
     { label: "Team hotel CTA impressions", value: summary.teamHotel.ctaImpressions },
     {
       label: "Team hotel CTA clicks",

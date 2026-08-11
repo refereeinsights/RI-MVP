@@ -21,12 +21,12 @@ const FAQS = [
   {
     question: "What information do I need before I submit a request?",
     answer:
-      "Start with your tournament or destination, your check-in and check-out dates, and an estimated room count. The request form also asks for your contact information, team or club name, and any special requests.",
+      "Start with your tournament or destination, check-in and check-out dates, an estimated room count, and your name and email. Team name, phone, and special requests are optional.",
   },
   {
     question: "What happens after I submit a team hotel request?",
     answer:
-      "TournamentInsights sends your request through the existing lodging partner workflow so group hotel options can be reviewed and followed up on by the lodging partner where appropriate.",
+      "TournamentInsights sends your request to its lodging partner. The partner may follow up with hotel options or clarifying questions, and booking is completed with a responding property's sales team.",
   },
   {
     question: "What if my tournament has a stay-to-play policy?",
@@ -132,9 +132,9 @@ export default async function TeamHotelBookingPage({
         <div className={styles.wrap}>
           <header className={styles.hero}>
             <div className={styles.eyebrow}>Team lodging for tournament weekends</div>
-            <h1 className="title">Find a Hotel Block for Your Youth Sports Team</h1>
+            <h1 className="title">Team Hotel Blocks for Youth Sports Tournaments</h1>
             <p className={styles.lede}>
-              Planning travel for 5 or more rooms? Send us your tournament, venue, dates, and estimated room count. We’ll help you find group hotel options near the fields, courts, or rink—without calling hotels one by one.
+              Need hotel rooms for your whole team? Request group hotel options near your tournament and venues. Start with your destination, dates, and estimated room count.
             </p>
             <div className={styles.ctaRow}>
               <TeamHotelLandingPrimaryCta
@@ -163,10 +163,10 @@ export default async function TeamHotelBookingPage({
             <article className={styles.card}>
               <h2 className={styles.cardTitle}>How this works</h2>
               <ul className={styles.list}>
-                <li>This request is intended for team travel groups that need about 5 or more rooms.</li>
+                <li>This request is designed for coaches, team managers, club administrators, and travel coordinators who need 5 or more rooms.</li>
                 <li>Start with your tournament or destination, dates, and estimated room count.</li>
-                <li>After you submit, TournamentInsights routes the request through the existing lodging partner workflow.</li>
-                <li>A lodging partner may follow up with options or clarifying questions.</li>
+                <li>After you submit, TournamentInsights sends the request to its lodging partner.</li>
+                <li>The lodging partner may follow up with hotel options or clarifying questions.</li>
                 <li>Follow the tournament’s official lodging instructions first when a stay-to-play policy applies.</li>
               </ul>
             </article>

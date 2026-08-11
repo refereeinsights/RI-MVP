@@ -6,6 +6,7 @@ import {
   type GroupRequestInput,
   LODGING_SEARCH_DEFAULTS,
 } from "@/lib/lodging/lodging-provider";
+import { parseTeamHotelRoomCount, TEAM_HOTEL_REQUEST_DEFAULTS } from "@/lib/teamHotelRequest";
 import { formatDateToMmDdYyyy } from "@/lib/lodging/lodging-dates";
 import { buildGroupRequestBody, HotelPlannerApiError } from "@/lib/lodging/hotelPlannerProvider";
 import {
@@ -95,6 +96,7 @@ type GroupRequestBody = {
 
 type GroupRequestTracking = {
   outboundAttributionId: string;
+  clientTeamHotelSessionId: string | null;
   sourcePageType: HotelPlannerSourcePageType;
   sourcePath: string | null;
   ctaPlacement: string | null;
@@ -147,6 +149,27 @@ function sanitizePageUrl(value: string | null) {
   try {
     const parsed = new URL(trimmed);
     return sanitizeText(`${parsed.pathname}${parsed.search}` || "/", 512);
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeTrafficSource(value: string | null) {
+  const normalized = sanitizeText(value, 64)?.toLowerCase().replace(/[^a-z0-9:_-]+/g, "_") ?? null;
+  return normalized || null;
+}
+
+function sanitizeExternalReferrer(value: string | null) {
+  const trimmed = sanitizeText(value, 512);
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    const hostname = parsed.hostname.toLowerCase();
+    if (!hostname || hostname === "tournamentinsights.com" || hostname.endsWith(".tournamentinsights.com")) {
+      return null;
+    }
+    return sanitizeText(parsed.origin, 512);
   } catch {
     return null;
   }
@@ -575,27 +598,29 @@ export async function POST(request: Request) {
   let adultsPerRoom: number;
   let childrenPerRoom: number;
   let split: number;
-  let ratingText: string;
 
   if (body.split === undefined || body.split === null || body.split === "") {
     return asRequestError("Missing split");
   }
 
   try {
-    rooms = parseInteger(body.rooms, 5, LODGING_SEARCH_DEFAULTS.maxRooms, 5, true);
+    rooms = parseTeamHotelRoomCount(body.rooms);
     adultsPerRoom = parseInteger(
       body.adults ?? body.adultsPerRoom,
       LODGING_SEARCH_DEFAULTS.minAdultCount,
       LODGING_SEARCH_DEFAULTS.maxAdultCount,
-      LODGING_SEARCH_DEFAULTS.defaultAdultsPerRoom
+      TEAM_HOTEL_REQUEST_DEFAULTS.defaultAdultsPerRoom
     );
-    childrenPerRoom = parseNonNegativeInteger(body.children ?? body.childrenPerRoom ?? body.childCount);
+    childrenPerRoom = parseNonNegativeInteger(
+      body.children ?? body.childrenPerRoom ?? body.childCount,
+      TEAM_HOTEL_REQUEST_DEFAULTS.defaultChildrenPerRoom
+    );
     split = parseInteger(body.split, 1, Number.MAX_SAFE_INTEGER, undefined, true);
   } catch (error: unknown) {
     return asRequestError((error as Error).message);
   }
 
-  ratingText = toText(body.rating) || "5";
+  const ratingText = toText(body.rating) || "5";
 
   const roomTypeCode = toText(body.roomTypeCode);
   if (!roomTypeCode) {
@@ -632,14 +657,15 @@ export async function POST(request: Request) {
   const ctaPlacement = sanitizeText(toText(body.cta_placement) ?? toText(body.entry_placement), 64);
   const trackingBase = {
     outboundAttributionId: parseOutboundAttributionId(body.outbound_attribution_id) ?? createOutboundAttributionId(),
+    clientTeamHotelSessionId: sanitizeText(toText(body.session_id), 64),
     sourcePageType,
     sourcePath: sanitizePageUrl(toText(body.source_path) ?? toText(body.current_page_path) ?? toText(body.entry_path)),
     ctaPlacement,
     pageType: sanitizeText(toText(body.current_page_type) ?? sourcePageType, 32),
     pageUrl: sanitizePageUrl(toText(body.page_url) ?? toText(body.current_page_path) ?? toText(body.entry_path)),
     deviceType: sanitizeText(toText(body.device_type), 32),
-    trafficSource: sanitizeText(toText(body.traffic_source), 64),
-    referrer: sanitizeText(toText(body.referrer), 512),
+    trafficSource: sanitizeTrafficSource(toText(body.traffic_source)),
+    referrer: sanitizeExternalReferrer(toText(body.referrer)),
     plannerSessionId: toText(body.planner_session_id),
     tournamentId: toText(body.tournament_id),
     venueId: toText(body.venue_id),
@@ -723,6 +749,7 @@ export async function POST(request: Request) {
     provider: providerName,
     groupRequestQuery: {
       outbound_attribution_id: tracking.outboundAttributionId,
+      client_team_hotel_session_id: tracking.clientTeamHotelSessionId,
       propertyId,
       destination,
       checkIn,

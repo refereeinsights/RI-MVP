@@ -107,6 +107,14 @@ function clampInt(value: unknown, fallback: number): number {
   return Math.floor(numberValue);
 }
 
+function assertPositiveInteger(value: unknown, label: string): number {
+  const numberValue = Number(value);
+  if (!Number.isSafeInteger(numberValue) || numberValue <= 0) {
+    throw new Error(`Invalid ${label}`);
+  }
+  return numberValue;
+}
+
 function clampOptionalNonNegative(value: unknown): number {
   const numberValue = Number(value ?? 0);
   if (!Number.isFinite(numberValue) || numberValue < 0) return 0;
@@ -259,7 +267,7 @@ export function buildGroupRequestBody(input: GroupRequestInput): Record<string, 
     ...(propertyId ? { hotelID: propertyId } : {}),
     checkIn: assertNonEmptyString(input.checkIn, "checkIn"),
     checkOut: assertNonEmptyString(input.checkOut, "checkOut"),
-    numRooms: clampInt(input.rooms, 1),
+    numRooms: assertPositiveInteger(input.rooms, "rooms"),
     adultsPerRoom: clampInt(input.adultsPerRoom, 1),
     childrenPerRoom: clampInt(input.childrenPerRoom ?? 0, 0),
     split: clampInt(input.split, 1),
@@ -270,7 +278,7 @@ export function buildGroupRequestBody(input: GroupRequestInput): Record<string, 
     email: assertNonEmptyString(input.email, "email"),
     ...(groupName ? { groupName } : {}),
     ...(phone ? { phone } : {}),
-    comments: pickText(input.comments ?? "") ?? "test test",
+    comments: pickText(input.comments) ?? "Team hotel block request submitted through TournamentInsights.",
     targetRate: clampInt(input.targetRate, 0),
     minRate: clampInt(input.minRate, 0),
     itinerary: input.itinerary ?? [{ checkIn: input.checkIn, checkOut: input.checkOut, destination: derivedDestination }],
