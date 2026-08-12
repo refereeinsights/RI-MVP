@@ -15,12 +15,13 @@ import { getSavedTournamentIdsForUser } from "@/lib/savedTournaments";
 import SavedTournamentActionsClient from "./SavedTournamentActionsClient";
 import { getActivePlansForUser, saveWeekendPlanForTournament } from "@/lib/weekendPlans";
 import WeekendPlanActionsClient from "./WeekendPlanActionsClient";
-import type { PlannerEventRow } from "@/lib/planner/types";
+import type { PlannerEventRow, PlannerVenueContext } from "@/lib/planner/types";
 import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
 import { ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY } from "@/lib/featureFlags";
 import { buildSeededTournamentPlannerEvent } from "@/lib/planner/anonymousPlanner";
 import { buildPlannerHref, createPlannerSessionId, parsePlannerSessionContext, type PlannerSessionContext } from "@/lib/planner/plannerSession";
 import { getPlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
+import { isUuid } from "@/lib/venues/isUuid";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,18 +50,60 @@ type WeekendPlanRow = {
   created_at: string | null;
 };
 
-function formatDate(value: string | null) {
-  if (!value) return "";
-  const d = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
+async function resolvePlannerVenueContext(context: PlannerSessionContext) {
+  const tournamentId = String(context.tournament_id ?? "").trim();
+  if (context.entry_page_type !== "tournament" || !isUuid(tournamentId)) {
+    return { venue: null as PlannerVenueContext | null, hasMultipleVenues: false };
+  }
 
-function formatDateRange(start: string | null, end: string | null) {
-  const s = formatDate(start);
-  const e = formatDate(end);
-  if (s && e && s !== e) return `${s} - ${e}`;
-  return s || e || "Dates TBA";
+  const requestedVenueId = String(context.venue_id ?? "").trim();
+  let venueId = "";
+  let hasMultipleVenues = false;
+
+  try {
+    const { data } = await (supabaseAdmin.from("tournament_venues" as any) as any)
+      .select("venue_id,is_primary,created_at")
+      .eq("tournament_id", tournamentId)
+      .eq("is_inferred", false)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true });
+    const ids = Array.from(
+      new Set(
+        ((data ?? []) as any[])
+          .map((row) => String(row?.venue_id ?? "").trim())
+          .filter((value) => isUuid(value)),
+      ),
+    );
+    hasMultipleVenues = ids.length > 1;
+    // A query-string venue is trusted only after confirming the tournament link.
+    if (isUuid(requestedVenueId) && ids.includes(requestedVenueId)) venueId = requestedVenueId;
+    else if (ids.length === 1) venueId = ids[0]!;
+  } catch {
+    return { venue: null as PlannerVenueContext | null, hasMultipleVenues: false };
+  }
+
+  if (!venueId) return { venue: null as PlannerVenueContext | null, hasMultipleVenues };
+
+  try {
+    const { data, error } = await (supabaseAdmin.from("venues" as any) as any)
+      .select("id,name,address,city,state,timezone")
+      .eq("id", venueId)
+      .maybeSingle();
+    if (error || !data) return { venue: null as PlannerVenueContext | null, hasMultipleVenues };
+    return {
+      venue: {
+        id: String((data as any).id),
+        name: (data as any).name ?? null,
+        address: (data as any).address ?? null,
+        city: (data as any).city ?? null,
+        state: (data as any).state ?? null,
+        timezone: (data as any).timezone ?? null,
+      } satisfies PlannerVenueContext,
+      hasMultipleVenues,
+    };
+  } catch {
+    return { venue: null as PlannerVenueContext | null, hasMultipleVenues };
+  }
 }
 
 export async function generateMetadata() {
@@ -116,12 +159,9 @@ export default async function WeekendPlannerPage({
     lockedVariant: plannerContext.experiment_variant ?? null,
     lockedFeatureFlagState: plannerContext.feature_flag_state ?? null,
   });
-  const isTournamentIntentPlannerEntry =
-    plannerContext.entry_page_type === "tournament" &&
-    String(plannerContext.tournament_id ?? "").trim().length > 0 &&
-    (plannerActivationExperiment.directEntryEnabled || ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY);
   const allowAnonymousPlanner =
     !isAuthed && (plannerActivationExperiment.anonymousPlannerEnabled || ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY);
+  const resolvedPlannerVenue = await resolvePlannerVenueContext(plannerContext);
 
   if (user?.id && canUseSavedPlanning && plannerContext.tournament_id) {
     await saveWeekendPlanForTournament({
@@ -145,7 +185,9 @@ export default async function WeekendPlannerPage({
       ? []
       : await enrichPlannerEventsWithLinkedVenue(supabase, ((data ?? []) as PlannerEventRow[]) as any);
   }
-  const seededTournamentEvent = allowAnonymousPlanner ? buildSeededTournamentPlannerEvent(plannerContext) : null;
+  const seededTournamentEvent = allowAnonymousPlanner
+    ? buildSeededTournamentPlannerEvent(plannerContext, resolvedPlannerVenue.venue)
+    : null;
   const initialPlannerEvents = user ? plannerEvents : seededTournamentEvent ? [seededTournamentEvent] : [];
 
   let activePlans: WeekendPlanRow[] = [];
@@ -249,12 +291,6 @@ export default async function WeekendPlannerPage({
   const plannerCalendarFeedPanel = user ? await PlannerCalendarFeedPanel() : null;
   const plannerGuestSharePanel = user ? await PlannerGuestSharePanel() : null;
   const plannerAuthReturnTo = buildPlannerHref("/weekend-planner", { ...plannerContext, planner_auth: true, current_page_type: "planner", current_page_path: "/weekend-planner" });
-  const resumeLabel = String(plannerContext.tournament_name ?? "").trim();
-  const resumeDateLabel =
-    plannerContext.tournament_start_date || plannerContext.tournament_end_date
-      ? [formatDate(plannerContext.tournament_start_date ?? null), formatDate(plannerContext.tournament_end_date ?? null)].filter(Boolean).join(" - ")
-      : null;
-
 	  return (
 	    <div className={`pitchWrap tournamentsWrap ${styles.standaloneShell}`} data-weekend-planner-root="true">
 	      <section className="field tournamentsField">
@@ -271,19 +307,6 @@ export default async function WeekendPlannerPage({
 	          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
 	            {isAuthed || allowAnonymousPlanner ? (
 	              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto", display: "grid", gap: 12 }}>
-                  {resumeLabel ? (
-                    <article className={styles.panelCard}>
-                      <div className={styles.panelHeader}>
-                        <h2 className={styles.panelTitle}>
-                          {isAuthed ? "Continuing your tournament plan" : "Tournament added to this planner"}
-                        </h2>
-                        <p className={styles.panelSub}>
-                          {isAuthed ? resumeLabel : `${resumeLabel} is already loaded in this planner.`}
-                          {resumeDateLabel ? ` • ${resumeDateLabel}` : ""}
-                        </p>
-                      </div>
-                    </article>
-                  ) : null}
                   <PlannerClient
                     initialEvents={initialPlannerEvents}
                     plannerEntitlement={plannerEntitlement}
@@ -294,9 +317,13 @@ export default async function WeekendPlannerPage({
                     initialAuthState={isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out"}
                     allowAnonymousWrite={allowAnonymousPlanner}
                     allowAuthenticatedCoreWrite={canUseSavedPlanning}
+                    plannerVenueContext={resolvedPlannerVenue.venue}
+                    hasMultipleTournamentVenues={resolvedPlannerVenue.hasMultipleVenues}
                   />
-                  {plannerCalendarFeedPanel}
-                  {plannerGuestSharePanel}
+                  <div data-planner-progressive-content="true">
+                    {plannerCalendarFeedPanel}
+                    {plannerGuestSharePanel}
+                  </div>
 	              </div>
 	            ) : (
 	              <article className={styles.panelCard}>
@@ -368,12 +395,14 @@ export default async function WeekendPlannerPage({
             </div>
           ) : null}
 
-          <WeekendPlannerClient
-            mode="planner_beta"
-            initialAuthState={isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out"}
-            initialEntitlement={plannerEntitlement}
-            plannerSessionContext={plannerContext}
-          />
+          <div data-planner-progressive-content="true">
+            <WeekendPlannerClient
+              mode="planner_beta"
+              initialAuthState={isAuthed ? (isUnverified ? "unverified" : "verified") : "signed_out"}
+              initialEntitlement={plannerEntitlement}
+              plannerSessionContext={plannerContext}
+            />
+          </div>
 
 	        <div className={styles.disclosure}>
 	          <AffiliateDisclosure />

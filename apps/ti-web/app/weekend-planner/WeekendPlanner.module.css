@@ -2,6 +2,10 @@
   width: 100%;
 }
 
+.standaloneShell:has([data-first-game-activation="true"]) [data-planner-progressive-content="true"] {
+  display: none;
+}
+
 @media (display-mode: standalone) and (max-width: 800px) {
   .standaloneShell {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));

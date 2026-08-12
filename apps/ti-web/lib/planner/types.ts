@@ -117,6 +117,7 @@ export type PlannerEventCreateBody = {
   starts_at: string;
   ends_at?: string | null;
   timezone: string | null;
+  field_label?: string | null;
   child_profile_id?: string | null;
   team_profile_id?: string | null;
   tournament_id?: string | null;
@@ -125,6 +126,15 @@ export type PlannerEventCreateBody = {
   city?: string | null;
   state?: string | null;
   notes?: string | null;
+};
+
+export type PlannerVenueContext = {
+  id: string;
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  timezone: string | null;
 };
 
 export type PlannerEventUpdateBody = Partial<PlannerEventCreateBody> & {

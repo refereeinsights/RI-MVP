@@ -111,6 +111,121 @@
   margin: 0 0 10px;
 }
 
+.firstGameActivationCard,
+.firstGameSummaryCard {
+  max-width: 760px;
+  margin: 20px auto 0;
+  padding: clamp(18px, 4vw, 32px);
+  border-color: #bbf7d0;
+  box-shadow: 0 18px 45px rgba(22, 101, 52, 0.1);
+}
+
+.firstGameActivationCard {
+  background: linear-gradient(145deg, #f0fdf4 0%, #ffffff 72%);
+}
+
+.firstGameTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(22px, 4vw, 30px);
+  line-height: 1.15;
+}
+
+.firstGameFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 10px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.firstGamePrompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #dcfce7;
+}
+
+.firstGamePromptTitle {
+  margin-bottom: 4px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.firstGameForm {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #dcfce7;
+}
+
+.readOnlyValue {
+  margin-top: 6px;
+  border: 1px solid #dbe4df;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.optionalLabel {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.formError {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.firstGameSummaryHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, auto);
+  gap: 20px;
+  align-items: start;
+}
+
+.activatedGameSummary {
+  display: grid;
+  gap: 4px;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 13px;
+}
+
+.successNotice {
+  margin-top: 14px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+@media (max-width: 640px) {
+  .firstGamePrompt {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .firstGameSummaryHeader {
+    grid-template-columns: 1fr;
+  }
+}
+
 .formGrid {
   display: grid;
   grid-template-columns: 1fr;

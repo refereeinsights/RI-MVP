@@ -135,6 +135,7 @@ export async function POST(req: Request) {
     starts_at: string;
     ends_at: string | null;
     timezone: string | null;
+    field_label: string | null;
     child_profile_id: string | null;
     team_profile_id: string | null;
     tournament_id: string | null;
@@ -182,6 +183,7 @@ export async function POST(req: Request) {
       starts_at: startsAt,
       ends_at: endsAt,
       timezone: normalizeTimeZone(asString(event.timezone)),
+      field_label: clamp(asString(event.field_label), 120),
       child_profile_id: assignmentValidation.childProfileId,
       team_profile_id: assignmentValidation.teamProfileId,
       tournament_id: tournamentId,
@@ -261,6 +263,7 @@ export async function POST(req: Request) {
       starts_at: event.starts_at,
       ends_at: event.ends_at,
       timezone: event.timezone,
+      field_label: event.field_label,
       child_profile_id: event.child_profile_id,
       team_profile_id: event.team_profile_id,
       tournament_id: event.tournament_id,

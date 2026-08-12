@@ -183,6 +183,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "invalid_state" }, { status: 400 });
   }
   const notes = clamp(asString((body as any).notes), 2000);
+  const fieldLabel = clamp(asString((body as any).field_label), 120);
 
   const { data, error } = await (supabase.from("planner_events" as any) as any)
     .insert({
@@ -192,6 +193,7 @@ export async function POST(req: Request) {
       starts_at: startsAt,
       ends_at: endsAt,
       timezone,
+      field_label: fieldLabel,
       child_profile_id: assignmentValidation.childProfileId,
       team_profile_id: assignmentValidation.teamProfileId,
       tournament_id: tournamentId,

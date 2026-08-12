@@ -210,8 +210,7 @@ type PlannerFirstActionType =
   | "manual_event_created"
   | "guest_share_created"
   | "calendar_feed_created"
-  | "team_hotel_clicked"
-  | "view_toggle";
+  | "team_hotel_clicked";
 type PlannerClaimSkippedReason = "no_snapshot" | "already_claimed" | "not_authenticated" | "no_manual_items";
 type PlannerPromptLocation = "post_first_manual_event" | "post_claim" | "calendar_gate";
 
@@ -230,6 +229,7 @@ type PlannerCanonicalContext = {
   experiment_name?: "anonymous_planner_activation_v1";
   experiment_variant?: "control" | "treatment";
   feature_flag_state?: "disabled" | "enabled";
+  activation_flow?: "first_game_inline_v1";
 };
 
 type TeamTravelEligibilityProperties = {
@@ -1045,7 +1045,7 @@ export type TiAnalyticsEventPropertiesByName = {
     surface: "planner";
     source_page_type: "planner" | "tournament";
     cta_type: "add_first_event";
-    auth_state: "signed_out";
+    auth_state: PlannerAuthState;
     entitlement: PlannerEntitlement;
     form_location: "entry_card";
     device_type: "mobile" | "desktop" | null;
@@ -1054,7 +1054,7 @@ export type TiAnalyticsEventPropertiesByName = {
     surface: "planner";
     source_page_type: "planner" | "tournament";
     cta_type: "add_first_event";
-    auth_state: "signed_out";
+    auth_state: PlannerAuthState;
     entitlement: PlannerEntitlement;
     form_location: "entry_card";
     device_type: "mobile" | "desktop" | null;

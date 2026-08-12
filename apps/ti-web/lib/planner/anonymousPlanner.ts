@@ -1,4 +1,4 @@
-import type { PlannerEventCreateBody, PlannerEventRow } from "./types";
+import type { PlannerEventCreateBody, PlannerEventRow, PlannerVenueContext } from "./types";
 import type { PlannerSessionContext } from "./plannerSession";
 
 const STORAGE_PREFIX = "ti:anonymous-planner:v1:";
@@ -76,9 +76,9 @@ export function loadAnonymousPlannerSnapshot(context: PlannerSessionContext | nu
 }
 
 function safeWriteSnapshot(context: PlannerSessionContext | null | undefined, events: PlannerEventRow[]) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return false;
   const keys = snapshotKeysForContext(context);
-  if (!keys.length) return;
+  if (!keys.length) return false;
   try {
     const snapshot: AnonymousPlannerSnapshot = {
       plannerSessionId: String(context?.planner_session_id ?? "").trim(),
@@ -88,8 +88,9 @@ function safeWriteSnapshot(context: PlannerSessionContext | null | undefined, ev
     };
     const raw = JSON.stringify(snapshot);
     for (const key of keys) window.localStorage.setItem(key, raw);
+    return true;
   } catch {
-    // ignore storage failures
+    return false;
   }
 }
 
@@ -98,7 +99,7 @@ export function loadAnonymousPlannerEvents(context: PlannerSessionContext | null
 }
 
 export function saveAnonymousPlannerEvents(context: PlannerSessionContext | null | undefined, events: PlannerEventRow[]) {
-  safeWriteSnapshot(context, events);
+  return safeWriteSnapshot(context, events);
 }
 
 export function clearAnonymousPlannerSnapshot(context: PlannerSessionContext | null | undefined) {
@@ -146,7 +147,10 @@ export function markAnonymousPlannerClaimed(plannerSessionId: string | null | un
   }
 }
 
-export function buildSeededTournamentPlannerEvent(context: PlannerSessionContext | null | undefined): PlannerEventRow | null {
+export function buildSeededTournamentPlannerEvent(
+  context: PlannerSessionContext | null | undefined,
+  venueContext?: PlannerVenueContext | null,
+): PlannerEventRow | null {
   const plannerSessionId = String(context?.planner_session_id ?? "").trim();
   const tournamentId = String(context?.tournament_id ?? "").trim();
   const tournamentName = String(context?.tournament_name ?? "").trim();
@@ -167,21 +171,30 @@ export function buildSeededTournamentPlannerEvent(context: PlannerSessionContext
     team_name: null,
     opponent_name: null,
     tournament_id: tournamentId,
-    venue_id: String(context?.venue_id ?? "").trim() || null,
+    venue_id: venueContext?.id ?? null,
     field_label: null,
-    address_text: null,
-    city: null,
-    state: null,
+    address_text: venueContext?.address ?? null,
+    city: venueContext?.city ?? null,
+    state: venueContext?.state ?? null,
     starts_at: `${startDate}T09:00:00.000Z`,
     ends_at: endsAt,
-    timezone: "UTC",
+    timezone: venueContext?.timezone ?? "UTC",
     notes: "Tournament context added from your selected event.",
     child_profile_id: null,
     team_profile_id: null,
     source_type: "tournament",
     source_id: null,
     source_event_uid: null,
-    linkedVenue: null,
+    linkedVenue: venueContext
+      ? {
+          id: venueContext.id,
+          name: venueContext.name,
+          address: venueContext.address,
+          city: venueContext.city,
+          state: venueContext.state,
+          seo_slug: null,
+        }
+      : null,
     created_at: nowIso(),
     updated_at: nowIso(),
   };
@@ -199,7 +212,7 @@ export function buildAnonymousPlannerEvent(body: PlannerEventCreateBody): Planne
     opponent_name: null,
     tournament_id: body.tournament_id ?? null,
     venue_id: body.venue_id ?? null,
-    field_label: null,
+    field_label: body.field_label ?? null,
     address_text: body.address_text ?? null,
     city: body.city ?? null,
     state: body.state ?? null,
@@ -226,6 +239,7 @@ export function updateAnonymousPlannerEvent(existing: PlannerEventRow, body: Pla
     starts_at: body.starts_at ?? existing.starts_at,
     ends_at: body.ends_at === undefined ? existing.ends_at : body.ends_at,
     timezone: body.timezone === undefined ? existing.timezone : body.timezone,
+    field_label: body.field_label === undefined ? existing.field_label : body.field_label,
     child_profile_id: body.child_profile_id === undefined ? existing.child_profile_id : body.child_profile_id,
     team_profile_id: body.team_profile_id === undefined ? existing.team_profile_id : body.team_profile_id,
     tournament_id: body.tournament_id === undefined ? existing.tournament_id : body.tournament_id,

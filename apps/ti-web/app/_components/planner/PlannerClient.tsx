@@ -26,7 +26,12 @@ import { inferAssignmentFromSourceLabel } from "@/lib/planner/inferAssignmentFro
 import { sanitizeIcsNotesForDisplay } from "@/lib/planner/icsNoteSanitizer";
 import { isMapLinkEligibleLocation, mapsSearchUrl, plannerEventLocationForMaps } from "@/lib/planner/venueResolution";
 import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
-import { shouldEmitPlannerFirstActionAvailable } from "@/lib/planner/firstActionAvailability";
+import {
+  FIRST_GAME_ACTIVATION_FLOW,
+  isFirstGameDateAllowed,
+  normalizeFirstGameTournamentContext,
+  tournamentUserAuthoredEvents,
+} from "@/lib/planner/firstGameActivation";
 import type {
   PlannerChildWithTeamsRow,
   PlannerEventCreateBody,
@@ -34,6 +39,7 @@ import type {
   PlannerEventType,
   PlannerSourceRow,
   PlannerEventUpdateBody,
+  PlannerVenueContext,
 } from "@/lib/planner/types";
 import type { TiTier } from "@/lib/entitlements";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
@@ -50,6 +56,8 @@ type Props = {
   initialAuthState?: "signed_out" | "unverified" | "verified";
   allowAnonymousWrite?: boolean;
   allowAuthenticatedCoreWrite?: boolean;
+  plannerVenueContext?: PlannerVenueContext | null;
+  hasMultipleTournamentVenues?: boolean;
 };
 
 type PlannerLens = "weekend" | "season";
@@ -359,9 +367,15 @@ function formatDateRangeLabel(start: string | null, end: string | null) {
   if (!start && !end) return null;
   const s = start ? new Date(`${start}T00:00:00Z`) : null;
   const e = end ? new Date(`${end}T00:00:00Z`) : null;
-  const fmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const fmt = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
   const sText = s && !Number.isNaN(s.getTime()) ? fmt.format(s) : null;
   const eText = e && !Number.isNaN(e.getTime()) ? fmt.format(e) : null;
+  if (start && end && start === end) return sText || eText;
   if (sText && eText) return `${sText} – ${eText}`;
   return sText || eText;
 }
@@ -483,6 +497,23 @@ export default function PlannerClient(props: Props) {
   const canWritePlanner = allowAnonymousPlanner || Boolean(props.allowAuthenticatedCoreWrite);
   const isCorePlannerBlocked = !allowAnonymousPlanner && !Boolean(props.allowAuthenticatedCoreWrite);
   const plannerSourcePageType = props.plannerSessionContext?.entry_page_type === "tournament" ? "tournament" : "planner";
+  const firstGameTournamentContext = useMemo(
+    () =>
+      normalizeFirstGameTournamentContext({
+        entryPageType: props.plannerSessionContext?.entry_page_type,
+        tournamentId: props.plannerSessionContext?.tournament_id,
+        tournamentName: props.plannerSessionContext?.tournament_name,
+        startDate: props.plannerSessionContext?.tournament_start_date,
+        endDate: props.plannerSessionContext?.tournament_end_date,
+      }),
+    [
+      props.plannerSessionContext?.entry_page_type,
+      props.plannerSessionContext?.tournament_end_date,
+      props.plannerSessionContext?.tournament_id,
+      props.plannerSessionContext?.tournament_name,
+      props.plannerSessionContext?.tournament_start_date,
+    ],
+  );
   const plannerAuthReturnTo = useMemo(
     () =>
       buildPlannerHref("/weekend-planner", {
@@ -554,6 +585,7 @@ export default function PlannerClient(props: Props) {
           experiment_name: props.plannerActivationExperiment?.experimentName ?? undefined,
           experiment_variant: props.plannerActivationExperiment?.variant ?? undefined,
           feature_flag_state: props.plannerActivationExperiment?.featureFlagState ?? undefined,
+          activation_flow: firstGameTournamentContext ? FIRST_GAME_ACTIVATION_FLOW : undefined,
           ...properties,
         } as any,
       );
@@ -584,7 +616,7 @@ export default function PlannerClient(props: Props) {
     return element.getClientRects().length > 0;
   }
 
-  function trackPlannerFirstAction(firstActionType: "manual_event_created" | "guest_share_created" | "calendar_feed_created" | "team_hotel_clicked" | "view_toggle") {
+  function trackPlannerFirstAction(firstActionType: "manual_event_created" | "guest_share_created" | "calendar_feed_created" | "team_hotel_clicked") {
     const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
     if (!plannerSessionId) return;
     if (wasPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action")) return;
@@ -632,7 +664,10 @@ export default function PlannerClient(props: Props) {
     formLocation: "entry_card" | "saved_state_card" | "manual_event_card",
     eventType?: PlannerEventType,
   ) {
-    if (!(allowAnonymousPlanner && anonymousManualEventCount === 0)) return;
+    const isTournamentFirstGameAttempt = Boolean(
+      firstGameTournamentContext && currentTournamentManualEvents.length === 0,
+    );
+    if (!isTournamentFirstGameAttempt && !(allowAnonymousPlanner && anonymousManualEventCount === 0)) return;
     trackPlannerEvent("weekend_planner_manual_event_failed", {
       surface: "planner",
       source_page_type: plannerSourcePageType,
@@ -749,6 +784,14 @@ export default function PlannerClient(props: Props) {
   const [anonymousStorageReady, setAnonymousStorageReady] = useState(false);
   const [claimedAnonymousState, setClaimedAnonymousState] = useState(false);
   const [anonymousClaimPending, setAnonymousClaimPending] = useState(false);
+  const [firstGameOpen, setFirstGameOpen] = useState(false);
+  const [firstGameDate, setFirstGameDate] = useState(firstGameTournamentContext?.startDate ?? "");
+  const [firstGameTime, setFirstGameTime] = useState("");
+  const [firstGameFieldLabel, setFirstGameFieldLabel] = useState("");
+  const [firstGameTimeZone, setFirstGameTimeZone] = useState(
+    () => safeTimeZone(props.plannerVenueContext?.timezone ?? null) || safeTimeZone(browserTimeZone()) || "UTC",
+  );
+  const firstGameStartedTrackedRef = useRef(false);
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -1139,6 +1182,10 @@ export default function PlannerClient(props: Props) {
     let cancelled = false;
     const venueId = createVenueId.trim();
     const tournamentId = createTournamentId.trim();
+    if (allowAnonymousPlanner) {
+      if (!createTimeZoneLocked) setCreateTimeZone(safeTimeZone(tz) || "UTC");
+      return;
+    }
     if (!venueId && !tournamentId) {
       if (!createTimeZoneLocked) setCreateTimeZone(safeTimeZone(tz) || "UTC");
       return;
@@ -1158,7 +1205,7 @@ export default function PlannerClient(props: Props) {
     return () => {
       cancelled = true;
     };
-  }, [createVenueId, createTournamentId, tz, createTimeZoneLocked]);
+  }, [allowAnonymousPlanner, createVenueId, createTournamentId, tz, createTimeZoneLocked]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1468,6 +1515,69 @@ export default function PlannerClient(props: Props) {
     return events.filter((event) => String(event.source_type ?? "") === "manual").length;
   }, [events]);
 
+  const currentTournamentManualEvents = useMemo(
+    () =>
+      firstGameTournamentContext
+        ? tournamentUserAuthoredEvents(events, firstGameTournamentContext.tournamentId)
+        : [],
+    [events, firstGameTournamentContext],
+  );
+  const firstGameStateReady = !allowAnonymousPlanner || anonymousStorageReady;
+  const showFirstGameActivation = Boolean(
+    firstGameTournamentContext &&
+      firstGameStateReady &&
+      canWritePlanner &&
+      currentTournamentManualEvents.length === 0,
+  );
+  const showTournamentActivatedState = Boolean(
+    firstGameTournamentContext && currentTournamentManualEvents.length > 0,
+  );
+  const firstGameActivationPending = Boolean(
+    firstGameTournamentContext && allowAnonymousPlanner && !anonymousStorageReady,
+  );
+  const activatedFirstGame =
+    currentTournamentManualEvents.find((event) => event.event_type === "game") ??
+    currentTournamentManualEvents[0] ??
+    null;
+
+  useEffect(() => {
+    if (!firstGameTournamentContext) return;
+    setFirstGameDate((current) =>
+      isFirstGameDateAllowed(firstGameTournamentContext, current)
+        ? current
+        : firstGameTournamentContext.startDate,
+    );
+  }, [firstGameTournamentContext]);
+
+  useEffect(() => {
+    if (!firstGameTournamentContext) return;
+    const venueTimeZone = safeTimeZone(props.plannerVenueContext?.timezone ?? null);
+    if (venueTimeZone) {
+      setFirstGameTimeZone(venueTimeZone);
+      return;
+    }
+    if (allowAnonymousPlanner) {
+      setFirstGameTimeZone(safeTimeZone(tz) || "UTC");
+      return;
+    }
+    let cancelled = false;
+    void jsonFetch<{ ok: true; timezone: string | null }>(
+      `/api/planner/timezone?tournament_id=${encodeURIComponent(firstGameTournamentContext.tournamentId)}`,
+      { method: "GET" },
+    )
+      .then((response) => {
+        if (cancelled) return;
+        setFirstGameTimeZone(safeTimeZone(response.timezone) || safeTimeZone(tz) || "UTC");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFirstGameTimeZone(safeTimeZone(tz) || "UTC");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [allowAnonymousPlanner, firstGameTournamentContext, props.plannerVenueContext?.timezone, tz]);
+
   const seasonDateRangeLabel = useMemo(() => {
     return formatDateRangeLabel(seasonDateStart || null, seasonDateEnd || null);
   }, [seasonDateEnd, seasonDateStart]);
@@ -1551,6 +1661,172 @@ export default function PlannerClient(props: Props) {
         // ignore
       }
     }, 0);
+  }
+
+  function openFirstGameInteraction() {
+    if (!firstGameTournamentContext || busy) return;
+    setError(null);
+    setNotice(null);
+    setFirstGameOpen(true);
+    firstGameStartedTrackedRef.current = false;
+    trackPlannerEvent("weekend_planner_start_clicked", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      cta_type: "add_first_event",
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+    });
+    trackPlannerEvent("weekend_planner_first_action_cta_clicked", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      cta_type: "add_first_event",
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      form_location: "entry_card",
+      device_type: plannerDeviceType(),
+    });
+    trackPlannerEvent("weekend_planner_manual_event_form_opened", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      form_location: "entry_card",
+      device_type: plannerDeviceType(),
+    });
+  }
+
+  function markFirstGameInteractionStarted() {
+    if (firstGameStartedTrackedRef.current) return;
+    firstGameStartedTrackedRef.current = true;
+    trackPlannerEvent("weekend_planner_manual_event_form_started", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      form_location: "entry_card",
+      device_type: plannerDeviceType(),
+    });
+  }
+
+  async function onCreateFirstGame() {
+    if (!firstGameTournamentContext || busy || !canWritePlanner) return;
+    setError(null);
+    setNotice(null);
+    if (!isFirstGameDateAllowed(firstGameTournamentContext, firstGameDate)) {
+      setError("Choose a date within the tournament weekend.");
+      return;
+    }
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(firstGameTime)) {
+      setError("Game time is required.");
+      return;
+    }
+
+    const startsAt = zonedPartsToUtcIso({
+      date: firstGameDate,
+      time: firstGameTime,
+      timeZone: firstGameTimeZone,
+    });
+    if (!startsAt) {
+      setError("Game time is invalid.");
+      return;
+    }
+    const endsAt = new Date(new Date(startsAt).getTime() + 60 * 60_000).toISOString();
+    const venue = props.hasMultipleTournamentVenues ? null : props.plannerVenueContext ?? null;
+    const body: PlannerEventCreateBody = {
+      title: `Game — ${firstGameTournamentContext.tournamentName}`,
+      event_type: "game",
+      starts_at: startsAt,
+      ends_at: endsAt,
+      timezone: firstGameTimeZone,
+      field_label: firstGameFieldLabel.trim() || null,
+      tournament_id: firstGameTournamentContext.tournamentId,
+      venue_id: venue?.id ?? null,
+      address_text: venue?.address ?? null,
+      city: venue?.city ?? null,
+      state: venue?.state ?? null,
+    };
+
+    trackPlannerEvent("weekend_planner_manual_event_submitted", {
+      surface: "planner",
+      source_page_type: plannerSourcePageType,
+      auth_state: plannerAuthState,
+      entitlement: entitlementForAnalytics,
+      form_location: "entry_card",
+      device_type: plannerDeviceType(),
+      event_type: "game",
+    });
+
+    setBusy(true);
+    try {
+      let createdEvent: PlannerEventRow;
+      if (allowAnonymousPlanner) {
+        createdEvent = buildAnonymousPlannerEvent(body);
+        const nextEvents = sortPlannerEvents([...events, createdEvent]);
+        const persisted = saveAnonymousPlannerEvents(props.plannerSessionContext, nextEvents);
+        if (!persisted) {
+          setError("We could not save this game on this device. Check browser storage and try again.");
+          trackFirstActionManualEventFailure("local_storage_write_failed", "entry_card", "game");
+          return;
+        }
+        setEvents(nextEvents);
+        trackPlannerEvent("weekend_planner_temporary_event_persisted", {
+          surface: "planner",
+          source_page_type: plannerSourcePageType,
+          auth_state: "signed_out",
+          entitlement: entitlementForAnalytics,
+          form_location: "entry_card",
+          device_type: plannerDeviceType(),
+          temporary_plan_id: createdEvent.id,
+          event_type: "game",
+        });
+      } else {
+        const response = await jsonFetch<{ ok: true; event: PlannerEventRow }>("/api/planner/events", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        createdEvent = response.event;
+        setEvents((current) => sortPlannerEvents([...current, createdEvent]));
+      }
+
+      trackPlannerEvent("planner_manual_event_created", {
+        surface: "weekend_planner",
+        entitlement: entitlementForAnalytics,
+        event_type: "game",
+      });
+      // Persisted value, not submit intent, is the activation boundary.
+      trackPlannerFirstAction("manual_event_created");
+      trackPlannerActivationIfNeeded("manual_event_created", "game");
+      setFirstGameOpen(false);
+      setFirstGameTime("");
+      setFirstGameFieldLabel("");
+      setNotice("First game added to your tournament weekend.");
+    } catch (caught: any) {
+      setError(caught?.message || "Failed to add the first game.");
+      trackFirstActionManualEventFailure(String(caught?.message ?? "create_failed"), "entry_card", "game");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openProgressiveEvent(type: PlannerEventType) {
+    if (!firstGameTournamentContext) return;
+    resetCreateForm();
+    setCreateType(type);
+    setCreateTitle(
+      type === "game"
+        ? `Game — ${firstGameTournamentContext.tournamentName}`
+        : `${EVENT_TYPES.find((option) => option.value === type)?.label ?? "Plan"} — ${firstGameTournamentContext.tournamentName}`,
+    );
+    setCreateTournamentId(firstGameTournamentContext.tournamentId);
+    if (!props.hasMultipleTournamentVenues && props.plannerVenueContext) {
+      setCreateVenueId(props.plannerVenueContext.id);
+      setCreateSelectedVenue(props.plannerVenueContext);
+      setCreateVenueQuery(props.plannerVenueContext.name ?? "");
+      setCreateAddress(props.plannerVenueContext.address ?? "");
+      setCreateCity(props.plannerVenueContext.city ?? "");
+      setCreateState(props.plannerVenueContext.state ?? "");
+    }
+    openManualEventFromTop("saved_state_card");
   }
 
   const grouped = useMemo(() => {
@@ -1899,49 +2175,34 @@ export default function PlannerClient(props: Props) {
   useEffect(() => {
     const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
     if (!plannerSessionId) return;
-    if (
-      !shouldEmitPlannerFirstActionAvailable({
-        allowAnonymousPlanner,
-        initialLoadSettled: initialLoadSettledRef.current,
-        eventsPagingBusy,
-        busy,
-        createOpen,
-        anonymousManualEventCount,
-        plannerSessionContext: props.plannerSessionContext,
-        ctaRendered: Boolean(firstActionEntryCtaRef.current),
-        ctaEnabled: !firstActionEntryCtaRef.current?.disabled,
-        ctaInteractive: isVisiblyInteractiveButton(firstActionEntryCtaRef.current),
-      })
-    ) {
-      return;
-    }
+    if (!showFirstGameActivation || !initialLoadSettledRef.current || eventsPagingBusy || busy) return;
+    if (!isVisiblyInteractiveButton(firstActionEntryCtaRef.current)) return;
     if (wasPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action_available")) return;
     markPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action_available");
     trackPlannerEvent("weekend_planner_first_action_available", {
       surface: "planner",
       source_page_type: plannerSourcePageType,
       cta_type: "add_first_event",
-      auth_state: "signed_out",
+      auth_state: plannerAuthState,
       entitlement: entitlementForAnalytics,
       form_location: "entry_card",
       device_type: plannerDeviceType(),
     });
   }, [
-    allowAnonymousPlanner,
-    anonymousManualEventCount,
     busy,
-    createOpen,
     entitlementForAnalytics,
     eventsPagingBusy,
+    plannerAuthState,
     plannerSourcePageType,
     props.plannerSessionContext,
+    showFirstGameActivation,
   ]);
 
   useEffect(() => {
     const plannerSessionId = props.plannerSessionContext?.planner_session_id ?? null;
     const cta = firstActionEntryCtaRef.current;
     if (!plannerSessionId || !cta) return;
-    if (!allowAnonymousPlanner || anonymousManualEventCount !== 0 || createOpen) return;
+    if (!showFirstGameActivation) return;
     if (!initialLoadSettledRef.current || eventsPagingBusy || busy) return;
     if (!isVisiblyInteractiveButton(cta)) return;
     if (wasPlannerSessionEventSeen(plannerSessionId, "weekend_planner_first_action_cta_viewed")) return;
@@ -1957,7 +2218,7 @@ export default function PlannerClient(props: Props) {
           surface: "planner",
           source_page_type: plannerSourcePageType,
           cta_type: "add_first_event",
-          auth_state: "signed_out",
+          auth_state: plannerAuthState,
           entitlement: entitlementForAnalytics,
           form_location: "entry_card",
           device_type: plannerDeviceType(),
@@ -1973,14 +2234,13 @@ export default function PlannerClient(props: Props) {
       observer.disconnect();
     };
   }, [
-    allowAnonymousPlanner,
-    anonymousManualEventCount,
     busy,
-    createOpen,
     entitlementForAnalytics,
     eventsPagingBusy,
+    plannerAuthState,
     plannerSourcePageType,
     props.plannerSessionContext,
+    showFirstGameActivation,
   ]);
 
   useEffect(() => {
@@ -2754,6 +3014,14 @@ export default function PlannerClient(props: Props) {
       }
       if (allowAnonymousPlanner) {
         const event = buildAnonymousPlannerEvent(body);
+        const nextEvents = sortPlannerEvents([...events, event]);
+        const persisted = saveAnonymousPlannerEvents(props.plannerSessionContext, nextEvents);
+        if (!persisted) {
+          setError("We could not save this event on this device. Check browser storage and try again.");
+          trackFirstActionManualEventFailure("local_storage_write_failed", createFormLocationRef.current, createType);
+          return;
+        }
+        setEvents(nextEvents);
         trackPlannerEvent("planner_manual_event_created", {
           surface: "weekend_planner",
           entitlement: entitlementForAnalytics,
@@ -2771,9 +3039,9 @@ export default function PlannerClient(props: Props) {
             event_type: createType,
           });
         }
+        // Meaningful action and activation are emitted only after the local snapshot succeeds.
         trackPlannerFirstAction("manual_event_created");
         trackPlannerActivationIfNeeded("manual_event_created", createType);
-        setEvents((prev) => sortPlannerEvents([...prev, event]));
         resetCreateForm();
         createFormStartedTrackedRef.current = false;
         setCreateOpen(false);
@@ -3183,7 +3451,10 @@ export default function PlannerClient(props: Props) {
   }, [editTournamentQuery, editSelectedTournament]);
 
   return (
-    <div className={styles.page}>
+    <div
+      className={styles.page}
+      data-first-game-activation={showFirstGameActivation || firstGameActivationPending ? "true" : undefined}
+    >
       {mergeOpen ? (
         (() => {
           const primary = mergeAnchorEventId ? events.find((e) => e.id === mergeAnchorEventId) ?? null : null;
@@ -3788,9 +4059,181 @@ export default function PlannerClient(props: Props) {
                     )}
 				          </div>
 			        </div>
-			      ) : null}
+		      ) : null}
 
-          {allowAnonymousPlanner ? (
+          {firstGameActivationPending && firstGameTournamentContext ? (
+            <section className={`${styles.card} ${styles.firstGameActivationCard}`} aria-live="polite">
+              <div className={styles.cardTitle}>Your tournament weekend</div>
+              <h2 className={styles.firstGameTitle}>{firstGameTournamentContext.tournamentName}</h2>
+              <div className={styles.muted}>Loading your saved planner on this device…</div>
+            </section>
+          ) : null}
+
+          {showFirstGameActivation && firstGameTournamentContext ? (
+            <section className={`${styles.card} ${styles.firstGameActivationCard}`} aria-labelledby="first-game-title">
+              <div className={styles.cardTitle}>Your tournament weekend is ready</div>
+              <h2 id="first-game-title" className={styles.firstGameTitle}>
+                {firstGameTournamentContext.tournamentName}
+              </h2>
+              <div className={styles.firstGameFacts}>
+                <span>{formatDateRangeLabel(firstGameTournamentContext.startDate, firstGameTournamentContext.endDate)}</span>
+                <span>
+                  {props.hasMultipleTournamentVenues
+                    ? "Multiple venues"
+                    : props.plannerVenueContext?.name ||
+                      [props.plannerVenueContext?.city, props.plannerVenueContext?.state].filter(Boolean).join(", ") ||
+                      "Venue details can be added later"}
+                </span>
+              </div>
+
+              {!firstGameOpen ? (
+                <div className={styles.firstGamePrompt}>
+                  <div>
+                    <div className={styles.firstGamePromptTitle}>What time is your first game?</div>
+                    <div className={styles.muted}>Add one game now. You can build the rest of the weekend afterward.</div>
+                  </div>
+                  <button
+                    ref={firstActionEntryCtaRef}
+                    className={styles.primaryBtn}
+                    type="button"
+                    onClick={openFirstGameInteraction}
+                    disabled={busy}
+                  >
+                    Add first game
+                  </button>
+                </div>
+              ) : (
+                <div className={styles.firstGameForm}>
+                  <div className={styles.formGrid}>
+                    <label className={styles.label}>
+                      Date
+                      {firstGameTournamentContext.startDate === firstGameTournamentContext.endDate ? (
+                        <div className={styles.readOnlyValue}>
+                          {formatDateRangeLabel(firstGameTournamentContext.startDate, firstGameTournamentContext.endDate)}
+                        </div>
+                      ) : (
+                        <input
+                          className={styles.input}
+                          type="date"
+                          min={firstGameTournamentContext.startDate}
+                          max={firstGameTournamentContext.endDate}
+                          value={firstGameDate}
+                          onChange={(event) => {
+                            setFirstGameDate(event.target.value);
+                            markFirstGameInteractionStarted();
+                          }}
+                          disabled={busy}
+                        />
+                      )}
+                    </label>
+                    <label className={styles.label}>
+                      Game time
+                      <input
+                        className={styles.input}
+                        type="time"
+                        value={firstGameTime}
+                        onChange={(event) => {
+                          setFirstGameTime(event.target.value);
+                          markFirstGameInteractionStarted();
+                        }}
+                        disabled={busy}
+                        required
+                      />
+                    </label>
+                    <label className={styles.label}>
+                      Field or court <span className={styles.optionalLabel}>(optional)</span>
+                      <input
+                        className={styles.input}
+                        value={firstGameFieldLabel}
+                        onChange={(event) => {
+                          setFirstGameFieldLabel(event.target.value);
+                          markFirstGameInteractionStarted();
+                        }}
+                        maxLength={120}
+                        placeholder="Field 3"
+                        disabled={busy}
+                      />
+                    </label>
+                  </div>
+                  <div className={styles.muted}>Times are saved in {firstGameTimeZone.replaceAll("_", " ")}.</div>
+                  {error ? <div className={styles.formError}>{error}</div> : null}
+                  <div className={styles.eventActions}>
+                    <button className={styles.primaryBtn} type="button" onClick={() => void onCreateFirstGame()} disabled={busy}>
+                      {busy ? "Adding game…" : "Add game"}
+                    </button>
+                    <button className={styles.secondaryBtn} type="button" onClick={() => setFirstGameOpen(false)} disabled={busy}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          ) : null}
+
+          {showFirstGameActivation || firstGameActivationPending ? null : (
+          <>
+          {showTournamentActivatedState && firstGameTournamentContext ? (
+            <section className={`${styles.card} ${styles.firstGameSummaryCard}`} aria-live="polite">
+              <div className={styles.cardTitle}>Tournament weekend started</div>
+              <div className={styles.firstGameSummaryHeader}>
+                <div>
+                  <h2 className={styles.firstGameTitle}>{firstGameTournamentContext.tournamentName}</h2>
+                  <div className={styles.muted}>
+                    {formatDateRangeLabel(firstGameTournamentContext.startDate, firstGameTournamentContext.endDate)}
+                    {props.plannerVenueContext?.name ? ` · ${props.plannerVenueContext.name}` : ""}
+                  </div>
+                </div>
+                {activatedFirstGame ? (
+                  <div className={styles.activatedGameSummary}>
+                    <strong>{activatedFirstGame.title}</strong>
+                    <span>
+                      {formatTimeRange({
+                        startIso: activatedFirstGame.starts_at,
+                        endIso: activatedFirstGame.ends_at,
+                        timeZone: effectiveTimeZoneForEvent(activatedFirstGame),
+                      })}
+                      {activatedFirstGame.field_label ? ` · ${activatedFirstGame.field_label}` : ""}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+              {notice ? <div className={styles.successNotice}>{notice}</div> : null}
+              <div className={styles.eventActions}>
+                <button className={styles.primaryBtn} type="button" onClick={() => openProgressiveEvent("game")} disabled={busy}>
+                  Add another game
+                </button>
+                <button className={styles.secondaryBtn} type="button" onClick={() => openProgressiveEvent("hotel")} disabled={busy}>
+                  Add hotel or check-in
+                </button>
+                <button className={styles.secondaryBtn} type="button" onClick={() => openProgressiveEvent("meal")} disabled={busy}>
+                  Add meal
+                </button>
+                <button className={styles.secondaryBtn} type="button" onClick={() => openProgressiveEvent("travel")} disabled={busy}>
+                  Add travel
+                </button>
+                {allowAnonymousPlanner ? (
+                  <>
+                    <Link
+                      className={styles.secondaryBtn}
+                      href={`/signup?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
+                      onClick={() => trackPlannerAuthPromptClick("create_account", "post_first_manual_event")}
+                    >
+                      Create account to save
+                    </Link>
+                    <Link
+                      className={styles.secondaryBtn}
+                      href={`/login?returnTo=${encodeURIComponent(plannerAuthReturnTo)}`}
+                      onClick={() => trackPlannerAuthPromptClick("sign_in", "post_first_manual_event")}
+                    >
+                      Sign in
+                    </Link>
+                  </>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {allowAnonymousPlanner && !showTournamentActivatedState ? (
             <div className={styles.card} style={{ marginBottom: 12 }}>
               <div className={styles.cardTitle}>
                 {anonymousManualEventCount > 0 ? "Save this planner to keep it" : "Temporary planner"}
@@ -3919,8 +4362,7 @@ export default function PlannerClient(props: Props) {
                       from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
                       to_view: "upcoming",
                     });
-                    trackPlannerFirstAction("view_toggle");
-		                setScheduleView("upcoming");
+			                setScheduleView("upcoming");
                   }}
 		                disabled={busy}
 		              >
@@ -3937,8 +4379,7 @@ export default function PlannerClient(props: Props) {
                       from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
                       to_view: "this_weekend",
                     });
-                    trackPlannerFirstAction("view_toggle");
-		                setScheduleView("weekend");
+			                setScheduleView("weekend");
                   }}
 		                disabled={busy}
 		              >
@@ -3955,8 +4396,7 @@ export default function PlannerClient(props: Props) {
                       from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
                       to_view: "season",
                     });
-                    trackPlannerFirstAction("view_toggle");
-		                setScheduleView("season");
+			                setScheduleView("season");
                   }}
 		                disabled={busy}
 		              >
@@ -5511,6 +5951,8 @@ export default function PlannerClient(props: Props) {
         </div>
         </aside>
       </div>
+          </>
+          )}
 	    </div>
 	  );
 	}

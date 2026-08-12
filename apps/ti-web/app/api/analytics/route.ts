@@ -487,6 +487,7 @@ export async function POST(request: Request) {
     const experimentName = asTextWithLimit((props as any).experiment_name, 64);
     const experimentVariant = asTextWithLimit((props as any).experiment_variant, 32);
     const featureFlagState = asTextWithLimit((props as any).feature_flag_state, 32);
+    const activationFlow = asTextWithLimit((props as any).activation_flow, 64);
 
     const hasPlannerActivationShape =
       payload.event.startsWith("weekend_planner_") ||
@@ -529,6 +530,7 @@ export async function POST(request: Request) {
           experiment_name: experimentName,
           experiment_variant: experimentVariant,
           feature_flag_state: featureFlagState,
+          activation_flow: activationFlow,
           ua: userAgent ?? null,
           host: host ?? null,
           origin: origin ?? null,
