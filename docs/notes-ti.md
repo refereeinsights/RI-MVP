@@ -15,6 +15,12 @@ Maintenance rules:
 
 ## 2026-08-12
 
+- TI Weekend Planner Claude-UAT follow-up:
+  - Fixed cross-tournament anonymous snapshot contamination that allowed old seeded tournament context rows to appear in later tournament planners and produce false schedule-conflict warnings.
+  - Seeded `source_type="tournament"` rows are now filtered from legacy snapshots on read and excluded from all future snapshot writes. Real manual planner events still persist across the existing active/session/tournament aliases, and the current tournament seed is reconstructed from trusted page context.
+  - The conflict engine now ignores the current synthetic seed's artificial time window while retaining normal overlap detection between real events.
+  - Validation passed: focused planner tests (11/11), TI typecheck, focused lint, and 390px Playwright UAT seeded with a deliberately contaminated legacy active snapshot. The old tournament was absent, no seed was persisted to any alias, no false conflict or horizontal overflow appeared, and network/console checks were clean.
+
 - TI Weekend Planner first-game activation Phase 1:
   - Valid tournament entrants with no manual event for that exact tournament now see one focused Tournament Weekend card; schedule, calendar/profile management, sharing, and travel controls stay hidden until the first game persists.
   - The inline flow fixes the date for single-day tournaments, constrains multi-day selection to the inclusive tournament range, requires game time, and accepts an optional field/court. After persistence it shows a compact game/tournament summary, restores the normal planner, and offers another game plus secondary hotel/check-in, meal, and travel actions. Anonymous auth prompts appear only after persisted value.

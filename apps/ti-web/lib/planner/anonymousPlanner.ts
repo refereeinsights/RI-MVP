@@ -27,14 +27,6 @@ function tournamentSnapshotKey(tournamentId: string | null | undefined) {
   return normalized ? `${STORAGE_PREFIX}tournament:${normalized}` : null;
 }
 
-function snapshotKey(context: PlannerSessionContext | null | undefined) {
-  const plannerSessionId = String(context?.planner_session_id ?? "").trim();
-  if (plannerSessionId) return plannerSessionSnapshotKey(plannerSessionId);
-  const tournamentId = String(context?.tournament_id ?? "").trim();
-  if (tournamentId) return tournamentSnapshotKey(tournamentId);
-  return null;
-}
-
 function snapshotKeysForContext(context: PlannerSessionContext | null | undefined) {
   const keys: string[] = [];
   const seen = new Set<string>();
@@ -49,6 +41,13 @@ function snapshotKeysForContext(context: PlannerSessionContext | null | undefine
   return keys;
 }
 
+function persistableAnonymousEvents(events: PlannerEventRow[]) {
+  // Tournament rows are derived display context, not user-authored planner data.
+  // Persisting them through the global active alias leaks stale tournament cards
+  // into later tournament sessions and creates false schedule conflicts.
+  return events.filter((event) => String(event.source_type ?? "").trim() !== "tournament");
+}
+
 function readSnapshotAtKey(key: string) {
   try {
     const raw = window.localStorage.getItem(key);
@@ -59,7 +58,12 @@ function readSnapshotAtKey(key: string) {
       window.localStorage.removeItem(key);
       return null;
     }
-    return parsed;
+    return {
+      ...parsed,
+      // Sanitize legacy snapshots on read. The next normal save rewrites all
+      // aliases without the previously persisted tournament context rows.
+      events: persistableAnonymousEvents(Array.isArray(parsed.events) ? parsed.events : []),
+    };
   } catch {
     return null;
   }
@@ -84,7 +88,7 @@ function safeWriteSnapshot(context: PlannerSessionContext | null | undefined, ev
       plannerSessionId: String(context?.planner_session_id ?? "").trim(),
       tournamentId: String(context?.tournament_id ?? "").trim() || null,
       expiresAt: new Date(Date.now() + TTL_MS).toISOString(),
-      events,
+      events: persistableAnonymousEvents(events),
     };
     const raw = JSON.stringify(snapshot);
     for (const key of keys) window.localStorage.setItem(key, raw);

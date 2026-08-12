@@ -24,6 +24,7 @@ import {
 import { compactAssignmentLabel, getFamilyColorToken } from "@/lib/planner/familyColors";
 import { inferAssignmentFromSourceLabel } from "@/lib/planner/inferAssignmentFromSourceLabel";
 import { sanitizeIcsNotesForDisplay } from "@/lib/planner/icsNoteSanitizer";
+import { detectLoadedEventConflicts } from "@/lib/planner/scheduleConflicts";
 import { isMapLinkEligibleLocation, mapsSearchUrl, plannerEventLocationForMaps } from "@/lib/planner/venueResolution";
 import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import {
@@ -128,44 +129,7 @@ type TournamentSearchResult = {
   end_date: string | null;
 };
 
-type LoadedConflictInfo = { conflictCount: number };
 type UpcomingFocus = "all" | "today" | "tomorrow";
-
-function detectLoadedEventConflicts(events: PlannerEventRow[]) {
-  const byId = new Map<string, LoadedConflictInfo>();
-  const parsed: Array<{ id: string; startMs: number; endMs: number }> = [];
-
-  for (const e of events) {
-    const id = String(e.id);
-    const start = new Date(String(e.starts_at ?? ""));
-    if (Number.isNaN(start.getTime())) continue;
-    const startMs = start.getTime();
-    const rawEnd = e.ends_at ? new Date(String(e.ends_at)) : null;
-    const rawEndMs = rawEnd && !Number.isNaN(rawEnd.getTime()) ? rawEnd.getTime() : null;
-    // Advisory fallback: if ends_at is missing/invalid (or even <= starts_at), assume 60 minutes.
-    const endMs = rawEndMs && rawEndMs > startMs ? rawEndMs : startMs + 60 * 60_000;
-    parsed.push({ id, startMs, endMs });
-  }
-
-  // Stable order to support an early-break overlap scan.
-  parsed.sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs || a.id.localeCompare(b.id));
-
-  // Back-to-back events are not a conflict: strict inequality is intentional.
-  // overlap(A,B) <=> A.start < B.end && B.start < A.end
-  for (let i = 0; i < parsed.length; i++) {
-    const a = parsed[i]!;
-    for (let j = i + 1; j < parsed.length; j++) {
-      const b = parsed[j]!;
-      if (b.startMs >= a.endMs) break;
-      if (a.startMs < b.endMs && b.startMs < a.endMs) {
-        byId.set(a.id, { conflictCount: (byId.get(a.id)?.conflictCount ?? 0) + 1 });
-        byId.set(b.id, { conflictCount: (byId.get(b.id)?.conflictCount ?? 0) + 1 });
-      }
-    }
-  }
-
-  return byId;
-}
 
 function eventWindowMs(event: PlannerEventRow) {
   const start = new Date(String(event.starts_at ?? ""));
