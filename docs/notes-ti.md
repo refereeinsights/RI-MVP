@@ -15,6 +15,13 @@ Maintenance rules:
 
 ## 2026-08-12
 
+- TI admin email first-game activation reporting:
+  - Added a new lead section and subject-line metric filtered strictly to `activation_flow="first_game_inline_v1"`; it does not use the older experiment variant as the cohort definition.
+  - Reports unique planner sessions for yesterday and trailing seven complete days: eligible prompt-ready, prompt viewed, first-game started, submitted, anonymous game persisted, persistence failure, save/account prompt, auth started, and auth completed. Headline activation is persisted / eligible prompt-ready sessions.
+  - Historical pre-flow activation remains a clearly labeled `<1%` directional comparison with a different definition. The report calls out that the current persisted numerator covers anonymous local-storage success only and that second planning action is deferred until it has dedicated instrumentation.
+  - Existing broad Planner metrics remain available under `Weekend Planner — Legacy / All-Flow Context`, preventing them from being mistaken for the new launch cohort.
+  - Added focused aggregation coverage for unique-session deduplication, legacy-event exclusion, game-only persistence, and missing-session visibility. TI typecheck and focused lint passed.
+
 - TI Weekend Planner Claude-UAT follow-up:
   - Fixed cross-tournament anonymous snapshot contamination that allowed old seeded tournament context rows to appear in later tournament planners and produce false schedule-conflict warnings.
   - Seeded `source_type="tournament"` rows are now filtered from legacy snapshots on read and excluded from all future snapshot writes. Real manual planner events still persist across the existing active/session/tournament aliases, and the current tournament seed is reconstructed from trusted page context.

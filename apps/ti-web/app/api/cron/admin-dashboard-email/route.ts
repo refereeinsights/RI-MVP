@@ -11,6 +11,11 @@ import {
   resolveTiBaseUrl,
 } from "@/lib/adminDashboardEmail";
 import { isQualifiedTeamHotelAcceptedRequest } from "@/lib/teamHotelReporting";
+import {
+  FIRST_GAME_ACTIVATION_EVENT_NAMES,
+  summarizeFirstGameActivationWindow,
+  type FirstGameActivationWindowMetrics,
+} from "@/lib/planner/firstGameActivationReporting";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +59,15 @@ type CampspotWindowMetrics = {
 
 type CampspotExperimentSummary =
   | { ok: true; windowLabel: string; yesterday: CampspotWindowMetrics; trailing7d: CampspotWindowMetrics }
+  | { ok: false; windowLabel: string; error: string };
+
+type FirstGameActivationSummary =
+  | {
+      ok: true;
+      windowLabel: string;
+      yesterday: FirstGameActivationWindowMetrics;
+      trailing7d: FirstGameActivationWindowMetrics;
+    }
   | { ok: false; windowLabel: string; error: string };
 
 type LodgingSearchSessionRow = {
@@ -439,6 +453,42 @@ function formatDateLabelInTimeZone(date: Date, timeZone: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+async function loadFirstGameActivationSummary(params: {
+  yesterdayStartUtcIso: string;
+  todayStartUtcIso: string;
+  trailing7dStartUtcIso: string;
+  yesterdayStart: Date;
+  timeZone: string;
+}): Promise<FirstGameActivationSummary> {
+  const windowLabel = `${formatDateLabelInTimeZone(params.yesterdayStart, params.timeZone)} (${params.timeZone})`;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("ti_map_events" as any)
+      .select("event_name,properties,created_at")
+      .in("event_name", [...FIRST_GAME_ACTIVATION_EVENT_NAMES])
+      .gte("created_at", params.trailing7dStartUtcIso)
+      .lt("created_at", params.todayStartUtcIso);
+    if (error) {
+      return { ok: false, windowLabel, error: error.message || "Failed to load first-game activation analytics." };
+    }
+
+    const rows = ((data ?? []) as TiMapEventRow[]) ?? [];
+    const yesterdayStartMs = new Date(params.yesterdayStartUtcIso).getTime();
+    const yesterdayRows = rows.filter((row) => {
+      const createdAtMs = new Date(String(row.created_at ?? "")).getTime();
+      return Number.isFinite(createdAtMs) && createdAtMs >= yesterdayStartMs;
+    });
+    return {
+      ok: true,
+      windowLabel,
+      yesterday: summarizeFirstGameActivationWindow(yesterdayRows),
+      trailing7d: summarizeFirstGameActivationWindow(rows),
+    };
+  } catch (error: any) {
+    return { ok: false, windowLabel, error: String(error?.message ?? error ?? "unknown_error") };
+  }
 }
 
 async function loadWeekendPlannerDailySummary(params: {
@@ -954,6 +1004,61 @@ async function loadWeekendPlannerDailySummary(params: {
   }
 }
 
+function renderFirstGameActivationHtml(summary: FirstGameActivationSummary | null) {
+  if (!summary) return "";
+  if (!summary.ok) {
+    return renderSectionCard(
+      "Weekend Planner Activation v2",
+      `First-game analytics cohort for ${summary.windowLabel}`,
+      `<div style="color:#b91c1c;font-weight:800;">Metrics unavailable; legacy Planner reporting is unaffected: ${htmlEscape(summary.error)}</div>`,
+    );
+  }
+
+  const windowRows = (label: string, metrics: FirstGameActivationWindowMetrics) => [
+    {
+      label: `${label} activation rate`,
+      value: formatRatioPercent(metrics.firstGamePersisted, metrics.eligiblePromptReady),
+      note: `${formatInt(metrics.firstGamePersisted)} persisted / ${formatInt(metrics.eligiblePromptReady)} eligible`,
+    },
+    { label: `${label} eligible prompt-ready sessions`, value: metrics.eligiblePromptReady },
+    { label: `${label} first-game prompt viewed`, value: metrics.promptViewed, note: formatRatioPercent(metrics.promptViewed, metrics.eligiblePromptReady) },
+    { label: `${label} first-game started`, value: metrics.firstGameStarted, note: formatRatioPercent(metrics.firstGameStarted, metrics.promptViewed) },
+    { label: `${label} first-game submitted`, value: metrics.firstGameSubmitted, note: formatRatioPercent(metrics.firstGameSubmitted, metrics.firstGameStarted) },
+    { label: `${label} first game persisted`, value: metrics.firstGamePersisted, note: formatRatioPercent(metrics.firstGamePersisted, metrics.firstGameSubmitted) },
+    { label: `${label} persistence-failure sessions`, value: metrics.persistenceFailures, note: formatRatioPercent(metrics.persistenceFailures, metrics.firstGameSubmitted) },
+    { label: `${label} save/account prompt viewed`, value: metrics.savePromptViewed, note: formatRatioPercent(metrics.savePromptViewed, metrics.firstGamePersisted) },
+    { label: `${label} auth started`, value: metrics.authStarted, note: formatRatioPercent(metrics.authStarted, metrics.savePromptViewed) },
+    { label: `${label} auth completed`, value: metrics.authCompleted, note: formatRatioPercent(metrics.authCompleted, metrics.authStarted) },
+    { label: `${label} tagged events missing session ID`, value: metrics.taggedEventsMissingSessionId },
+  ];
+
+  const headlineRate = formatRatioPercent(
+    summary.yesterday.firstGamePersisted,
+    summary.yesterday.eligiblePromptReady,
+  );
+  const headline = `<div style="padding:14px;border-radius:10px;background:#dcfce7;color:#14532d;font-size:18px;font-weight:900;line-height:1.35;">
+    Weekend Planner First-Game Activation: ${htmlEscape(headlineRate)}<br />
+    <span style="font-size:13px;font-weight:700;">${htmlEscape(formatInt(summary.yesterday.firstGamePersisted))} persisted / ${htmlEscape(formatInt(summary.yesterday.eligiblePromptReady))} eligible prompt-ready sessions yesterday</span>
+  </div>`;
+  const notes = `<div style="margin-top:10px;color:#64748b;font-size:12px;line-height:1.5;">
+    Analytics cohort: <code>activation_flow=first_game_inline_v1</code>. Counts are unique <code>planner_session_id</code> values and do not blend legacy Planner traffic.<br />
+    Persisted currently measures anonymous local-storage success only; authenticated first-game persistence is not yet represented by this numerator.<br />
+    Second planning action is not shown until dedicated instrumentation exists.<br />
+    Historical pre-first-game-flow activation baseline: &lt;1% (different funnel definition; directional comparison only).
+  </div>`;
+
+  return renderSectionCard(
+    "Weekend Planner Activation v2",
+    `First-game launch monitoring for ${summary.windowLabel}; compare yesterday with seven complete days`,
+    [
+      headline,
+      renderSectionCard("Yesterday", "Unique first_game_inline_v1 sessions", renderMetricRows(windowRows("Yesterday", summary.yesterday))),
+      renderSectionCard("Trailing 7 Complete Days", "Unique first_game_inline_v1 sessions", renderMetricRows(windowRows("7d", summary.trailing7d))),
+      notes,
+    ].join(""),
+  );
+}
+
 function renderWeekendPlannerSummaryHtml(params: {
   summary: WeekendPlannerDailySummary | null;
   weekendProCheckouts?: { total: number; yesterday: number } | null;
@@ -1169,8 +1274,8 @@ function renderWeekendPlannerSummaryHtml(params: {
       : `<div style="color:#166534;font-size:13px;">No missing tracking noted.</div>`;
 
   return renderSectionCard(
-    "Weekend Planner",
-    `Daily operator summary for ${summary.windowLabel}. Treatment and direct-entry funnels below use unique planner_session_id where available.`,
+    "Weekend Planner — Legacy / All-Flow Context",
+    `Daily operator context for ${summary.windowLabel}. These broad metrics intentionally remain separate from the first_game_inline_v1 headline above.`,
     [
       healthBlockHtml,
       renderSectionCard("Snapshot", null, snapshotHtml),
@@ -1501,6 +1606,7 @@ function buildEmailHtml(params: {
   tiles?: Awaited<ReturnType<typeof loadAdminDashboardEmailTiles>> | null;
   weekendProCheckouts?: { total: number; yesterday: number } | null;
   weekendPassPurchases?: { total: number; yesterday: number } | null;
+  firstGameActivationSummary?: FirstGameActivationSummary | null;
   weekendPlannerSummary?: WeekendPlannerDailySummary | null;
   campspotExperimentSummary?: CampspotExperimentSummary | null;
 }) {
@@ -1517,6 +1623,7 @@ function buildEmailHtml(params: {
     tiles,
     weekendProCheckouts,
     weekendPassPurchases,
+    firstGameActivationSummary,
     weekendPlannerSummary,
     campspotExperimentSummary,
   } = params;
@@ -1618,6 +1725,7 @@ function buildEmailHtml(params: {
         })()
       : "";
 
+  const firstGameActivationHtml = renderFirstGameActivationHtml(firstGameActivationSummary ?? null);
   const weekendPlannerHtml = renderWeekendPlannerSummaryHtml({
     summary: weekendPlannerSummary ?? null,
     weekendProCheckouts: weekendProCheckouts ?? null,
@@ -1642,11 +1750,12 @@ function buildEmailHtml(params: {
           )}
           ${renderUsersTile({ insiderTotal: tiInsiderTotal, insiderNew: tiInsiderNew, weekendTotal: tiWeekendTotal, weekendNew: tiWeekendNew })}
         </div>
+        ${firstGameActivationHtml}
         ${weekendPlannerHtml}
         ${campspotExperimentHtml}
         ${sportTilesHtml}
         ${heatmapHtml}`
-      : `${weekendPlannerHtml}${campspotExperimentHtml}`;
+      : `${firstGameActivationHtml}${weekendPlannerHtml}${campspotExperimentHtml}`;
 
   const rows = totalsBySport
     .map((row) => {
@@ -1829,12 +1938,28 @@ export async function GET(req: Request) {
     const yesterdayIso = yesterdayStart.toISOString();
     const trailing7dStartIso = new Date(yesterdayStart.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [tiles, tiUserCounts, totalsBySport, riSummary, lowestStates, weekendPlannerSummary, campspotExperimentSummary] = await Promise.all([
+    const [
+      tiles,
+      tiUserCounts,
+      totalsBySport,
+      riSummary,
+      lowestStates,
+      firstGameActivationSummary,
+      weekendPlannerSummary,
+      campspotExperimentSummary,
+    ] = await Promise.all([
       includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null),
       includeTiles ? loadTiUserCountsExcludingInternal({ todayStartUtcIso: todayIso, yesterdayStartUtcIso: yesterdayIso }) : Promise.resolve(null),
       includeOutreach ? Promise.all(TI_SPORTS.map((sport) => loadOutreachTotals(sport))) : Promise.resolve([]),
       includeRiSummary ? loadRiSummaryCounts() : Promise.resolve(null),
       includeLowestStates ? loadLowestStates(5) : Promise.resolve(null),
+      loadFirstGameActivationSummary({
+        yesterdayStartUtcIso: yesterdayIso,
+        todayStartUtcIso: todayIso,
+        trailing7dStartUtcIso: trailing7dStartIso,
+        yesterdayStart,
+        timeZone,
+      }),
       loadWeekendPlannerDailySummary({
         yesterdayStartUtcIso: yesterdayIso,
         todayStartUtcIso: todayIso,
@@ -1894,11 +2019,14 @@ export async function GET(req: Request) {
       weekendPassPurchases: weekendPassPurchases
         ? { total: weekendPassPurchases.total, yesterday: weekendPassPurchases.yesterday }
         : null,
+      firstGameActivationSummary,
       weekendPlannerSummary,
       campspotExperimentSummary,
     });
     const subject =
-      weekendPlannerSummary && weekendPlannerSummary.ok
+      firstGameActivationSummary && firstGameActivationSummary.ok
+        ? `TI Admin Dashboard — First-game activation ${formatRatioPercent(firstGameActivationSummary.yesterday.firstGamePersisted, firstGameActivationSummary.yesterday.eligiblePromptReady)} (${firstGameActivationSummary.yesterday.firstGamePersisted}/${firstGameActivationSummary.yesterday.eligiblePromptReady}) — ${generatedAtIso.slice(0, 10)}`
+        : weekendPlannerSummary && weekendPlannerSummary.ok
         ? `TI Admin Dashboard — Weekend Planner: ${weekendPlannerSummary.activations} activations, ${weekendPlannerSummary.planClicks} plan clicks, ${weekendPlannerSummary.teamHotelRequests} team hotel requests — ${generatedAtIso.slice(0, 10)}`
         : `TI Admin Dashboard — ${generatedAtIso.slice(0, 10)}`;
 
@@ -1919,6 +2047,7 @@ export async function GET(req: Request) {
       tiles: tiles ?? null,
       weekendProCheckouts: weekendProCheckouts ?? null,
       weekendPassPurchases: weekendPassPurchases ?? null,
+      firstGameActivationSummary: firstGameActivationSummary ?? null,
       weekendPlannerSummary: weekendPlannerSummary ?? null,
       campspotExperimentSummary: campspotExperimentSummary ?? null,
       riSummary: riSummary ?? null,
