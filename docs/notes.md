@@ -4700,6 +4700,13 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added migration `20260813_ti_tournament_hotels_sitemap_v1.sql` for the bulk deterministic sitemap RPC. Migration is not applied by this local implementation.
   - Validation passed: 13 focused tests, TI TypeScript, full TI lint, TI production build, local HTTP 200/rendered metadata/content for the demo Tournament Hotels page, and tournament-detail verification of three internal `/hotels` links without external/sponsored attributes. Browser automation was unavailable because the installed skill's `agent-browser` executable was missing.
 
+- 2026-08-13: TI Tournament Hotels Phase 1 browser-UAT follow-up.
+  - Fixed HotelPlanner result normalization so nested `position.distanceFromSearch` and `contactInfo.address1/city/state/country` reach tournament hotel cards.
+  - Fixed nullable numeric normalization so missing distance/rating/review/price values stay null instead of becoming misleading zeroes.
+  - Made each property CTA an inspectable first-party `/go/hotels/property` link with a stable per-result outbound request/attribution ID; the server handoff remains responsible for persistence and the HotelPlanner redirect, while click analytics remain unchanged.
+  - Added provider regression assertions for nested distance, address, locality, country, and coordinates.
+  - Validation passed: 21 focused tests, TI TypeScript, TI lint, TI production build, and a headless local browser retest showing a real address, `0.3 mi from venue`, one `/go/hotels/property` request, all required handoff context, and no Next.js error overlay. HotelPlanner requests were blocked during the retest.
+
 - 2026-08-06: TI venue cluster analytics added locally.
   - Added `apps/ti-web/app/venues/[venueId]/VenueClusterModule.tsx` as the client-side analytics wrapper for the existing venue-cluster block so TI can measure both `venue_cluster_viewed` and `venue_cluster_venue_clicked` without changing cluster ranking or rendering behavior.
   - Updated `apps/ti-web/lib/tiAnalyticsEvents.ts` with the new venue-cluster event contracts, including source/destination venue IDs, relationship tier (`same_tournament` / `same_city_active`), destination candidate counts, page path, and device type.

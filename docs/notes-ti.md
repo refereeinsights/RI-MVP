@@ -2841,3 +2841,10 @@ Maintenance rules:
     - `npm run build --workspace ti-web` — passed; only pre-existing repo warnings and restricted-network Supabase DNS noise remained after feature warnings were removed.
     - Local HTTP verification on `refereeinsights-demo-tournament`: new route returned 200 with correct title/H1, multi-venue selector, View All, Team Hotels, booking-safe fallback dates, and no `getProfile` reference. Tournament detail rendered three internal canonical hotel links with no external/sponsored attributes.
     - Automated visual/mobile browser verification was not performed because `agent-browser` was not installed as an executable in this environment.
+
+- 2026-08-13: Tournament Hotels Phase 1 local browser-UAT fixes.
+  - Mapped HotelPlanner's nested `position.distanceFromSearch` and `contactInfo` address/locality fields into the normalized hotel result consumed by cards.
+  - Preserved absent numeric values as null so cards omit unavailable distance instead of displaying `0.0 mi from venue`.
+  - Replaced the property-card JavaScript-only button with an explicit local `/go/hotels/property` anchor using a stable per-result outbound request ID. The link exposes the required TI handoff route and tournament/venue/page/placement context before the server redirects to HotelPlanner.
+  - Added focused provider normalization regression coverage.
+  - Validation passed: 21 focused tests, TI TypeScript, TI lint, TI production build, and a headless local browser retest showing a real address, `0.3 mi from venue`, one `/go/hotels/property` request, complete required handoff context, and no Next.js error overlay. HotelPlanner requests were blocked during verification.

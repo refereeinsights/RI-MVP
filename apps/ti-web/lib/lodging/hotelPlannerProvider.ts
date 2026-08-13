@@ -327,6 +327,9 @@ function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
       const propertyId = pickText(item.hotelID ?? item.hotelId ?? item.id);
       if (!propertyId) return acc;
       const position = typeof item.position === "object" && item.position !== null ? (item.position as Record<string, unknown>) : null;
+      const contactInfo = typeof item.contactInfo === "object" && item.contactInfo !== null
+        ? (item.contactInfo as Record<string, unknown>)
+        : null;
       const coordinatesLatitude = item.latitude ?? item.lat ?? (position ? position.latitude ?? position.lat : null);
       const coordinatesLongitude = item.longitude ?? item.lng ?? (position ? position.longitude ?? position.lng : null);
       const ratingValue = pickNumber(item.starrating ?? item.stars ?? item.rating);
@@ -348,13 +351,13 @@ function normalizeSearchHotels(payload: unknown): SearchHotelsResult {
       acc.push({
         id: propertyId,
         name: pickText(item.hotelname ?? item.name ?? item.hotelName) ?? "Hotel",
-        city: pickText(item.city),
-        state: pickText(item.state),
-        country: pickText(item.country ?? item.countrycode),
+        city: pickText(item.city ?? contactInfo?.city),
+        state: pickText(item.state ?? contactInfo?.state),
+        country: pickText(item.country ?? item.countrycode ?? contactInfo?.country ?? contactInfo?.countrycode),
         lat: pickNumber(coordinatesLatitude),
         lng: pickNumber(coordinatesLongitude),
-        addressLine1: pickText(item.address1 ?? item.address ?? item.street),
-        distanceMiles: pickNumber(item.distance ?? item.distanceMiles),
+        addressLine1: pickText(item.address1 ?? item.address ?? item.street ?? contactInfo?.address1 ?? contactInfo?.address),
+        distanceMiles: pickNumber(item.distance ?? item.distanceMiles ?? position?.distanceFromSearch),
         rating: ratingValue,
         reviewCount: reviewCountFromPayload ?? pickNumber(item.reviewCount),
         thumbnailUrl: pickText(item.thumbnailUrl ?? item.image ?? item.img ?? item.photo),

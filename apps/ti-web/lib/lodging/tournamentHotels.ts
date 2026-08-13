@@ -27,6 +27,12 @@ export type TournamentHotelsSeoInput = {
   venues: Array<Pick<TournamentHotelsVenue, "latitude" | "longitude">>;
 };
 
+export function nullableFiniteNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function isValidHotelSearchCoordinates(latitude: unknown, longitude: unknown) {
   const lat = typeof latitude === "number" ? latitude : Number(latitude);
   const lng = typeof longitude === "number" ? longitude : Number(longitude);

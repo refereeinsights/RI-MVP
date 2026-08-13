@@ -4,10 +4,19 @@ import assert from "node:assert/strict";
 import {
   initialTournamentHotelDates,
   isValidHotelSearchCoordinates,
+  nullableFiniteNumber,
   selectInitialTournamentHotelVenue,
   tournamentHotelsSeoEligible,
   type TournamentHotelsVenue,
 } from "./tournamentHotels";
+
+test("keeps missing numeric hotel fields null instead of coercing them to zero", () => {
+  assert.equal(nullableFiniteNumber(null), null);
+  assert.equal(nullableFiniteNumber(undefined), null);
+  assert.equal(nullableFiniteNumber(""), null);
+  assert.equal(nullableFiniteNumber("0.23"), 0.23);
+  assert.equal(nullableFiniteNumber(0), 0);
+});
 
 const venue = (overrides: Partial<TournamentHotelsVenue> = {}): TournamentHotelsVenue => ({
   id: "venue-1",

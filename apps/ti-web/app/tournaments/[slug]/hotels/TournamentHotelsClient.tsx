@@ -11,7 +11,12 @@ import {
 } from "@/lib/hotelPlannerAttribution";
 import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
-import { mmDdYyyyToIso, type TournamentHotelsDateSource, type TournamentHotelsVenue } from "@/lib/lodging/tournamentHotels";
+import {
+  mmDdYyyyToIso,
+  nullableFiniteNumber,
+  type TournamentHotelsDateSource,
+  type TournamentHotelsVenue,
+} from "@/lib/lodging/tournamentHotels";
 import styles from "./TournamentHotels.module.css";
 
 type Tournament = {
@@ -39,6 +44,7 @@ type Hotel = {
   currency: string | null;
   hotelIDTypeID: number | null;
   detailUrl: string | null;
+  outboundRequestId: string;
 };
 
 type SearchResponse = {
@@ -56,11 +62,6 @@ function text(value: unknown) {
   return result || null;
 }
 
-function number(value: unknown) {
-  const result = Number(value);
-  return Number.isFinite(result) ? result : null;
-}
-
 function normalizeHotel(value: unknown): Hotel | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
@@ -73,14 +74,15 @@ function normalizeHotel(value: unknown): Hotel | null {
     addressLine1: text(row.addressLine1 ?? row.address),
     city: text(row.city),
     state: text(row.state),
-    distanceMiles: number(row.distanceMiles),
-    rating: number(row.rating),
-    reviewCount: number(row.reviewCount),
+    distanceMiles: nullableFiniteNumber(row.distanceMiles),
+    rating: nullableFiniteNumber(row.rating),
+    reviewCount: nullableFiniteNumber(row.reviewCount),
     thumbnailUrl: text(row.thumbnailUrl ?? row.imageUrl),
-    fromPrice: number(row.fromPrice),
+    fromPrice: nullableFiniteNumber(row.fromPrice),
     currency: text(row.currency),
-    hotelIDTypeID: number(row.hotelIDTypeID),
+    hotelIDTypeID: nullableFiniteNumber(row.hotelIDTypeID),
     detailUrl: text(row.detailUrl),
+    outboundRequestId: analyticsUuid(),
   };
 }
 
@@ -252,7 +254,7 @@ export default function TournamentHotelsClient({
   }, [checkin, checkout, datesValid, selectedVenue, tournament.id, tournament.name, tournament.slug]);
 
   function attributedHref(path: "/go/hotels" | "/go/hotels/property", placement: string, hotel?: Hotel) {
-    const outboundRequestId = analyticsUuid();
+    const outboundRequestId = hotel?.outboundRequestId ?? analyticsUuid();
     const outboundAttributionId = createOutboundAttributionId(() => outboundRequestId);
     const attribution = buildHotelPlannerBookingAttribution({
       outboundAttributionId,
@@ -297,8 +299,7 @@ export default function TournamentHotelsClient({
     return { href: url.toString(), outboundRequestId };
   }
 
-  function openProperty(hotel: Hotel) {
-    const handoff = attributedHref("/go/hotels/property", HOTEL_PLANNER_BOOKING_PLACEMENTS.tournamentHotelsProperty, hotel);
+  function trackPropertyClick(hotel: Hotel) {
     void trackTiEvent("hotel_card_click", {
       page_type: "tournament_hotels",
       tournament_id: tournament.id,
@@ -308,7 +309,6 @@ export default function TournamentHotelsClient({
       date_source: dateSource,
       source_page_type: "tournament_hotels",
     });
-    window.open(handoff.href, "_blank", "noopener,noreferrer");
   }
 
   function openViewAll() {
@@ -431,6 +431,11 @@ export default function TournamentHotelsClient({
           <div className={styles.hotelList}>
             {hotels.map((hotel) => {
               const location = [hotel.addressLine1, hotel.city, hotel.state].filter(Boolean).join(", ");
+              const propertyHandoff = attributedHref(
+                "/go/hotels/property",
+                HOTEL_PLANNER_BOOKING_PLACEMENTS.tournamentHotelsProperty,
+                hotel
+              );
               return (
                 <article className={styles.hotelCard} key={hotel.propertyId}>
                   {hotel.thumbnailUrl ? (
@@ -447,7 +452,14 @@ export default function TournamentHotelsClient({
                     </div>
                     <div className={styles.hotelActionRow}>
                       <div>{hotel.fromPrice != null ? <><span className={styles.from}>From</span><strong>{new Intl.NumberFormat("en-US", { style: "currency", currency: hotel.currency || "USD", maximumFractionDigits: 0 }).format(hotel.fromPrice)}</strong><span className={styles.from}> / night</span></> : <span className={styles.from}>See live availability</span>}</div>
-                      <button type="button" onClick={() => openProperty(hotel)}>View hotel</button>
+                      <a
+                        href={propertyHandoff.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => trackPropertyClick(hotel)}
+                      >
+                        View hotel
+                      </a>
                     </div>
                   </div>
                 </article>

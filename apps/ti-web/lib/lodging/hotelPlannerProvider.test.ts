@@ -134,8 +134,17 @@ test("searchHotels normalizes object-mapped hotel payloads", async () => {
             "0_67747": {
               hotelID: "67747",
               hotelname: "Blue Star Hotel",
-              city: "Denver",
-              state: "CO",
+              contactInfo: {
+                address1: "123 Tournament Way",
+                city: "Denver",
+                state: "CO",
+                country: "US",
+              },
+              position: {
+                latitude: 39.7392,
+                longitude: -104.9903,
+                distanceFromSearch: 0.23,
+              },
               fromRate: 199,
               currency: "USD",
             },
@@ -177,6 +186,13 @@ test("searchHotels normalizes object-mapped hotel payloads", async () => {
     assert.equal(result.hotels.length, 2);
     assert.equal(result.hotels[0].id, "67747");
     assert.equal(result.hotels[0].fromPrice, 199);
+    assert.equal(result.hotels[0].addressLine1, "123 Tournament Way");
+    assert.equal(result.hotels[0].city, "Denver");
+    assert.equal(result.hotels[0].state, "CO");
+    assert.equal(result.hotels[0].country, "US");
+    assert.equal(result.hotels[0].lat, 39.7392);
+    assert.equal(result.hotels[0].lng, -104.9903);
+    assert.equal(result.hotels[0].distanceMiles, 0.23);
     assert.equal(result.fallback?.showHotelFallback, true);
   } finally {
     global.fetch = originalFetch;

@@ -35,7 +35,7 @@
 .hotelBody p { color: #52695b; font-size: 14px; }
 .hotelMeta { display: flex; gap: 14px; flex-wrap: wrap; color: #52695b; font-size: 13px; }
 .hotelActionRow { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-top: auto; }
-.hotelActionRow button, .primaryAction { appearance: none; display: inline-flex; justify-content: center; align-items: center; min-height: 46px; padding: 11px 18px; border: 0; border-radius: 11px; background: #126f3b; color: #fff; font-weight: 900; cursor: pointer; text-decoration: none; }
+.hotelActionRow a, .primaryAction { appearance: none; display: inline-flex; justify-content: center; align-items: center; min-height: 46px; padding: 11px 18px; border: 0; border-radius: 11px; background: #126f3b; color: #fff; font-weight: 900; cursor: pointer; text-decoration: none; }
 .from { color: #607466; font-size: 12px; }
 .actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .actions span { color: #536b5c; font-size: 13px; }
