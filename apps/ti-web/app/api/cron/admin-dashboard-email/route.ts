@@ -1973,8 +1973,17 @@ export async function GET(req: Request) {
     const trailing7dStartIso = trailing7dStart.toISOString();
 
     const sectionLogger = (entry: Record<string, unknown>) => emitAdminEmailLog(entry);
+    // Load the dashboard RPC before the wider reporting fan-out. In production it
+    // completes quickly in isolation but can hit the database statement timeout
+    // when competing with the nested queries used by every other section.
+    const tilesResult = await loadAdminEmailSection({
+      section: "dashboard_tiles",
+      requestId,
+      logger: sectionLogger,
+      load: () => (includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null)),
+    });
+
     const [
-      tilesResult,
       tiUserCountsResult,
       totalsBySportResult,
       riSummaryResult,
@@ -1983,12 +1992,6 @@ export async function GET(req: Request) {
       weekendPlannerResult,
       campspotExperimentResult,
     ] = await Promise.all([
-      loadAdminEmailSection({
-        section: "dashboard_tiles",
-        requestId,
-        logger: sectionLogger,
-        load: () => (includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null)),
-      }),
       loadAdminEmailSection({
         section: "ti_user_counts",
         requestId,

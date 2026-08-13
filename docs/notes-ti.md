@@ -15,6 +15,12 @@ Maintenance rules:
 
 ## 2026-08-13
 
+- TI dashboard-tiles timeout repair:
+  - The manual post-fix send succeeded but correctly degraded `dashboard_tiles` after a 10.4s statement timeout. A subsequent count-only production probe measured the same RPC at about 0.37s in isolation, showing that the primary trigger was contention from the cron's nested database-query fan-out.
+  - Dashboard tiles now load through the existing safe boundary before the remaining report sections fan out, so the legacy tile RPC no longer competes with dozens of simultaneous reporting operations.
+  - Added `supabase/migrations/20260813_ti_admin_dashboard_tiles_v5_optimized.sql`. It preserves all v4 response keys and UTC/PT fields, materializes the tournament source once, consolidates repeated counts into grouped aggregates, reads each supporting table once, and adds a partial completed Owl's Eye `(completed_at, venue_id)` reporting index.
+  - No timeout increase or error suppression was added. The schedule, authorization, lock, delivery, audit, and degradation behavior are unchanged. Focused tests, TI typecheck, focused lint, and production build passed. The migration is not applied and no follow-up email was sent.
+
 - TI admin email statement-timeout recovery:
   - The August 13 Vercel cron invoked `/api/cron/admin-dashboard-email` at 6:05 AM Pacific but PostgreSQL canceled a report query with `57014`; execution stopped before Resend and before `ti_admin_dashboard_email_runs`, so no email or audit row was produced.
   - Each noncritical report section now has an independent safe-loader boundary. Timeouts and other failures produce sanitized `degraded_sections` entries, structured per-section duration logs, and an explicit unavailable state in the email while healthy sections and delivery continue.
