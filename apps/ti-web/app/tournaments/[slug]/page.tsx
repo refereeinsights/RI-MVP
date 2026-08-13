@@ -38,7 +38,7 @@ import {
 } from "@/lib/planner/plannerSession";
 import { ENABLE_WEEKEND_PLANNER_DIRECT_ENTRY } from "@/lib/featureFlags";
 import { getPlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
-import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
+import { buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import type { TournamentHotelVenueInput } from "@/lib/tournamentHotelSelection";
 import { mapStateCodeToName, mapStateCodeToSlug, normalizeSportSlug, sportDisplayName } from "@/lib/seoHub";
 import "../tournaments.css";
@@ -769,7 +769,6 @@ async function TournamentVenueDetails({
     ) ?? null;
   const hotelClickVenueId =
     bookingVenueRow?.venue.id ?? bestWeatherVenueRow?.venue.id ?? displayVenueRows[0]?.venue.id ?? null;
-  const hotelClickVenue = hotelClickVenueId ? displayVenueRows.find((r) => r.venue.id === hotelClickVenueId)?.venue ?? null : null;
 
   const fallbackCity = tournament.city ?? null;
   const fallbackState = tournament.state ?? null;
@@ -883,39 +882,8 @@ async function TournamentVenueDetails({
     return parts.filter(Boolean).join(" • ");
   };
 
-  const tournamentHotelsSearchString = (() => {
-    const city = String(bestWeatherLocation.city ?? "").trim();
-    const state = String(bestWeatherLocation.state ?? "").trim().toUpperCase();
-    const zip = String(bestWeatherLocation.zip ?? "").trim();
-    const zipOk = isValidZip5(zip);
-    const stateOk = /^[A-Z]{2}$/.test(state);
-    if (city && stateOk && zipOk) return `${city}, ${state} ${zip}`;
-    if (city && stateOk) return `${city}, ${state}`;
-    if (zipOk) return zip;
-    return null;
-  })();
-
-  const tournamentHotelsHref =
-    hotelClickVenueId && tournamentHotelsSearchString
-      ? buildHotelsHrefWithSearch({
-          venueId: hotelClickVenueId,
-          tournamentId: tournament.id,
-          ss: tournamentHotelsSearchString,
-          source: "tournament_detail",
-          provider: "hotelplanner",
-          latitude: hotelClickVenue?.latitude ?? null,
-          longitude: hotelClickVenue?.longitude ?? null,
-        })
-      : null;
-
-  const headerHotelsHref = tournamentHotelsHref
-	    ? tournamentHotelsHref
-	    : buildTournamentHotelsHref({
-	        source: "tournament_detail",
-	        tournamentId: tournament.id,
-	        city: tournament.city ?? null,
-	        state: tournament.state ?? null,
-	      });
+  const tournamentHotelsHref = `/tournaments/${encodeURIComponent(tournament.slug ?? paramsSlug)}/hotels`;
+  const headerHotelsHref = tournamentHotelsHref;
 	  const headerRentalsHref =
 	    hotelClickVenueId != null
 	      ? `/go/vrbo?venueId=${encodeURIComponent(hotelClickVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`
@@ -1532,31 +1500,6 @@ function buildCanonicalUrl(slug: string) {
   return `${SITE_ORIGIN}/tournaments/${slug}`;
 }
 
-function buildHotelsHrefWithSearch(args: {
-  venueId: string;
-  tournamentId?: string | null;
-  ss?: string | null;
-  source?: string | null;
-  provider?: string | null;
-  latitude?: number | string | null;
-  longitude?: number | string | null;
-}): string {
-  const { venueId, tournamentId, ss, source, provider, latitude, longitude } = args;
-  const qp = new URLSearchParams({ venueId });
-  if (tournamentId) qp.set("tournamentId", tournamentId);
-  if (source?.trim()) qp.set("source", source.trim());
-  if (provider?.trim()) qp.set("provider", provider.trim());
-  const parsedLat = Number(String(latitude ?? "").trim());
-  const parsedLng = Number(String(longitude ?? "").trim());
-  if (Number.isFinite(parsedLat) && Number.isFinite(parsedLng)) {
-    qp.set("lat", String(parsedLat));
-    qp.set("lng", String(parsedLng));
-  }
-  const searchDestination = String(ss ?? "").trim();
-  if (searchDestination) qp.set("ss", searchDestination);
-  return `/go/hotels?${qp.toString()}`;
-}
-
 function formatPartnerCategory(value: string | null) {
   const normalized = (value ?? "").trim().toLowerCase();
   if (!normalized) return "Partner";
@@ -1785,12 +1728,7 @@ export default async function TournamentDetailPage({
 	  const headerIsSingleVenue = venueMeta.venueCount === 1;
 	  const headerMapLabel = "View venue map";
 	  const headerMapHref = `/tournaments/${encodeURIComponent(data.slug ?? params.slug)}/map`;
-	  const headerHotelsHref = buildTournamentHotelsHref({
-	    source: "tournament_detail",
-	    tournamentId: data.id,
-	    city: data.city ?? null,
-	    state: data.state ?? null,
-	  });
+	  const headerHotelsHref = `/tournaments/${encodeURIComponent(data.slug ?? params.slug)}/hotels`;
   const headerRentalsHref = buildTournamentVrboHref({
 	    source: "tournament_detail",
 	    tournamentId: data.id,

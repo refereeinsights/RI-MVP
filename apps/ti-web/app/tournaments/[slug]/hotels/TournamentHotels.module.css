@@ -1,0 +1,53 @@
+.page { min-height: 100vh; padding: 28px 16px 64px; background: linear-gradient(180deg, #eef7ef 0%, #f7faf7 42%, #fff 100%); color: #173f2c; }
+.shell { width: min(920px, 100%); margin: 0 auto; }
+.breadcrumbs { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; font-size: 14px; }
+.breadcrumbs a { color: #17623a; font-weight: 800; }
+.breadcrumbs span:last-child { font-weight: 900; }
+.header { padding: clamp(22px, 5vw, 42px); border-radius: 24px; color: #fff; background: linear-gradient(135deg, #173f2c, #0d6a3b); box-shadow: 0 20px 45px rgba(16, 61, 40, .18); }
+.header h1 { margin: 4px 0 10px; color: #fff; font-size: clamp(30px, 6vw, 48px); line-height: 1.04; }
+.header p { margin: 8px 0 0; line-height: 1.5; }
+.eyebrow, .sectionLabel { margin: 0; text-transform: uppercase; letter-spacing: .1em; font-size: 12px; font-weight: 900; }
+.context { font-weight: 850; color: #d7f5e2; }
+.experience { display: grid; gap: 20px; margin-top: 20px; }
+.controls, .results, .fallbackBox, .supportNotice { padding: clamp(18px, 4vw, 28px); border: 1px solid #c9ddcf; border-radius: 20px; background: #fff; box-shadow: 0 12px 30px rgba(25, 66, 45, .08); }
+.controls h2, .results h2, .fallbackBox h2 { margin: 4px 0 0; font-size: clamp(22px, 4vw, 30px); color: #173f2c; }
+.selectedVenue { display: grid; gap: 4px; margin-top: 18px; padding: 14px 16px; border-radius: 14px; background: #edf7f0; border: 1px solid #bcd7c4; }
+.selectedVenue span { color: #4d6658; font-size: 14px; }
+.dateGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.field { display: grid; gap: 7px; margin-top: 18px; font-size: 14px; font-weight: 850; }
+.dateGrid .field { margin-top: 0; }
+.field input, .field select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #9fbea9; border-radius: 10px; background: #fff; color: #173f2c; font: inherit; }
+.helper, .status { margin: 12px 0 0; color: #536b5c; line-height: 1.5; }
+.error { margin: 12px 0 0; padding: 11px 13px; border-radius: 10px; color: #842525; background: #fff0f0; border: 1px solid #efb7b7; }
+.venueContext { margin-top: 16px; color: #435d4c; }
+.venueContext summary { cursor: pointer; font-weight: 850; }
+.venueContext ul { margin: 10px 0 0; padding-left: 20px; }
+.supportNotice { background: #fff8dc; border-color: #e6cd76; }
+.resultsHeading { display: flex; justify-content: space-between; gap: 14px; align-items: flex-end; }
+.resultsHeading span { color: #5b7163; font-size: 14px; }
+.hotelList { display: grid; gap: 14px; margin-top: 18px; }
+.hotelCard { overflow: hidden; display: grid; grid-template-columns: 190px minmax(0, 1fr); border: 1px solid #c9ddcf; border-radius: 16px; background: #fff; }
+.hotelCard img, .imageFallback { width: 100%; height: 100%; min-height: 170px; object-fit: cover; background: linear-gradient(135deg, #d8eadf, #aacbb6); }
+.imageFallback { display: grid; place-items: center; font-weight: 900; color: #39634a; }
+.hotelBody { display: grid; gap: 8px; padding: 17px; }
+.hotelBody h3, .hotelBody p { margin: 0; }
+.hotelBody h3 { font-size: 20px; }
+.hotelBody p { color: #52695b; font-size: 14px; }
+.hotelMeta { display: flex; gap: 14px; flex-wrap: wrap; color: #52695b; font-size: 13px; }
+.hotelActionRow { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-top: auto; }
+.hotelActionRow button, .primaryAction { appearance: none; display: inline-flex; justify-content: center; align-items: center; min-height: 46px; padding: 11px 18px; border: 0; border-radius: 11px; background: #126f3b; color: #fff; font-weight: 900; cursor: pointer; text-decoration: none; }
+.from { color: #607466; font-size: 12px; }
+.actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.actions span { color: #536b5c; font-size: 13px; }
+.teamAction { display: inline-flex; width: fit-content; padding: 11px 16px; border: 1px solid #23734a; border-radius: 11px; color: #17623a; font-weight: 900; text-decoration: none; background: #fff; }
+.disclosure { margin: 0; color: #63756a; font-size: 12px; line-height: 1.5; }
+@media (max-width: 620px) {
+  .page { padding: 14px 10px 48px; }
+  .header { border-radius: 18px; }
+  .dateGrid { grid-template-columns: 1fr; }
+  .hotelCard { grid-template-columns: 1fr; }
+  .hotelCard img, .imageFallback { height: 180px; min-height: 0; }
+  .hotelActionRow { align-items: center; }
+  .resultsHeading { align-items: flex-start; flex-direction: column; }
+  .primaryAction, .teamAction { width: 100%; text-align: center; }
+}

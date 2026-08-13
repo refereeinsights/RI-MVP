@@ -3,6 +3,8 @@ import type { PlannerEventType } from "@/lib/planner/types";
 export type TiAnalyticsEventName =
   | "hotel_cta_impression"
   | "hotel_cta_clicked"
+  | "hotel_card_click"
+  | "tournament_hotels_page_viewed"
   | "camping_cta_impression"
   | "map_viewed"
   | "map_filter_changed"
@@ -204,7 +206,7 @@ type PlannerReasonCode =
 type FeedCountBucket = "0" | "1" | "2" | "3_plus";
 type LoadedEventCountBucket = "0" | "1" | "2_5" | "6_10" | "11_25" | "26_plus";
 type ChildTeamCountBucket = "0" | "1" | "2" | "3_plus";
-type CanonicalPlannerPageType = "tournament" | "venue" | "book_travel" | "team_hotel_booking" | "planner_entry" | "planner" | "auth" | "other";
+type CanonicalPlannerPageType = "tournament" | "tournament_hotels" | "venue" | "book_travel" | "team_hotel_booking" | "planner_entry" | "planner" | "auth" | "other";
 type PlannerFirstActionType =
   | "save_weekend_plan"
   | "manual_event_created"
@@ -252,6 +254,7 @@ type TeamHotelSourceSurface =
   | "team_hotel"
   | "travel"
   | "tournament"
+  | "tournament_hotels"
   | "venue";
 
 type TeamHotelTrackingIdentity = {
@@ -374,14 +377,36 @@ export type TiAnalyticsEventPropertiesByName = {
     cta_type: "hotel";
     cta_placement: string;
     flow_type: "direct_outbound" | "search_then_outbound";
-    page_type: "venue" | "tournament" | "planner" | "other";
+    page_type: "venue" | "tournament" | "tournament_hotels" | "planner" | "other";
+    source_page_type?: "tournament_hotels";
     page_url: string | null;
     device_type: "mobile" | "desktop" | null;
     traffic_source: string | null;
-    venue_id: string;
+    venue_id: string | null;
     tournament_id: string | null;
+    tournament_slug?: string;
+    date_source?: "tournament" | "booking_safe_fallback" | "unavailable" | "user_adjusted";
     referrer: string | null;
     outbound_request_id: string;
+  };
+  hotel_card_click: {
+    page_type: "venue_map" | "tournament_hotels";
+    tournament_id: string;
+    tournament_slug?: string;
+    venue_id: string | null;
+    property_id: string;
+    date_source?: "tournament" | "booking_safe_fallback" | "unavailable" | "user_adjusted";
+    source_page_type?: "tournament_hotels";
+  };
+  tournament_hotels_page_viewed: {
+    tournament_id: string;
+    tournament_slug: string;
+    sport: string | null;
+    venue_count: number;
+    searchable_venue_count: number;
+    has_valid_venues: boolean;
+    initial_date_source: "tournament" | "booking_safe_fallback" | "unavailable";
+    page_type: "tournament_hotels";
   };
   camping_cta_impression: {
     page_type: "venue_detail" | "venue_map";
@@ -1376,21 +1401,31 @@ export type TiAnalyticsEventPropertiesByName = {
     current_page_path?: string | null;
   };
   team_hotel_cta_viewed: PlannerCanonicalContext & {
-    surface: "team_hotel" | "travel" | "tournament" | "venue";
-    source_page_type: "planner" | "book_travel" | "travel" | "tournament" | "venue" | "team_hotel_booking";
+    surface: "team_hotel" | "travel" | "tournament" | "tournament_hotels" | "venue";
+    source_page_type: "planner" | "book_travel" | "travel" | "tournament" | "tournament_hotels" | "venue" | "team_hotel_booking";
     cta_type: "team_hotel";
     auth_state: PlannerAuthState;
     entitlement: PlannerEntitlement;
     context_type: "team_hotel";
   } & TeamHotelTrackingIdentity & TeamTravelEligibilityProperties;
-  team_hotel_cta_clicked: PlannerCanonicalContext & {
-    surface: "team_hotel" | "travel" | "tournament" | "venue";
-    source_page_type: "planner" | "book_travel" | "travel" | "tournament" | "venue" | "team_hotel_booking";
-    cta_type: "team_hotel";
-    auth_state: PlannerAuthState;
-    entitlement: PlannerEntitlement;
-    context_type: "team_hotel";
-  } & TeamHotelTrackingIdentity & TeamTravelEligibilityProperties;
+  team_hotel_cta_clicked: PlannerCanonicalContext & TeamHotelTrackingIdentity & TeamTravelEligibilityProperties & (
+    | {
+        surface: "team_hotel" | "travel" | "tournament" | "venue";
+        source_page_type: "planner" | "book_travel" | "travel" | "tournament" | "venue" | "team_hotel_booking";
+        cta_type: "team_hotel";
+        auth_state: PlannerAuthState;
+        entitlement: PlannerEntitlement;
+        context_type: "team_hotel";
+      }
+    | {
+        surface: "tournament_hotels";
+        source_page_type: "tournament_hotels";
+        cta_type: "team_hotel";
+        cta_placement: "tournament_hotels_team_block";
+        context_type: "team_hotel";
+        date_source: "tournament" | "booking_safe_fallback" | "unavailable" | "user_adjusted";
+      }
+  );
   team_hotel_request_started: PlannerCanonicalContext & {
     surface: "team_hotel";
     source_page_type: "planner" | "book_travel" | "team_hotel_booking";

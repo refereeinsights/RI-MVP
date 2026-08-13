@@ -91,6 +91,7 @@ export default function TournamentDetailStickyMapCta({
   }, [isMobile]);
 
   if (!isMobile || !enabled) return null;
+  const hotelsIsInternal = Boolean(hotelsHref?.startsWith("/tournaments/") && hotelsHref.includes("/hotels"));
 
   return (
     <div
@@ -118,8 +119,8 @@ export default function TournamentDetailStickyMapCta({
           <Link
             className="tournamentStickyCta__secondary"
             href={hotelsHref}
-            target="_blank"
-            rel="noopener noreferrer sponsored"
+            target={hotelsIsInternal ? undefined : "_blank"}
+            rel={hotelsIsInternal ? undefined : "noopener noreferrer sponsored"}
           >
             Hotels
           </Link>

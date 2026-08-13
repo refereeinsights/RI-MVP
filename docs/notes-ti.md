@@ -2814,3 +2814,30 @@ Maintenance rules:
   - Validation:
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
     - `npm run build --workspace ti-web` (passes with pre-existing warnings only)
+
+- 2026-08-13: Tournament Hotels Phase 1 — canonical tournament lodging hub.
+  - Public surface:
+    - Added `/tournaments/[slug]/hotels` as the permanent tournament-level lodging page.
+    - Renders tournament dates/location, all confirmed venues, automatic single/primary venue selection, multi-venue selector, native dates, live HotelPlanner result cards, View All, Team Hotels, and affiliate disclosure.
+    - Rejects null, zero, non-finite, and out-of-bounds venue coordinates. Historical tournaments use the existing booking-safe +14-day/two-night fallback instead of sending past dates.
+    - Venue/date changes share one 400ms-debounced AbortController flow so stale responses cannot replace current state.
+  - Protected routing:
+    - General tournament-detail, map-teaser, and mobile-sticky hotel discovery now link internally to `/tournaments/[slug]/hotels` without `target=_blank` or sponsored attributes.
+    - Venue-specific tournament-map and venue-detail HotelPlanner links, Book Travel, Weekend Planner, RI, existing property cards, and Team Hotels behavior remain direct and unchanged.
+  - Attribution and analytics:
+    - Added `tournament_hotels`, `tournament_hotels_property`, `tournament_hotels_view_all`, `tournament_hotels_team_block`, and default job code `TI-TOURNAMENT-HOTELS` additively.
+    - New handoffs preserve tournament/venue context, effective dates, outbound IDs, Custom1–Custom8, and sanitized tournament name in Custom8 through existing `/go/hotels*` routes and `ti_outbound_clicks`.
+    - Added `tournament_hotels_page_viewed`; reused typed `hotel_card_click`, `hotel_cta_clicked`, and `team_hotel_cta_clicked` with Tournament Hotels context.
+  - SEO and future extension:
+    - Added shared coordinate/date/SEO helpers, qualified canonical metadata, noindex fallbacks, and a dedicated paged sitemap backed by `get_tournament_hotels_sitemap_page_v1`.
+    - Added standard-only `getTournamentHotelProgram()` and an empty server-controlled support-notice slot. Phase 2 routing and economics remain out of scope.
+    - Migration `20260813_ti_tournament_hotels_sitemap_v1.sql` remains unapplied locally and must be deployed before sitemap discovery is expected.
+  - Regression baseline:
+    - Focused attribution fixtures freeze protected source defaults: Book Travel and Weekend Planner retain `TI-BOOK-TRAVEL`; venue map retains `TI-VENUE-MAP`; venue/RI-style referee sources retain `TI-HOTELS`; Custom1–Custom5 machine semantics remain unchanged.
+  - Validation:
+    - `node --import tsx --test apps/ti-web/lib/hotelPlannerAttribution.test.ts apps/ti-web/lib/lodging/tournamentHotels.test.ts apps/ti-web/lib/teamHotelBooking.test.ts` — 13/13 passed.
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` — passed.
+    - `npm run lint --workspace ti-web` — passed.
+    - `npm run build --workspace ti-web` — passed; only pre-existing repo warnings and restricted-network Supabase DNS noise remained after feature warnings were removed.
+    - Local HTTP verification on `refereeinsights-demo-tournament`: new route returned 200 with correct title/H1, multi-venue selector, View All, Team Hotels, booking-safe fallback dates, and no `getProfile` reference. Tournament detail rendered three internal canonical hotel links with no external/sponsored attributes.
+    - Automated visual/mobile browser verification was not performed because `agent-browser` was not installed as an executable in this environment.

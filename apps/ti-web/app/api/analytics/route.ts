@@ -20,6 +20,8 @@ const QUICK_CHECK_EVENTS = new Set([
 const MAP_EVENTS = new Set([
   "hotel_cta_impression",
   "hotel_cta_clicked",
+  "hotel_card_click",
+  "tournament_hotels_page_viewed",
   "camping_cta_impression",
   "map_viewed",
   "map_filter_changed",
@@ -202,6 +204,7 @@ function asTextWithLimit(value: unknown, maxLen: number) {
 
 function normalizePlannerPageType(value: string | null) {
   if (value === "tournament") return "tournament";
+  if (value === "tournament_hotels") return "tournament_hotels";
   if (value === "planner") return "weekend_planner";
   if (value === "planner_entry") return "weekend_planner";
   if (value === "auth") return "auth";
@@ -488,6 +491,8 @@ export async function POST(request: Request) {
     const experimentVariant = asTextWithLimit((props as any).experiment_variant, 32);
     const featureFlagState = asTextWithLimit((props as any).feature_flag_state, 32);
     const activationFlow = asTextWithLimit((props as any).activation_flow, 64);
+    const dateSource = asTextWithLimit((props as any).date_source, 32);
+    const ctaPlacement = asTextWithLimit((props as any).cta_placement, 64);
 
     const hasPlannerActivationShape =
       payload.event.startsWith("weekend_planner_") ||
@@ -500,6 +505,7 @@ export async function POST(request: Request) {
           surface,
           source_page_type: sourcePageType,
           cta_type: ctaType,
+          cta_placement: ctaPlacement,
           planner_session_id: plannerSessionId,
           entry_source: entrySource,
           entry_page_type: entryPageType,
@@ -531,6 +537,7 @@ export async function POST(request: Request) {
           experiment_variant: experimentVariant,
           feature_flag_state: featureFlagState,
           activation_flow: activationFlow,
+          date_source: dateSource,
           ua: userAgent ?? null,
           host: host ?? null,
           origin: origin ?? null,

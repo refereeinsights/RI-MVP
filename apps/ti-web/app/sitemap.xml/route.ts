@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   SITE_ORIGIN,
   TOURNAMENT_SITEMAP_PAGE_SIZE,
+  TOURNAMENT_HOTELS_SITEMAP_PAGE_SIZE,
   VENUE_SITEMAP_PAGE_SIZE,
   buildSitemapIndexXml,
   xmlResponse,
@@ -24,6 +25,16 @@ export async function GET() {
   const pageCount = Math.ceil((count ?? 0) / TOURNAMENT_SITEMAP_PAGE_SIZE);
   for (let page = 1; page <= pageCount; page += 1) {
     sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/tournaments-${page}.xml`);
+  }
+
+  const { data: tournamentHotelRows } = await (supabaseAdmin as any).rpc(
+    "get_tournament_hotels_sitemap_page_v1",
+    { p_limit: 1, p_offset: 0 }
+  );
+  const tournamentHotelCount = Number(tournamentHotelRows?.[0]?.total_count ?? 0);
+  const tournamentHotelPageCount = Math.ceil(tournamentHotelCount / TOURNAMENT_HOTELS_SITEMAP_PAGE_SIZE);
+  for (let page = 1; page <= tournamentHotelPageCount; page += 1) {
+    sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/tournament-hotels-${page}.xml`);
   }
 
   const { count: venueCount } = await supabaseAdmin

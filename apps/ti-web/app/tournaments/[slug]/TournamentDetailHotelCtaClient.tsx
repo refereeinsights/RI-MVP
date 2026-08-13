@@ -9,12 +9,13 @@ type Props = {
 };
 
 export default function TournamentDetailHotelCtaClient({ href, label, minWidth }: Props) {
+  const isInternal = href.startsWith("/tournaments/") && href.includes("/hotels");
   return (
     <a
       className="secondaryLink hotelBookingCta"
       href={href}
-      target="_blank"
-      rel="noopener noreferrer sponsored"
+      target={isInternal ? undefined : "_blank"}
+      rel={isInternal ? undefined : "noopener noreferrer sponsored"}
       style={typeof minWidth === "number" ? { minWidth } : undefined}
       onClick={() => {
         void trackTiEvent("tournament_detail_hotel_cta_clicked", {

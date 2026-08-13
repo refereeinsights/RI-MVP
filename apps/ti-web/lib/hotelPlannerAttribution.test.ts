@@ -27,7 +27,52 @@ test("derives canonical source page types without collapsing book travel", () =>
   );
   assert.equal(deriveHotelPlannerSourcePageType({ source: "weekend_planner", hasVenueId: false }), "weekend_planner");
   assert.equal(deriveHotelPlannerSourcePageType({ source: "venue_map", hasVenueId: true }), "venue_map");
+  assert.equal(deriveHotelPlannerSourcePageType({ source: "tournament_hotels", hasVenueId: true }), "tournament_hotels");
+  assert.equal(
+    deriveHotelPlannerSourcePageType({ pageType: "tournament_hotels", sourcePath: "/tournaments/example/hotels", hasVenueId: false }),
+    "tournament_hotels"
+  );
   assert.equal(deriveHotelPlannerSourcePageType({ sourcePath: "/weekend/abc", hasVenueId: true }), "weekend");
+});
+
+test("adds tournament hotels attribution without changing protected source baselines", () => {
+  const protectedBaselines = [
+    { sourcePageType: "book_travel" as const, expectedJobCode: "TI-BOOK-TRAVEL" },
+    { sourcePageType: "weekend_planner" as const, expectedJobCode: "TI-BOOK-TRAVEL" },
+    { sourcePageType: "venue_map" as const, expectedJobCode: "TI-VENUE-MAP" },
+    { sourcePageType: "venue" as const, expectedJobCode: "TI-HOTELS" },
+    { sourcePageType: "referee" as const, expectedJobCode: "TI-HOTELS" },
+  ];
+
+  for (const baseline of protectedBaselines) {
+    const actual = buildHotelPlannerBookingAttribution({
+      outboundAttributionId: "cccccccccccccccccccccccccccccccc",
+      sourcePageType: baseline.sourcePageType,
+      placement: "baseline",
+      venueId: "33333333-3333-4333-8333-333333333333",
+      tournamentRef: "baseline-tournament",
+    });
+    assert.equal(actual.jobCode, baseline.expectedJobCode);
+    assert.equal(actual.custom1, "ven:33333333-3333-4333-8333-333333333333");
+    assert.equal(actual.custom2, "baseline-tournament");
+    assert.equal(actual.custom3, "attr:cccccccccccccccccccccccccccccccc");
+    assert.equal(actual.custom4, `srcp:${baseline.sourcePageType}`);
+    assert.equal(actual.custom5, "place:baseline");
+  }
+
+  const tournamentHotels = buildHotelPlannerBookingAttribution({
+    outboundAttributionId: "dddddddddddddddddddddddddddddddd",
+    sourcePageType: "tournament_hotels",
+    placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.tournamentHotelsProperty,
+    venueId: "33333333-3333-4333-8333-333333333333",
+    tournamentRef: "spring-classic",
+    custom8: `${"Tournament ".repeat(20)}name`,
+  });
+
+  assert.equal(tournamentHotels.jobCode, "TI-TOURNAMENT-HOTELS");
+  assert.equal(tournamentHotels.custom4, "srcp:tournament_hotels");
+  assert.equal(tournamentHotels.custom5, "place:tournament_hotels_property");
+  assert.equal(tournamentHotels.custom8?.length, 128);
 });
 
 test("builds canonical booking attribution while preserving legacy fields", () => {

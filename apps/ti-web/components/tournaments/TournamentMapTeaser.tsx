@@ -25,6 +25,7 @@ export default function TournamentMapTeaser({
   if (!Number.isFinite(venueCount) || venueCount <= 0) return null;
 
   const isSingleVenue = venueCount === 1;
+  const hotelsIsInternal = hotelsHref.startsWith("/tournaments/") && hotelsHref.includes("/hotels");
   const title = "Plan around the fields";
   const body = "See venue locations, directions, hotels, rentals, and nearby options.";
 
@@ -73,7 +74,12 @@ export default function TournamentMapTeaser({
         />
       </div>
       <div className="tournamentMapTeaser__secondaryRow">
-        <Link className="secondaryLink detailLinkSmall" href={hotelsHref} target="_blank" rel="noopener noreferrer sponsored">
+        <Link
+          className="secondaryLink detailLinkSmall"
+          href={hotelsHref}
+          target={hotelsIsInternal ? undefined : "_blank"}
+          rel={hotelsIsInternal ? undefined : "noopener noreferrer sponsored"}
+        >
           {hotelsLabel}
         </Link>
         <Link className="secondaryLink detailLinkSmall" href={rentalsHref} target="_blank" rel="noopener noreferrer sponsored">

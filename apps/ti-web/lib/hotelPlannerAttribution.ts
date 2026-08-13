@@ -5,6 +5,7 @@ export const HOTEL_PLANNER_SOURCE_PAGE_TYPES = [
   "book_travel",
   "team_hotel_booking",
   "venue_map",
+  "tournament_hotels",
   "weekend",
   "referee",
   "other",
@@ -19,6 +20,8 @@ export const HOTEL_PLANNER_BOOKING_PLACEMENTS = {
   bookTravelViewAllHotels: "book_travel_view_all_hotels",
   weekendPlannerPropertyCard: "weekend_planner_property_card",
   weekendPlannerViewAllHotels: "weekend_planner_view_all_hotels",
+  tournamentHotelsProperty: "tournament_hotels_property",
+  tournamentHotelsViewAll: "tournament_hotels_view_all",
 } as const;
 
 export const HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS = {
@@ -26,6 +29,7 @@ export const HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS = {
   bookTravelTeamBlock: "book_travel_team_block",
   weekendPlannerTeamBlock: "weekend_planner_team_block",
   venueMapTeamBlock: "venue_map_team_block",
+  tournamentHotelsTeamBlock: "tournament_hotels_team_block",
 } as const;
 
 export type HotelPlannerBookingPlacement =
@@ -131,6 +135,7 @@ export function deriveHotelPlannerSourcePageType(args: {
   if (pageType === "book_travel") return "book_travel";
   if (pageType === "team_hotel_booking") return "team_hotel_booking";
   if (pageType === "venue_map") return "venue_map";
+  if (pageType === "tournament_hotels") return "tournament_hotels";
   if (pageType === "weekend") return "weekend";
   if (pageType === "referee") return "referee";
 
@@ -138,6 +143,7 @@ export function deriveHotelPlannerSourcePageType(args: {
   if (source === "team_hotel_booking") return "team_hotel_booking";
   if (source === "weekend_planner") return "weekend_planner";
   if (source === "venue_map") return "venue_map";
+  if (source === "tournament_hotels") return "tournament_hotels";
   if (source === "tournament_detail" || source === "tournament_directory") return "tournament";
   if (source === "venue_directory") return "venue";
   if (source === "weekend_share" || source === "weekend") return "weekend";
@@ -162,6 +168,7 @@ function sanitizeText(value: string | null | undefined, maxLength = 128) {
 function defaultJobCode(sourcePageType: HotelPlannerSourcePageType) {
   if (sourcePageType === "book_travel" || sourcePageType === "weekend_planner") return "TI-BOOK-TRAVEL";
   if (sourcePageType === "venue_map") return "TI-VENUE-MAP";
+  if (sourcePageType === "tournament_hotels") return "TI-TOURNAMENT-HOTELS";
   return "TI-HOTELS";
 }
 
