@@ -12,10 +12,17 @@ import {
 } from "@/lib/adminDashboardEmail";
 import { isQualifiedTeamHotelAcceptedRequest } from "@/lib/teamHotelReporting";
 import {
-  FIRST_GAME_ACTIVATION_EVENT_NAMES,
-  summarizeFirstGameActivationWindow,
+  mapFirstGameActivationAggregate,
+  type FirstGameActivationAggregateRow,
   type FirstGameActivationWindowMetrics,
 } from "@/lib/planner/firstGameActivationReporting";
+import {
+  classifyAdminEmailSectionError,
+  getAdminEmailCompleteDayWindows,
+  loadAdminEmailSection,
+  renderAdminEmailDegradedSections,
+  type AdminEmailDegradedSection,
+} from "@/lib/adminDashboardEmailReliability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -214,6 +221,16 @@ function isAuthorized(req: Request) {
   const isVercelCron = req.headers.get("x-vercel-cron") === "1";
   const isProd = process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production";
   return Boolean(isVercelCron && isProd);
+}
+
+function emitAdminEmailLog(entry: Record<string, unknown>) {
+  const serialized = JSON.stringify(entry);
+  if (entry.level === "error") console.error(serialized);
+  else console.info(serialized);
+}
+
+function unavailableSummaryCategory(summary: { ok: boolean; error?: string }) {
+  return summary.ok ? null : classifyAdminEmailSectionError(summary.error ?? "database error");
 }
 
 function formatInt(value: unknown) {
@@ -464,27 +481,21 @@ async function loadFirstGameActivationSummary(params: {
 }): Promise<FirstGameActivationSummary> {
   const windowLabel = `${formatDateLabelInTimeZone(params.yesterdayStart, params.timeZone)} (${params.timeZone})`;
   try {
-    const { data, error } = await supabaseAdmin
-      .from("ti_map_events" as any)
-      .select("event_name,properties,created_at")
-      .in("event_name", [...FIRST_GAME_ACTIVATION_EVENT_NAMES])
-      .gte("created_at", params.trailing7dStartUtcIso)
-      .lt("created_at", params.todayStartUtcIso);
+    const { data, error } = await (supabaseAdmin as any).rpc("get_ti_first_game_activation_metrics_v1", {
+      p_yesterday_start: params.yesterdayStartUtcIso,
+      p_today_start: params.todayStartUtcIso,
+      p_trailing_7d_start: params.trailing7dStartUtcIso,
+    });
     if (error) {
       return { ok: false, windowLabel, error: error.message || "Failed to load first-game activation analytics." };
     }
 
-    const rows = ((data ?? []) as TiMapEventRow[]) ?? [];
-    const yesterdayStartMs = new Date(params.yesterdayStartUtcIso).getTime();
-    const yesterdayRows = rows.filter((row) => {
-      const createdAtMs = new Date(String(row.created_at ?? "")).getTime();
-      return Number.isFinite(createdAtMs) && createdAtMs >= yesterdayStartMs;
-    });
+    const rows = ((data ?? []) as FirstGameActivationAggregateRow[]) ?? [];
     return {
       ok: true,
       windowLabel,
-      yesterday: summarizeFirstGameActivationWindow(yesterdayRows),
-      trailing7d: summarizeFirstGameActivationWindow(rows),
+      yesterday: mapFirstGameActivationAggregate(rows, "yesterday"),
+      trailing7d: mapFirstGameActivationAggregate(rows, "trailing_7d"),
     };
   } catch (error: any) {
     return { ok: false, windowLabel, error: String(error?.message ?? error ?? "unknown_error") };
@@ -1010,7 +1021,7 @@ function renderFirstGameActivationHtml(summary: FirstGameActivationSummary | nul
     return renderSectionCard(
       "Weekend Planner Activation v2",
       `First-game analytics cohort for ${summary.windowLabel}`,
-      `<div style="color:#b91c1c;font-weight:800;">Metrics unavailable; legacy Planner reporting is unaffected: ${htmlEscape(summary.error)}</div>`,
+      `<div style="color:#b91c1c;font-weight:800;">Metrics unavailable; legacy Planner reporting is unaffected.</div>`,
     );
   }
 
@@ -1068,9 +1079,9 @@ function renderWeekendPlannerSummaryHtml(params: {
   if (!summary) return "";
   if (!summary.ok) {
     return renderSectionCard(
-      "Weekend Planner",
+      "Weekend Planner — Legacy / All-Flow Context",
       `Daily operator summary for ${summary.windowLabel}`,
-      `<div style="color:#b91c1c;font-weight:800;">Error loading Weekend Planner metrics: ${htmlEscape(summary.error)}</div>`,
+      `<div style="color:#b91c1c;font-weight:800;">Metrics unavailable; the rest of this email is unaffected.</div>`,
     );
   }
 
@@ -1301,7 +1312,7 @@ function renderCampspotExperimentHtml(summary: CampspotExperimentSummary | null)
     return renderSectionCard(
       "Campspot Camping + RV Experiment",
       `TI-only affiliate metrics for ${summary.windowLabel}`,
-      `<div style="color:#b91c1c;font-weight:800;">Metrics unavailable; the rest of this email is unaffected: ${htmlEscape(summary.error)}</div>`,
+      `<div style="color:#b91c1c;font-weight:800;">Metrics unavailable; the rest of this email is unaffected.</div>`,
     );
   }
   const breakdownRows = (label: string, values: Record<string, number>, total: number) =>
@@ -1417,45 +1428,6 @@ function renderUsersTile(params: {
   </div>`;
 }
 
-function startOfUtcDay(d: Date) {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
-}
-
-function startOfDayInTimeZone(d: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(d);
-
-  const year = Number(parts.find((p) => p.type === "year")?.value ?? NaN);
-  const month = Number(parts.find((p) => p.type === "month")?.value ?? NaN);
-  const day = Number(parts.find((p) => p.type === "day")?.value ?? NaN);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-    return startOfUtcDay(d);
-  }
-
-  // Start with an initial UTC guess for local midnight, then compute the time zone offset for that local date.
-  const guessUtc = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-  const offsetParts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    timeZoneName: "longOffset",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(guessUtc);
-  const tzName = offsetParts.find((p) => p.type === "timeZoneName")?.value ?? "";
-  const m = tzName.match(/GMT([+-]\d{2}):(\d{2})/);
-  if (!m) return guessUtc;
-
-  const sign = m[1].startsWith("-") ? -1 : 1;
-  const hh = Math.abs(Number(m[1]));
-  const mm = Number(m[2]);
-  const offsetMinutes = sign * (hh * 60 + mm);
-  return new Date(guessUtc.getTime() - offsetMinutes * 60 * 1000);
-}
-
 const INTERNAL_EMAIL_SUBSTRINGS = ["tournamentinsights", "rdtest1970"] as const;
 
 async function loadInternalTiUserIds(): Promise<string[]> {
@@ -1463,7 +1435,7 @@ async function loadInternalTiUserIds(): Promise<string[]> {
     .from("ti_users" as any)
     .select("id,email")
     .or(INTERNAL_EMAIL_SUBSTRINGS.map((s) => `email.ilike.%${s}%`).join(","));
-  if (res.error) return [];
+  if (res.error) throw res.error;
   return (res.data ?? []).map((r: any) => r.id).filter(Boolean);
 }
 
@@ -1495,13 +1467,16 @@ async function loadTiUserCountsExcludingInternal(params: { todayStartUtcIso: str
     ),
   ]);
 
+  const firstError = [insiderTotalRes, insiderNewRes, weekendTotalRes, weekendNewRes].find((result) => result.error)?.error;
+  if (firstError) throw firstError;
+
   return {
     internalIds,
     counts: {
-      insider_total: insiderTotalRes.error ? 0 : insiderTotalRes.count ?? 0,
-      insider_new_yesterday: insiderNewRes.error ? 0 : insiderNewRes.count ?? 0,
-      weekend_pro_total: weekendTotalRes.error ? 0 : weekendTotalRes.count ?? 0,
-      weekend_pro_new_yesterday: weekendNewRes.error ? 0 : weekendNewRes.count ?? 0,
+      insider_total: insiderTotalRes.count ?? 0,
+      insider_new_yesterday: insiderNewRes.count ?? 0,
+      weekend_pro_total: weekendTotalRes.count ?? 0,
+      weekend_pro_new_yesterday: weekendNewRes.count ?? 0,
     },
   };
 }
@@ -1609,6 +1584,7 @@ function buildEmailHtml(params: {
   firstGameActivationSummary?: FirstGameActivationSummary | null;
   weekendPlannerSummary?: WeekendPlannerDailySummary | null;
   campspotExperimentSummary?: CampspotExperimentSummary | null;
+  degradedSections?: AdminEmailDegradedSection[];
 }) {
   const {
     generatedAtIso,
@@ -1626,8 +1602,11 @@ function buildEmailHtml(params: {
     firstGameActivationSummary,
     weekendPlannerSummary,
     campspotExperimentSummary,
+    degradedSections = [],
   } = params;
   const dashboardUrl = `${baseUrl}/admin/outreach-dashboard`;
+  const degradedSectionNames = new Set(degradedSections.map((item) => item.section));
+  const degradedSectionsHtml = renderAdminEmailDegradedSections(degradedSections);
 
   const dbTotal = Number((tiles as any)?.tournaments_db?.total ?? 0) || 0;
   const publishedTotal = Number((tiles as any)?.public_directory?.total ?? tiles?.canonical?.total ?? 0) || 0;
@@ -1741,21 +1720,38 @@ function buildEmailHtml(params: {
           ${renderTile("Missing venues", formatInt(missingVenuesTotal), formatDelta(missingVenuesNew), "warn")}
           ${renderTile("Owl's Eye venues reviewed", formatInt(owlsEyeTotal), formatDelta(owlsEyeNew), "success")}
           ${renderTile("Venue Check submissions", formatInt(venueCheckTotal), formatDelta(venueCheckNew), "success")}
-          ${renderTile("Weekend Pro checkouts (PT yesterday)", formatInt(weekendProCheckoutsTotal), formatDelta(weekendProCheckoutsYesterday), "success")}
           ${renderTile(
-            "Founders Preview purchases (PT yesterday)",
-            formatInt(weekendPassPurchasesTotal),
-            formatDelta(weekendPassPurchasesYesterday),
+            "Weekend Pro checkouts (PT yesterday)",
+            degradedSectionNames.has("weekend_pro_checkouts") ? "Unavailable" : formatInt(weekendProCheckoutsTotal),
+            degradedSectionNames.has("weekend_pro_checkouts") ? "" : formatDelta(weekendProCheckoutsYesterday),
             "success"
           )}
-          ${renderUsersTile({ insiderTotal: tiInsiderTotal, insiderNew: tiInsiderNew, weekendTotal: tiWeekendTotal, weekendNew: tiWeekendNew })}
+          ${renderTile(
+            "Founders Preview purchases (PT yesterday)",
+            degradedSectionNames.has("weekend_pass_purchases") ? "Unavailable" : formatInt(weekendPassPurchasesTotal),
+            degradedSectionNames.has("weekend_pass_purchases") ? "" : formatDelta(weekendPassPurchasesYesterday),
+            "success"
+          )}
+          ${
+            degradedSectionNames.has("ti_user_counts")
+              ? renderTile("TI users", "Unavailable", "", "warn")
+              : renderUsersTile({ insiderTotal: tiInsiderTotal, insiderNew: tiInsiderNew, weekendTotal: tiWeekendTotal, weekendNew: tiWeekendNew })
+          }
         </div>
         ${firstGameActivationHtml}
         ${weekendPlannerHtml}
         ${campspotExperimentHtml}
         ${sportTilesHtml}
         ${heatmapHtml}`
-      : `${firstGameActivationHtml}${weekendPlannerHtml}${campspotExperimentHtml}`;
+      : `${
+          includeTiles
+            ? renderSectionCard(
+                "Dashboard tiles",
+                null,
+                `<div style="color:#b91c1c;font-weight:800;">Metrics unavailable; the rest of this email is unaffected.</div>`,
+              )
+            : ""
+        }${firstGameActivationHtml}${weekendPlannerHtml}${campspotExperimentHtml}`;
 
   const rows = totalsBySport
     .map((row) => {
@@ -1765,7 +1761,7 @@ function buildEmailHtml(params: {
             getSportLabel(row.sport)
           )}</strong></td>
           <td style="padding:8px 10px;border-top:1px solid #e5e7eb;" colspan="6">
-            <span style="color:#b91c1c;">Error: ${htmlEscape(row.error ?? "unknown")}</span>
+            <span style="color:#b91c1c;">Metrics unavailable</span>
           </td>
         </tr>`;
       }
@@ -1849,6 +1845,8 @@ function buildEmailHtml(params: {
           <div style="color:#64748b;font-size:12px;">Generated: ${htmlEscape(generatedAtIso)}</div>
         </div>
 
+        ${degradedSectionsHtml}
+
         ${tilesHtml}
 
         <p style="margin:14px 0 12px;color:#334155;font-size:13px;line-height:1.45;">
@@ -1897,13 +1895,35 @@ function buildEmailHtml(params: {
 }
 
 export async function GET(req: Request) {
+  const cronStartedAt = Date.now();
+  const requestId = req.headers.get("x-vercel-id");
+  emitAdminEmailLog({
+    level: "info",
+    message: "admin_dashboard_email_started",
+    request_id: requestId,
+  });
+
   if (!isAuthorized(req)) {
+    emitAdminEmailLog({
+      level: "error",
+      message: "admin_dashboard_email_rejected",
+      request_id: requestId,
+      error_category: "unauthorized",
+      duration_ms: Date.now() - cronStartedAt,
+    });
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
   const settings = await loadTiAdminDashboardEmailSettings();
   const recipients = getEffectiveRecipients(settings);
   if (recipients.length === 0) {
+    emitAdminEmailLog({
+      level: "info",
+      message: "admin_dashboard_email_skipped",
+      request_id: requestId,
+      reason: "no_recipients",
+      duration_ms: Date.now() - cronStartedAt,
+    });
     return NextResponse.json({ ok: true, skipped: true, reason: "no_recipients" });
   }
 
@@ -1915,9 +1935,24 @@ export async function GET(req: Request) {
     p_ttl_seconds: 10 * 60,
   });
   if (lockError) {
-    return NextResponse.json({ ok: false, error: lockError.message }, { status: 500 });
+    const category = classifyAdminEmailSectionError(lockError);
+    emitAdminEmailLog({
+      level: "error",
+      message: "admin_dashboard_email_lock_failed",
+      request_id: requestId,
+      error_category: category,
+      duration_ms: Date.now() - cronStartedAt,
+    });
+    return NextResponse.json({ ok: false, error: "lock_failed", category }, { status: 500 });
   }
   if (!lock) {
+    emitAdminEmailLog({
+      level: "info",
+      message: "admin_dashboard_email_skipped",
+      request_id: requestId,
+      reason: "lock_held",
+      duration_ms: Date.now() - cronStartedAt,
+    });
     return NextResponse.json({ ok: true, skipped: true, reason: "lock_held" });
   }
 
@@ -1932,63 +1967,197 @@ export async function GET(req: Request) {
 
     const now = new Date();
     const timeZone = "America/Los_Angeles";
-    const todayStart = startOfDayInTimeZone(now, timeZone);
-    const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+    const { todayStart, yesterdayStart, trailing7dStart } = getAdminEmailCompleteDayWindows(now, timeZone);
     const todayIso = todayStart.toISOString();
     const yesterdayIso = yesterdayStart.toISOString();
-    const trailing7dStartIso = new Date(yesterdayStart.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString();
+    const trailing7dStartIso = trailing7dStart.toISOString();
 
+    const sectionLogger = (entry: Record<string, unknown>) => emitAdminEmailLog(entry);
     const [
-      tiles,
-      tiUserCounts,
-      totalsBySport,
-      riSummary,
-      lowestStates,
-      firstGameActivationSummary,
-      weekendPlannerSummary,
-      campspotExperimentSummary,
+      tilesResult,
+      tiUserCountsResult,
+      totalsBySportResult,
+      riSummaryResult,
+      lowestStatesResult,
+      firstGameActivationResult,
+      weekendPlannerResult,
+      campspotExperimentResult,
     ] = await Promise.all([
-      includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null),
-      includeTiles ? loadTiUserCountsExcludingInternal({ todayStartUtcIso: todayIso, yesterdayStartUtcIso: yesterdayIso }) : Promise.resolve(null),
-      includeOutreach ? Promise.all(TI_SPORTS.map((sport) => loadOutreachTotals(sport))) : Promise.resolve([]),
-      includeRiSummary ? loadRiSummaryCounts() : Promise.resolve(null),
-      includeLowestStates ? loadLowestStates(5) : Promise.resolve(null),
-      loadFirstGameActivationSummary({
-        yesterdayStartUtcIso: yesterdayIso,
-        todayStartUtcIso: todayIso,
-        trailing7dStartUtcIso: trailing7dStartIso,
-        yesterdayStart,
-        timeZone,
+      loadAdminEmailSection({
+        section: "dashboard_tiles",
+        requestId,
+        logger: sectionLogger,
+        load: () => (includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null)),
       }),
-      loadWeekendPlannerDailySummary({
-        yesterdayStartUtcIso: yesterdayIso,
-        todayStartUtcIso: todayIso,
-        yesterdayStart,
-        todayStart,
-        timeZone,
+      loadAdminEmailSection({
+        section: "ti_user_counts",
+        requestId,
+        logger: sectionLogger,
+        load: () =>
+          includeTiles
+            ? loadTiUserCountsExcludingInternal({ todayStartUtcIso: todayIso, yesterdayStartUtcIso: yesterdayIso })
+            : Promise.resolve(null),
       }),
-      loadCampspotExperimentSummary({
-        yesterdayStartUtcIso: yesterdayIso,
-        todayStartUtcIso: todayIso,
-        trailing7dStartUtcIso: trailing7dStartIso,
-        yesterdayStart,
-        timeZone,
+      loadAdminEmailSection({
+        section: "outreach_totals",
+        requestId,
+        logger: sectionLogger,
+        load: () => (includeOutreach ? Promise.all(TI_SPORTS.map((sport) => loadOutreachTotals(sport))) : Promise.resolve([])),
+        degradedCategory: (rows) =>
+          rows.some((row) => !row.ok) ? classifyAdminEmailSectionError(rows.find((row) => !row.ok)?.error) : null,
       }),
-    ]);
-    const weekendProCheckouts = includeTiles
-      ? await loadWeekendProCheckoutCounts({
-          todayStartUtcIso: todayIso,
-          yesterdayStartUtcIso: yesterdayIso,
-          internalUserIds: tiUserCounts?.internalIds ?? [],
-        })
+      loadAdminEmailSection({
+        section: "ri_summary",
+        requestId,
+        logger: sectionLogger,
+        load: () => (includeRiSummary ? loadRiSummaryCounts() : Promise.resolve(null)),
+      }),
+      loadAdminEmailSection({
+        section: "lowest_states",
+        requestId,
+        logger: sectionLogger,
+        load: () => (includeLowestStates ? loadLowestStates(5) : Promise.resolve(null)),
+      }),
+      loadAdminEmailSection<FirstGameActivationSummary>({
+        section: "first_game_activation",
+        requestId,
+        logger: sectionLogger,
+        load: () =>
+          loadFirstGameActivationSummary({
+            yesterdayStartUtcIso: yesterdayIso,
+            todayStartUtcIso: todayIso,
+            trailing7dStartUtcIso: trailing7dStartIso,
+            yesterdayStart,
+            timeZone,
+          }),
+        degradedCategory: unavailableSummaryCategory,
+      }),
+      loadAdminEmailSection<WeekendPlannerDailySummary>({
+        section: "weekend_planner_legacy",
+        requestId,
+        logger: sectionLogger,
+        load: () =>
+          loadWeekendPlannerDailySummary({
+            yesterdayStartUtcIso: yesterdayIso,
+            todayStartUtcIso: todayIso,
+            yesterdayStart,
+            todayStart,
+            timeZone,
+          }),
+        degradedCategory: unavailableSummaryCategory,
+      }),
+      loadAdminEmailSection<CampspotExperimentSummary>({
+        section: "campspot_experiment",
+        requestId,
+        logger: sectionLogger,
+        load: () =>
+          loadCampspotExperimentSummary({
+            yesterdayStartUtcIso: yesterdayIso,
+            todayStartUtcIso: todayIso,
+            trailing7dStartUtcIso: trailing7dStartIso,
+            yesterdayStart,
+            timeZone,
+          }),
+        degradedCategory: unavailableSummaryCategory,
+      }),
+    ] as const);
+
+    const tiles = tilesResult.value;
+    const tiUserCounts = tiUserCountsResult.value;
+    const totalsBySport = (totalsBySportResult.value ?? []).map((row) =>
+      row.ok ? row : { ...row, error: classifyAdminEmailSectionError(row.error) },
+    );
+    const riSummary = riSummaryResult.value;
+    const lowestStates = lowestStatesResult.value;
+    const firstGameWindowLabel = `${formatDateLabelInTimeZone(yesterdayStart, timeZone)} (${timeZone})`;
+    const firstGameActivationSummary: FirstGameActivationSummary = firstGameActivationResult.value?.ok
+      ? firstGameActivationResult.value
+      : {
+          ok: false,
+          windowLabel: firstGameActivationResult.value?.windowLabel ?? firstGameWindowLabel,
+          error: firstGameActivationResult.degraded?.category ?? "metrics_unavailable",
+        };
+    const weekendPlannerSummary: WeekendPlannerDailySummary = weekendPlannerResult.value?.ok
+      ? weekendPlannerResult.value
+      : {
+          ok: false,
+          windowLabel: weekendPlannerResult.value?.windowLabel ?? firstGameWindowLabel,
+          error: weekendPlannerResult.degraded?.category ?? "metrics_unavailable",
+        };
+    const campspotExperimentSummary: CampspotExperimentSummary = campspotExperimentResult.value?.ok
+      ? campspotExperimentResult.value
+      : {
+          ok: false,
+          windowLabel: campspotExperimentResult.value?.windowLabel ?? formatDateLabelInTimeZone(yesterdayStart, timeZone),
+          error: campspotExperimentResult.degraded?.category ?? "metrics_unavailable",
+        };
+
+    const [weekendProCheckoutsResult, weekendPassPurchasesResult] = await Promise.all([
+      loadAdminEmailSection({
+        section: "weekend_pro_checkouts",
+        requestId,
+        logger: sectionLogger,
+        load: () =>
+          !includeTiles
+            ? Promise.resolve(null)
+            : !tiUserCounts
+              ? Promise.reject({ code: "DEPENDENCY_UNAVAILABLE", message: "dependency unavailable" })
+              : loadWeekendProCheckoutCounts({
+                todayStartUtcIso: todayIso,
+                yesterdayStartUtcIso: yesterdayIso,
+                internalUserIds: tiUserCounts.internalIds,
+              }),
+        degradedCategory: (value) =>
+          value && (value.errors.total || value.errors.yesterday) ? "database_error" : null,
+      }),
+      loadAdminEmailSection({
+        section: "weekend_pass_purchases",
+        requestId,
+        logger: sectionLogger,
+        load: () =>
+          !includeTiles
+            ? Promise.resolve(null)
+            : !tiUserCounts
+              ? Promise.reject({ code: "DEPENDENCY_UNAVAILABLE", message: "dependency unavailable" })
+              : loadWeekendPassPurchaseCounts({
+                todayStartUtcIso: todayIso,
+                yesterdayStartUtcIso: yesterdayIso,
+                internalUserIds: tiUserCounts.internalIds,
+              }),
+        degradedCategory: (value) =>
+          value && (value.errors.total || value.errors.yesterday) ? "database_error" : null,
+      }),
+    ] as const);
+    const weekendProCheckouts = weekendProCheckoutsResult.value
+      ? {
+          ...weekendProCheckoutsResult.value,
+          errors: {
+            total: weekendProCheckoutsResult.value.errors.total ? "database_error" : null,
+            yesterday: weekendProCheckoutsResult.value.errors.yesterday ? "database_error" : null,
+          },
+        }
       : null;
-    const weekendPassPurchases = includeTiles
-      ? await loadWeekendPassPurchaseCounts({
-          todayStartUtcIso: todayIso,
-          yesterdayStartUtcIso: yesterdayIso,
-          internalUserIds: tiUserCounts?.internalIds ?? [],
-        })
+    const weekendPassPurchases = weekendPassPurchasesResult.value
+      ? {
+          ...weekendPassPurchasesResult.value,
+          errors: {
+            total: weekendPassPurchasesResult.value.errors.total ? "database_error" : null,
+            yesterday: weekendPassPurchasesResult.value.errors.yesterday ? "database_error" : null,
+          },
+        }
       : null;
+    const degradedSections = [
+      tilesResult.degraded,
+      tiUserCountsResult.degraded,
+      totalsBySportResult.degraded,
+      riSummaryResult.degraded,
+      lowestStatesResult.degraded,
+      firstGameActivationResult.degraded,
+      weekendPlannerResult.degraded,
+      campspotExperimentResult.degraded,
+      weekendProCheckoutsResult.degraded,
+      weekendPassPurchasesResult.degraded,
+    ].filter((item): item is AdminEmailDegradedSection => Boolean(item));
 
     const tilesWithFilteredUsers =
       includeTiles && tiles && tiUserCounts
@@ -2022,6 +2191,7 @@ export async function GET(req: Request) {
       firstGameActivationSummary,
       weekendPlannerSummary,
       campspotExperimentSummary,
+      degradedSections,
     });
     const subject =
       firstGameActivationSummary && firstGameActivationSummary.ok
@@ -2052,10 +2222,16 @@ export async function GET(req: Request) {
       campspotExperimentSummary: campspotExperimentSummary ?? null,
       riSummary: riSummary ?? null,
       lowestStates: lowestStates ?? null,
+      degraded_sections: degradedSections,
     };
 
-    try {
-      if (!dryRun) {
+    if (!dryRun) {
+      try {
+        emitAdminEmailLog({
+          level: "info",
+          message: "admin_dashboard_email_send_started",
+          request_id: requestId,
+        });
         await sendEmailVerified({
           kind: "transactional",
           to: recipients,
@@ -2063,8 +2239,55 @@ export async function GET(req: Request) {
           html,
           allowLocalhostLinks: true,
         });
+        emitAdminEmailLog({
+          level: "info",
+          message: "admin_dashboard_email_send_completed",
+          request_id: requestId,
+        });
+      } catch (err: any) {
+        const message = String(err?.message ?? err ?? "unknown_error");
+        const category = classifyAdminEmailSectionError(err);
+        emitAdminEmailLog({
+          level: "error",
+          message: "admin_dashboard_email_send_failed",
+          request_id: requestId,
+          error_category: category,
+          duration_ms: Date.now() - cronStartedAt,
+        });
+        try {
+          const failedAuditResult = await supabaseAdmin.from("ti_admin_dashboard_email_runs" as any).insert({
+            run_at: generatedAtIso,
+            dry_run: dryRun,
+            recipients,
+            subject,
+            ok: false,
+            error: category,
+            payload: { ...responsePayload, ok: false, send_error: category },
+          });
+          emitAdminEmailLog({
+            level: failedAuditResult.error ? "error" : "info",
+            message: failedAuditResult.error
+              ? "admin_dashboard_email_audit_failed"
+              : "admin_dashboard_email_audit_completed",
+            request_id: requestId,
+            ...(failedAuditResult.error
+              ? { error_category: classifyAdminEmailSectionError(failedAuditResult.error) }
+              : {}),
+          });
+        } catch {
+          emitAdminEmailLog({
+            level: "error",
+            message: "admin_dashboard_email_audit_failed",
+            request_id: requestId,
+            error_category: "unexpected_error",
+          });
+        }
+        return NextResponse.json({ ok: false, error: "send_failed", detail: message }, { status: 500 });
       }
-      await supabaseAdmin.from("ti_admin_dashboard_email_runs" as any).insert({
+    }
+
+    try {
+      const auditResult = await supabaseAdmin.from("ti_admin_dashboard_email_runs" as any).insert({
         run_at: generatedAtIso,
         dry_run: dryRun,
         recipients,
@@ -2073,38 +2296,83 @@ export async function GET(req: Request) {
         error: null,
         payload: responsePayload,
       });
-
-      // Fire RI admin email as a companion send — fire-and-forget, does not block TI response.
-      if (!dryRun) {
-        const riCronUrl = process.env.RI_ADMIN_EMAIL_CRON_URL;
-        if (riCronUrl) {
-          fetch(riCronUrl, { method: "GET" })
-            .then((r) => {
-              if (!r.ok) console.warn("[ti-cron] RI admin email returned non-ok status", r.status);
-              else console.info("[ti-cron] RI admin email triggered ok");
-            })
-            .catch((err) => console.warn("[ti-cron] RI admin email trigger failed", String(err?.message ?? err)));
-        }
-      }
-
-      return NextResponse.json(responsePayload);
-    } catch (err: any) {
-      const message = String(err?.message ?? err ?? "unknown_error");
-      try {
-        await supabaseAdmin.from("ti_admin_dashboard_email_runs" as any).insert({
-          run_at: generatedAtIso,
-          dry_run: dryRun,
-          recipients,
-          subject,
-          ok: false,
-          error: message,
-          payload: responsePayload,
+      if (auditResult.error) {
+        emitAdminEmailLog({
+          level: "error",
+          message: "admin_dashboard_email_audit_failed",
+          request_id: requestId,
+          error_category: classifyAdminEmailSectionError(auditResult.error),
         });
-      } catch {
-        // best-effort logging only
+      } else {
+        emitAdminEmailLog({
+          level: "info",
+          message: "admin_dashboard_email_audit_completed",
+          request_id: requestId,
+        });
       }
-      return NextResponse.json({ ok: false, error: "send_failed", detail: message }, { status: 500 });
+    } catch (error) {
+      emitAdminEmailLog({
+        level: "error",
+        message: "admin_dashboard_email_audit_failed",
+        request_id: requestId,
+        error_category: classifyAdminEmailSectionError(error),
+      });
     }
+
+    // Fire RI admin email as a companion send — fire-and-forget, does not block TI response.
+    if (!dryRun) {
+      const riCronUrl = process.env.RI_ADMIN_EMAIL_CRON_URL;
+      if (riCronUrl) {
+        fetch(riCronUrl, { method: "GET" })
+          .then((r) => {
+            if (!r.ok) console.warn("[ti-cron] RI admin email returned non-ok status", r.status);
+            else console.info("[ti-cron] RI admin email triggered ok");
+          })
+          .catch((err) => console.warn("[ti-cron] RI admin email trigger failed", String(err?.message ?? err)));
+      }
+    }
+
+    emitAdminEmailLog({
+      level: "info",
+      message: "admin_dashboard_email_completed",
+      request_id: requestId,
+      dry_run: dryRun,
+      degraded_section_count: degradedSections.length,
+      duration_ms: Date.now() - cronStartedAt,
+    });
+    return NextResponse.json(responsePayload);
+  } catch (error) {
+    const generatedAtIso = new Date().toISOString();
+    const category = classifyAdminEmailSectionError(error);
+    emitAdminEmailLog({
+      level: "error",
+      message: "admin_dashboard_email_generation_failed",
+      request_id: requestId,
+      error_category: category,
+      duration_ms: Date.now() - cronStartedAt,
+    });
+    try {
+      await supabaseAdmin.from("ti_admin_dashboard_email_runs" as any).insert({
+        run_at: generatedAtIso,
+        dry_run: dryRun,
+        recipients,
+        subject: `TI Admin Dashboard — generation failed — ${generatedAtIso.slice(0, 10)}`,
+        ok: false,
+        error: category,
+        payload: {
+          ok: false,
+          dry_run: dryRun,
+          error: "report_generation_failed",
+          error_category: category,
+        },
+      });
+    } catch {
+      // Structured generation-failure log above remains the fallback audit trail.
+    }
+    return NextResponse.json(
+      { ok: false, error: "report_generation_failed", category },
+      { status: 500 },
+    );
   } finally {
     try {
       await (supabaseAdmin as any).rpc("release_cron_job_lock", { p_key: LOCK_KEY });

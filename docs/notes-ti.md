@@ -13,6 +13,16 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-08-13
+
+- TI admin email statement-timeout recovery:
+  - The August 13 Vercel cron invoked `/api/cron/admin-dashboard-email` at 6:05 AM Pacific but PostgreSQL canceled a report query with `57014`; execution stopped before Resend and before `ti_admin_dashboard_email_runs`, so no email or audit row was produced.
+  - Each noncritical report section now has an independent safe-loader boundary. Timeouts and other failures produce sanitized `degraded_sections` entries, structured per-section duration logs, and an explicit unavailable state in the email while healthy sections and delivery continue.
+  - Successful partial delivery remains `ok=true`; provider/preflight failure remains `ok=false`. Audit-write errors are logged separately so a delivered email is never mislabeled as a send failure.
+  - First-game activation now uses `get_ti_first_game_activation_metrics_v1`, aggregating distinct planner sessions inside Postgres for yesterday and trailing seven complete Pacific days. It retains the exact `first_game_inline_v1` cohort, game-only persistence, legacy exclusion, and missing-session visibility without the PostgREST 1,000-row ceiling.
+  - Added `supabase/migrations/20260813_ti_first_game_activation_reporting.sql` with the service-role-only aggregate RPC and a partial `ti_map_events` reporting index. This migration has not been applied to production.
+  - Added focused coverage for PostgreSQL timeout classification, independent parallel resolution, sanitized degraded rendering, >1,000 aggregate counts, window separation, and 23/25-hour DST boundaries. Focused tests, TI typecheck, focused lint, and production build passed. No production cron or email was triggered.
+
 ## 2026-08-12
 
 - TI admin email first-game activation reporting:

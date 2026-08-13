@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { summarizeFirstGameActivationWindow, type FirstGameActivationAnalyticsRow } from "./firstGameActivationReporting";
+import {
+  mapFirstGameActivationAggregate,
+  summarizeFirstGameActivationWindow,
+  type FirstGameActivationAggregateRow,
+  type FirstGameActivationAnalyticsRow,
+} from "./firstGameActivationReporting";
 
 function row(event_name: string, session: string | null, overrides: Record<string, unknown> = {}): FirstGameActivationAnalyticsRow {
   return {
@@ -49,4 +54,42 @@ test("excludes non-game persistence and reports missing tagged session ids", () 
   assert.equal(metrics.authStarted, 1);
   assert.equal(metrics.authCompleted, 1);
   assert.equal(metrics.taggedEventsMissingSessionId, 1);
+});
+
+test("maps database aggregates above the PostgREST row cap without blending windows", () => {
+  const rows: FirstGameActivationAggregateRow[] = [
+    {
+      window_key: "yesterday",
+      event_name: "weekend_planner_first_action_available",
+      unique_sessions: "1501",
+      missing_session_events: "2",
+    },
+    {
+      window_key: "yesterday",
+      event_name: "weekend_planner_temporary_event_persisted",
+      unique_sessions: 375,
+      missing_session_events: 1,
+    },
+    {
+      window_key: "trailing_7d",
+      event_name: "weekend_planner_first_action_available",
+      unique_sessions: 9000,
+      missing_session_events: 4,
+    },
+    {
+      window_key: "legacy",
+      event_name: "weekend_planner_first_action_available",
+      unique_sessions: 999999,
+      missing_session_events: 999999,
+    },
+  ];
+
+  const yesterday = mapFirstGameActivationAggregate(rows, "yesterday");
+  const trailing = mapFirstGameActivationAggregate(rows, "trailing_7d");
+  assert.equal(yesterday.eligiblePromptReady, 1501);
+  assert.equal(yesterday.firstGamePersisted, 375);
+  assert.equal(yesterday.taggedEventsMissingSessionId, 3);
+  assert.equal(trailing.eligiblePromptReady, 9000);
+  assert.equal(trailing.firstGamePersisted, 0);
+  assert.equal(trailing.taggedEventsMissingSessionId, 4);
 });
