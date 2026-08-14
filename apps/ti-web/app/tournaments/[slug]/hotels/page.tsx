@@ -15,7 +15,8 @@ import {
 import TournamentHotelsClient from "./TournamentHotelsClient";
 import styles from "./TournamentHotels.module.css";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type TournamentRow = {
   id: string;
@@ -126,7 +127,7 @@ export default async function TournamentHotelsPage({ params }: { params: { slug:
   const searchableVenues = searchableTournamentHotelVenues(venues);
   const initialVenue = selectInitialTournamentHotelVenue(venues);
   const initialDates = initialTournamentHotelDates({ startDate: tournament.start_date, endDate: tournament.end_date });
-  const program = await getTournamentHotelProgram(tournament.id);
+  const program = await getTournamentHotelProgram(tournament.id, initialVenue?.id ?? null);
   const location = [tournament.city, tournament.state].filter(Boolean).join(", ");
   const canonicalSlug = tournament.slug ?? params.slug;
 
@@ -165,7 +166,7 @@ export default async function TournamentHotelsPage({ params }: { params: { slug:
           searchableVenues={searchableVenues}
           initialVenueId={initialVenue?.id ?? null}
           initialDates={initialDates}
-          programType={program.programType}
+          showTournamentSupportDisclosure={program.showTournamentSupportDisclosure}
         />
       </div>
     </main>

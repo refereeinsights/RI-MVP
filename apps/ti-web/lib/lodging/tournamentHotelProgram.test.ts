@@ -8,8 +8,25 @@ import {
   resolveHotelProgramSnapshotSafely,
   selectHotelHandoffMode,
   validateHotelProgramSnapshot,
+  type HotelProgramRepository,
   type HotelProgramSnapshot,
 } from "./tournamentHotelProgram";
+
+const tournamentId = "11111111-1111-4111-8111-111111111111";
+const venueId = "22222222-2222-4222-8222-222222222222";
+const configurationVersion = "33333333-3333-4333-8333-333333333333";
+
+function repository(overrides: Partial<HotelProgramRepository> = {}): HotelProgramRepository {
+  return {
+    async findConfiguration() {
+      return { data: null, error: null };
+    },
+    async hasConfirmedVenueAssociation() {
+      return { trusted: true, error: null };
+    },
+    ...overrides,
+  };
+}
 
 test("exports one frozen canonical standard snapshot", async () => {
   assert.equal(Object.isFrozen(STANDARD_HOTEL_PROGRAM_SNAPSHOT), true);
@@ -20,13 +37,12 @@ test("exports one frozen canonical standard snapshot", async () => {
     beneficiaryId: null,
     version: "hp_standard_v1",
   });
-  assert.equal(
-    await resolveHotelProgramSnapshot({ tournamentId: null, sourcePageType: "book_travel" }),
-    STANDARD_HOTEL_PROGRAM_SNAPSHOT
-  );
+  const result = await resolveHotelProgramSnapshot({ tournamentId: null, venueId: null, sourcePageType: "book_travel" });
+  assert.equal(result.snapshot, STANDARD_HOTEL_PROGRAM_SNAPSHOT);
+  assert.equal(result.fallbackReason, "untrusted_context");
 });
 
-test("validates every supported program shape and rejects mixed economics", () => {
+test("validates every supported snapshot shape and rejects mixed economics", () => {
   const ti: HotelProgramSnapshot = {
     programType: "ti_revenue",
     rateCents: 500,
@@ -38,7 +54,7 @@ test("validates every supported program shape and rejects mixed economics", () =
     programType: "tournament_support",
     rateCents: 1000,
     beneficiaryType: "tournament",
-    beneficiaryId: "11111111-1111-4111-8111-111111111111",
+    beneficiaryId: tournamentId,
     version: "hp_tournament_1000_v1",
   };
   assert.equal(validateHotelProgramSnapshot(ti), ti);
@@ -48,24 +64,77 @@ test("validates every supported program shape and rejects mixed economics", () =
   assert.throws(() => validateHotelProgramSnapshot({ ...STANDARD_HOTEL_PROGRAM_SNAPSHOT, version: " " }));
 });
 
+test("resolves an active fee program only for a confirmed tournament venue and trusted fee target", async () => {
+  const result = await resolveHotelProgramSnapshot(
+    { tournamentId, venueId, sourcePageType: "tournament_hotels" },
+    {
+      repository: repository({
+        async findConfiguration() {
+          return {
+            data: { tournamentId, programType: "tournament_support", rateCents: 500, status: "active", configurationVersion },
+            error: null,
+          };
+        },
+      }),
+      getFeeTarget: () => "https://www.hotelplanner.com/fee",
+    }
+  );
+  assert.deepEqual(result.snapshot, {
+    programType: "tournament_support",
+    rateCents: 500,
+    beneficiaryType: "tournament",
+    beneficiaryId: tournamentId,
+    version: "hp_cfg_33333333333343338333333333333333",
+  });
+  assert.equal(result.showTournamentSupportDisclosure, true);
+  assert.equal(result.feeTargetAvailable, true);
+});
+
+test("falls back to standard for unconfirmed context, inactive config, or missing fee target", async () => {
+  const configuration = {
+    tournamentId,
+    programType: "ti_revenue" as const,
+    rateCents: 1000 as const,
+    status: "active" as const,
+    configurationVersion,
+  };
+  const untrusted = await resolveHotelProgramSnapshot(
+    { tournamentId, venueId, sourcePageType: "venue" },
+    {
+      repository: repository({
+        async findConfiguration() { return { data: configuration, error: null }; },
+        async hasConfirmedVenueAssociation() { return { trusted: false, error: null }; },
+      }),
+      getFeeTarget: () => "https://www.hotelplanner.com/fee",
+    }
+  );
+  assert.deepEqual(untrusted.snapshot, STANDARD_HOTEL_PROGRAM_SNAPSHOT);
+  assert.equal(untrusted.fallbackReason, "untrusted_context");
+
+  const missingTarget = await resolveHotelProgramSnapshot(
+    { tournamentId, venueId, sourcePageType: "venue" },
+    { repository: repository({ async findConfiguration() { return { data: configuration, error: null }; } }), getFeeTarget: () => null }
+  );
+  assert.deepEqual(missingTarget.snapshot, STANDARD_HOTEL_PROGRAM_SNAPSHOT);
+  assert.equal(missingTarget.fallbackReason, "missing_fee_configuration");
+});
+
 test("uses canonical standard snapshot when the resolver throws", async () => {
   const previousWarn = console.warn;
   console.warn = () => undefined;
   try {
     const result = await resolveHotelProgramSnapshotSafely(
-      { tournamentId: null, sourcePageType: "other" },
-      async () => {
-        throw new Error("resolver unavailable");
-      }
+      { tournamentId, venueId, sourcePageType: "other" },
+      async () => { throw new Error("resolver unavailable"); }
     );
-    assert.equal(result.usedFallback, true);
+    assert.equal(result.fallbackReason, "resolver_failure");
     assert.equal(result.snapshot, STANDARD_HOTEL_PROGRAM_SNAPSHOT);
   } finally {
     console.warn = previousWarn;
   }
 });
 
-test("requires persisted attribution for fee handoffs while standard traffic stays fail-open", () => {
+test("requires persisted attribution and a trusted target for fee handoffs while standard stays fail-open", () => {
   const fee: HotelProgramSnapshot = {
     programType: "ti_revenue",
     rateCents: 500,
@@ -73,10 +142,11 @@ test("requires persisted attribution for fee handoffs while standard traffic sta
     beneficiaryId: null,
     version: "hp_ti_500_v1",
   };
-  assert.equal(selectHotelHandoffMode({ snapshot: STANDARD_HOTEL_PROGRAM_SNAPSHOT, persistenceSucceeded: false, standardTargetAvailable: true }), "standard_redirect");
-  assert.equal(selectHotelHandoffMode({ snapshot: fee, persistenceSucceeded: true, standardTargetAvailable: true }), "fee_redirect");
-  assert.equal(selectHotelHandoffMode({ snapshot: fee, persistenceSucceeded: false, standardTargetAvailable: true }), "standard_redirect");
-  assert.equal(selectHotelHandoffMode({ snapshot: fee, persistenceSucceeded: false, standardTargetAvailable: false }), "retryable_error");
+  assert.equal(selectHotelHandoffMode({ snapshot: STANDARD_HOTEL_PROGRAM_SNAPSHOT, persistenceSucceeded: false, standardTargetAvailable: true, feeTargetAvailable: false }), "standard_redirect");
+  assert.equal(selectHotelHandoffMode({ snapshot: fee, persistenceSucceeded: true, standardTargetAvailable: true, feeTargetAvailable: true }), "fee_redirect");
+  assert.equal(selectHotelHandoffMode({ snapshot: fee, persistenceSucceeded: false, standardTargetAvailable: true, feeTargetAvailable: true }), "standard_redirect");
+  assert.equal(selectHotelHandoffMode({ snapshot: fee, persistenceSucceeded: true, standardTargetAvailable: true, feeTargetAvailable: false }), "standard_redirect");
+  assert.equal(selectHotelHandoffMode({ snapshot: fee, persistenceSucceeded: false, standardTargetAvailable: false, feeTargetAvailable: true }), "retryable_error");
   assert.deepEqual(hotelProgramSnapshotColumns(STANDARD_HOTEL_PROGRAM_SNAPSHOT), {
     hotel_program_type: "standard",
     hotel_program_rate_cents: 0,

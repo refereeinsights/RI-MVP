@@ -4724,3 +4724,9 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added scoped spreadsheet-safe tournament-name Custom8 handling; Custom1–Custom7 and fixed RI Custom8 semantics remain unchanged.
   - No fee URL, payout, enrollment, or financial reporting behavior was activated. Migration remains local/unapplied.
   - Validation passed: 35 focused/protected-flow tests, TI TypeScript, TI lint, TI production build, and `git diff --check`.
+
+- 2026-08-14: TI Hotel Fee Program Phase 2 implemented locally.
+  - Added a service-role-only per-tournament current configuration, opaque server-side fee-target registry, existing-admin-portal controls, optimistic concurrency, and explicit confirmation for effective economic routing changes.
+  - Fee routing requires Active valid configuration, trusted fee target, confirmed tournament/venue context, and successful immutable outbound snapshot persistence. Every failure state remains Standard/no-fee.
+  - Tournament Support uses the tournament itself as the fixed beneficiary and shows public support disclosure only when the program is actually active and trusted.
+  - No production migration/configuration mutation, fee URL setup, deployment, or fee click was performed. See `docs/reports/ti-hotel-fee-program-phase2-2026-08-14.md`.

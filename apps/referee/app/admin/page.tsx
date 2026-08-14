@@ -13,6 +13,7 @@ import TournamentPartnerNearbyEditor from "@/components/admin/TournamentPartnerN
 import UploadsVenueInferencePanel from "@/components/admin/UploadsVenueInferencePanel";
 import UploadsVenueExtractButton from "@/components/admin/UploadsVenueExtractButton";
 import RollForwardLogBulkControls from "@/components/admin/RollForwardLogBulkControls";
+import HotelProgramAdminSection from "@/components/admin/HotelProgramAdminSection";
 import {
   buildTournamentFuzzyNameStateSeasonFingerprint,
   buildTournamentNameStateSeasonFingerprint,
@@ -109,6 +110,10 @@ import {
 } from "@/server/admin/sources";
 import { recomputeAllWhistleScores } from "@/lib/whistleScores";
 import type { RollForwardStatus, TournamentRollForwardLogRow } from "@/lib/types/supabase";
+import {
+  adminListTournamentHotelPrograms,
+  adminSaveTournamentHotelProgram,
+} from "@/lib/hotelProgramAdmin";
 
 type Tab =
   | "users"
@@ -697,6 +702,9 @@ export default async function AdminPage({
     tab === "tournament-listings"
       ? await adminSearchPublishedTournaments(q, tournamentSportFilter || undefined, tournamentListingFetchLimit)
       : [];
+  const listedHotelProgramMap = listedTournaments.length
+    ? await adminListTournamentHotelPrograms(listedTournaments.map((tournament) => ({ id: tournament.id, name: tournament.name })))
+    : {};
   const duplicateCandidates =
     tab === "tournament-listings"
       ? await supabaseAdmin
@@ -3676,6 +3684,38 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Tournament details updated");
   }
 
+  async function saveTournamentHotelProgramAction(formData: FormData) {
+    "use server";
+    const tournamentId = String(formData.get("tournament_id") || "").trim();
+    const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-listings";
+    if (!tournamentId) return redirectWithNotice(redirectTo, "Missing tournament id.");
+
+    const programType = String(formData.get("hotel_program_type") || "standard") as
+      | "standard"
+      | "ti_revenue"
+      | "tournament_support";
+    const status = String(formData.get("hotel_program_status") || "not_enrolled") as
+      | "not_enrolled"
+      | "pending"
+      | "active"
+      | "paused";
+    const rateValue = String(formData.get("hotel_program_rate_cents") || "").trim();
+    const rateCents = rateValue === "500" || rateValue === "1000" ? Number(rateValue) as 500 | 1000 : null;
+    const expectedConfigurationVersion = String(formData.get("expected_configuration_version") || "").trim() || null;
+    const result = await adminSaveTournamentHotelProgram({
+      tournamentId,
+      expectedConfigurationVersion,
+      request: {
+        programType,
+        status,
+        rateCents: programType === "standard" ? null : rateCents,
+        confirmEconomicChange: formData.get("confirm_economic_change") === "on",
+      },
+    });
+    revalidatePath("/admin");
+    redirectWithNotice(redirectTo, result.message);
+  }
+
   async function createTournamentManualAction(formData: FormData) {
     "use server";
     const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-listings";
@@ -6145,6 +6185,12 @@ export default async function AdminPage({
                         Delete tournament
                       </button>
                   </div>
+                  <HotelProgramAdminSection
+                    tournamentId={t.id}
+                    tournamentName={t.name}
+                    view={listedHotelProgramMap[t.id]}
+                    saveAction={saveTournamentHotelProgramAction}
+                  />
                   <TournamentPartnerNearbyEditor tournamentId={t.id} venues={listedVenueMap[t.id] ?? []} />
                   </details>
                 </form>

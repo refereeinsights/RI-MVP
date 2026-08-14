@@ -2858,3 +2858,13 @@ Maintenance rules:
   - Added scoped spreadsheet-safe Tournament Hotels Custom8 handling at client construction and server boundaries while preserving fixed RI Custom8 and Custom1–Custom7 semantics.
   - Validation passed: 35 focused/protected-flow tests, TI TypeScript, TI lint, TI production build, and `git diff --check`.
   - Migration `20260814_ti_hotel_program_snapshot_foundation.sql` remains unapplied and must precede the application deployment. Implementation and rollback details are in `docs/reports/ti-hotel-fee-attribution-foundation-2026-08-14.md`.
+
+- 2026-08-14: TI Hotel Fee Program Phase 2 trusted configuration and routing implemented locally.
+  - Added service-role-only `ti_tournament_hotel_programs` configuration with one optional current row per tournament, server-generated concurrency UUIDs, $5/$10 rates, Pending/Active/Paused states, and cascade cleanup. The migration remains local and unapplied.
+  - Extended the existing RI tournament-listings admin editor with Standard, TI Revenue, and Tournament Support controls, a read-only effective-routing summary, trusted configuration availability, fixed tournament beneficiary, stale-write detection, and explicit confirmation for changes to effective booking economics.
+  - Added one shared server-only HotelPlanner configuration registry. Database rows contain only opaque program/rate/status/version data; no fee destination URL is stored or sent to the browser.
+  - Runtime fee resolution now requires an Active valid configuration, a trusted server-side fee target, and a confirmed non-inferred tournament/venue relationship. Pending, Paused, missing, invalid, untrusted, or resolver-error states all use the canonical Standard/no-fee snapshot.
+  - Updated all three HotelPlanner handoffs (`/go/hotels`, `/go/hotels/property`, `/go/hotels/checkout`) so fee routing occurs only after the immutable fee snapshot persists successfully. Any persistence or fee-target failure falls back to the existing Standard/no-fee path.
+  - Tournament-support disclosure appears only when tournament-support routing is actually active and trusted. No fee targets were configured or clicked during local implementation.
+  - Validation passed: 25 focused Phase 1/2 tests, both app TypeScript checks, both app lints, both production builds, and `git diff --check`. TI build logged restricted-network Supabase DNS noise but completed successfully; remaining warnings are pre-existing.
+  - Implementation details and rollout sequence: `docs/reports/ti-hotel-fee-program-phase2-2026-08-14.md`.

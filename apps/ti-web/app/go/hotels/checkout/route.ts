@@ -13,6 +13,7 @@ import {
   persistHotelOutboundWithSnapshot,
 } from "@/lib/lodging/hotelOutboundPersistence";
 import {
+  getResolvedHotelProgramFeeTarget,
   resolveHotelProgramSnapshotSafely,
   selectHotelHandoffMode,
 } from "@/lib/lodging/tournamentHotelProgram";
@@ -168,10 +169,12 @@ export async function POST(request: Request) {
     sourcePath,
     hasVenueId: Boolean(venueId),
   });
-  const { snapshot: hotelProgramSnapshot } = await resolveHotelProgramSnapshotSafely({
+  const hotelProgram = await resolveHotelProgramSnapshotSafely({
     tournamentId,
+    venueId,
     sourcePageType,
   });
+  const hotelProgramSnapshot = hotelProgram.snapshot;
 
   const attribution = buildHotelPlannerBookingAttribution({
     outboundAttributionId,
@@ -222,6 +225,9 @@ export async function POST(request: Request) {
   }
 
   const actionUrl = `${whiteLabelBaseUrl}/Accept/CheckOut.htm`;
+  const feeBaseUrl = getResolvedHotelProgramFeeTarget(hotelProgram);
+  const feeActionUrl = feeBaseUrl ? `${feeBaseUrl}/Accept/CheckOut.htm` : "";
+  const intendedTarget = hotelProgramSnapshot.programType === "standard" ? actionUrl : feeActionUrl;
   let persistenceSucceeded = false;
   if (!isLocalHost(host)) {
     const persistenceResult = await persistHotelOutboundWithSnapshot({
@@ -234,8 +240,8 @@ export async function POST(request: Request) {
         source_page_type: sourcePageType,
         venue_id: venueId && isUuid(venueId) ? venueId : null,
         tournament_id: tournamentId && isUuid(tournamentId) ? tournamentId : null,
-        target_url: actionUrl,
-        redirect_url: actionUrl,
+        target_url: intendedTarget,
+        redirect_url: intendedTarget,
         source_path: sourcePath ?? pageUrl,
         referer,
         host,
@@ -266,10 +272,12 @@ export async function POST(request: Request) {
     snapshot: hotelProgramSnapshot,
     persistenceSucceeded,
     standardTargetAvailable: true,
+    feeTargetAvailable: Boolean(feeActionUrl),
   });
   if (handoffMode === "retryable_error") {
     return new NextResponse("Hotel checkout is temporarily unavailable.", { status: 503 });
   }
+  const selectedActionUrl = handoffMode === "fee_redirect" ? feeActionUrl : actionUrl;
   const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -290,7 +298,7 @@ export async function POST(request: Request) {
     <main>
       <h1>Opening HotelPlanner checkout</h1>
       <p>Your room selection is being sent to the HotelPlanner checkout page.</p>
-      <form id="hotelplanner-checkout" method="post" action="${escapeHtml(actionUrl)}">
+      <form id="hotelplanner-checkout" method="post" action="${escapeHtml(selectedActionUrl)}">
         <input type="hidden" name="bundle" value="${escapeHtml(bundle)}" />
         <input type="hidden" name="ReturnPage" value="${escapeHtml(fallbackUrl)}" />
         <noscript>

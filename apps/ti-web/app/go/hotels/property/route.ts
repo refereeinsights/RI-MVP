@@ -13,6 +13,7 @@ import {
   persistHotelOutboundWithSnapshot,
 } from "@/lib/lodging/hotelOutboundPersistence";
 import {
+  getResolvedHotelProgramFeeTarget,
   resolveHotelProgramSnapshotSafely,
   selectHotelHandoffMode,
 } from "@/lib/lodging/tournamentHotelProgram";
@@ -156,10 +157,12 @@ export async function GET(request: Request) {
   const tournamentId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "tournamentId"));
   const tournamentSlug = sanitizeText(pickTrackingParam(reqUrl, "tournament_slug"), 128)
     ?? sanitizeText(pickTrackingParam(reqUrl, "tournamentSlug"), 128);
-  const { snapshot: hotelProgramSnapshot } = await resolveHotelProgramSnapshotSafely({
+  const hotelProgram = await resolveHotelProgramSnapshotSafely({
     tournamentId,
+    venueId,
     sourcePageType,
   });
+  const hotelProgramSnapshot = hotelProgram.snapshot;
 
   const attribution = buildHotelPlannerBookingAttribution({
     outboundAttributionId,
@@ -180,7 +183,7 @@ export async function GET(request: Request) {
         : pickTrackingParam(reqUrl, "custom8"),
   });
 
-  const redirectTarget = buildPropertyUrl({
+  const standardTarget = buildPropertyUrl({
     baseUrl,
     hotelId,
     idTypeId,
@@ -189,6 +192,11 @@ export async function GET(request: Request) {
     attribution,
     sourcePageType,
   });
+  const feeBaseUrl = getResolvedHotelProgramFeeTarget(hotelProgram);
+  const feeTarget = feeBaseUrl
+    ? buildPropertyUrl({ baseUrl: feeBaseUrl, hotelId, idTypeId, inDate, outDate, attribution, sourcePageType })
+    : "";
+  const intendedTarget = hotelProgramSnapshot.programType === "standard" ? standardTarget : feeTarget;
 
   let persistenceSucceeded = false;
   if (!isLocalHost(host)) {
@@ -203,8 +211,8 @@ export async function GET(request: Request) {
         venue_id: venueId,
         tournament_id: tournamentId,
         tournament_slug: tournamentSlug,
-        target_url: redirectTarget,
-        redirect_url: redirectTarget,
+        target_url: intendedTarget,
+        redirect_url: intendedTarget,
         source_path: sourcePath ?? pageUrl,
         referer,
         host,
@@ -242,12 +250,14 @@ export async function GET(request: Request) {
   const handoffMode = selectHotelHandoffMode({
     snapshot: hotelProgramSnapshot,
     persistenceSucceeded,
-    standardTargetAvailable: Boolean(redirectTarget),
+    standardTargetAvailable: Boolean(standardTarget),
+    feeTargetAvailable: Boolean(feeTarget),
   });
   if (handoffMode === "retryable_error") {
     return new NextResponse("Hotel handoff is temporarily unavailable.", { status: 503 });
   }
 
+  const redirectTarget = handoffMode === "fee_redirect" ? feeTarget : standardTarget;
   return NextResponse.redirect(redirectTarget, {
     status: 302,
     headers: {

@@ -14,6 +14,7 @@ import {
   persistHotelOutboundWithSnapshot,
 } from "@/lib/lodging/hotelOutboundPersistence";
 import {
+  getResolvedHotelProgramFeeTarget,
   resolveHotelProgramSnapshotSafely,
   selectHotelHandoffMode,
 } from "@/lib/lodging/tournamentHotelProgram";
@@ -398,10 +399,12 @@ export async function GET(request: Request) {
     hasVenueId: venueIdValid,
   });
   const sourceSurface = sourcePageType;
-  const { snapshot: hotelProgramSnapshot } = await resolveHotelProgramSnapshotSafely({
+  const hotelProgram = await resolveHotelProgramSnapshotSafely({
     tournamentId: tournament?.id ?? null,
+    venueId: venue?.id ?? null,
     sourcePageType,
   });
+  const hotelProgramSnapshot = hotelProgram.snapshot;
   const hasCityState = Boolean(String(venue?.city ?? "").trim() && String(venue?.state ?? "").trim());
 
   if (!ss && !hasHotelPlannerLatLng) {
@@ -573,13 +576,13 @@ export async function GET(request: Request) {
     });
   }
 
-  const hotelPlannerTarget =
-    hotelPlannerWhiteLabelUrl && hotelPlannerCheckin && hotelPlannerCheckout && hotelPlannerDestination
+  const buildTargetForBaseUrl = (baseUrl: string) =>
+    baseUrl && hotelPlannerCheckin && hotelPlannerCheckout && hotelPlannerDestination
       ? (() => {
           if (!venueIdValid && (source === "book_travel" || source === "weekend_planner")) {
             const genericDestination = String(hotelPlannerCitySearch ?? bookingSearchString).trim();
             return buildHotelPlannerSearchUrl({
-              baseUrl: hotelPlannerWhiteLabelUrl,
+              baseUrl,
               destination: genericDestination,
               latitude: null,
               longitude: null,
@@ -604,7 +607,7 @@ export async function GET(request: Request) {
           }
 
           return buildHotelPlannerSearchUrl({
-            baseUrl: hotelPlannerWhiteLabelUrl,
+            baseUrl,
             destination: hotelPlannerDestination,
             latitude: hotelPlannerLat,
             longitude: hotelPlannerLng,
@@ -628,6 +631,8 @@ export async function GET(request: Request) {
           });
         })()
       : "";
+  const hotelPlannerTarget = buildTargetForBaseUrl(hotelPlannerWhiteLabelUrl);
+  const feeHotelPlannerTarget = buildTargetForBaseUrl(getResolvedHotelProgramFeeTarget(hotelProgram) ?? "");
 
   if (!hotelPlannerTarget) {
     const message = hotelPlannerWhiteLabelUrl
@@ -641,8 +646,8 @@ export async function GET(request: Request) {
 
   const local = isLocalHost(host);
   const bot = looksLikeBot(userAgent);
-  const redirectTarget = hotelPlannerTarget;
-  const targetUrl = hotelPlannerTarget;
+  const intendedTarget = hotelProgramSnapshot.programType === "standard" ? hotelPlannerTarget : feeHotelPlannerTarget;
+  const targetUrl = intendedTarget;
 
   let persistenceSucceeded = false;
   if (!local && !bot) {
@@ -657,7 +662,7 @@ export async function GET(request: Request) {
         tournament_id: tournament?.id ?? null,
         tournament_slug: tournament?.slug ?? null,
         target_url: targetUrl,
-        redirect_url: redirectTarget,
+        redirect_url: targetUrl,
         source_path: sourcePath ?? pageUrl,
         referer,
         host,
@@ -697,11 +702,13 @@ export async function GET(request: Request) {
     snapshot: hotelProgramSnapshot,
     persistenceSucceeded,
     standardTargetAvailable: Boolean(hotelPlannerTarget),
+    feeTargetAvailable: Boolean(feeHotelPlannerTarget),
   });
   if (handoffMode === "retryable_error") {
     return new NextResponse("Hotel handoff is temporarily unavailable.", { status: 503 });
   }
 
+  const redirectTarget = handoffMode === "fee_redirect" ? feeHotelPlannerTarget : hotelPlannerTarget;
   return NextResponse.redirect(redirectTarget, {
     status: 302,
     headers: {

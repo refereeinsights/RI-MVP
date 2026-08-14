@@ -10,7 +10,6 @@ import {
   HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS,
   sanitizeHotelPlannerSpreadsheetContext,
 } from "@/lib/hotelPlannerAttribution";
-import type { HotelProgramSnapshot } from "@/lib/lodging/tournamentHotelProgram";
 import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import {
@@ -115,14 +114,14 @@ export default function TournamentHotelsClient({
   searchableVenues,
   initialVenueId,
   initialDates,
-  programType,
+  showTournamentSupportDisclosure,
 }: {
   tournament: Tournament;
   venues: TournamentHotelsVenue[];
   searchableVenues: TournamentHotelsVenue[];
   initialVenueId: string | null;
   initialDates: { checkin: string; checkout: string; source: Exclude<TournamentHotelsDateSource, "user_adjusted" | "unavailable"> };
-  programType: HotelProgramSnapshot["programType"];
+  showTournamentSupportDisclosure: boolean;
 }) {
   const [selectedVenueId, setSelectedVenueId] = useState(initialVenueId);
   const [checkin, setCheckin] = useState(initialDates.checkin);
@@ -412,7 +411,7 @@ export default function TournamentHotelsClient({
         ) : null}
       </section>
 
-      {programType !== "standard" ? <div className={styles.supportNotice}>Bookings through this tournament hotel page help support the tournament.</div> : null}
+      {showTournamentSupportDisclosure ? <div className={styles.supportNotice}>Bookings through this tournament hotel page help support the tournament.</div> : null}
 
       {searchableVenues.length === 0 ? (
         <div className={styles.fallbackBox}>
