@@ -74,3 +74,16 @@ export function xmlResponse(xml: string) {
     },
   });
 }
+
+export function sitemapUnavailableResponse() {
+  return new NextResponse("Sitemap temporarily unavailable.\n", {
+    status: 503,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store, max-age=0",
+      "cdn-cache-control": "no-store",
+      "vercel-cdn-cache-control": "no-store",
+      "retry-after": "300",
+    },
+  });
+}
