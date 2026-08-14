@@ -2,7 +2,10 @@ import { curatedSports, mapStateCodeToSlug, normalizeSportSlug } from "@/lib/seo
 import { buildSitemapXml, SITE_ORIGIN, xmlResponse, type SitemapEntry } from "@/lib/sitemaps";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const SITEMAP_CACHE_CONTROL = "public, s-maxage=3600, stale-while-revalidate=86400";
 
 type MetroHubUrlRow = {
   sport: string | null;
@@ -46,6 +49,7 @@ export async function GET() {
     })
     .filter(Boolean) as SitemapEntry[];
 
-  return xmlResponse(buildSitemapXml(entries));
+  const response = xmlResponse(buildSitemapXml(entries));
+  response.headers.set("Cache-Control", SITEMAP_CACHE_CONTROL);
+  return response;
 }
-

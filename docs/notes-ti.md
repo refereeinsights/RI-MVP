@@ -2876,3 +2876,4 @@ Maintenance rules:
   - Added `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400` so the generated index is cached for one hour and stale content can remain available for one day during refresh.
   - Added regression coverage requiring both root sitemap routes to remain dynamic, parallel, and CDN-cached.
   - Validation passed: 2/2 focused tests, both app TypeScript checks, both app lints, both production builds, and `git diff --check`. TI completed 117 static pages and RI completed 175; `/sitemap.xml` appeared as dynamic in both build manifests with no sitemap worker timeout.
+  - Production follow-up: after the root indexes were removed from static generation, TI exposed the next database-backed blocker at `/sitemaps/metros.xml`, where `list_indexable_city_metro_hub_urls_v1` exceeded the same 60-second limit. The metro sitemap now uses the same dynamic and CDN-cached treatment, reducing TI's static build set to 116 pages.

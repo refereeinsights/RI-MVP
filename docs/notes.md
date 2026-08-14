@@ -4735,3 +4735,4 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Both Vercel builds were blocked by `/sitemap.xml` production-database counts exceeding Next.js's 60-second static-generation timeout and repeatedly restarting build workers.
   - Root sitemap indexes now render dynamically, run independent counts in parallel, and return one-hour CDN caching plus one-day stale-while-revalidate. This removes database-dependent sitemap generation from both builds without changing the paged sitemap URLs.
   - Added a cross-app regression test. Both TypeScript checks, lints, and production builds pass; TI generated 117 remaining static pages and RI generated 175 with no sitemap timeout.
+  - Production follow-up moved TI's database-backed `/sitemaps/metros.xml` route out of static generation after its metro-hub RPC became the next 60-second blocker. The response retains one-hour CDN caching and one-day stale serving.

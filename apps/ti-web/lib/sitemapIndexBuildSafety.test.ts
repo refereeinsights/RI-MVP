@@ -19,3 +19,12 @@ for (const routePath of [
     assert.match(source, /stale-while-revalidate=86400/);
   });
 }
+
+test("TI metro sitemap keeps its database RPC out of static generation", () => {
+  const source = read("apps/ti-web/app/sitemaps/metros.xml/route.ts");
+  assert.match(source, /list_indexable_city_metro_hub_urls_v1/);
+  assert.match(source, /export const dynamic = "force-dynamic"/);
+  assert.match(source, /export const revalidate = 0/);
+  assert.match(source, /s-maxage=3600/);
+  assert.match(source, /stale-while-revalidate=86400/);
+});
