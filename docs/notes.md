@@ -4730,3 +4730,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Fee routing requires Active valid configuration, trusted fee target, confirmed tournament/venue context, and successful immutable outbound snapshot persistence. Every failure state remains Standard/no-fee.
   - Tournament Support uses the tournament itself as the fixed beneficiary and shows public support disclosure only when the program is actually active and trusted.
   - No production migration/configuration mutation, fee URL setup, deployment, or fee click was performed. See `docs/reports/ti-hotel-fee-program-phase2-2026-08-14.md`.
+
+- 2026-08-14: TI + RI sitemap index build timeout hotfix implemented locally.
+  - Both Vercel builds were blocked by `/sitemap.xml` production-database counts exceeding Next.js's 60-second static-generation timeout and repeatedly restarting build workers.
+  - Root sitemap indexes now render dynamically, run independent counts in parallel, and return one-hour CDN caching plus one-day stale-while-revalidate. This removes database-dependent sitemap generation from both builds without changing the paged sitemap URLs.
+  - Added a cross-app regression test. Both TypeScript checks, lints, and production builds pass; TI generated 117 remaining static pages and RI generated 175 with no sitemap timeout.

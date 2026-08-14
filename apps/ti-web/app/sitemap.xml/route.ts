@@ -8,7 +8,10 @@ import {
   xmlResponse,
 } from "@/lib/sitemaps";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const SITEMAP_INDEX_CACHE_CONTROL = "public, s-maxage=3600, stale-while-revalidate=86400";
 
 export async function GET() {
   const sitemapUrls = [
@@ -17,35 +20,39 @@ export async function GET() {
     `${SITE_ORIGIN}/sitemaps/metros.xml`,
   ];
 
-  const { count } = await supabaseAdmin
-    .from("tournaments_public" as any)
-    .select("id", { count: "exact", head: true })
-    .not("slug", "is", null);
+  const [tournamentResult, tournamentHotelResult, venueResult] = await Promise.all([
+    supabaseAdmin
+      .from("tournaments_public" as any)
+      .select("id", { count: "exact", head: true })
+      .not("slug", "is", null),
+    (supabaseAdmin as any).rpc("get_tournament_hotels_sitemap_page_v1", {
+      p_limit: 1,
+      p_offset: 0,
+    }),
+    supabaseAdmin
+      .from("venues" as any)
+      .select("id", { count: "exact", head: true })
+      .not("seo_slug", "is", null),
+  ]);
 
-  const pageCount = Math.ceil((count ?? 0) / TOURNAMENT_SITEMAP_PAGE_SIZE);
+  const pageCount = Math.ceil((tournamentResult.count ?? 0) / TOURNAMENT_SITEMAP_PAGE_SIZE);
   for (let page = 1; page <= pageCount; page += 1) {
     sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/tournaments-${page}.xml`);
   }
 
-  const { data: tournamentHotelRows } = await (supabaseAdmin as any).rpc(
-    "get_tournament_hotels_sitemap_page_v1",
-    { p_limit: 1, p_offset: 0 }
-  );
+  const tournamentHotelRows = tournamentHotelResult.data;
   const tournamentHotelCount = Number(tournamentHotelRows?.[0]?.total_count ?? 0);
   const tournamentHotelPageCount = Math.ceil(tournamentHotelCount / TOURNAMENT_HOTELS_SITEMAP_PAGE_SIZE);
   for (let page = 1; page <= tournamentHotelPageCount; page += 1) {
     sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/tournament-hotels-${page}.xml`);
   }
 
-  const { count: venueCount } = await supabaseAdmin
-    .from("venues" as any)
-    .select("id", { count: "exact", head: true })
-    .not("seo_slug", "is", null);
-
-  const venuePageCount = Math.ceil((venueCount ?? 0) / VENUE_SITEMAP_PAGE_SIZE);
+  const venuePageCount = Math.ceil((venueResult.count ?? 0) / VENUE_SITEMAP_PAGE_SIZE);
   for (let page = 1; page <= venuePageCount; page += 1) {
     sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/venues-${page}.xml`);
   }
 
-  return xmlResponse(buildSitemapIndexXml(sitemapUrls));
+  const response = xmlResponse(buildSitemapIndexXml(sitemapUrls));
+  response.headers.set("Cache-Control", SITEMAP_INDEX_CACHE_CONTROL);
+  return response;
 }

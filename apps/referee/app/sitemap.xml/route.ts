@@ -7,7 +7,10 @@ import {
   xmlResponse,
 } from "@/lib/sitemaps";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const SITEMAP_INDEX_CACHE_CONTROL = "public, s-maxage=3600, stale-while-revalidate=86400";
 
 export async function GET() {
   const sitemapUrls = [
@@ -15,25 +18,28 @@ export async function GET() {
     `${SITE_ORIGIN}/sitemaps/hubs.xml`,
   ];
 
-  const { count } = await supabaseAdmin
-    .from("tournaments_public" as any)
-    .select("id", { count: "exact", head: true })
-    .not("slug", "is", null);
+  const [tournamentResult, venueResult] = await Promise.all([
+    supabaseAdmin
+      .from("tournaments_public" as any)
+      .select("id", { count: "exact", head: true })
+      .not("slug", "is", null),
+    supabaseAdmin
+      .from("venues" as any)
+      .select("id", { count: "exact", head: true })
+      .not("name", "is", null),
+  ]);
 
-  const pageCount = Math.ceil((count ?? 0) / TOURNAMENT_SITEMAP_PAGE_SIZE);
+  const pageCount = Math.ceil((tournamentResult.count ?? 0) / TOURNAMENT_SITEMAP_PAGE_SIZE);
   for (let page = 1; page <= pageCount; page += 1) {
     sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/tournaments-${page}.xml`);
   }
 
-  const { count: venueCount } = await supabaseAdmin
-    .from("venues" as any)
-    .select("id", { count: "exact", head: true })
-    .not("name", "is", null);
-
-  const venuePageCount = Math.ceil((venueCount ?? 0) / VENUE_SITEMAP_PAGE_SIZE);
+  const venuePageCount = Math.ceil((venueResult.count ?? 0) / VENUE_SITEMAP_PAGE_SIZE);
   for (let page = 1; page <= venuePageCount; page += 1) {
     sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/venues-${page}.xml`);
   }
 
-  return xmlResponse(buildSitemapIndexXml(sitemapUrls));
+  const response = xmlResponse(buildSitemapIndexXml(sitemapUrls));
+  response.headers.set("Cache-Control", SITEMAP_INDEX_CACHE_CONTROL);
+  return response;
 }

@@ -2868,3 +2868,11 @@ Maintenance rules:
   - Tournament-support disclosure appears only when tournament-support routing is actually active and trusted. No fee targets were configured or clicked during local implementation.
   - Validation passed: 25 focused Phase 1/2 tests, both app TypeScript checks, both app lints, both production builds, and `git diff --check`. TI build logged restricted-network Supabase DNS noise but completed successfully; remaining warnings are pre-existing.
   - Implementation details and rollout sequence: `docs/reports/ti-hotel-fee-program-phase2-2026-08-14.md`.
+
+- 2026-08-14: TI + RI root sitemap build-time timeout hotfix implemented locally.
+  - Vercel production builds for both apps repeatedly exceeded Next.js's 60-second static-generation limit on `/sitemap.xml`; TI stalled after 88/118 pages and RI after 132/176 pages while production-backed sitemap counts ran during the build.
+  - Marked only the two root sitemap-index route handlers as dynamic so production database counts no longer execute during `next build`. Paged sitemap documents and all other SEO routes retain their existing behavior.
+  - Parallelized independent tournament, venue, and TI Tournament Hotels count requests to remove the sequential request waterfall at runtime.
+  - Added `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400` so the generated index is cached for one hour and stale content can remain available for one day during refresh.
+  - Added regression coverage requiring both root sitemap routes to remain dynamic, parallel, and CDN-cached.
+  - Validation passed: 2/2 focused tests, both app TypeScript checks, both app lints, both production builds, and `git diff --check`. TI completed 117 static pages and RI completed 175; `/sitemap.xml` appeared as dynamic in both build manifests with no sitemap worker timeout.
