@@ -165,6 +165,16 @@ function sanitizeText(value: string | null | undefined, maxLength = 128) {
   return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed;
 }
 
+export function sanitizeHotelPlannerSpreadsheetContext(value: string | null | undefined) {
+  const normalized = String(value ?? "")
+    .replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return null;
+  const protectedValue = /^[=+\-@]/.test(normalized) ? `'${normalized}` : normalized;
+  return protectedValue.slice(0, 128);
+}
+
 function defaultJobCode(sourcePageType: HotelPlannerSourcePageType) {
   if (sourcePageType === "book_travel" || sourcePageType === "weekend_planner") return "TI-BOOK-TRAVEL";
   if (sourcePageType === "venue_map") return "TI-VENUE-MAP";

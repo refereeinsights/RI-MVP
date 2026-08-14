@@ -6,8 +6,16 @@ import {
   createOutboundAttributionId,
   deriveHotelPlannerSourcePageType,
   isValidOutboundAttributionId,
+  sanitizeHotelPlannerSpreadsheetContext,
 } from "@/lib/hotelPlannerAttribution";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  isHotelOutboundPersistenceSuccess,
+  persistHotelOutboundWithSnapshot,
+} from "@/lib/lodging/hotelOutboundPersistence";
+import {
+  resolveHotelProgramSnapshotSafely,
+  selectHotelHandoffMode,
+} from "@/lib/lodging/tournamentHotelProgram";
 import {
   parseVenueHotelUuid,
   sanitizePageUrl,
@@ -36,10 +44,6 @@ function isLocalHost(host: string | null) {
   const value = String(host ?? "").trim().toLowerCase();
   if (!value) return false;
   return value.startsWith("localhost") || value.startsWith("127.0.0.1") || value.startsWith("[::1]") || value.endsWith(".local");
-}
-
-function isUuid(value: string | null | undefined) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? "").trim());
 }
 
 function toHotelPlannerDate(value: string | null) {
@@ -152,6 +156,10 @@ export async function GET(request: Request) {
   const tournamentId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "tournamentId"));
   const tournamentSlug = sanitizeText(pickTrackingParam(reqUrl, "tournament_slug"), 128)
     ?? sanitizeText(pickTrackingParam(reqUrl, "tournamentSlug"), 128);
+  const { snapshot: hotelProgramSnapshot } = await resolveHotelProgramSnapshotSafely({
+    tournamentId,
+    sourcePageType,
+  });
 
   const attribution = buildHotelPlannerBookingAttribution({
     outboundAttributionId,
@@ -166,7 +174,10 @@ export async function GET(request: Request) {
     jobCode: pickTrackingParam(reqUrl, "jobCode") || pickTrackingParam(reqUrl, "jobcode"),
     custom1: pickTrackingParam(reqUrl, "custom1"),
     custom2: pickTrackingParam(reqUrl, "custom2"),
-    custom8: pickTrackingParam(reqUrl, "custom8"),
+    custom8:
+      sourcePageType === "tournament_hotels"
+        ? sanitizeHotelPlannerSpreadsheetContext(pickTrackingParam(reqUrl, "custom8"))
+        : pickTrackingParam(reqUrl, "custom8"),
   });
 
   const redirectTarget = buildPropertyUrl({
@@ -179,9 +190,11 @@ export async function GET(request: Request) {
     sourcePageType,
   });
 
+  let persistenceSucceeded = false;
   if (!isLocalHost(host)) {
-    try {
-      await supabaseAdmin.from("ti_outbound_clicks" as any).upsert({
+    const persistenceResult = await persistHotelOutboundWithSnapshot({
+      snapshot: hotelProgramSnapshot,
+      row: {
         destination_type: "hotels",
         partner: "hotelplanner",
         outbound_partner: "hotelplanner",
@@ -221,13 +234,18 @@ export async function GET(request: Request) {
         custom_field6: attribution.custom6,
         custom_field7: attribution.custom7,
         custom_field8: attribution.custom8,
-      }, {
-        onConflict: "outbound_request_id",
-        ignoreDuplicates: true,
-      });
-    } catch {
-      console.warn("[go/hotels/property] outbound click insert failed");
-    }
+      },
+    });
+    persistenceSucceeded = isHotelOutboundPersistenceSuccess(persistenceResult);
+  }
+
+  const handoffMode = selectHotelHandoffMode({
+    snapshot: hotelProgramSnapshot,
+    persistenceSucceeded,
+    standardTargetAvailable: Boolean(redirectTarget),
+  });
+  if (handoffMode === "retryable_error") {
+    return new NextResponse("Hotel handoff is temporarily unavailable.", { status: 503 });
   }
 
   return NextResponse.redirect(redirectTarget, {

@@ -8,7 +8,9 @@ import {
   createOutboundAttributionId,
   HOTEL_PLANNER_BOOKING_PLACEMENTS,
   HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS,
+  sanitizeHotelPlannerSpreadsheetContext,
 } from "@/lib/hotelPlannerAttribution";
+import type { HotelProgramSnapshot } from "@/lib/lodging/tournamentHotelProgram";
 import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import {
@@ -120,7 +122,7 @@ export default function TournamentHotelsClient({
   searchableVenues: TournamentHotelsVenue[];
   initialVenueId: string | null;
   initialDates: { checkin: string; checkout: string; source: Exclude<TournamentHotelsDateSource, "user_adjusted" | "unavailable"> };
-  programType: "standard";
+  programType: HotelProgramSnapshot["programType"];
 }) {
   const [selectedVenueId, setSelectedVenueId] = useState(initialVenueId);
   const [checkin, setCheckin] = useState(initialDates.checkin);
@@ -183,7 +185,7 @@ export default function TournamentHotelsClient({
         placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.tournamentHotelsViewAll,
         venueId: selectedVenue.id,
         tournamentRef: tournament.slug,
-        custom8: tournament.name,
+        custom8: sanitizeHotelPlannerSpreadsheetContext(tournament.name),
       });
 
       try {
@@ -262,7 +264,7 @@ export default function TournamentHotelsClient({
       placement,
       venueId: selectedVenue?.id ?? null,
       tournamentRef: tournament.slug,
-      custom8: tournament.name,
+      custom8: sanitizeHotelPlannerSpreadsheetContext(tournament.name),
     });
     const url = new URL(path, window.location.origin);
     if (hotel) {

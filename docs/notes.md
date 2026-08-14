@@ -4706,6 +4706,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Made each property CTA an inspectable first-party `/go/hotels/property` link with a stable per-result outbound request/attribution ID; the server handoff remains responsible for persistence and the HotelPlanner redirect, while click analytics remain unchanged.
   - Added provider regression assertions for nested distance, address, locality, country, and coordinates.
   - Validation passed: 21 focused tests, TI TypeScript, TI lint, TI production build, and a headless local browser retest showing a real address, `0.3 mi from venue`, one `/go/hotels/property` request, all required handoff context, and no Next.js error overlay. HotelPlanner requests were blocked during the retest.
+  - Claude focused post-fix UAT completed against commit `c2f9f542` with an overall `READY TO PUSH` verdict. Across Starfire Sports Complex and Renton Memorial Stadium, normalized addresses and real varying distances matched the raw HotelPlanner payload, no misleading `0.0 mi` values or broken labels appeared, and the explicit `/go/hotels/property` link preserved all required tournament/venue/page/placement IDs plus Custom3–Custom5 and Custom8 through the final HotelPlanner property URL. Venue switching, adjusted-date persistence, CTA styling, responsive layout, console, and network regression checks passed. One controlled property-page click was performed; no reservation or production write occurred.
 
 - 2026-08-06: TI venue cluster analytics added locally.
   - Added `apps/ti-web/app/venues/[venueId]/VenueClusterModule.tsx` as the client-side analytics wrapper for the existing venue-cluster block so TI can measure both `venue_cluster_viewed` and `venue_cluster_venue_clicked` without changing cluster ranking or rendering behavior.
@@ -4715,3 +4716,11 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
     - `npm run lint --workspace ti-web`
     - `npm run build --workspace ti-web` (build completed; static-generation logs included existing network `fetch failed` warnings from unreachable Supabase host resolution during offline build, but exit status was successful)
+
+- 2026-08-14: TI HotelPlanner fee-attribution foundation implemented locally.
+  - Added nullable, immutable hotel-program snapshots on `ti_outbound_clicks`, with all-NULL legacy compatibility and no economic backfill.
+  - Routed all three HotelPlanner hotel outbound writers through exact insert/conflict reconciliation and prepared fee handoffs to require successful persistence while preserving standard fail-open routing.
+  - Preserved HotelPlanner hotel history before tournament cascades and retained the existing venue SET NULL behavior.
+  - Added scoped spreadsheet-safe tournament-name Custom8 handling; Custom1–Custom7 and fixed RI Custom8 semantics remain unchanged.
+  - No fee URL, payout, enrollment, or financial reporting behavior was activated. Migration remains local/unapplied.
+  - Validation passed: 35 focused/protected-flow tests, TI TypeScript, TI lint, TI production build, and `git diff --check`.

@@ -5,10 +5,17 @@ import {
   createOutboundAttributionId,
   deriveHotelPlannerSourcePageType,
   isValidOutboundAttributionId,
-  type HotelPlannerAttributionFields,
+  sanitizeHotelPlannerSpreadsheetContext,
 } from "@/lib/hotelPlannerAttribution";
 import { buildHotelsHref } from "@/lib/booking/venueBooking";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  isHotelOutboundPersistenceSuccess,
+  persistHotelOutboundWithSnapshot,
+} from "@/lib/lodging/hotelOutboundPersistence";
+import {
+  resolveHotelProgramSnapshotSafely,
+  selectHotelHandoffMode,
+} from "@/lib/lodging/tournamentHotelProgram";
 import {
   parseVenueHotelUuid,
   sanitizePageUrl,
@@ -110,59 +117,6 @@ function deriveStableAttributionId(args: {
   return createOutboundAttributionId();
 }
 
-async function logOutboundClick(args: {
-  venueId: string | null;
-  tournamentId: string | null;
-  outboundAttributionId: string;
-  sourcePageType: string;
-  attribution: HotelPlannerAttributionFields;
-  ctaPlacement: string | null;
-  trafficSource: string | null;
-  deviceType: string | null;
-  pageUrl: string | null;
-  referer: string | null;
-  host: string | null;
-  userAgent: string | null;
-  sourcePath: string | null;
-}) {
-  try {
-    await supabaseAdmin.from("ti_outbound_clicks" as any).insert({
-      destination_type: "hotels",
-      partner: "hotelplanner",
-      outbound_partner: "hotelplanner",
-      source_surface: args.sourcePageType,
-      source_page_type: args.sourcePageType,
-      venue_id: args.venueId && isUuid(args.venueId) ? args.venueId : null,
-      tournament_id: args.tournamentId && isUuid(args.tournamentId) ? args.tournamentId : null,
-      target_url: "hotelplanner:white-label-checkout",
-      redirect_url: "hotelplanner:white-label-checkout",
-      source_path: args.sourcePath ?? args.pageUrl,
-      referer: args.referer,
-      host: args.host,
-      user_agent: args.userAgent?.slice(0, 300) ?? null,
-      is_localhost: false,
-      outbound_attribution_id: args.outboundAttributionId,
-      cta_placement: args.ctaPlacement,
-      traffic_source: args.trafficSource,
-      device_type: args.deviceType,
-      page_url: args.pageUrl,
-      job_code: args.attribution.jobCode,
-      keyword: args.attribution.keyword,
-      partner_source_code: args.attribution.sc,
-      custom_field1: args.attribution.custom1,
-      custom_field2: args.attribution.custom2,
-      custom_field3: args.attribution.custom3,
-      custom_field4: args.attribution.custom4,
-      custom_field5: args.attribution.custom5,
-      custom_field6: args.attribution.custom6,
-      custom_field7: args.attribution.custom7,
-      custom_field8: args.attribution.custom8,
-    });
-  } catch {
-    console.warn("[go/hotels/checkout] outbound click insert failed");
-  }
-}
-
 function sourcePathFromReferer(referer: string | null) {
   const ref = String(referer ?? "").trim();
   if (!ref) return null;
@@ -214,6 +168,10 @@ export async function POST(request: Request) {
     sourcePath,
     hasVenueId: Boolean(venueId),
   });
+  const { snapshot: hotelProgramSnapshot } = await resolveHotelProgramSnapshotSafely({
+    tournamentId,
+    sourcePageType,
+  });
 
   const attribution = buildHotelPlannerBookingAttribution({
     outboundAttributionId,
@@ -234,6 +192,14 @@ export async function POST(request: Request) {
     custom2:
       pickFormOrQuery(formData, reqUrl, "custom2") ??
       pickFormOrQuery(formData, reqUrl, "Custom2"),
+    custom8:
+      sourcePageType === "tournament_hotels"
+        ? sanitizeHotelPlannerSpreadsheetContext(
+            pickFormOrQuery(formData, reqUrl, "custom8") ??
+              pickFormOrQuery(formData, reqUrl, "Custom8")
+          )
+        : pickFormOrQuery(formData, reqUrl, "custom8") ??
+          pickFormOrQuery(formData, reqUrl, "Custom8"),
   });
 
   const fallbackPath = buildFallbackPath({
@@ -255,25 +221,55 @@ export async function POST(request: Request) {
     });
   }
 
-  if (!isLocalHost(host)) {
-    await logOutboundClick({
-      venueId,
-      tournamentId,
-      outboundAttributionId,
-      sourcePageType,
-      attribution,
-      ctaPlacement,
-      trafficSource,
-      deviceType,
-      pageUrl,
-      referer,
-      host,
-      userAgent,
-      sourcePath,
-    });
-  }
-
   const actionUrl = `${whiteLabelBaseUrl}/Accept/CheckOut.htm`;
+  let persistenceSucceeded = false;
+  if (!isLocalHost(host)) {
+    const persistenceResult = await persistHotelOutboundWithSnapshot({
+      snapshot: hotelProgramSnapshot,
+      row: {
+        destination_type: "hotels",
+        partner: "hotelplanner",
+        outbound_partner: "hotelplanner",
+        source_surface: sourcePageType,
+        source_page_type: sourcePageType,
+        venue_id: venueId && isUuid(venueId) ? venueId : null,
+        tournament_id: tournamentId && isUuid(tournamentId) ? tournamentId : null,
+        target_url: actionUrl,
+        redirect_url: actionUrl,
+        source_path: sourcePath ?? pageUrl,
+        referer,
+        host,
+        user_agent: userAgent?.slice(0, 300) ?? null,
+        is_localhost: false,
+        outbound_request_id: rawRequestId,
+        outbound_attribution_id: outboundAttributionId,
+        cta_placement: ctaPlacement,
+        traffic_source: trafficSource,
+        device_type: deviceType,
+        page_url: pageUrl,
+        job_code: attribution.jobCode,
+        keyword: attribution.keyword,
+        partner_source_code: attribution.sc,
+        custom_field1: attribution.custom1,
+        custom_field2: attribution.custom2,
+        custom_field3: attribution.custom3,
+        custom_field4: attribution.custom4,
+        custom_field5: attribution.custom5,
+        custom_field6: attribution.custom6,
+        custom_field7: attribution.custom7,
+        custom_field8: attribution.custom8,
+      },
+    });
+    persistenceSucceeded = isHotelOutboundPersistenceSuccess(persistenceResult);
+  }
+  const handoffMode = selectHotelHandoffMode({
+    snapshot: hotelProgramSnapshot,
+    persistenceSucceeded,
+    standardTargetAvailable: true,
+  });
+  if (handoffMode === "retryable_error") {
+    return new NextResponse("Hotel checkout is temporarily unavailable.", { status: 503 });
+  }
   const html = `<!doctype html>
 <html lang="en">
   <head>

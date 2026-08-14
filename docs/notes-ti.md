@@ -2848,3 +2848,13 @@ Maintenance rules:
   - Replaced the property-card JavaScript-only button with an explicit local `/go/hotels/property` anchor using a stable per-result outbound request ID. The link exposes the required TI handoff route and tournament/venue/page/placement context before the server redirects to HotelPlanner.
   - Added focused provider normalization regression coverage.
   - Validation passed: 21 focused tests, TI TypeScript, TI lint, TI production build, and a headless local browser retest showing a real address, `0.3 mi from venue`, one `/go/hotels/property` request, complete required handoff context, and no Next.js error overlay. HotelPlanner requests were blocked during verification.
+  - Claude focused post-fix UAT completed against commit `c2f9f542` with an overall `READY TO PUSH` verdict. Starfire and Renton searches returned correctly normalized addresses and varied provider distances with no misleading `0.0 mi` values; property CTAs used the explicit local handoff and preserved all required context and Custom3–Custom5/Custom8 through HotelPlanner. Venue switching, adjusted dates, CTA styling, responsive layout, console, and network checks all passed. One controlled property-page click was performed, with no reservation or production write.
+
+- 2026-08-14: TI HotelPlanner immutable program-snapshot foundation implemented locally.
+  - Added five nullable snapshot columns plus a complete-state CHECK and write-once database trigger; no historical backfill or default assigns economics to legacy rows.
+  - Added the canonical frozen `hp_standard_v1` snapshot and a standard-only trusted resolver. Future non-standard handoffs are policy-gated on successful snapshot persistence; no fee URL or fee selection was introduced.
+  - Replaced direct/upsert HotelPlanner writes in `/go/hotels`, `/go/hotels/property`, and `/go/hotels/checkout` with shared insert-then-reconcile behavior across both outbound unique identifiers. Conflicts cannot overwrite snapshots or handoff context.
+  - Added a tournament `BEFORE DELETE` preservation trigger for HotelPlanner hotel rows. The existing venue FK already uses `ON DELETE SET NULL`; beneficiary UUID is an immutable non-FK snapshot.
+  - Added scoped spreadsheet-safe Tournament Hotels Custom8 handling at client construction and server boundaries while preserving fixed RI Custom8 and Custom1–Custom7 semantics.
+  - Validation passed: 35 focused/protected-flow tests, TI TypeScript, TI lint, TI production build, and `git diff --check`.
+  - Migration `20260814_ti_hotel_program_snapshot_foundation.sql` remains unapplied and must precede the application deployment. Implementation and rollback details are in `docs/reports/ti-hotel-fee-attribution-foundation-2026-08-14.md`.

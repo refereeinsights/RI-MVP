@@ -10,7 +10,18 @@ import {
   deriveHotelPlannerSourcePageType,
   formatOutboundAttributionToken,
   isValidOutboundAttributionId,
+  sanitizeHotelPlannerSpreadsheetContext,
 } from "./hotelPlannerAttribution";
+
+test("sanitizes spreadsheet-facing HotelPlanner context without changing ordinary labels", () => {
+  assert.equal(sanitizeHotelPlannerSpreadsheetContext("  Summer\n Classic  "), "Summer Classic");
+  assert.equal(sanitizeHotelPlannerSpreadsheetContext("=HYPERLINK(\"bad\")"), "'=HYPERLINK(\"bad\")");
+  assert.equal(sanitizeHotelPlannerSpreadsheetContext("+danger"), "'+danger");
+  assert.equal(sanitizeHotelPlannerSpreadsheetContext("-danger"), "'-danger");
+  assert.equal(sanitizeHotelPlannerSpreadsheetContext("@danger"), "'@danger");
+  assert.equal(sanitizeHotelPlannerSpreadsheetContext("\u0000\u0007"), null);
+  assert.equal(sanitizeHotelPlannerSpreadsheetContext("x".repeat(200))?.length, 128);
+});
 
 test("creates compact outbound attribution ids from uuid sources", () => {
   const value = createOutboundAttributionId(() => "11111111-1111-4111-8111-111111111111");
