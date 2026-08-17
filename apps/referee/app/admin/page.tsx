@@ -3,7 +3,7 @@ import TournamentLookup from "@/components/TournamentLookup";
 import Link from "next/link";
 import crypto from "crypto";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
 import AdminNav from "@/components/admin/AdminNav";
 import PendingTournamentSelection from "@/components/admin/PendingTournamentSelection";
@@ -22,8 +22,22 @@ import {
 } from "@/lib/identity/fingerprints";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { lookupSchoolZip } from "@/lib/googlePlaces";
-import { getSportValidationCounts } from "@/lib/validation/getSportValidationCounts";
 import { buildTiAdminSsoUrl } from "@/lib/tiSso";
+import {
+  ADMIN_COVERAGE_METRICS_TAG,
+  ADMIN_INVENTORY_METRICS_TAG,
+  ADMIN_OPERATIONAL_METRICS_TAG,
+  ADMIN_OUTBOUND_METRICS_TAG,
+  EMPTY_SPORT_VALIDATION_COUNTS,
+  getAdminCoverageMetrics,
+  getAdminInventoryMetrics,
+  getAdminOperationalMetrics,
+  getAdminOutboundMetrics,
+  type AdminCoverageMetrics,
+  type AdminInventoryMetrics,
+  type AdminOperationalMetrics,
+  type AdminOutboundMetrics,
+} from "@/lib/adminDashboardMetrics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -161,9 +175,6 @@ const ROLL_FORWARD_LOG_STATUSES: RollForwardStatus[] = [
 ];
 const SUBMISSION_TYPES = ["internet", "website", "paid", "admin"] as const;
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 const SUBMISSION_LABELS: Record<string, string> = {
   internet: "Crawler/import",
   website: "Public submission",
@@ -241,6 +252,20 @@ function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function formatMetricTimestamp(value: string | null | undefined) {
+  if (!value) return "unavailable";
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) return "unavailable";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  }).format(new Date(timestamp));
+}
+
 async function loadTournamentVenueLinkRows(
   tournamentIds: string[],
   includeVenueJoin = false
@@ -281,6 +306,7 @@ function slugifyTournamentName(value: string) {
 }
 
 function redirectWithNotice(target: FormDataEntryValue | null, notice: string): never {
+  revalidateAdminDashboardMetrics();
   const base =
     typeof target === "string" && target.length > 0 ? target : "/admin";
   const joiner = base.includes("?") ? "&" : "?";
@@ -292,6 +318,7 @@ function redirectWithNoticeAndQuery(
   notice: string,
   extraQuery: Record<string, string | number | null | undefined>
 ): never {
+  revalidateAdminDashboardMetrics();
   const base = typeof target === "string" && target.length > 0 ? target : "/admin";
   const [path, qs] = base.split("?");
   const params = new URLSearchParams(qs ?? "");
@@ -304,6 +331,22 @@ function redirectWithNoticeAndQuery(
   }
   params.set("notice", notice);
   redirect(`${path}?${params.toString()}`);
+}
+
+function revalidateAdminDashboardMetrics() {
+  revalidateTag(ADMIN_INVENTORY_METRICS_TAG);
+  revalidateTag(ADMIN_OPERATIONAL_METRICS_TAG);
+  revalidateTag(ADMIN_OUTBOUND_METRICS_TAG);
+  revalidateTag(ADMIN_COVERAGE_METRICS_TAG);
+}
+
+async function loadAdminMetricGroup<T>(label: string, loader: () => Promise<T>): Promise<T | null> {
+  try {
+    return await loader();
+  } catch (error) {
+    console.error(`[ri-admin] ${label} unavailable`, error);
+    return null;
+  }
 }
 
 export default async function AdminPage({
@@ -342,86 +385,24 @@ export default async function AdminPage({
   });
   const owlsEyeAdminToken =
     process.env.NEXT_PUBLIC_OWLS_EYE_ADMIN_TOKEN ?? process.env.OWLS_EYE_ADMIN_TOKEN ?? "";
-  const today = todayIso();
-
-  const [
-    tournamentsDbTotalRes,
-    publishedCanonicalCountRes,
-    publicDirectoryUpcomingCountRes,
-    draftCountRes,
-    missingVenueCountRes,
-    missingUrlCountRes,
-    missingDateCountRes,
-    missingDirectorEmailCountRes,
-    outboundOfficialClickCountRes,
-    validationCounts,
-  ] = await Promise.all([
-    supabaseAdmin
-      .from("tournaments" as any)
-      .select("id", { count: "exact", head: true }),
-    supabaseAdmin
-      .from("tournaments" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published")
-      .eq("is_canonical", true),
-    supabaseAdmin
-      .from("tournaments" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published")
-      .eq("is_canonical", true)
-      .or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`),
-    supabaseAdmin
-      .from("tournaments" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "draft"),
-    (async () => {
-      // "Missing venues" (moving forward) means:
-      // Published canonical tournaments with zero tournament_venues rows (linked venues).
-      const res = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments", {
-        p_limit: 1,
-        p_offset: 0,
-        p_state: null,
-        p_q: null,
-      });
-      if (res.error) throw res.error;
-      const rows = (res.data ?? []) as Array<{ total_count?: number | null }>;
-      return { count: Number(rows[0]?.total_count ?? 0) || 0 };
-    })(),
-    supabaseAdmin
-      .from("tournaments" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published")
-      .eq("is_canonical", true)
-      .is("official_website_url", null),
-    supabaseAdmin
-      .from("tournaments" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published")
-      .eq("is_canonical", true)
-      .is("start_date", null)
-      .is("end_date", null),
-    supabaseAdmin
-      .from("tournaments" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published")
-      .eq("is_canonical", true)
-      .or("tournament_director_email.is.null,tournament_director_email.eq."),
-    (async () => {
-      const res = await supabaseAdmin
-        .from("ti_outbound_clicks" as any)
-        .select("id", { count: "exact", head: true });
-      if (res.error) {
-        console.warn("Failed to load ti_outbound_clicks total count", {
-          message: res.error.message,
-        });
-        return { count: 0 };
-      }
-      return { count: res.count ?? 0 };
-    })(),
-    getSportValidationCounts(),
+  const tab: Tab = (searchParams.tab as Tab) ?? "verification";
+  const [inventoryMetrics, operationalMetrics, outboundMetrics, coverageMetrics] = await Promise.all([
+    loadAdminMetricGroup<AdminInventoryMetrics>("inventory metrics", getAdminInventoryMetrics),
+    loadAdminMetricGroup<AdminOperationalMetrics>("operational metrics", getAdminOperationalMetrics),
+    loadAdminMetricGroup<AdminOutboundMetrics>("outbound metrics", getAdminOutboundMetrics),
+    loadAdminMetricGroup<AdminCoverageMetrics>("coverage metrics", getAdminCoverageMetrics),
   ]);
 
-  const tab: Tab = (searchParams.tab as Tab) ?? "verification";
+  const validationCounts = inventoryMetrics?.validationCounts ?? EMPTY_SPORT_VALIDATION_COUNTS;
+  const tournamentsDbTotalRes = { count: inventoryMetrics?.tournamentsDbTotal ?? null };
+  const publishedCanonicalCountRes = { count: inventoryMetrics?.publishedCanonicalCount ?? null };
+  const publicDirectoryUpcomingCountRes = { count: inventoryMetrics?.publicDirectoryUpcomingCount ?? null };
+  const draftCountRes = { count: operationalMetrics?.draftCount ?? null };
+  const missingVenueCountRes = { count: operationalMetrics?.missingVenueCount ?? null };
+  const missingUrlCountRes = { count: operationalMetrics?.missingUrlCount ?? null };
+  const missingDateCountRes = { count: operationalMetrics?.missingDateCount ?? null };
+  const missingDirectorEmailCountRes = { count: operationalMetrics?.missingDirectorEmailCount ?? null };
+  const outboundOfficialClickCountRes = { count: outboundMetrics?.outboundOfficialClickCount ?? null };
   const q = searchParams.q ?? "";
   const showAllUsersRaw = (searchParams.show_all ?? "").trim().toLowerCase();
   const showAllUsers =
@@ -518,7 +499,7 @@ export default async function AdminPage({
   }
   const adminBasePath = params.toString() ? `/admin?${params.toString()}` : "/admin";
 
-  const badges: AdminBadgeRow[] = await adminListBadges();
+  const badges: AdminBadgeRow[] = tab === "badges" ? await adminListBadges() : [];
 
   const usersPageSize = 50;
   const usersPageRes =
@@ -962,172 +943,22 @@ export default async function AdminPage({
     return true;
   };
   const displayedListedTournaments = listedTournaments.filter(tournamentMatchesMissingFilter);
-  const { count: assignorNeedsReviewCount, error: assignorNeedsReviewError } =
-    await supabaseAdmin
-      .from("assignor_source_records" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("review_status", "needs_review");
-  if (assignorNeedsReviewError) {
-    console.error("Assignor review count failed", assignorNeedsReviewError);
-  }
-  const [
-    { count: pendingVerificationCount },
-    { count: pendingTournamentReviewCount },
-    { count: pendingSchoolReviewCount },
-    { count: pendingTournamentContactCount },
-    { count: pendingRefereeContactCount },
-    { count: pendingUploadsCount },
-  ] = await Promise.all([
-    supabaseAdmin
-      .from("referee_verification_requests" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
-    supabaseAdmin
-      .from("tournament_referee_reviews" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
-    supabaseAdmin
-      .from("school_referee_reviews" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
-    supabaseAdmin
-      .from("tournament_contacts" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
-    supabaseAdmin
-      .from("referee_contacts" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
-    supabaseAdmin
-      .from("tournaments" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "draft"),
-  ]);
-  const assignorNeedsReviewLabel = assignorNeedsReviewError
-    ? "—"
-    : String(assignorNeedsReviewCount ?? 0);
-
-  const pageSize = 1000;
-  let offset = 0;
-  let publishedTournamentStatsRows: any[] = [];
-  while (true) {
-    const { data, error } = await supabaseAdmin
-      .from("tournaments_public" as any)
-      .select("id,sport,venue,address,official_website_url,source_url,start_date,end_date")
-      .or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`)
-      .range(offset, offset + pageSize - 1);
-    if (error) {
-      console.error("Failed to load tournament stats", error);
-      break;
-    }
-    publishedTournamentStatsRows.push(...(data ?? []));
-    if (!data || data.length < pageSize) break;
-    offset += pageSize;
-  }
-
-  const tournamentStatsRows = (publishedTournamentStatsRows ?? []) as Array<{
-    id: string;
-    sport?: string | null;
-    venue?: string | null;
-    address?: string | null;
-    official_website_url?: string | null;
-    source_url?: string | null;
-    start_date?: string | null;
-    end_date?: string | null;
-  }>;
-
-  const tournamentSportCounts = new Map<string, number>();
-  let tournamentsMissingVenueCount = 0;
-  let tournamentsMissingUrlsCount = 0;
-  let tournamentsMissingDatesCount = 0;
-  const publishedTournamentIds = tournamentStatsRows.map((row) => row.id).filter(Boolean);
-  let linkedPublishedTournamentIds = new Set<string>();
-  if (publishedTournamentIds.length) {
-    const publishedVenueLinks = await loadTournamentVenueLinkRows(publishedTournamentIds, false);
-    linkedPublishedTournamentIds = new Set(
-      ((publishedVenueLinks as Array<{ tournament_id?: string | null }> | null) ?? [])
-        .map((row) => row.tournament_id)
-        .filter((value): value is string => typeof value === "string" && value.length > 0)
-    );
-  }
-  tournamentStatsRows.forEach((row) => {
-    const sportKey = String(row.sport ?? "").trim().toLowerCase();
-    if (sportKey) {
-      tournamentSportCounts.set(sportKey, (tournamentSportCounts.get(sportKey) ?? 0) + 1);
-    }
-    const missingVenue = !linkedPublishedTournamentIds.has(row.id);
-    const missingUrls = !hasText(row.official_website_url) && !hasText(row.source_url);
-    const missingDates = !hasText(row.start_date) || !hasText(row.end_date);
-    if (missingVenue) tournamentsMissingVenueCount += 1;
-    if (missingUrls) tournamentsMissingUrlsCount += 1;
-    if (missingDates) tournamentsMissingDatesCount += 1;
-  });
-
-  const tournamentSportCards = Array.from(tournamentSportCounts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([sport, count]) => ({ sport, count }));
-
-  const { data: venueStatsRows } = await supabaseAdmin
-    .from("venues" as any)
-    .select("id,address,address1,latitude,longitude,venue_url")
-    .limit(5000);
-
-  let venuesMissingAddressGeoCount = 0;
-  let venuesMissingUrlsCount = 0;
-  (venueStatsRows ?? []).forEach((row: any) => {
-    const missingAddress = !hasText(row.address1) && !hasText(row.address);
-    const missingGeo = typeof row.latitude !== "number" || typeof row.longitude !== "number";
-    if (missingAddress || missingGeo) venuesMissingAddressGeoCount += 1;
-    if (!hasText(row.venue_url)) venuesMissingUrlsCount += 1;
-  });
-
-  let totalVenueCount: number | null = null;
-  try {
-    const { count, error } = await supabaseAdmin
-      .from("venues" as any)
-      .select("id", { count: "exact", head: true });
-    if (!error && typeof count === "number") totalVenueCount = count;
-  } catch {
-    // leave null — tile will show "—"
-  }
-
-  let owlRunVenueCount = 0;
-  try {
-    // Prefer a set-based COUNT query so we don't hit PostgREST max-rows caps (often 1000).
-    const countResp = await supabaseAdmin
-      .from("venues" as any)
-      .select("id,owls_eye_runs!inner(id)", { count: "exact", head: true })
-      .limit(1);
-
-    if (!countResp.error && typeof countResp.count === "number") {
-      owlRunVenueCount = countResp.count;
-    } else {
-      // Fallback: page through owls_eye_runs and dedupe by venue_id.
-      const pageSize = 1000;
-      const maxPages = 200; // safety cap (200k rows)
-      const venueIds = new Set<string>();
-      for (let page = 0; page < maxPages; page++) {
-        const start = page * pageSize;
-        const end = start + pageSize - 1;
-        const { data: owlRunRows, error } = await supabaseAdmin
-          .from("owls_eye_runs" as any)
-          .select("venue_id")
-          .not("venue_id", "is", null)
-          .order("venue_id", { ascending: true })
-          .range(start, end);
-        if (error) break;
-        const rows = ((owlRunRows as Array<{ venue_id?: string | null }> | null) ?? []).filter(Boolean);
-        for (const row of rows) {
-          const venueId = row?.venue_id;
-          if (typeof venueId === "string" && venueId.length > 0) venueIds.add(venueId);
-        }
-        if (!owlRunRows || (owlRunRows as any[]).length < pageSize) break;
-      }
-      owlRunVenueCount = venueIds.size;
-    }
-  } catch {
-    owlRunVenueCount = 0;
-  }
+  const assignorNeedsReviewCount = operationalMetrics?.assignorNeedsReviewCount ?? null;
+  const assignorNeedsReviewLabel = assignorNeedsReviewCount === null ? "—" : String(assignorNeedsReviewCount);
+  const pendingVerificationCount = operationalMetrics?.pendingVerificationCount ?? null;
+  const pendingTournamentReviewCount = operationalMetrics?.pendingTournamentReviewCount ?? null;
+  const pendingSchoolReviewCount = operationalMetrics?.pendingSchoolReviewCount ?? null;
+  const pendingTournamentContactCount = operationalMetrics?.pendingTournamentContactCount ?? null;
+  const pendingRefereeContactCount = operationalMetrics?.pendingRefereeContactCount ?? null;
+  const pendingUploadsCount = operationalMetrics?.pendingUploadsCount ?? null;
+  const tournamentSportCards = coverageMetrics?.tournamentSportCards ?? [];
+  const tournamentsMissingVenueCount = coverageMetrics?.tournamentsMissingVenueCount ?? null;
+  const tournamentsMissingUrlsCount = coverageMetrics?.tournamentsMissingUrlsCount ?? null;
+  const tournamentsMissingDatesCount = coverageMetrics?.tournamentsMissingDatesCount ?? null;
+  const venuesMissingAddressGeoCount = coverageMetrics?.venuesMissingAddressGeoCount ?? null;
+  const venuesMissingUrlsCount = coverageMetrics?.venuesMissingUrlsCount ?? null;
+  const totalVenueCount = coverageMetrics?.totalVenueCount ?? null;
+  const owlRunVenueCount = coverageMetrics?.owlRunVenueCount ?? null;
 
   let readyNotRunVenues: ReadyVenueItem[] = [];
   if (tab === "owls-eye") {
@@ -4159,37 +3990,42 @@ export default async function AdminPage({
       <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 10 }}>
         Admin Dashboard
       </h1>
+      <div style={{ color: "#64748b", fontSize: 12, marginBottom: 10 }}>
+        Inventory metrics updated {formatMetricTimestamp(inventoryMetrics?.generatedAt)} (cached up to 8 hours)
+        {" · "}
+        queue metrics updated {formatMetricTimestamp(operationalMetrics?.generatedAt)} (cached up to 5 minutes)
+      </div>
       <div style={{ marginBottom: 12 }}>
         <AdminNav />
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
-        <SummaryTile label="Total Tournaments in DB" value={tournamentsDbTotalRes.count ?? 0} />
-        <SummaryTile label="Published (Canonical)" value={publishedCanonicalCountRes.count ?? 0} tone="success" />
-        <SummaryTile label="Public Directory (Upcoming)" value={publicDirectoryUpcomingCountRes.count ?? 0} tone="info" />
-        <SummaryTile label="Draft" value={draftCountRes.count ?? 0} tone="info" />
-        <SummaryTileLink label="Missing venues" value={missingVenueCountRes.count ?? 0} tone="warn" href="/admin/tournaments/missing-venues" />
-        <SummaryTile label="Missing URLs" value={missingUrlCountRes.count ?? 0} tone="warn" />
+        <SummaryTile label="Total Tournaments in DB" value={tournamentsDbTotalRes.count ?? "—"} />
+        <SummaryTile label="Published (Canonical)" value={publishedCanonicalCountRes.count ?? "—"} tone="success" />
+        <SummaryTile label="Public Directory (Upcoming)" value={publicDirectoryUpcomingCountRes.count ?? "—"} tone="info" />
+        <SummaryTile label="Draft" value={draftCountRes.count ?? "—"} tone="info" />
+        <SummaryTileLink label="Missing venues" value={missingVenueCountRes.count ?? "—"} tone="warn" href="/admin/tournaments/missing-venues" />
+        <SummaryTile label="Missing URLs" value={missingUrlCountRes.count ?? "—"} tone="warn" />
         <SummaryTileLink
           label="Missing dates"
-          value={missingDateCountRes.count ?? 0}
+          value={missingDateCountRes.count ?? "—"}
           tone="warn"
           href="/admin?tab=tournament-listings&missing=dates"
         />
         <SummaryTileLink
           label="Missing director email"
-          value={missingDirectorEmailCountRes.count ?? 0}
+          value={missingDirectorEmailCountRes.count ?? "—"}
           tone="warn"
           href="/admin?tab=tournament-listings&missing=director_email"
         />
         <SummaryTileLink
           label="Official URL clicks"
-          value={outboundOfficialClickCountRes.count ?? 0}
+          value={outboundOfficialClickCountRes.count ?? "—"}
           tone="info"
           href="/admin/ti/outbound"
         />
-        <SummaryTile label="Validated (rule)" value={validationCounts.rule_confirmed ?? 0} tone="success" />
-        <SummaryTile label="Needs review" value={validationCounts.needs_review ?? 0} tone="info" />
+        <SummaryTile label="Validated (rule)" value={inventoryMetrics ? validationCounts.rule_confirmed : "—"} tone="success" />
+        <SummaryTile label="Needs review" value={inventoryMetrics ? validationCounts.needs_review : "—"} tone="info" />
         <Link
           href="/admin/tournaments/dashboard"
           className="cta secondary"
@@ -4401,14 +4237,14 @@ export default async function AdminPage({
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
-        <TabButton t="verification" label="Verification" count={pendingVerificationCount ?? 0} />
+        <TabButton t="verification" label="Verification" count={pendingVerificationCount ?? undefined} />
         <TabButton t="users" label="Users" />
         <TabButton t="badges" label="Badges" />
-        <TabButton t="reviews" label="Tournament reviews" count={pendingTournamentReviewCount ?? 0} />
-        <TabButton t="school-reviews" label="School reviews" count={pendingSchoolReviewCount ?? 0} />
-        <TabButton t="tournament-contacts" label="Tournament enrichment" count={pendingTournamentContactCount ?? 0} />
-        <TabButton t="referee-contacts" label="Referee contacts" count={pendingRefereeContactCount ?? 0} />
-        <TabButton t="tournament-uploads" label="Tournament uploads" count={pendingUploadsCount ?? 0} />
+        <TabButton t="reviews" label="Tournament reviews" count={pendingTournamentReviewCount ?? undefined} />
+        <TabButton t="school-reviews" label="School reviews" count={pendingSchoolReviewCount ?? undefined} />
+        <TabButton t="tournament-contacts" label="Tournament enrichment" count={pendingTournamentContactCount ?? undefined} />
+        <TabButton t="referee-contacts" label="Referee contacts" count={pendingRefereeContactCount ?? undefined} />
+        <TabButton t="tournament-uploads" label="Tournament uploads" count={pendingUploadsCount ?? undefined} />
         <TabButton t="tournament-listings" label="Tournament listings" />
         <TabButton t="owls-eye" label="Owl's Eye" />
         <a
@@ -4492,7 +4328,7 @@ export default async function AdminPage({
             }}
           >
             <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Missing venues</div>
-            <div style={{ fontWeight: 900, marginTop: 2 }}>{tournamentsMissingVenueCount}</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{tournamentsMissingVenueCount ?? "—"}</div>
             <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered tournament list</div>
           </a>
           <a
@@ -4507,7 +4343,7 @@ export default async function AdminPage({
             }}
           >
             <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Missing URLs</div>
-            <div style={{ fontWeight: 900, marginTop: 2 }}>{tournamentsMissingUrlsCount}</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{tournamentsMissingUrlsCount ?? "—"}</div>
             <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered tournament list</div>
           </a>
           <a
@@ -4522,7 +4358,7 @@ export default async function AdminPage({
             }}
           >
             <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Missing dates</div>
-            <div style={{ fontWeight: 900, marginTop: 2 }}>{tournamentsMissingDatesCount}</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{tournamentsMissingDatesCount ?? "—"}</div>
             <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered tournament list</div>
           </a>
           <a
@@ -4537,7 +4373,7 @@ export default async function AdminPage({
             }}
           >
             <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Venues missing address/geo</div>
-            <div style={{ fontWeight: 900, marginTop: 2 }}>{venuesMissingAddressGeoCount}</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{venuesMissingAddressGeoCount ?? "—"}</div>
             <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered venue list</div>
           </a>
           <a
@@ -4552,7 +4388,7 @@ export default async function AdminPage({
             }}
           >
             <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Venues missing URLs</div>
-            <div style={{ fontWeight: 900, marginTop: 2 }}>{venuesMissingUrlsCount}</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{venuesMissingUrlsCount ?? "—"}</div>
             <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered venue list</div>
           </a>
           <a
@@ -4598,7 +4434,7 @@ export default async function AdminPage({
               />
               <span>Owl&apos;s Eye venues</span>
             </div>
-            <div style={{ fontWeight: 900, marginTop: 2 }}>{owlRunVenueCount}</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{owlRunVenueCount ?? "—"}</div>
             <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered venue list</div>
           </a>
         </div>

@@ -15,9 +15,10 @@ async function countStatus(status: string | null): Promise<number> {
   const query = supabaseAdmin
     .from("tournament_sport_validation" as any)
     .select("id", { count: "exact", head: true });
-  const { count } = status
+  const { count, error } = status
     ? await query.eq("validation_status", status)
     : await query.is("validation_status", null);
+  if (error) throw new Error(`Sport validation ${status ?? "unclassified"} count unavailable: ${error.message}`);
   return count ?? 0;
 }
 
@@ -30,9 +31,10 @@ export async function getSportValidationCounts(): Promise<SportValidationCounts>
     countStatus("unknown"),
     countStatus("likely"),
     (async () => {
-      const { count } = await supabaseAdmin
+      const { count, error } = await supabaseAdmin
         .from("tournament_sport_validation" as any)
         .select("id", { count: "exact", head: true });
+      if (error) throw new Error(`Sport validation total unavailable: ${error.message}`);
       return count ?? 0;
     })(),
   ]);

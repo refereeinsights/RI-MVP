@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "./supabaseAdmin";
-import { createSupabaseServerClient } from "./supabaseServer";
+import { getServerUser } from "./serverAuth";
 import type {
   TournamentContactInsert,
   TournamentContactUpdate,
@@ -59,18 +59,16 @@ export async function adminListUsersPage(params: { page: number; pageSize: numbe
  * If logged in but not admin -> redirect to /admin/login?error=not_authorized
  */
 export async function requireAdmin() {
-  const supa = createSupabaseServerClient();
+  const { user, error: userErr } = await getServerUser();
 
-  const { data: userData, error: userErr } = await supa.auth.getUser();
-
-  if (userErr || !userData.user) {
+  if (userErr || !user) {
     redirect("/admin/login");
   }
 
   const { data: profile, error: profErr } = await supabaseAdmin
     .from("profiles")
     .select("user_id, role")
-    .eq("user_id", userData.user.id)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (profErr) {
@@ -82,7 +80,7 @@ export async function requireAdmin() {
     redirect("/admin/login?error=not_authorized");
   }
 
-  return userData.user;
+  return user;
 }
 
 /** USERS **/

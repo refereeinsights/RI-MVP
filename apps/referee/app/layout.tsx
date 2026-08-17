@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { getServerUser } from "@/lib/serverAuth";
 import Header from "@/components/Header";
 import ClarityScript from "@/components/ClarityScript";
 import "./globals.css";
@@ -19,10 +19,7 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getServerUser();
   return (
     <html lang="en">
       <body>
