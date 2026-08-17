@@ -107,7 +107,7 @@ function familyColorStyle(colorToken: string | null | undefined) {
     case "violet":
       return { soft: "rgba(139, 92, 246, 0.14)", border: "rgba(139, 92, 246, 0.34)", text: "#5b21b6" };
     case "rose":
-      return { soft: "rgba(244, 63, 94, 0.14)", border: "rgba(244, 63, 94, 0.34)", text: "#9f1239" };
+      return { soft: "#fae8ff", border: "#f0abfc", text: "#86198f" };
     case "amber":
       return { soft: "rgba(245, 158, 11, 0.16)", border: "rgba(245, 158, 11, 0.34)", text: "#92400e" };
     case "emerald":

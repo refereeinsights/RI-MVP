@@ -6,6 +6,7 @@ import {
   buildPlannerGuestShareUrl,
   generatePlannerGuestShareTokenNonce,
   hashPlannerGuestShareToken,
+  plannerGuestShareBadgeStyle,
 } from "./guestShares";
 
 test("planner guest share tokens hash to stable 64-char sha256 hex", () => {
@@ -71,4 +72,12 @@ test("planner guest share helpers build url-safe nonce and shared urls", () => {
 
   const shareUrl = buildPlannerGuestShareUrl("https://www.tournamentinsights.com/", "abc.def");
   assert.equal(shareUrl, "https://www.tournamentinsights.com/weekend-planner/shared/abc.def");
+});
+
+test("planner guest shares preserve the accessible Rose family treatment", () => {
+  assert.deepEqual(plannerGuestShareBadgeStyle("rose"), {
+    soft: "#fae8ff",
+    border: "#f0abfc",
+    text: "#86198f",
+  });
 });

@@ -2884,3 +2884,10 @@ Maintenance rules:
   - Validation passed: 2/2 focused tests, both app TypeScript checks, both app lints, both production builds, and `git diff --check`. TI completed 117 static pages and RI completed 175; `/sitemap.xml` appeared as dynamic in both build manifests with no sitemap worker timeout.
   - Production follow-up: after the root indexes were removed from static generation, TI exposed the next database-backed blocker at `/sitemaps/metros.xml`, where `list_indexable_city_metro_hub_urls_v1` exceeded the same 60-second limit. The metro sitemap now uses the same dynamic and CDN-cached treatment, reducing TI's static build set to 116 pages.
   - Production UAT confirmed the metro sitemap was populated and fast, but also caught one cached TI root sitemap generated while the tournament count was unavailable; that successful-looking XML omitted all tournament sitemap pages until cache expiry. TI and RI root sitemap indexes now reject query errors or invalid counts, and the TI metro sitemap rejects RPC errors or malformed payloads. These failures return retryable HTTP 503 responses with explicit browser/Vercel/CDN `no-store` headers, preventing partial or false-empty sitemap documents from entering the one-hour success cache while preserving legitimate zero-row results. Validation passed: 5/5 focused tests, both app TypeScript checks, both app lints, both production builds, and `git diff --check`.
+
+- 2026-08-17: Weekend Planner family/conflict accessibility colors updated locally.
+  - Shifted the persisted `rose` child-color token from red-leaning pink to a fuchsia palette while keeping the database-compatible `rose` key and cycling order unchanged.
+  - Applied the same Rose treatment to read-only guest-share assignment badges.
+  - Darkened only the schedule-conflict explanation text to `#8a5c14`; retained the separate `#c9933a` connected-calendar source color.
+  - Added regression coverage for exact tokens, guest-share parity, scoped conflict styling, source-palette preservation, and WCAG AA text contrast.
+  - Validation passed: 6 focused tests, TI TypeScript, TI lint, and `git diff --check`.

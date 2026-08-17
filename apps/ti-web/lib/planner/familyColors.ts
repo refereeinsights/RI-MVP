@@ -10,7 +10,7 @@ export const FAMILY_COLOR_OPTIONS = [
   { key: "ocean", label: "Ocean", token: { main: "#1d4ed8", soft: "#dbeafe", text: "#1d4ed8", border: "#93c5fd" } },
   { key: "amber", label: "Amber", token: { main: "#b45309", soft: "#fef3c7", text: "#b45309", border: "#fcd34d" } },
   { key: "violet", label: "Violet", token: { main: "#7c3aed", soft: "#ede9fe", text: "#6d28d9", border: "#c4b5fd" } },
-  { key: "rose", label: "Rose", token: { main: "#be185d", soft: "#fce7f3", text: "#be185d", border: "#f9a8d4" } },
+  { key: "rose", label: "Rose", token: { main: "#a21caf", soft: "#fae8ff", text: "#86198f", border: "#f0abfc" } },
   { key: "teal", label: "Teal", token: { main: "#0f766e", soft: "#ccfbf1", text: "#0f766e", border: "#99f6e4" } },
 ] as const satisfies ReadonlyArray<{ key: string; label: string; token: FamilyColorToken }>;
 

@@ -4749,3 +4749,9 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added a cross-app regression test. Both TypeScript checks, lints, and production builds pass; TI generated 117 remaining static pages and RI generated 175 with no sitemap timeout.
   - Production follow-up moved TI's database-backed `/sitemaps/metros.xml` route out of static generation after its metro-hub RPC became the next 60-second blocker. The response retains one-hour CDN caching and one-day stale serving.
   - Production sitemap UAT found that a transient TI tournament-count failure could still be interpreted as zero and cached as a complete 200 response. Both root sitemap indexes and TI's metro sitemap now fail closed with a retryable, explicitly non-cacheable 503 whenever required database results error, throw, omit exact counts, or return malformed RPC data; legitimate empty result arrays remain valid. Focused tests, both app typechecks/lints/builds, and diff validation pass.
+
+- 2026-08-17: TI Weekend Planner family/conflict accessibility colors updated locally.
+  - Kept the persisted `rose` child-color key but moved its main/soft/border/text treatment to the accessible fuchsia palette, including guest-share badges.
+  - Changed only schedule-conflict explanation text from `#c9933a` to `#8a5c14`; the independent connected-calendar source palette retains `#c9933a`.
+  - Added regression checks for palette values, guest-share parity, scoped conflict styling, source-color preservation, and AA text contrast.
+  - Validation passed: 6 focused tests, TI TypeScript, TI lint, and `git diff --check`.
