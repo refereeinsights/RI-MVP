@@ -1,6 +1,13 @@
 "use client";
 
+import {
+  buildAnalyticsDedupeKey,
+  createAnalyticsBatcher,
+  isRepeatableViewEvent,
+} from "../../../packages/lib/analytics-batch";
+
 export const RI_SOURCE_APP = "refereeinsights";
+const analyticsBatcher = createAnalyticsBatcher();
 
 export type RiPageType =
   | "tournament_directory"
@@ -78,25 +85,11 @@ export async function captureRiEvent(eventName: string, args: CaptureArgs) {
     },
   };
 
-  try {
-    const shouldPreferBeacon =
-      document.visibilityState === "hidden" &&
-      typeof navigator !== "undefined" &&
-      typeof navigator.sendBeacon === "function";
-
-    if (shouldPreferBeacon) {
-      const body = new Blob([JSON.stringify(payload)], { type: "application/json" });
-      const accepted = navigator.sendBeacon("/api/analytics", body);
-      if (accepted) return;
-    }
-
-    await fetch("/api/analytics", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    });
-  } catch {
-    // Analytics must fail open.
-  }
+  const dedupeKey = isRepeatableViewEvent(eventName)
+    ? buildAnalyticsDedupeKey("ri", eventName, payload.properties)
+    : null;
+  await analyticsBatcher.send(payload, {
+    preferBeacon: document.visibilityState === "hidden",
+    dedupeKey,
+  });
 }

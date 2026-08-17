@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-
-type AnalyticsRequest = {
-  event?: string;
-  properties?: Record<string, unknown>;
-};
+import { normalizeAnalyticsRequestBody } from "../../../../../packages/lib/analytics-batch";
 
 const QUICK_CHECK_EVENTS = new Set([
   "Venue Quick Check Opened",
@@ -291,37 +287,36 @@ function asObject(value: unknown) {
 }
 
 export async function POST(request: Request) {
-  let payload: AnalyticsRequest | null = null;
-
+  const startedAt = Date.now();
+  let body: unknown;
   try {
-    payload = (await request.json()) as AnalyticsRequest;
+    body = await request.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid analytics payload." }, { status: 400 });
   }
 
-  if (!payload?.event || typeof payload.event !== "string") {
-    return NextResponse.json({ ok: false, error: "Event is required." }, { status: 400 });
-  }
+  const events = normalizeAnalyticsRequestBody(body);
+  if (!events) return NextResponse.json({ ok: false, error: "Invalid analytics payload." }, { status: 400 });
 
   const userAgent = asTextWithLimit(request.headers.get("user-agent"), 256);
+  const persistableCount = events.filter(({ event }) =>
+    QUICK_CHECK_EVENTS.has(event) ||
+    MAP_EVENTS.has(event) ||
+    TRAVEL_EVENTS.has(event) ||
+    PLANNER_EVENTS.has(event) ||
+    SAVED_TOURNAMENT_EVENTS.has(event)
+  ).length;
+  if (persistableCount > 0 && !shouldPersistMapEvents(request)) {
+    return NextResponse.json({ ok: true, persisted: false, skipped: "non_production_or_local" });
+  }
 
-  console.info(
-    "[ti-analytics]",
-    JSON.stringify({
-      event: payload.event,
-      properties: payload.properties ?? {},
-      received_at: new Date().toISOString(),
-    })
-  );
+  const quickCheckRows: Record<string, unknown>[] = [];
+  const mapEventRows: Record<string, unknown>[] = [];
 
-  // Persist quick-check events for admin analytics. Keep the surface area small: only store
-  // the venue quick check funnel events, with tight parsing and field limits.
-  if (QUICK_CHECK_EVENTS.has(payload.event)) {
-    // Avoid polluting analytics with local testing / admin poking around.
-    if (!shouldPersistMapEvents(request)) {
-      return NextResponse.json({ ok: true, skipped: "localhost" });
-    }
-
+  for (const payload of events) {
+    // Persist quick-check events for admin analytics. Keep the surface area small: only store
+    // the venue quick check funnel events, with tight parsing and field limits.
+    if (QUICK_CHECK_EVENTS.has(payload.event)) {
     const props = payload.properties ?? {};
     const venueUuid = asText((props as any).venueUuid);
     const pageType = asText((props as any).pageType);
@@ -329,30 +324,21 @@ export async function POST(request: Request) {
     const fieldsCompleted = asNumber((props as any).fieldsCompleted);
     const fieldsAnswered = asStringArray((props as any).fieldsAnswered);
 
-    try {
-      await supabaseAdmin.from("venue_quick_check_events" as any).insert({
-        event_type: payload.event,
-        venue_id: venueUuid,
-        page_type: pageType,
-        source_tournament_id: sourceTournamentUuid,
-        fields_completed: fieldsCompleted,
-        fields_answered: fieldsAnswered,
-      });
-    } catch {
-      // Ignore persistence failures; analytics must never block UX.
+    quickCheckRows.push({
+      event_type: payload.event,
+      venue_id: venueUuid,
+      page_type: pageType,
+      source_tournament_id: sourceTournamentUuid,
+      fields_completed: fieldsCompleted,
+      fields_answered: fieldsAnswered,
+    });
     }
-  }
 
   // Persist map interactions so we can review adoption and usage patterns.
-  if (MAP_EVENTS.has(payload.event)) {
+    if (MAP_EVENTS.has(payload.event)) {
     const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
     const origin = asTextWithLimit(request.headers.get("origin"), 256);
     const referer = asTextWithLimit(request.headers.get("referer"), 512);
-
-    // Avoid polluting analytics with local testing / admin poking around.
-    if (!shouldPersistMapEvents(request)) {
-      return NextResponse.json({ ok: true, skipped: "localhost" });
-    }
 
     const propsRaw = payload.properties ?? {};
     const props = asObject(propsRaw) ?? {};
@@ -373,35 +359,26 @@ export async function POST(request: Request) {
       referer: (props as any).referer ?? referer ?? null,
     };
 
-    try {
-      await supabaseAdmin.from("ti_map_events" as any).insert({
-        event_name: payload.event,
-        properties,
-        page_type: pageType,
-        sport,
-        state,
-        href,
-        filter_name: filterName,
-        old_value: oldValue,
-        new_value: newValue,
-        cta,
-      });
-    } catch {
-      // Ignore persistence failures; analytics must never block UX.
+    mapEventRows.push({
+      event_name: payload.event,
+      properties,
+      page_type: pageType,
+      sport,
+      state,
+      href,
+      filter_name: filterName,
+      old_value: oldValue,
+      new_value: newValue,
+      cta,
+    });
     }
-  }
 
   // Persist Book Travel funnel events (CRO/SEO measurement). Keep the surface area small and
   // re-use the same storage pattern as map events to avoid schema churn.
-  if (TRAVEL_EVENTS.has(payload.event)) {
+    if (TRAVEL_EVENTS.has(payload.event)) {
     const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
     const origin = asTextWithLimit(request.headers.get("origin"), 256);
     const referer = asTextWithLimit(request.headers.get("referer"), 512);
-
-    // Avoid polluting analytics with local testing / admin poking around.
-    if (!shouldPersistMapEvents(request)) {
-      return NextResponse.json({ ok: true, skipped: "localhost" });
-    }
 
     const propsRaw = payload.properties ?? {};
     const props = asObject(propsRaw) ?? {};
@@ -419,34 +396,25 @@ export async function POST(request: Request) {
       referer: (props as any).referer ?? referer ?? null,
     };
 
-    try {
-      await supabaseAdmin.from("ti_map_events" as any).insert({
-        event_name: payload.event,
-        properties,
-        page_type: "book_travel",
-        sport: null,
-        state: null,
-        href: pagePath,
-        filter_name: null,
-        old_value: sourcePage,
-        new_value: travelType,
-        cta: ctaLocation,
-      });
-    } catch {
-      // Ignore persistence failures; analytics must never block UX.
+    mapEventRows.push({
+      event_name: payload.event,
+      properties,
+      page_type: "book_travel",
+      sport: null,
+      state: null,
+      href: pagePath,
+      filter_name: null,
+      old_value: sourcePage,
+      new_value: travelType,
+      cta: ctaLocation,
+    });
     }
-  }
 
   // Persist Weekend Planner events for UAT hardening + adoption review.
-  if (PLANNER_EVENTS.has(payload.event)) {
+    if (PLANNER_EVENTS.has(payload.event)) {
     const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
     const origin = asTextWithLimit(request.headers.get("origin"), 256);
     const referer = asTextWithLimit(request.headers.get("referer"), 512);
-
-    // Avoid polluting analytics with local testing / admin poking around.
-    if (!shouldPersistMapEvents(request)) {
-      return NextResponse.json({ ok: true, skipped: "localhost" });
-    }
 
     const propsRaw = payload.properties ?? {};
     const props = asObject(propsRaw) ?? {};
@@ -551,31 +519,22 @@ export async function POST(request: Request) {
           referer: (props as any).referer ?? referer ?? null,
         };
 
-    try {
-      await supabaseAdmin.from("ti_map_events" as any).insert({
-        event_name: payload.event,
-        properties,
-        page_type: normalizePlannerPageType(currentPageType ?? sourcePageType),
-        sport: null,
-        state: null,
-        href: currentPagePath ?? pagePath ?? "/weekend-planner",
-        filter_name: view ?? gateName ?? contextType ?? entryPlacement ?? null,
-        old_value: fromView ?? authState ?? entitlement ?? entrySource ?? null,
-        new_value: toView ?? reasonCode ?? loadedEventCountBucket ?? firstActionType ?? null,
-        cta: ctaType ?? target ?? actionSurface ?? null,
-      });
-    } catch {
-      // Ignore persistence failures; analytics must never block UX.
+    mapEventRows.push({
+      event_name: payload.event,
+      properties,
+      page_type: normalizePlannerPageType(currentPageType ?? sourcePageType),
+      sport: null,
+      state: null,
+      href: currentPagePath ?? pagePath ?? "/weekend-planner",
+      filter_name: view ?? gateName ?? contextType ?? entryPlacement ?? null,
+      old_value: fromView ?? authState ?? entitlement ?? entrySource ?? null,
+      new_value: toView ?? reasonCode ?? loadedEventCountBucket ?? firstActionType ?? null,
+      cta: ctaType ?? target ?? actionSurface ?? null,
+    });
     }
-  }
 
   // Persist saved tournament actions for TI engagement reporting.
-  if (SAVED_TOURNAMENT_EVENTS.has(payload.event)) {
-    // Avoid polluting analytics with local testing / admin poking around.
-    if (!shouldPersistMapEvents(request)) {
-      return NextResponse.json({ ok: true, skipped: "localhost" });
-    }
-
+    if (SAVED_TOURNAMENT_EVENTS.has(payload.event)) {
     const propsRaw = payload.properties ?? {};
     const props = asObject(propsRaw) ?? {};
     const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
@@ -597,23 +556,68 @@ export async function POST(request: Request) {
       referer: (props as any).referer ?? referer ?? null,
     };
 
-    try {
-      await supabaseAdmin.from("ti_map_events" as any).insert({
-        event_name: payload.event,
-        properties: eventProperties,
-        page_type: "tournament_detail",
-        sport: null,
-        state: null,
-        href: null,
-        filter_name: null,
-        old_value: null,
-        new_value: null,
-        cta: null,
-      });
-    } catch {
-      // Ignore persistence failures; analytics must never block UX.
+    mapEventRows.push({
+      event_name: payload.event,
+      properties: eventProperties,
+      page_type: "tournament_detail",
+      sport: null,
+      state: null,
+      href: null,
+      filter_name: null,
+      old_value: null,
+      new_value: null,
+      cta: null,
+    });
     }
   }
 
-  return NextResponse.json({ ok: true });
+  const inserts: Promise<{ error: { code?: string; message?: string } | null }>[] = [];
+  if (quickCheckRows.length) {
+    inserts.push(supabaseAdmin.from("venue_quick_check_events" as any).insert(quickCheckRows) as any);
+  }
+  if (mapEventRows.length) {
+    inserts.push(supabaseAdmin.from("ti_map_events" as any).insert(mapEventRows) as any);
+  }
+
+  try {
+    const results = await Promise.all(inserts);
+    const failure = results.find((result) => result.error)?.error;
+    if (failure) {
+      console.error(JSON.stringify({
+        level: "error",
+        message: "TI analytics batch insert failed",
+        route: "/api/analytics",
+        requestId: request.headers.get("x-vercel-id"),
+        receivedEvents: events.length,
+        persistedRowsAttempted: quickCheckRows.length + mapEventRows.length,
+        errorCode: failure.code ?? "unknown",
+        durationMs: Date.now() - startedAt,
+      }));
+      return NextResponse.json({ ok: true, persisted: false, skipped: "insert_failed" });
+    }
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      message: "TI analytics batch insert threw",
+      route: "/api/analytics",
+      requestId: request.headers.get("x-vercel-id"),
+      receivedEvents: events.length,
+      persistedRowsAttempted: quickCheckRows.length + mapEventRows.length,
+      error: error instanceof Error ? error.message : "unknown",
+      durationMs: Date.now() - startedAt,
+    }));
+    return NextResponse.json({ ok: true, persisted: false, skipped: "insert_exception" });
+  }
+
+  const persistedRows = quickCheckRows.length + mapEventRows.length;
+  console.info(JSON.stringify({
+    level: "info",
+    message: "TI analytics batch processed",
+    route: "/api/analytics",
+    requestId: request.headers.get("x-vercel-id"),
+    receivedEvents: events.length,
+    persistedRows,
+    durationMs: Date.now() - startedAt,
+  }));
+  return NextResponse.json({ ok: true, persisted: persistedRows > 0, persistedEvents: persistedRows });
 }

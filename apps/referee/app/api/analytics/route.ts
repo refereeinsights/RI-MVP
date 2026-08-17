@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { RI_PERSISTED_EVENT_SET } from "@/lib/riAnalyticsEvents";
+import { normalizeAnalyticsRequestBody } from "../../../../../packages/lib/analytics-batch";
 
 export const runtime = "nodejs";
-
-type RiAnalyticsRequest = {
-  event?: string;
-  properties?: Record<string, unknown>;
-};
 
 const DEV_PERSIST_FLAG = "NEXT_PUBLIC_ENABLE_LOCAL_ANALYTICS";
 
@@ -82,61 +78,94 @@ function normalizeProperties(properties: Record<string, unknown>) {
 }
 
 export async function POST(request: Request) {
-  let payload: RiAnalyticsRequest;
+  const startedAt = Date.now();
+  let body: unknown;
   try {
-    payload = (await request.json()) as RiAnalyticsRequest;
+    body = await request.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON payload." }, { status: 400 });
   }
+  const events = normalizeAnalyticsRequestBody(body);
+  if (!events) return NextResponse.json({ ok: false, error: "Invalid analytics payload." }, { status: 400 });
 
-  const event = asText(payload.event, 120);
-  const properties = asJsonObject(payload.properties);
+  const allowlisted = events.filter(({ event }) => RI_PERSISTED_EVENT_SET.has(event));
+  const rows = allowlisted
+    .filter(({ properties }) => shouldPersist(request, properties))
+    .map(({ event, properties }) => {
+      const normalized = normalizeProperties(asJsonObject(properties));
+      return {
+        event_name: event,
+        properties,
+        source_app: normalized.source_app,
+        page_type: normalized.page_type,
+        page_path: normalized.page_path,
+        source_page_type: normalized.source_page_type,
+        source_page: normalized.source_page,
+        map_list_state: normalized.map_list_state,
+        sport: normalized.sport,
+        state: normalized.state,
+        city: normalized.city,
+        month: normalized.month,
+        tournament_id: normalized.tournament_id,
+        tournament_slug: normalized.tournament_slug,
+        venue_id: normalized.venue_id,
+        traffic_source: normalized.traffic_source,
+        device_type: normalized.device_type,
+        user_type: normalized.user_type,
+        href: normalized.href,
+      };
+    });
 
-  if (!event) {
-    return NextResponse.json({ ok: false, error: "Missing event name." }, { status: 400 });
+  if (!rows.length) {
+    const skipped = allowlisted.length ? "non_production_or_local" : "event_not_allowlisted";
+    console.info(JSON.stringify({
+      level: "info",
+      message: "RI analytics batch skipped",
+      route: "/api/analytics",
+      requestId: request.headers.get("x-vercel-id"),
+      receivedEvents: events.length,
+      allowlistedEvents: allowlisted.length,
+      skipped,
+      durationMs: Date.now() - startedAt,
+    }));
+    return NextResponse.json({ ok: true, persisted: false, skipped });
   }
-
-  if (!RI_PERSISTED_EVENT_SET.has(event)) {
-    return NextResponse.json({ ok: true, persisted: false, skipped: "event_not_allowlisted" });
-  }
-
-  if (!shouldPersist(request, properties)) {
-    return NextResponse.json({ ok: true, persisted: false, skipped: "non_production_or_local" });
-  }
-
-  const normalized = normalizeProperties(properties);
-  const row = {
-    event_name: event,
-    properties,
-    source_app: normalized.source_app,
-    page_type: normalized.page_type,
-    page_path: normalized.page_path,
-    source_page_type: normalized.source_page_type,
-    source_page: normalized.source_page,
-    map_list_state: normalized.map_list_state,
-    sport: normalized.sport,
-    state: normalized.state,
-    city: normalized.city,
-    month: normalized.month,
-    tournament_id: normalized.tournament_id,
-    tournament_slug: normalized.tournament_slug,
-    venue_id: normalized.venue_id,
-    traffic_source: normalized.traffic_source,
-    device_type: normalized.device_type,
-    user_type: normalized.user_type,
-    href: normalized.href,
-  };
 
   try {
-    const { error } = await (supabaseAdmin.from("ri_analytics_events" as any) as any).insert(row);
+    const { error } = await (supabaseAdmin.from("ri_analytics_events" as any) as any).insert(rows);
     if (error) {
-      console.error("[ri-analytics]", error.message);
+      console.error(JSON.stringify({
+        level: "error",
+        message: "RI analytics batch insert failed",
+        route: "/api/analytics",
+        requestId: request.headers.get("x-vercel-id"),
+        eventCount: rows.length,
+        errorCode: typeof error.code === "string" ? error.code : "unknown",
+        durationMs: Date.now() - startedAt,
+      }));
       return NextResponse.json({ ok: true, persisted: false, skipped: "insert_failed" });
     }
   } catch (error) {
-    console.error("[ri-analytics]", error);
+    console.error(JSON.stringify({
+      level: "error",
+      message: "RI analytics batch insert threw",
+      route: "/api/analytics",
+      requestId: request.headers.get("x-vercel-id"),
+      eventCount: rows.length,
+      error: error instanceof Error ? error.message : "unknown",
+      durationMs: Date.now() - startedAt,
+    }));
     return NextResponse.json({ ok: true, persisted: false, skipped: "insert_exception" });
   }
 
-  return NextResponse.json({ ok: true, persisted: true });
+  console.info(JSON.stringify({
+    level: "info",
+    message: "RI analytics batch persisted",
+    route: "/api/analytics",
+    requestId: request.headers.get("x-vercel-id"),
+    receivedEvents: events.length,
+    persistedEvents: rows.length,
+    durationMs: Date.now() - startedAt,
+  }));
+  return NextResponse.json({ ok: true, persisted: true, persistedEvents: rows.length });
 }
