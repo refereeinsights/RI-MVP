@@ -18,22 +18,13 @@ import { RiTournamentClickableCard, RiTournamentExternalLink, RiTournamentIntern
 import { RiTrackedInternalLink } from "@/components/analytics/RiTrackedLink";
 import { ALL_STATES_VALUE, buildMonthRange, monthOptions, parseStateSelections } from "../../../../packages/lib/tournament";
 import { buildTournamentMapHref } from "../../../../packages/lib/tournament-map";
+import {
+  getRiTournamentDirectory,
+  normalizeDirectoryPage,
+  type RiDirectoryTournament as Tournament,
+} from "@/lib/tournamentDirectory";
+import { listStateAbbrs } from "@/lib/usStates";
 
-type Tournament = {
-  id: string;
-  name: string;
-  slug: string;
-  sport: string | null;
-  level: string | null;
-  state: string;
-  city: string | null;
-  zip?: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  source_url: string;
-  official_website_url?: string | null;
-  tournament_staff_verified?: boolean | null;
-};
 type EngagementRow = {
   tournament_id: string;
   clicks_7d: number | null;
@@ -164,6 +155,7 @@ export default async function TournamentsPage({
     reviewed?: string;
     includePast?: string;
     metro?: string;
+    page?: string;
   };
 }) {
   const supabase = supabaseAdmin;
@@ -193,64 +185,115 @@ export default async function TournamentsPage({
   const sportsSelected = sportsSelectedRaw.map((s) => s.toLowerCase()).filter(Boolean);
   const {
     selections: stateSelections,
-    selectionsRaw: stateSelectionsRaw,
     isAllStates,
     summaryLabel: stateSummaryLabel,
   } = parseStateSelections(stateParam);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const pageSize = 1000;
-  let offset = 0;
-  let tournamentsData: Tournament[] = [];
-  let error: any = null;
-  while (true) {
-    let query = supabase
-      .from("tournaments_public" as any)
-      .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url,tournament_staff_verified")
-      .order("start_date", { ascending: true })
-      .range(offset, offset + pageSize - 1);
+  type MetroMarket = { id: string; name: string; slug: string };
+  let metroMarkets: MetroMarket[] = [];
+  let metroLabel: string | null = null;
+  let metroStates: string[] = [];
+  let metroCities: string[] = [];
+  if (metroParam) {
+    try {
+      const { data: market } = await supabaseAdmin
+        .from("metro_markets" as any)
+        .select("id,name,slug")
+        .eq("slug", metroParam)
+        .maybeSingle<MetroMarket>();
+      if (market?.id) {
+        metroLabel = market.name ?? metroParam;
+        const { data: statesRaw } = await supabaseAdmin
+          .from("metro_market_states" as any)
+          .select("metro_market_id,state")
+          .eq("metro_market_id", market.id)
+          .limit(200);
+        metroStates = ((statesRaw ?? []) as Array<{ state: string | null }>)
+          .map((row) => (row.state ?? "").trim().toUpperCase())
+          .filter(Boolean);
 
-    if (!includePast) {
-      // Show only upcoming (or currently running) tournaments by default
-      query = query.or(`start_date.gte.${today},end_date.gte.${today}`);
-    }
-
-    if (q) {
-      // simple name/city search (Supabase OR syntax)
-      // Note: this uses ilike for partial matches
-      query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
-    }
-    if (month && /^\d{4}-\d{2}$/.test(month)) {
-      const monthRange = buildMonthRange(month);
-      if (monthRange) {
-        query = query.gte("start_date", monthRange.startISO).lt("start_date", monthRange.endISO);
+        if (metroParam === "southern-california" || metroParam === "northern-california") {
+          const { data: cityRulesRaw } = await supabaseAdmin
+            .from("metro_market_city_rules" as any)
+            .select("city")
+            .eq("metro_market_id", market.id)
+            .eq("state", "CA")
+            .limit(500);
+          metroCities = ((cityRulesRaw ?? []) as Array<{ city: string | null }>)
+            .map((row) => (row.city ?? "").trim())
+            .filter(Boolean);
+        }
       }
+    } catch {
+      metroLabel = null;
+      metroStates = [];
+      metroCities = [];
     }
-
-    const { data, error: pageError } = await query;
-    if (pageError) {
-      error = pageError;
-      break;
-    }
-    tournamentsData.push(...((data ?? []) as Tournament[]));
-    if (!data || data.length < pageSize) break;
-    offset += pageSize;
+  }
+  try {
+    const { data } = await supabaseAdmin.from("metro_markets" as any).select("id,name,slug").order("name").limit(50);
+    metroMarkets = ((data ?? []) as MetroMarket[]).filter((market) => market?.id && market?.slug && market?.name);
+  } catch {
+    metroMarkets = [];
   }
 
-  if (error) {
+  const today = new Date().toISOString().slice(0, 10);
+  const currentPage = normalizeDirectoryPage(searchParams?.page);
+  const monthRange = month && /^\d{4}-\d{2}$/.test(month) ? buildMonthRange(month) : null;
+  const requestedStates = isAllStates ? [] : stateSelections;
+  const metroStateFilter = metroCities.length ? ["CA"] : metroStates;
+  const effectiveStates = requestedStates.length && metroStateFilter.length
+    ? requestedStates.filter((state) => metroStateFilter.includes(state))
+    : requestedStates.length
+    ? requestedStates
+    : metroStateFilter;
+  const matchNone = Boolean(requestedStates.length && metroStateFilter.length && effectiveStates.length === 0);
+
+  let directoryResult;
+  try {
+    directoryResult = await getRiTournamentDirectory({
+      page: currentPage,
+      today,
+      q,
+      states: effectiveStates,
+      cities: metroCities,
+      sports: sportsSelected,
+      includePast,
+      monthStart: monthRange?.startISO ?? null,
+      monthEnd: monthRange?.endISO ?? null,
+      matchNone,
+    });
+  } catch (error) {
+    console.error("[ri-tournament-directory] Page unavailable", {
+      page: currentPage,
+      errorCode: error && typeof error === "object" && "code" in error ? String(error.code) : "unknown",
+    });
     return (
       <main className="pitchWrap">
         <section className="field">
           <div className="headerBlock">
             <h1 className="title">Upcoming Tournaments</h1>
-            <p className="subtitle">
-              Error loading tournaments: <code>{error.message}</code>
-            </p>
+            <p className="subtitle">We couldn’t load tournaments right now. Please try again.</p>
           </div>
         </section>
       </main>
     );
   }
+  const tournamentsData: Tournament[] = directoryResult.tournaments;
+  const hasNextPage = directoryResult.hasNextPage;
+  const buildPageHref = (page: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    stateSelections.forEach((state) => params.append("state", state));
+    sportsSelected.forEach((sport) => params.append("sports", sport));
+    if (month) params.set("month", month);
+    if (reviewedOnly) params.set("reviewed", "true");
+    if (includePast) params.set("includePast", "true");
+    if (metroParam) params.set("metro", metroParam);
+    if (page > 1) params.set("page", String(page));
+    const query = params.toString();
+    return `/tournaments${query ? `?${query}` : ""}`;
+  };
 
   const seriesMap = await loadSeriesTournamentIds(
     supabase,
@@ -303,6 +346,9 @@ export default async function TournamentsPage({
   if (!Object.prototype.hasOwnProperty.call(sportsCounts, "lacrosse")) {
     sportsCounts.lacrosse = 0;
   }
+  for (const sport of Object.keys(SPORTS_LABELS)) {
+    if (sport !== "unknown" && !Object.prototype.hasOwnProperty.call(sportsCounts, sport)) sportsCounts[sport] = 0;
+  }
 
   const sportsSorted = Object.entries(sportsCounts)
     .sort((a, b) => b[1] - a[1])
@@ -315,81 +361,18 @@ export default async function TournamentsPage({
       })
     : reviewedTournaments;
 
-  const normalizeCityKey = (value: unknown) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  // State, sport, month, and configured metro filters have already been
+  // applied by PostgreSQL before this bounded page is transferred.
+  const tournamentsByMetro = tournamentsBySport;
 
-  type MetroMarket = { id: string; name: string; slug: string };
-  let metroMarkets: MetroMarket[] = [];
-  let metroLabel: string | null = null;
-  let metroStates: Set<string> | null = null;
-  let metroCities: Set<string> | null = null; // CA city-split overlay
-  if (metroParam) {
-    try {
-      const { data: market } = await supabaseAdmin
-        .from("metro_markets" as any)
-        .select("id,name,slug")
-        .eq("slug", metroParam)
-        .maybeSingle<MetroMarket>();
-      if (market?.id) {
-        metroLabel = market.name ?? metroParam;
-        const { data: statesRaw } = await supabaseAdmin
-          .from("metro_market_states" as any)
-          .select("metro_market_id,state")
-          .eq("metro_market_id", market.id)
-          .limit(200);
-        const states = ((statesRaw ?? []) as Array<{ state: string | null }>)
-          .map((s) => (s.state ?? "").trim().toUpperCase())
-          .filter(Boolean);
-        if (states.length) metroStates = new Set(states);
-
-        if (metroParam === "southern-california" || metroParam === "northern-california") {
-          const { data: cityRulesRaw } = await supabaseAdmin
-            .from("metro_market_city_rules" as any)
-            .select("metro_market_id,state,city")
-            .eq("metro_market_id", market.id)
-            .eq("state", "CA")
-            .limit(10000);
-          const cities = ((cityRulesRaw ?? []) as Array<{ city: string | null }>)
-            .map((r) => normalizeCityKey(r.city))
-            .filter(Boolean);
-          if (cities.length) metroCities = new Set(cities);
-        }
-      }
-    } catch {
-      metroLabel = null;
-      metroStates = null;
-      metroCities = null;
-    }
-  }
-  try {
-    const { data } = await supabaseAdmin.from("metro_markets" as any).select("id,name,slug").order("name").limit(50);
-    metroMarkets = ((data ?? []) as MetroMarket[]).filter((m) => m?.id && m?.slug && m?.name);
-  } catch {
-    metroMarkets = [];
-  }
-
-  const tournamentsByMetro =
-    metroParam && (metroStates?.size || metroCities?.size)
-      ? tournamentsBySport.filter((t) => {
-          if (metroCities?.size) {
-            return String(t.state ?? "").trim().toUpperCase() === "CA" && metroCities.has(normalizeCityKey(t.city));
-          }
-          const key = String(t.state ?? "").trim().toUpperCase();
-          return Boolean(key && metroStates?.has(key));
-        })
-      : tournamentsBySport;
-
-  const availableStates = Array.from(
-    new Set(tournamentsByMetro.map((t) => (t.state ?? "").trim().toUpperCase()).filter(Boolean))
-  ).sort();
+  const availableStates = listStateAbbrs();
   const stateCounts = tournamentsByMetro.reduce<Record<string, number>>((acc, t) => {
     const key = (t.state ?? "").trim().toUpperCase();
     if (!key) return acc;
     acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
-  const tournaments = isAllStates
-    ? tournamentsByMetro
-    : tournamentsByMetro.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()));
+  const tournaments = tournamentsByMetro;
 
   const engagementMap = new Map<string, EngagementRow>();
   if (FEATURE_TOURNAMENT_ENGAGEMENT_BADGES && tournaments.length) {
@@ -883,6 +866,27 @@ export default async function TournamentsPage({
             </RiTournamentClickableCard>
           ))}
         </div>
+
+        {currentPage > 1 || hasNextPage ? (
+          <nav
+            aria-label="Tournament directory pagination"
+            style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 20 }}
+          >
+            {currentPage > 1 ? (
+              <Link className="smallBtn" href={buildPageHref(currentPage - 1)}>
+                Previous
+              </Link>
+            ) : null}
+            <span className="subtitle" aria-current="page">
+              Page {currentPage}
+            </span>
+            {hasNextPage ? (
+              <Link className="smallBtn" href={buildPageHref(currentPage + 1)}>
+                Next
+              </Link>
+            ) : null}
+          </nav>
+        ) : null}
 
         {tournaments.length === 0 && (
           <p className="empty">No tournaments match those filters yet.</p>

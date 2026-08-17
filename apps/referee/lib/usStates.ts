@@ -101,3 +101,7 @@ export function stateAliases(value?: string | null) {
 export function listStateNames() {
   return STATES.map((state) => state.name);
 }
+
+export function listStateAbbrs() {
+  return STATES.map((state) => state.abbr);
+}

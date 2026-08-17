@@ -11,27 +11,13 @@ import TournamentDirectoryFiltersClient from "./TournamentDirectoryFiltersClient
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import UsTournamentHeatmap from "@/app/_components/UsTournamentHeatmap";
 import VenueMapPreviewStrip from "@/app/tournaments/_components/VenueMapPreviewStrip";
+import {
+  getTiTournamentDirectory,
+  getTiDirectoryHeatmapCounts,
+  normalizeDirectoryPage,
+  type TiDirectoryTournament as Tournament,
+} from "@/lib/tournamentDirectory";
 import "./tournaments.css";
-
-type Tournament = {
-  id: string;
-  name: string;
-  slug: string;
-  sport: string | null;
-  tournament_association?: string | null;
-  state: string | null;
-  city: string | null;
-  zip?: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  official_website_url?: string | null;
-  source_url?: string | null;
-  level?: string | null;
-  tournament_staff_verified?: boolean | null;
-  is_demo?: boolean | null;
-  distance_miles?: number | null;
-  tournament_venues?: Array<{ count?: number | null }> | null;
-};
 type TournamentVenueLink = {
   tournament_id: string;
   venue_id: string;
@@ -135,6 +121,7 @@ function hasActiveDirectoryFilters(searchParams?: {
   includeLeagues?: string;
   zip?: string;
   radius?: string;
+  page?: string;
 }) {
   const values = [
     searchParams?.q,
@@ -146,6 +133,7 @@ function hasActiveDirectoryFilters(searchParams?: {
     searchParams?.includeLeagues,
     searchParams?.zip,
     searchParams?.radius,
+    searchParams?.page,
   ];
 
   return values.some((value) => {
@@ -167,6 +155,7 @@ export async function generateMetadata({
     includeLeagues?: string;
     zip?: string;
     radius?: string;
+    page?: string;
   };
 }): Promise<Metadata> {
   const hasActiveFilters = hasActiveDirectoryFilters(searchParams);
@@ -194,6 +183,7 @@ export default async function TournamentsPage({
     includeLeagues?: string;
     zip?: string;
     radius?: string;
+    page?: string;
   };
 }) {
   const q = (searchParams?.q ?? "").trim();
@@ -244,14 +234,7 @@ export default async function TournamentsPage({
   const radiusMilesRaw = Number.parseInt(radiusParam || "50", 10);
   const radiusMiles = Number.isFinite(radiusMilesRaw) ? Math.min(Math.max(radiusMilesRaw, 1), 500) : 50;
   const zipRequested = Boolean(zip);
-
-  // Performance guardrail: this page is the primary entry point, so keep queries bounded.
-  // We still allow broad browsing, but avoid loading "everything" in one request.
-  const pageSize = 200;
-  const maxRows = 600;
-  let offset = 0;
-  let tournamentsData: any[] = [];
-  let error = null as any;
+  const currentPage = normalizeDirectoryPage(searchParams?.page);
   let zipError: string | null = null;
   const radiusCenter = zipRequested
     ? await (async () => {
@@ -266,77 +249,42 @@ export default async function TournamentsPage({
       })()
     : null;
   const radiusActive = Boolean(zipRequested && radiusCenter);
-  while (true) {
-    const monthRange = month && /^\d{4}-\d{2}$/.test(month) ? (() => {
-      const [y, m] = month.split("-").map(Number);
-      const start = new Date(Date.UTC(y, m - 1, 1));
-      const end = new Date(Date.UTC(y, m, 1));
-      return {
-        startISO: start.toISOString().slice(0, 10),
-        endISO: end.toISOString().slice(0, 10),
-      };
-    })() : null;
+  const monthRange = month && /^\d{4}-\d{2}$/.test(month) ? (() => {
+    const [y, m] = month.split("-").map(Number);
+    const start = new Date(Date.UTC(y, m - 1, 1));
+    const end = new Date(Date.UTC(y, m, 1));
+    return {
+      startISO: start.toISOString().slice(0, 10),
+      endISO: end.toISOString().slice(0, 10),
+    };
+  })() : null;
 
-    const { data, error: pageError } = await (async () => {
-      if (!radiusActive) {
-        let query = supabaseAdmin
-          .from("tournaments_public" as any)
-          .select(
-            "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified,is_demo,tournament_venues(count)"
-          )
-          .order("start_date", { ascending: true })
-          .range(offset, offset + pageSize - 1);
-
-        if (!includePast) {
-          query = query.or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`);
-        }
-
-        if (!isAllStates && stateSelections.length > 0) {
-          query = query.in("state", stateSelections);
-        }
-
-        if (sportsSelected.length > 0) {
-          query = query.in("sport", sportsSelected);
-        }
-
-        if (q) {
-          query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
-        }
-        if (monthRange) {
-          query = query.gte("start_date", monthRange.startISO).lt("start_date", monthRange.endISO);
-        }
-
-        return query;
-      }
-
-      const rpc = supabaseAdmin.rpc("list_tournaments_public_within_radius_v1" as any, {
-        p_center_lat: radiusCenter!.latitude,
-        p_center_lng: radiusCenter!.longitude,
-        p_radius_miles: radiusMiles,
-        p_limit: pageSize,
-        p_offset: offset,
-        p_today: today,
-        p_include_past: includePast,
-        p_q: q || null,
-        p_start_date_gte: monthRange ? monthRange.startISO : null,
-        p_start_date_lt: monthRange ? monthRange.endISO : null,
-        p_ayso_only: aysoOnly,
-      });
-
-      return rpc;
-    })();
-
-    if (pageError) {
-      error = pageError;
-      break;
-    }
-    tournamentsData.push(...(data ?? []));
-    if (!data || data.length < pageSize) break;
-    offset += pageSize;
-    if (tournamentsData.length >= maxRows) break;
-  }
-
-  if (error) {
+  let directoryResult;
+  try {
+    directoryResult = await getTiTournamentDirectory({
+      page: currentPage,
+      today,
+      q,
+      states: isAllStates ? [] : stateSelections,
+      sports: sportsSelected,
+      includePast,
+      aysoOnly,
+      includeLeagues,
+      monthStart: monthRange?.startISO ?? null,
+      monthEnd: monthRange?.endISO ?? null,
+      radius: radiusActive
+        ? {
+            latitude: radiusCenter!.latitude,
+            longitude: radiusCenter!.longitude,
+            miles: radiusMiles,
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error("[ti-tournament-directory] Page unavailable", {
+      page: currentPage,
+      errorCode: error && typeof error === "object" && "code" in error ? String(error.code) : "unknown",
+    });
     return (
       <main className="pitchWrap tournamentsWrap">
         <section className="field tournamentsField">
@@ -348,6 +296,24 @@ export default async function TournamentsPage({
       </main>
     );
   }
+  const tournamentsData = directoryResult.tournaments;
+  const hasNextPage = directoryResult.hasNextPage;
+
+  const buildPageHref = (page: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    stateSelections.forEach((state) => params.append("state", state));
+    sportsSelected.forEach((sport) => params.append("sports", sport));
+    if (month) params.set("month", month);
+    if (includePast) params.set("includePast", "true");
+    if (aysoOnly) params.set("aysoOnly", "true");
+    if (includeLeagues) params.set("includeLeagues", "true");
+    if (zipParam) params.set("zip", zipParam);
+    if (radiusParam) params.set("radius", radiusParam);
+    if (page > 1) params.set("page", String(page));
+    const query = params.toString();
+    return `/tournaments${query ? `?${query}` : ""}#results`;
+  };
 
   const tournamentsClean = (tournamentsData ?? [])
     .filter((t): t is Tournament => Boolean(t?.id && t?.name && t?.slug))
@@ -359,6 +325,15 @@ export default async function TournamentsPage({
       if (!aysoOnly) return true; // default: include AYSO + non-AYSO
       return (t.tournament_association ?? "").trim().toUpperCase() === "AYSO";
     });
+
+  const heatmapCounts = await getTiDirectoryHeatmapCounts(
+    sportsSelected.length === 1 ? sportsSelected[0] : null
+  ).catch((error) => {
+    console.error("[ti-tournament-directory] Heatmap counts unavailable", {
+      errorCode: error && typeof error === "object" && "code" in error ? String(error.code) : "unknown",
+    });
+    return { counts: {} as Record<string, number>, max: 0 };
+  });
 
   // Important UX detail: when users land here from the map with a state filter,
   // the per-sport counts should reflect *that* state (not national totals).
@@ -375,6 +350,9 @@ export default async function TournamentsPage({
   if (!Object.prototype.hasOwnProperty.call(sportsCounts, "lacrosse")) {
     sportsCounts.lacrosse = 0;
   }
+  for (const sport of Object.keys(SPORTS_LABELS)) {
+    if (sport !== "unknown" && !Object.prototype.hasOwnProperty.call(sportsCounts, sport)) sportsCounts[sport] = 0;
+  }
 
   const sportsSorted = Object.entries(sportsCounts)
     .sort((a, b) => b[1] - a[1])
@@ -387,20 +365,8 @@ export default async function TournamentsPage({
       })
     : tournamentsClean;
 
-  const availableStates = Array.from(
-    new Set(
-      tournamentsBySport
-        .map((t) => (t.state ?? "").trim().toUpperCase())
-        .filter(Boolean)
-    )
-  ).sort();
-
-  const stateCounts = tournamentsBySport.reduce<Record<string, number>>((acc, t) => {
-    const key = (t.state ?? "").trim().toUpperCase();
-    if (!key) return acc;
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
+  const stateCounts = heatmapCounts.counts;
+  const availableStates = Array.from(new Set([...Object.keys(stateCounts), ...stateSelections])).sort();
 
   const tournaments = isAllStates
     ? tournamentsBySport
@@ -467,24 +433,6 @@ export default async function TournamentsPage({
   });
 
   const months = monthOptions();
-
-  const heatmapCounts = await (async () => {
-    const p_sport = sportsSelected.length === 1 ? sportsSelected[0] : null;
-    const { data, error } = await (supabaseAdmin.rpc("get_public_directory_tournament_counts_by_state_sport" as any, {
-      p_sport,
-    }) as any);
-    if (error) return { counts: {} as Record<string, number>, max: 0 };
-    const rows = (Array.isArray(data) ? data : []) as Array<{ state?: unknown; count?: unknown }>;
-    const counts: Record<string, number> = {};
-    for (const row of rows) {
-      const state = String(row.state ?? "").trim().toUpperCase();
-      const count = Number(row.count ?? 0) || 0;
-      if (!state || state.length !== 2) continue;
-      counts[state] = count;
-    }
-    const max = Math.max(0, ...Object.values(counts));
-    return { counts, max };
-  })();
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -736,6 +684,27 @@ export default async function TournamentsPage({
             </>
           )}
         </div>
+
+        {currentPage > 1 || hasNextPage ? (
+          <nav
+            aria-label="Tournament directory pagination"
+            style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 20 }}
+          >
+            {currentPage > 1 ? (
+              <Link className="smallBtn" href={buildPageHref(currentPage - 1)}>
+                Previous
+              </Link>
+            ) : null}
+            <span className="subtitle" aria-current="page">
+              Page {currentPage}
+            </span>
+            {hasNextPage ? (
+              <Link className="smallBtn" href={buildPageHref(currentPage + 1)}>
+                Next
+              </Link>
+            ) : null}
+          </nav>
+        ) : null}
 
         <section
           className="subtitle"

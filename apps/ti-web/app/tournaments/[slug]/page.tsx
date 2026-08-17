@@ -41,6 +41,7 @@ import { getPlannerActivationAssignment } from "@/lib/planner/plannerActivationE
 import { buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import type { TournamentHotelVenueInput } from "@/lib/tournamentHotelSelection";
 import { mapStateCodeToName, mapStateCodeToSlug, normalizeSportSlug, sportDisplayName } from "@/lib/seoHub";
+import { getTiPublicTournament } from "@/lib/publicTournament";
 import "../tournaments.css";
 
 type TournamentDetailCoreRow = {
@@ -1569,19 +1570,18 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     sport: string | null;
     slug: string | null;
   };
-  const { data } = await supabaseAdmin
-    .from("tournaments_public" as any)
-    .select("name,city,state,start_date,end_date,sport,slug")
-    .eq("slug", params.slug)
-    .maybeSingle<TournamentMeta>();
-
-  if (!data) {
+  const lookup = await getTiPublicTournament(params.slug);
+  if (lookup.status === "unavailable") {
+    throw new Error(`TI public tournament metadata unavailable (${lookup.errorCode ?? "unknown"})`);
+  }
+  if (lookup.status === "not_found") {
     return {
       title: "Tournament Not Found",
       description: "We could not find that tournament listing.",
       robots: { index: false, follow: false },
     };
   }
+  const data: TournamentMeta = lookup.tournament;
 
   const locationLabel = buildLocationLabel(data.city ?? null, data.state ?? null);
   const title = buildTITournamentTitle(data.name ?? "Tournament", data.city, data.state, data.sport ?? undefined);
@@ -1624,15 +1624,12 @@ export default async function TournamentDetailPage({
   params: { slug: string };
   searchParams?: { claim?: string; saved?: string };
 }) {
-  const { data, error } = await supabaseAdmin
-    .from("tournaments_public" as any)
-    .select(
-      "id,slug,name,city,state,zip,latitude,longitude,start_date,end_date,summary,source_url,official_website_url,sport,level,tournament_staff_verified,venue,address,static_map_path,static_map_status,static_map_updated_at"
-    )
-    .eq("slug", params.slug)
-    .maybeSingle<TournamentDetailCoreRow>();
-
-  if (error || !data) notFound();
+  const lookup = await getTiPublicTournament(params.slug);
+  if (lookup.status === "unavailable") {
+    throw new Error(`TI public tournament page unavailable (${lookup.errorCode ?? "unknown"})`);
+  }
+  if (lookup.status === "not_found") notFound();
+  const data: TournamentDetailCoreRow = lookup.tournament;
   const viewerContext = loadViewerContext(data.id);
   const TournamentUserActionsComponent = TournamentUserActions as any;
   const TournamentVenueDetailsComponent = TournamentVenueDetails as any;

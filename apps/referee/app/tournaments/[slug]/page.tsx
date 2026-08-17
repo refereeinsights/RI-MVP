@@ -17,6 +17,7 @@ import { getSportCardClass } from "@/lib/ui/sportBackground";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { buildTournamentTitle } from "@/lib/seo/buildTitle";
 import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
+import { getRiPublicTournament } from "@/lib/publicTournament";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { buildTournamentMapHref } from "../../../../../packages/lib/tournament-map";
 import "../tournaments.css";
@@ -218,12 +219,11 @@ export async function generateMetadata({
     slug: string | null;
     sport: string | null;
   };
-  const { data, error } = await supabaseAdmin
-    .from("tournaments_public" as any)
-    .select("name,city,state,start_date,slug,sport")
-    .eq("slug", params.slug)
-    .maybeSingle<TournamentMeta>();
-  if (error || !data) {
+  const lookup = await getRiPublicTournament(params.slug);
+  if (lookup.status === "unavailable") {
+    throw new Error(`RI public tournament metadata unavailable (${lookup.errorCode ?? "unknown"})`);
+  }
+  if (lookup.status === "not_found") {
     return {
       title: "Tournament Guide | RefereeInsights",
       description:
@@ -233,6 +233,7 @@ export async function generateMetadata({
       },
     };
   }
+  const data: TournamentMeta = lookup.tournament;
   const title = buildTournamentTitle(
     data.name ?? "Tournament",
     data.city ?? null,
@@ -266,20 +267,11 @@ export default async function TournamentDetailPage({
 }: {
   params: { slug: string };
 }) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data, error } = await supabaseAdmin
-    .from("tournaments_public" as any)
-    .select(
-      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,referee_contact,tournament_director,level,venue,address,sport,tournament_staff_verified"
-    )
-    .eq("slug", params.slug)
-    .single<TournamentDetailRow>();
-
-  if (error || !data) {
+  const lookup = await getRiPublicTournament(params.slug);
+  if (lookup.status === "unavailable") {
+    throw new Error(`RI public tournament page unavailable (${lookup.errorCode ?? "unknown"})`);
+  }
+  if (lookup.status === "not_found") {
     return (
       <main className="pitchWrap">
         <section className="field">
@@ -294,8 +286,13 @@ export default async function TournamentDetailPage({
       </main>
     );
   }
-
-  const seriesMap = await loadSeriesTournamentIds(supabaseAdmin, [{ id: data.id, slug: data.slug }]);
+  const data: TournamentDetailRow = lookup.tournament;
+  const supabase = createSupabaseServerClient();
+  const [authResult, seriesMap] = await Promise.all([
+    supabase.auth.getUser(),
+    loadSeriesTournamentIds(supabaseAdmin, [{ id: data.id, slug: data.slug }]),
+  ]);
+  const user = authResult.data.user;
   const seriesEntry = seriesMap.get(data.id);
   const relatedTournamentIds = seriesEntry?.tournamentIds ?? [data.id];
 
