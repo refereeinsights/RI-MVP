@@ -6,37 +6,19 @@ import {
   xmlResponse,
   type SitemapEntry,
 } from "@/lib/sitemaps";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getTiMetroHubRows } from "@/lib/sitemapData";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const SITEMAP_CACHE_CONTROL = "public, s-maxage=3600, stale-while-revalidate=86400";
 
-type MetroHubUrlRow = {
-  sport: string | null;
-  state: string | null;
-  metro_slug: string | null;
-  last_modified: string | null;
-};
-
-const MIN_INDEXABLE_UPCOMING = 12;
 const ALLOWED_SPORTS = new Set(curatedSports.map((s) => s.key));
 
 export async function GET() {
-  let rows: MetroHubUrlRow[];
+  let rows;
   try {
-    const { data, error } = await supabaseAdmin.rpc("list_indexable_city_metro_hub_urls_v1" as any, {
-      p_min_upcoming: MIN_INDEXABLE_UPCOMING,
-    });
-    if (error || !Array.isArray(data)) {
-      console.error("[ti-metro-sitemap] Required sitemap data unavailable", {
-        error,
-        hasArrayData: Array.isArray(data),
-      });
-      return sitemapUnavailableResponse();
-    }
-    rows = data as MetroHubUrlRow[];
+    rows = await getTiMetroHubRows();
   } catch (error) {
     console.error("[ti-metro-sitemap] Required sitemap data request threw", error);
     return sitemapUnavailableResponse();

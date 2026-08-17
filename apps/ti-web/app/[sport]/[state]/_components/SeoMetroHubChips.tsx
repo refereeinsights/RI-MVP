@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { mapStateCodeToSlug, sportDisplayName } from "@/lib/seoHub";
-
-const MIN_INDEXABLE_UPCOMING = 12;
+import { getTiMetroHubRows } from "@/lib/sitemapData";
 
 type Props = {
   sportKey: string;
@@ -28,13 +27,9 @@ export default async function SeoMetroHubChips({ sportKey, stateCode, title }: P
   const stateSlug = mapStateCodeToSlug(safeState);
   if (!safeSport || !stateSlug) return null;
 
-  let rows: IndexableMetroRow[] = [];
+  let rows: IndexableMetroRow[];
   try {
-    const { data, error } = await supabaseAdmin.rpc("list_indexable_city_metro_hub_urls_v1" as any, {
-      p_min_upcoming: MIN_INDEXABLE_UPCOMING,
-    });
-    if (error) return null;
-    rows = (Array.isArray(data) ? data : []) as IndexableMetroRow[];
+    rows = await getTiMetroHubRows();
   } catch {
     return null;
   }
@@ -90,4 +85,3 @@ export default async function SeoMetroHubChips({ sportKey, stateCode, title }: P
     </section>
   );
 }
-

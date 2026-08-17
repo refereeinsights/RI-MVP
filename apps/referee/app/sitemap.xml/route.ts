@@ -1,4 +1,3 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   SITE_ORIGIN,
   TOURNAMENT_SITEMAP_PAGE_SIZE,
@@ -7,15 +6,12 @@ import {
   sitemapUnavailableResponse,
   xmlResponse,
 } from "@/lib/sitemaps";
+import { getRiSitemapIndexCounts } from "@/lib/sitemapData";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const SITEMAP_INDEX_CACHE_CONTROL = "public, s-maxage=3600, stale-while-revalidate=86400";
-
-function isValidCount(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
-}
 
 export async function GET() {
   const sitemapUrls = [
@@ -23,45 +19,20 @@ export async function GET() {
     `${SITE_ORIGIN}/sitemaps/hubs.xml`,
   ];
 
-  let tournamentResult;
-  let venueResult;
+  let counts;
   try {
-    [tournamentResult, venueResult] = await Promise.all([
-      supabaseAdmin
-        .from("tournaments_public" as any)
-        .select("id", { count: "exact", head: true })
-        .not("slug", "is", null),
-      supabaseAdmin
-        .from("venues" as any)
-        .select("id", { count: "exact", head: true })
-        .not("name", "is", null),
-    ]);
+    counts = await getRiSitemapIndexCounts();
   } catch (error) {
     console.error("[ri-sitemap-index] Required sitemap data request threw", error);
     return sitemapUnavailableResponse();
   }
 
-  if (
-    tournamentResult.error ||
-    venueResult.error ||
-    !isValidCount(tournamentResult.count) ||
-    !isValidCount(venueResult.count)
-  ) {
-    console.error("[ri-sitemap-index] Required sitemap data unavailable", {
-      tournamentError: tournamentResult.error,
-      venueError: venueResult.error,
-      tournamentCount: tournamentResult.count,
-      venueCount: venueResult.count,
-    });
-    return sitemapUnavailableResponse();
-  }
-
-  const pageCount = Math.ceil(tournamentResult.count / TOURNAMENT_SITEMAP_PAGE_SIZE);
+  const pageCount = Math.ceil(counts.tournamentCount / TOURNAMENT_SITEMAP_PAGE_SIZE);
   for (let page = 1; page <= pageCount; page += 1) {
     sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/tournaments-${page}.xml`);
   }
 
-  const venuePageCount = Math.ceil(venueResult.count / VENUE_SITEMAP_PAGE_SIZE);
+  const venuePageCount = Math.ceil(counts.venueCount / VENUE_SITEMAP_PAGE_SIZE);
   for (let page = 1; page <= venuePageCount; page += 1) {
     sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/venues-${page}.xml`);
   }

@@ -13,6 +13,10 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-08-17
+
+- TI sitemap runtime-load hardening keeps all sitemap endpoints dynamic and moves reusable database results behind exported `unstable_cache` loaders. Index counts and metro hub rows use 24-hour versioned caches; tournament, tournament-hotel, and venue shard rows use 6-hour caches. `/sitemaps/metros.xml` and `SeoMetroHubChips` now share the exact metro loader, eliminating separate cold-cache calls to `list_indexable_city_metro_hub_urls_v1`. Invalid/failed loader results still return uncached retryable 503 responses, while valid zero/empty results produce XML and warning logs. Static/hub XML uses 24-hour CDN caching, shards use 6 hours, and index/metro routes retain one hour. Cache namespaces end in `v1` and must be bumped when query logic, arguments, filtering, or result shapes change. Cross-app tag invalidation and automatic post-deploy warming remain deferred; TTL is authoritative for this phase. No migration was required. TI TypeScript and focused sitemap safety tests passed; the production-backed build was not run during the Supabase saturation investigation.
+
 ## 2026-08-13
 
 - TI dashboard-tiles timeout repair:

@@ -1,26 +1,24 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   SITE_ORIGIN,
-  TOURNAMENT_SITEMAP_PAGE_SIZE,
-  VENUE_SITEMAP_PAGE_SIZE,
   buildSitemapXml,
+  sitemapUnavailableResponse,
   xmlResponse,
+  type SitemapEntry,
 } from "@/lib/sitemaps";
+import { getRiTournamentSitemapRows, getRiVenueSitemapRows } from "@/lib/sitemapData";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-type TournamentSitemapRow = {
-  slug: string | null;
-  updated_at: string | null;
-};
+const SITEMAP_SHARD_CACHE_CONTROL = "public, s-maxage=21600, stale-while-revalidate=86400";
 
-type VenueSitemapRow = {
-  id: string;
-  seo_slug: string | null;
-  reviews_last_updated_at: string | null;
-};
+function cachedXmlResponse(entries: SitemapEntry[]) {
+  const response = xmlResponse(buildSitemapXml(entries));
+  response.headers.set("Cache-Control", SITEMAP_SHARD_CACHE_CONTROL);
+  return response;
+}
 
 function parseTournamentPage(name: string) {
   const match = /^tournaments-(\d+)\.xml$/i.exec(name);
@@ -44,89 +42,57 @@ export async function GET(_: Request, { params }: { params: { name: string } }) 
   if (!page && !venuePage) {
     if (params.name === "static.xml") {
       const { STATIC_SITEMAP_PATHS } = await import("@/lib/sitemaps");
-      return xmlResponse(
-        buildSitemapXml(
-          STATIC_SITEMAP_PATHS.map((path) => ({
-            url: `${SITE_ORIGIN}${path}`,
-          }))
-        )
+      return cachedXmlResponse(
+        STATIC_SITEMAP_PATHS.map((path) => ({
+          url: `${SITE_ORIGIN}${path}`,
+        }))
       );
     }
     if (params.name === "hubs.xml") {
       const { HUB_SPORT_SLUGS, HUB_STATE_PATHS } = await import("@/lib/sitemaps");
-      return xmlResponse(
-        buildSitemapXml([
-          ...HUB_SPORT_SLUGS.map((sport) => ({
-            url: `${SITE_ORIGIN}/tournaments/hubs/${sport}`,
-          })),
-          ...HUB_STATE_PATHS.map((path) => ({
-            url: `${SITE_ORIGIN}${path}`,
-          })),
-        ])
-      );
+      return cachedXmlResponse([
+        ...HUB_SPORT_SLUGS.map((sport) => ({
+          url: `${SITE_ORIGIN}/tournaments/hubs/${sport}`,
+        })),
+        ...HUB_STATE_PATHS.map((path) => ({
+          url: `${SITE_ORIGIN}${path}`,
+        })),
+      ]);
     }
     return new NextResponse("Not found", { status: 404 });
   }
 
   if (venuePage) {
-    const from = (venuePage - 1) * VENUE_SITEMAP_PAGE_SIZE;
-    const to = from + VENUE_SITEMAP_PAGE_SIZE - 1;
-
-    const { data, error } = await supabaseAdmin
-      .from("venues" as any)
-      .select("id,seo_slug,reviews_last_updated_at")
-      .not("name", "is", null)
-      .order("id", { ascending: true })
-      .range(from, to);
-
-    if (error) {
-      throw new Error(`Failed to load venue sitemap page ${venuePage}: ${error.message}`);
+    let rows;
+    try {
+      rows = await getRiVenueSitemapRows(venuePage);
+    } catch (error) {
+      console.error(`[ri-sitemap] Venue shard ${venuePage} unavailable`, error);
+      return sitemapUnavailableResponse();
     }
-
-    const rows = (data ?? []) as VenueSitemapRow[];
-    if (!rows.length) {
-      return new NextResponse("Not found", { status: 404 });
-    }
-
-    return xmlResponse(
-      buildSitemapXml(
-        rows
-          .filter((row) => row.id)
-          .map((row) => ({
-            url: `${SITE_ORIGIN}${getVenueHref(row)}`,
-            lastModified: row.reviews_last_updated_at,
-          }))
-      )
+    return cachedXmlResponse(
+      rows
+        .filter((row) => row.id)
+        .map((row) => ({
+          url: `${SITE_ORIGIN}${getVenueHref(row)}`,
+          lastModified: row.reviews_last_updated_at,
+        }))
     );
   }
 
-  const from = (page - 1) * TOURNAMENT_SITEMAP_PAGE_SIZE;
-  const to = from + TOURNAMENT_SITEMAP_PAGE_SIZE - 1;
-
-  const { data, error } = await supabaseAdmin
-    .from("tournaments_public" as any)
-    .select("slug,updated_at")
-    .not("slug", "is", null)
-    .order("slug", { ascending: true })
-    .range(from, to);
-
-  if (error) {
-    throw new Error(`Failed to load tournament sitemap page ${page}: ${error.message}`);
+  let rows;
+  try {
+    rows = await getRiTournamentSitemapRows(page);
+  } catch (error) {
+    console.error(`[ri-sitemap] Tournament shard ${page} unavailable`, error);
+    return sitemapUnavailableResponse();
   }
-
-  const rows = (data ?? []) as TournamentSitemapRow[];
-  if (!rows.length) {
-    return new NextResponse("Not found", { status: 404 });
-  }
-
-  return xmlResponse(
-    buildSitemapXml(
-      rows
-        .filter((row) => row.slug)
-        .map((row) => ({
-          url: `${SITE_ORIGIN}/tournaments/${row.slug}`,
-          lastModified: row.updated_at,
-        }))
-    )
+  return cachedXmlResponse(
+    rows
+      .filter((row) => row.slug)
+      .map((row) => ({
+        url: `${SITE_ORIGIN}/tournaments/${row.slug}`,
+        lastModified: row.updated_at,
+      }))
   );
 }

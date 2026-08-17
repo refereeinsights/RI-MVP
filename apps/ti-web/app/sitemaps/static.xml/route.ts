@@ -1,6 +1,9 @@
 import { buildSitemapXml, SITE_ORIGIN, xmlResponse, type SitemapEntry } from "@/lib/sitemaps";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const CACHE_CONTROL = "public, s-maxage=86400, stale-while-revalidate=86400";
 
 const STATIC_PATHS = [
   "/",
@@ -29,5 +32,7 @@ export async function GET() {
     ...SPORT_HUB_SLUGS.map((sport) => ({ url: `${SITE_ORIGIN}/tournaments/${sport}` })),
   ];
 
-  return xmlResponse(buildSitemapXml(entries));
+  const response = xmlResponse(buildSitemapXml(entries));
+  response.headers.set("Cache-Control", CACHE_CONTROL);
+  return response;
 }
