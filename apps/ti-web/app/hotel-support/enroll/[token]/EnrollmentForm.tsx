@@ -68,7 +68,7 @@ export default function EnrollmentForm({
       </fieldset>
 
       <fieldset className={styles.fieldset}>
-        <legend>Where should tournament support proceeds eventually be paid?</legend>
+        <legend>Who should receive the tournament support proceeds?</legend>
         <p className={styles.fieldHelp}>We’ll confirm payment and tax details with you before any proceeds are paid.</p>
         <div className={styles.fieldGrid}>
           <label>

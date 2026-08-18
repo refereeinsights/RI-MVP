@@ -112,7 +112,7 @@ test("public form cannot submit authoritative tournament, rate, terms, tax, or b
 });
 
 test("director form uses the refined recipient, CTA, and exactly three confirmation controls", () => {
-  assert.match(enrollmentForm, /Where should tournament support proceeds eventually be paid\?/);
+  assert.match(enrollmentForm, /Who should receive the tournament support proceeds\?/);
   assert.match(enrollmentForm, /Enroll my tournament/);
   assert.match(enrollmentForm, /Enrollment does not activate the program/);
   assert.doesNotMatch(enrollmentForm, /value="individual"|fee routing/);
