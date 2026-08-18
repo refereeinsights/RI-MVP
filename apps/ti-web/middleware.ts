@@ -12,10 +12,20 @@ function cookieDomainForHost(hostname: string) {
   return undefined;
 }
 
+function applyHotelSupportEnrollmentHeaders(response: NextResponse) {
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  return response;
+}
+
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   if (pathname === "/auth/confirm" || pathname === "/auth/error") {
     return NextResponse.next();
+  }
+  if (pathname.startsWith("/hotel-support/enroll/")) {
+    return applyHotelSupportEnrollmentHeaders(NextResponse.next());
   }
 
   let res = NextResponse.next();

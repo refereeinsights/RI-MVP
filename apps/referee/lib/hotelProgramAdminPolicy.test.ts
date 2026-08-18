@@ -63,6 +63,7 @@ test("entering active fee routing requires explicit economic confirmation", () =
     current: null,
     request: { programType: "tournament_support", status: "active", rateCents: 500, confirmEconomicChange: false },
     availability: available,
+    hasApprovedTournamentSupportEnrollment: true,
   });
   assert.equal(first.kind, "confirmation_required");
   const confirmed = planHotelProgramMutation({
@@ -70,12 +71,40 @@ test("entering active fee routing requires explicit economic confirmation", () =
     current: null,
     request: { programType: "tournament_support", status: "active", rateCents: 500, confirmEconomicChange: true },
     availability: available,
+    hasApprovedTournamentSupportEnrollment: true,
   });
   assert.equal(confirmed.kind, "save");
   if (confirmed.kind === "save") {
     assert.equal(confirmed.proposedEffective.beneficiaryId, tournamentId);
     assert.equal(confirmed.proposedEffective.showTournamentSupportDisclosure, true);
   }
+});
+
+test("active Tournament Support requires approved same-rate director enrollment", () => {
+  const blocked = planHotelProgramMutation({
+    tournamentId,
+    current: null,
+    request: { programType: "tournament_support", status: "active", rateCents: 500, confirmEconomicChange: true },
+    availability: available,
+    hasApprovedTournamentSupportEnrollment: false,
+  });
+  assert.equal(blocked.kind, "invalid");
+
+  const grandfathered: StoredTournamentHotelProgram = {
+    tournamentId,
+    programType: "tournament_support",
+    rateCents: 500,
+    status: "active",
+    configurationVersion: currentVersion,
+  };
+  const unchanged = planHotelProgramMutation({
+    tournamentId,
+    current: grandfathered,
+    request: { programType: "tournament_support", status: "active", rateCents: 500, confirmEconomicChange: false },
+    availability: available,
+    hasApprovedTournamentSupportEnrollment: false,
+  });
+  assert.equal(unchanged.kind, "noop");
 });
 
 test("no-op preserves the current configuration identity", () => {

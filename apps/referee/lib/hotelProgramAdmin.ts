@@ -13,6 +13,7 @@ import {
   type StoredTournamentHotelProgram,
 } from "../../../packages/lib/hotel-program";
 import { planHotelProgramMutation, type HotelProgramAdminRequest } from "./hotelProgramAdminPolicy";
+import { adminHasApprovedHotelSupportEnrollment } from "./hotelSupportEnrollmentAdmin";
 
 type ProgramRow = {
   tournament_id: string;
@@ -114,11 +115,24 @@ export async function adminSaveTournamentHotelProgram(input: {
   }
 
   const availability = hotelPlannerFeeConfigurationAvailability();
+  const requiresEnrollmentCheck =
+    input.request.programType === "tournament_support" &&
+    input.request.status === "active" &&
+    input.request.rateCents !== null &&
+    !(
+      current?.programType === "tournament_support" &&
+      current.status === "active" &&
+      current.rateCents === input.request.rateCents
+    );
+  const hasApprovedTournamentSupportEnrollment = requiresEnrollmentCheck
+    ? await adminHasApprovedHotelSupportEnrollment(input.tournamentId, input.request.rateCents as 500 | 1000)
+    : false;
   const plan = planHotelProgramMutation({
     tournamentId: input.tournamentId,
     current,
     request: input.request,
     availability,
+    hasApprovedTournamentSupportEnrollment,
   });
   if (plan.kind === "invalid") return { status: "invalid", message: plan.message, configurationVersion: currentVersion };
   if (plan.kind === "confirmation_required") {

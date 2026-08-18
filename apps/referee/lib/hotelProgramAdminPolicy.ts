@@ -61,6 +61,7 @@ export function planHotelProgramMutation(input: {
   current: StoredTournamentHotelProgram | null;
   request: HotelProgramAdminRequest;
   availability: Record<HotelPlannerFeeConfigurationKey, boolean>;
+  hasApprovedTournamentSupportEnrollment?: boolean;
 }): HotelProgramMutationPlan {
   const available = (key: HotelPlannerFeeConfigurationKey) => Boolean(input.availability[key]);
   const currentEffective = resolveEffectiveHotelProgram({
@@ -115,6 +116,23 @@ export function planHotelProgramMutation(input: {
     rateCents: input.request.rateCents,
     status: input.request.status as HotelProgramStatus,
   };
+  const preservesExistingActiveTournamentSupport =
+    requested.programType === "tournament_support" &&
+    requested.status === "active" &&
+    input.current?.programType === "tournament_support" &&
+    input.current.status === "active" &&
+    input.current.rateCents === requested.rateCents;
+  if (
+    requested.programType === "tournament_support" &&
+    requested.status === "active" &&
+    !preservesExistingActiveTournamentSupport &&
+    !input.hasApprovedTournamentSupportEnrollment
+  ) {
+    return {
+      kind: "invalid",
+      message: "Active Tournament Support requires an approved director enrollment for this tournament and exact rate.",
+    };
+  }
   const requestedConfigurationKey = `${requested.programType}_${requested.rateCents}` as HotelPlannerFeeConfigurationKey;
   if (requested.status === "active" && !available(requestedConfigurationKey)) {
     return { kind: "invalid", message: "Active fee routing requires a trusted server-side HotelPlanner configuration." };

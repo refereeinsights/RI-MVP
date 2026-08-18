@@ -4755,3 +4755,10 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Changed only schedule-conflict explanation text from `#c9933a` to `#8a5c14`; the independent connected-calendar source palette retains `#c9933a`.
   - Added regression checks for palette values, guest-share parity, scoped conflict styling, source-color preservation, and AA text contrast.
   - Validation passed: 6 focused tests, TI TypeScript, TI lint, and `git diff --check`.
+
+- 2026-08-17: TI Tournament Hotel Support director enrollment pilot implemented locally.
+  - Extended the existing RI tournament editor and added a private TI director page without creating another admin application or director account system.
+  - One-time 32-byte tokens are stored only as SHA-256 hashes; atomic submission preserves immutable acceptance and audit evidence separately from terminal founder review decisions.
+  - New Active Tournament Support economics require an Approved enrollment for the exact tournament and rate at both the application and database boundaries. Submission and approval do not activate routing.
+  - The additive migration remains unapplied because local apps use production Supabase. No production enrollment row, configuration change, fee activation, deployment, or HotelPlanner fee click occurred.
+  - Mocked/static validation passed: 24 focused tests, both TypeScript checks, both lints, and both production builds. See `docs/reports/ti-hotel-support-director-enrollment-pilot-2026-08-17.md`.

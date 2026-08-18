@@ -14,6 +14,7 @@ import UploadsVenueInferencePanel from "@/components/admin/UploadsVenueInference
 import UploadsVenueExtractButton from "@/components/admin/UploadsVenueExtractButton";
 import RollForwardLogBulkControls from "@/components/admin/RollForwardLogBulkControls";
 import HotelProgramAdminSection from "@/components/admin/HotelProgramAdminSection";
+import HotelSupportEnrollmentAdminSection from "@/components/admin/HotelSupportEnrollmentAdminSection";
 import {
   buildTournamentFuzzyNameStateSeasonFingerprint,
   buildTournamentNameStateSeasonFingerprint,
@@ -128,6 +129,13 @@ import {
   adminListTournamentHotelPrograms,
   adminSaveTournamentHotelProgram,
 } from "@/lib/hotelProgramAdmin";
+import {
+  adminCreateHotelSupportInvitation,
+  adminListHotelSupportEnrollments,
+  adminReviewHotelSupportEnrollment,
+  adminRevokeHotelSupportInvitation,
+  type HotelSupportAdminActionState,
+} from "@/lib/hotelSupportEnrollmentAdmin";
 
 type Tab =
   | "users"
@@ -683,9 +691,12 @@ export default async function AdminPage({
     tab === "tournament-listings"
       ? await adminSearchPublishedTournaments(q, tournamentSportFilter || undefined, tournamentListingFetchLimit)
       : [];
-  const listedHotelProgramMap = listedTournaments.length
-    ? await adminListTournamentHotelPrograms(listedTournaments.map((tournament) => ({ id: tournament.id, name: tournament.name })))
-    : {};
+  const [listedHotelProgramMap, listedHotelSupportEnrollmentMap] = listedTournaments.length
+    ? await Promise.all([
+        adminListTournamentHotelPrograms(listedTournaments.map((tournament) => ({ id: tournament.id, name: tournament.name }))),
+        adminListHotelSupportEnrollments(listedTournaments.map((tournament) => tournament.id)),
+      ])
+    : [{}, {}];
   const duplicateCandidates =
     tab === "tournament-listings"
       ? await supabaseAdmin
@@ -3547,6 +3558,51 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, result.message);
   }
 
+  async function createHotelSupportInvitationAction(
+    _previousState: HotelSupportAdminActionState,
+    formData: FormData
+  ): Promise<HotelSupportAdminActionState> {
+    "use server";
+    const tournamentId = String(formData.get("hotel_support_tournament_id") || "").trim();
+    const rawRate = String(formData.get("hotel_support_rate_cents") || "").trim();
+    const result = await adminCreateHotelSupportInvitation({
+      tournamentId,
+      offeredRateCents: rawRate === "500" || rawRate === "1000" ? Number(rawRate) : 0,
+    });
+    revalidatePath("/admin");
+    return result;
+  }
+
+  async function revokeHotelSupportInvitationAction(
+    _previousState: HotelSupportAdminActionState,
+    formData: FormData
+  ): Promise<HotelSupportAdminActionState> {
+    "use server";
+    const result = await adminRevokeHotelSupportInvitation({
+      invitationId: String(formData.get("hotel_support_invitation_id") || "").trim(),
+    });
+    revalidatePath("/admin");
+    return result;
+  }
+
+  async function reviewHotelSupportEnrollmentAction(
+    _previousState: HotelSupportAdminActionState,
+    formData: FormData
+  ): Promise<HotelSupportAdminActionState> {
+    "use server";
+    const decision = String(formData.get("hotel_support_decision") || "").trim();
+    if (decision !== "approved" && decision !== "declined") {
+      return { status: "invalid", message: "Choose Approve or Decline." };
+    }
+    const result = await adminReviewHotelSupportEnrollment({
+      enrollmentId: String(formData.get("hotel_support_enrollment_id") || "").trim(),
+      decision,
+      reviewNote: String(formData.get("hotel_support_review_note") || ""),
+    });
+    revalidatePath("/admin");
+    return result;
+  }
+
   async function createTournamentManualAction(formData: FormData) {
     "use server";
     const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-listings";
@@ -6026,6 +6082,13 @@ export default async function AdminPage({
                     tournamentName={t.name}
                     view={listedHotelProgramMap[t.id]}
                     saveAction={saveTournamentHotelProgramAction}
+                  />
+                  <HotelSupportEnrollmentAdminSection
+                    tournamentId={t.id}
+                    view={listedHotelSupportEnrollmentMap[t.id]}
+                    createAction={createHotelSupportInvitationAction}
+                    revokeAction={revokeHotelSupportInvitationAction}
+                    reviewAction={reviewHotelSupportEnrollmentAction}
                   />
                   <TournamentPartnerNearbyEditor tournamentId={t.id} venues={listedVenueMap[t.id] ?? []} />
                   </details>

@@ -2891,3 +2891,12 @@ Maintenance rules:
   - Darkened only the schedule-conflict explanation text to `#8a5c14`; retained the separate `#c9933a` connected-calendar source color.
   - Added regression coverage for exact tokens, guest-share parity, scoped conflict styling, source-palette preservation, and WCAG AA text contrast.
   - Validation passed: 6 focused tests, TI TypeScript, TI lint, and `git diff --check`.
+
+- 2026-08-17: Tournament Hotel Support director enrollment pilot implemented locally.
+  - Added founder-controlled invitation, revocation, director submission, and approval/decline workflow inside the existing RI tournament editor plus a private mobile-first TI enrollment page.
+  - Stores only SHA-256 hashes of 32-byte invitation tokens. Submission is atomic and idempotent; acceptance/audit evidence is immutable, while founder review is separate and terminal.
+  - Added application and database guards requiring an Approved same-tournament/same-rate enrollment before any new Active Tournament Support transition or rate change. Enrollment approval never activates fee routing.
+  - Added canonical versioned terms, recipient-intent fields, required authority/housing confirmations, one-time-link UX, expiration/revocation, service-role-only access, and no-store/noindex/no-referrer protections.
+  - Migration `20260817_ti_hotel_support_director_enrollment.sql` is local and unapplied. No production rows, Hotel Program settings, fee targets, or fee-enabled clicks were created or changed.
+  - Validation passed: 24 focused tests, both app TypeScript checks, both app lints, and both production builds. Production-backed browser UAT remains explicitly deferred until manual migration application and authorization for a designated tournament.
+  - Implementation and rollout notes: `docs/reports/ti-hotel-support-director-enrollment-pilot-2026-08-17.md`.

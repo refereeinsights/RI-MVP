@@ -1,0 +1,231 @@
+.shell {
+  min-height: 100vh;
+  padding: 32px 16px 64px;
+  background: #f4f8f6;
+  color: #17251f;
+}
+
+.card {
+  width: min(100%, 780px);
+  margin: 0 auto;
+  padding: clamp(24px, 6vw, 48px);
+  border: 1px solid #cbded5;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(20, 56, 42, 0.1);
+}
+
+.card h1 {
+  max-width: 680px;
+  margin: 12px 0 16px;
+  color: #14382a;
+  font-size: clamp(2rem, 7vw, 3.5rem);
+  letter-spacing: -0.04em;
+  line-height: 1.02;
+}
+
+.eyebrow {
+  color: #0f766e;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.intro,
+.card > p {
+  color: #465a51;
+  line-height: 1.65;
+}
+
+.noManagement {
+  font-weight: 800;
+}
+
+.summary {
+  margin: 28px 0;
+  padding: 20px;
+  border-radius: 14px;
+  background: #ecfdf5;
+}
+
+.summary h2,
+.terms h2,
+.confirmation h2 {
+  margin: 0 0 14px;
+  font-size: 1.2rem;
+}
+
+.summary dl {
+  display: grid;
+  gap: 9px;
+  margin: 0 0 14px;
+}
+
+.summary dl div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.38fr) 1fr;
+  gap: 12px;
+}
+
+.summary dt {
+  color: #52685e;
+  font-weight: 700;
+}
+
+.summary dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.summary a {
+  color: #0f766e;
+  font-weight: 800;
+}
+
+.form {
+  display: grid;
+  gap: 22px;
+}
+
+.fieldset,
+.confirmations {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fieldset legend,
+.confirmations legend {
+  margin-bottom: 12px;
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fieldGrid label {
+  color: #263e34;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.fieldGrid label span,
+.fieldHelp {
+  color: #667a71;
+  font-weight: 500;
+}
+
+.fieldGrid input,
+.fieldGrid select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 11px 12px;
+  border: 1px solid #9db4aa;
+  border-radius: 9px;
+  background: #fff;
+  color: #17251f;
+  font: inherit;
+}
+
+.fieldGrid input:focus,
+.fieldGrid select:focus {
+  outline: 3px solid rgba(15, 118, 110, 0.22);
+  border-color: #0f766e;
+}
+
+.fieldHelp {
+  margin: -6px 0 0;
+  font-size: 0.88rem;
+}
+
+.terms {
+  padding: 18px;
+  border: 1px solid #d9e4df;
+  border-radius: 12px;
+  background: #fbfdfc;
+}
+
+.termsText {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 8px;
+  color: #465a51;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.confirmations label {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 9px;
+  align-items: start;
+  color: #263e34;
+  line-height: 1.45;
+}
+
+.confirmations input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+}
+
+.submitButton {
+  justify-self: start;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: #0f766e;
+  color: #fff;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.submitButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.activationNotice {
+  margin: -10px 0 0;
+  color: #52685e;
+  font-size: 0.82rem;
+}
+
+.error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 700;
+}
+
+.confirmation {
+  padding: 20px;
+  border-radius: 14px;
+  background: #ecfdf5;
+}
+
+.confirmation p {
+  color: #365348;
+  line-height: 1.6;
+}
+
+@media (max-width: 620px) {
+  .fieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary dl div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
