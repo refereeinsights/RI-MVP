@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f6f7fb;">
+    {{ $redirectTo := .RedirectTo }}
+    {{ $signInUrl := .ConfirmationURL }}
+    {{ $isCorralio := or
+      (eq $redirectTo "http://localhost:3002/auth/confirm?brand=corralio")
+      (eq $redirectTo "https://corralio.com/auth/confirm?brand=corralio")
+    }}
+    {{ if $redirectTo }}
+      {{ $signInUrl = printf "%s&token_hash=%s&type=email" $redirectTo .TokenHash }}
+    {{ end }}
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f7fb;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="width:560px;max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:22px 22px 8px 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+                {{ if $isCorralio }}
+                  <div style="font-size:22px;font-weight:800;letter-spacing:-0.02em;color:#123047;">Corralio</div>
+                  <div style="margin-top:3px;font-size:12px;color:#0f766e;">Every kid. Every team. One plan.</div>
+                {{ else }}
+                  <img src="https://www.tournamentinsights.com/brand/ti-email-logo.png" alt="TournamentInsights" width="180" style="display:block;border:0;outline:none;text-decoration:none;" />
+                {{ end }}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 22px 8px 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#0b1220;">
+                {{ if $isCorralio }}
+                  <h2 style="margin:8px 0;font-size:20px;">Sign in to Corralio</h2>
+                  <p style="margin:0 0 14px 0;font-size:14px;color:#2b3445;">Click the button below to securely sign in to your Corralio account.</p>
+                {{ else }}
+                  <h2 style="margin:8px 0;font-size:20px;">Sign in to TournamentInsights</h2>
+                  <p style="margin:0 0 14px 0;font-size:14px;color:#2b3445;">Click the button below to securely sign in to your account.</p>
+                {{ end }}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 22px 18px 22px;">
+                <a href="{{ $signInUrl }}" style="display:inline-block;background:{{ if $isCorralio }}#0f766e{{ else }}#0B5FFF{{ end }};color:#ffffff;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;padding:12px 16px;border-radius:10px;">Sign in</a>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 22px 12px 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:12px;color:#526079;line-height:1.5;">
+                If the button doesn’t work, copy and paste this link:
+                <br />
+                <a href="{{ $signInUrl }}" style="color:{{ if $isCorralio }}#0f766e{{ else }}#0B5FFF{{ end }};word-break:break-all;">{{ $signInUrl }}</a>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 22px 22px 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:12px;color:#526079;line-height:1.6;">
+                If you didn’t request this login link, you can safely ignore this email.
+                {{ if $isCorralio }}
+                  <br /><br />Corralio is the planner built for sports families.
+                {{ else }}
+                  <br /><br />We’re currently in Public Beta and expanding coverage every week. If you notice a missing tournament or have ideas to improve planning intelligence, email us at <a href="mailto:beta@tournamentinsights.com" style="color:#0B5FFF;">beta@tournamentinsights.com</a>.
+                  <br /><br />Need account help? <a href="mailto:support@tournamentinsights.com" style="color:#0B5FFF;">support@tournamentinsights.com</a>
+                {{ end }}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

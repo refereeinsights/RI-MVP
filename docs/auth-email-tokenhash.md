@@ -1,113 +1,107 @@
-# Auth Email TokenHash + RedirectTo Strategy
+# Shared Auth Email TokenHash + RedirectTo Contract
 
-We migrated all Supabase Auth email templates to use the TokenHash + `RedirectTo` strategy instead of `.ConfirmationURL`.
+TournamentInsights, RefereeInsights, and Corralio share one Supabase Auth project and therefore share its global email templates. The templates are configured manually in the Supabase dashboard; this repository owns the callback URLs and handlers, not the deployed template settings.
 
-This gives:
+## Confirm Signup and Magic Link invariant
 
-- no visible `supabase.co` URLs
-- fully branded links
-- environment-aware redirects
-- single-project compatibility for RI + TI
-- production-grade auth UX
+Every application-supplied `RedirectTo` used for Confirm Signup or Magic Link must already contain at least one query parameter. The shared templates can then append token parameters consistently with `&` instead of guessing whether the separator should be `?` or `&`.
 
-## Core Link Format
+Current presentation/sentinel parameters are:
 
-All templates use:
+- Corralio: `?brand=corralio`
+- RI clean signup/admin-resend callbacks: `?auth_callback=1`
+- TI and existing resend/claim flows: their existing safe `?next=...` parameter
 
-```text
-{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=<type>&next=<path>
+`brand` and `auth_callback` are non-authoritative. They must never control authorization, identity, ownership, entitlements, or privileged behavior. Application-created redirect URLs must never contain `token_hash`, `code`, or another authentication secret.
+
+This invariant is scoped to Confirm Signup and Magic Link. Recovery, invitation, email-change, and OAuth flows retain their existing contracts.
+
+## Required template fallback
+
+Supabase may invoke a template without a custom `RedirectTo`. Both shared templates must default to the trusted `.ConfirmationURL` and construct a custom token-hash callback only when `.RedirectTo` is present.
+
+Confirm Signup:
+
+```gotemplate
+{{ $redirectTo := .RedirectTo }}
+{{ $confirmUrl := .ConfirmationURL }}
+
+{{ if $redirectTo }}
+  {{ $confirmUrl = printf "%s&token_hash=%s&type=email" $redirectTo .TokenHash }}
+{{ end }}
 ```
 
-Where:
+Magic Link:
 
-- `{{ .RedirectTo }}` is provided by the frontend auth call
-- `{{ .TokenHash }}` is the Supabase OTP token hash
-- `type` selects verification flow
-- `next` controls post-verification destination
+```gotemplate
+{{ $redirectTo := .RedirectTo }}
+{{ $signInUrl := .ConfirmationURL }}
 
-## Template Link Mappings
-
-Confirm signup:
-
-```text
-{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email&next=/account
+{{ if $redirectTo }}
+  {{ $signInUrl = printf "%s&token_hash=%s&type=email" $redirectTo .TokenHash }}
+{{ end }}
 ```
 
-Magic link:
+Both token-hash templates use `type=email`. The handlers retain compatibility with existing `magiclink` values, but new shared Confirm Signup and Magic Link templates should emit `email` consistently.
 
-```text
-{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=magiclink&next=/account
+Do not append a hard-coded `next` in a template. The application-supplied `RedirectTo` owns any safe relative post-auth destination.
+
+## Corralio branding detection
+
+The global templates use exact equality, not a nonstandard `contains` helper:
+
+```gotemplate
+{{ $isCorralio := or
+  (eq $redirectTo "http://localhost:3002/auth/confirm?brand=corralio")
+  (eq $redirectTo "https://corralio.com/auth/confirm?brand=corralio")
+}}
 ```
 
-Reset password:
+Add a `https://www.corralio.com/auth/confirm?brand=corralio` equality branch only while that hostname is an intentionally supported auth origin.
 
-```text
-{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery&next=/account/reset-password
-```
+The global subjects are neutral because Supabase applies one subject per template:
 
-Change email:
+- Confirm Signup: `Confirm your account`
+- Magic Link: `Your secure sign-in link`
 
-```text
-{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email_change&next=/account
-```
+The body may render Corralio content when `$isCorralio` is true and the existing shared TI/RI fallback otherwise.
 
-## Required Frontend Configuration
+Complete dashboard-ready reference bodies are stored at:
 
-All auth calls that trigger email must include redirect target:
+- `docs/templates/supabase-confirm-signup-shared.html`
+- `docs/templates/supabase-magic-link-shared.html`
 
-- `emailRedirectTo: "https://www.tournamentinsights.com/auth/confirm"` (TI)
-- `emailRedirectTo: "https://www.refereeinsights.com/auth/confirm"` (RI)
+These are manual configuration references, not automatically deployed Supabase configuration.
 
-Or equivalent `redirectTo` option when that API expects it.
+## Application handlers
 
-If omitted, `{{ .RedirectTo }}` can be empty and links will break.
-
-## Application Route Requirement
-
-Each app must implement `/auth/confirm`:
+Callback routes:
 
 - TI: `apps/ti-web/app/auth/confirm/route.ts`
 - RI: `apps/referee/app/auth/confirm/route.ts`
+- Corralio: `apps/corralio/app/auth/confirm/route.ts`
 
-Route responsibilities:
+They read their supported `code` or `token_hash`/`type` values and ignore the presentation/sentinel parameters. TI and RI preserve safe-relative `next` validation; Corralio returns to its app root. Unknown harmless query parameters do not grant access or change verification semantics.
 
-- read `token_hash`, `type`, optional `next`
-- call `supabase.auth.verifyOtp({ token_hash, type })`
-- redirect rules:
-  - default: `/account`
-  - `type=recovery`: `/account/reset-password`
-  - if safe `next` provided: redirect to `next`
+## Supabase manual configuration
 
-Error UX routes:
+Repository changes do not update the Supabase dashboard. After deploying compatible application callbacks, manually update both global templates and verify that the redirect allowlist covers the intended callback paths, including:
 
-- TI: `apps/ti-web/app/auth/error/page.tsx`
-- RI: `apps/referee/app/auth/error/page.tsx`
+- `http://localhost:3002/auth/confirm`
+- `https://corralio.com/auth/confirm`
+- the existing TI and RI callback entries
+- `https://www.corralio.com/auth/confirm` only if that hostname remains supported
 
-## Email Infrastructure
+Path or wildcard allowlist entries normally cover query-string variants; do not add query-specific entries without evidence that the project configuration requires them.
 
-- sender: `noreply@mail.tournamentinsights.com`
-- SMTP: Resend (custom SMTP enabled in Supabase)
-- logo: `https://www.tournamentinsights.com/brand/ti-email-logo.png`
-- HTML: minimal
-- no tracking pixels
-- no external fonts
-- optimized for deliverability
+## Manual regression checks
 
-## Why TokenHash + RedirectTo
+After code and dashboard templates are both live, exercise:
 
-- removes exposed Supabase URLs
-- keeps auth flow branded end-to-end
-- supports preview and production environments
-- supports RI + TI under one Supabase project
-- provides full redirect control
-- scales better long-term
+- Corralio new-account confirmation and existing-account Magic Link
+- TI signup confirmation, resend, Magic Link, and `next` preservation
+- RI signup confirmation and admin resend
+- missing, invalid, expired, and already-used links
+- a no-`RedirectTo` template invocation, which must continue through `.ConfirmationURL`
 
-## Future Consideration
-
-If RI and TI move to separate Supabase projects:
-
-- templates can diverge per brand
-- sender identities can be fully independent
-- auth config becomes fully isolated
-
-Not required during beta.
+No branding or sentinel parameter may change authorization behavior.

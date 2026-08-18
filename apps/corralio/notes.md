@@ -1,5 +1,12 @@
 # Corralio Notes
 
+## 2026-08-18 — Shared Supabase auth-email branding contract (local implementation)
+
+- Corralio's single `signInWithOtp` flow now supplies `/auth/confirm?brand=corralio`, allowing the shared Supabase Confirm Signup and Magic Link templates to identify Corralio by exact callback equality without trusting branding data for authorization.
+- Added a pure callback builder and focused coverage for localhost and production origins. The application supplies no token hash, authorization code, entitlement, or other credential in `RedirectTo`; Supabase adds the token only in the email template.
+- The Corralio confirm handler requires no behavior change: it continues to verify supported code or token-hash callbacks and safely ignores the presentation-only `brand` parameter.
+- Supabase dashboard work remains manual. Both shared templates must retain `.ConfirmationURL` when `RedirectTo` is absent and use the guarded `&token_hash=...&type=email` construction when it is present. No remote template, allowlist, email, push, or deployment change was made locally.
+
 ## 2026-08-18 — Slice 3 connect schedule → This Weekend (local implementation)
 
 - Added the first product loop: an authenticated household owner can paste an ICS/iCal subscription URL, import normalized events, and see the applicable Friday-through-Sunday events in a mobile-first **This Weekend** view.

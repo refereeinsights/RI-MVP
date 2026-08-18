@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { getServerUser } from "./serverAuth";
+import { buildRiAuthEmailRedirect } from "./authEmailRedirect";
 import type {
   TournamentContactInsert,
   TournamentContactUpdate,
@@ -143,7 +144,7 @@ export async function adminResendConfirmationEmail(params: { email: string }) {
   const { error } = await supabaseAdmin.auth.resend({
     type: "signup",
     email: params.email,
-    options: { emailRedirectTo: `${siteOrigin}/auth/confirm` },
+    options: { emailRedirectTo: buildRiAuthEmailRedirect(siteOrigin) },
   });
 
   if (error) throw error;

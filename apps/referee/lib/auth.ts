@@ -4,6 +4,7 @@ import {
   handleContainsProhibitedTerm,
   isHandleAllowed,
 } from "./handles";
+import { buildRiAuthEmailRedirect } from "./authEmailRedirect";
 
 export type Sport = "soccer" | "basketball" | "football";
 
@@ -78,7 +79,7 @@ export async function signUpUser(input: {
           host === "localhost" ||
           host.endsWith(".vercel.app")
         ) {
-          return `${url.origin.replace(/\/$/, "")}/auth/confirm`;
+          return buildRiAuthEmailRedirect(url.origin);
         }
       } catch {
         // Ignore malformed env and fall back below.
@@ -86,10 +87,10 @@ export async function signUpUser(input: {
     }
 
     if (typeof window !== "undefined" && window.location?.origin) {
-      return `${window.location.origin.replace(/\/$/, "")}/auth/confirm`;
+      return buildRiAuthEmailRedirect(window.location.origin);
     }
 
-    return "https://www.refereeinsights.com/auth/confirm";
+    return buildRiAuthEmailRedirect("https://www.refereeinsights.com");
   })();
 
   // send metadata to auth.users so your trigger can populate profiles

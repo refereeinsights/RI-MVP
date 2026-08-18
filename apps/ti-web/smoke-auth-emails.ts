@@ -203,6 +203,14 @@ async function main(): Promise<void> {
     "tournamentinsights+smoke-change@gmail.com";
   const redirectTo =
     process.env.SMOKE_REDIRECT_TO ?? "https://www.tournamentinsights.com/auth/confirm";
+  const magicLinkRedirectTo = (() => {
+    const url = new URL(redirectTo);
+    if (!url.search) {
+      // Auth email templates append token parameters with `&`, so Magic Link RedirectTo must already contain a query parameter.
+      url.searchParams.set("next", "/account");
+    }
+    return url.toString();
+  })();
 
   if (!supabaseUrl) throw new Error("Missing required env var: SUPABASE_URL");
   if (!serviceRoleKey) {
@@ -279,7 +287,7 @@ async function main(): Promise<void> {
         email: smokeEmail,
         options: {
           shouldCreateUser: false,
-          emailRedirectTo: redirectTo,
+          emailRedirectTo: magicLinkRedirectTo,
         },
       }),
     );

@@ -2,6 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { useState, type FormEvent } from "react";
+import { buildCorralioAuthEmailRedirect } from "@/lib/authEmailRedirect";
 
 type Notice = { status: "success" | "error"; message: string } | null;
 
@@ -25,7 +26,7 @@ export function SignInForm() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        emailRedirectTo: buildCorralioAuthEmailRedirect(window.location.origin),
         shouldCreateUser: true,
       },
     });
