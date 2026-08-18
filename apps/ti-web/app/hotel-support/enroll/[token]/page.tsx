@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import {
-  HOTEL_SUPPORT_TERMS_TEXT,
+  buildHotelSupportTermsV2,
   resolvePublicHotelSupportInvitation,
 } from "@/lib/hotelSupportEnrollment";
 import EnrollmentForm from "./EnrollmentForm";
@@ -31,11 +31,19 @@ function formatTournamentDates(startDate: string | null, endDate: string | null)
 }
 
 function formatExpiration(value: string) {
-  return `${new Intl.DateTimeFormat("en-US", {
-    dateStyle: "long",
-    timeStyle: "short",
+  const expiration = new Date(value);
+  const date = new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
     timeZone: "UTC",
-  }).format(new Date(value))} UTC`;
+  }).format(expiration);
+  const time = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+  }).format(expiration);
+  return `${date}, ${time} UTC`;
 }
 
 export default async function HotelSupportEnrollmentPage({ params }: { params: { token: string } }) {
@@ -44,7 +52,7 @@ export default async function HotelSupportEnrollmentPage({ params }: { params: {
     return (
       <main className={styles.shell}>
         <section className={styles.card}>
-          <div className={styles.eyebrow}>TournamentInsights</div>
+          <div className={styles.eyebrow}>Tournament Hotel Support · Enrollment</div>
           <h1>Enrollment invitation unavailable</h1>
           <p>This private enrollment link is invalid, expired, revoked, or not available yet.</p>
           <p>Please contact the TournamentInsights team for a replacement invitation.</p>
@@ -58,11 +66,11 @@ export default async function HotelSupportEnrollmentPage({ params }: { params: {
     return (
       <main className={styles.shell}>
         <section className={styles.card}>
-          <div className={styles.eyebrow}>TournamentInsights</div>
+          <div className={styles.eyebrow}>Tournament Hotel Support · Enrollment</div>
           <h1>Enrollment received</h1>
           <p>We received your Tournament Hotel Support enrollment for <strong>{invitation.tournamentName}</strong>.</p>
           <p>We’ll review it and confirm when your program is active.</p>
-          <p>Submitting or approving enrollment does not activate hotel fee routing.</p>
+          <p>Enrollment and approval do not activate the program. We’ll confirm when your tournament is active.</p>
         </section>
       </main>
     );
@@ -72,8 +80,8 @@ export default async function HotelSupportEnrollmentPage({ params }: { params: {
   return (
     <main className={styles.shell}>
       <article className={styles.card}>
-        <div className={styles.eyebrow}>TournamentInsights · Private enrollment</div>
-        <h1>Help your teams find hotels—and support your tournament</h1>
+        <div className={styles.eyebrow}>Tournament Hotel Support · Enrollment</div>
+        <h1>Help your teams find hotels — and support your tournament</h1>
         <p className={styles.intro}>TournamentInsights gives your tournament a dedicated hotel page you can share with teams and families. Eligible hotel bookings made through the TournamentInsights hotel program can generate support proceeds for your tournament.</p>
         <p className={styles.noManagement}>There’s no additional hotel booking system for you to manage.</p>
 
@@ -84,14 +92,22 @@ export default async function HotelSupportEnrollmentPage({ params }: { params: {
             <div><dt>Dates</dt><dd>{formatTournamentDates(invitation.startDate, invitation.endDate)}</dd></div>
             <div><dt>Location</dt><dd>{[invitation.city, invitation.state].filter(Boolean).join(", ") || "To be announced"}</dd></div>
             <div><dt>Support rate</dt><dd>{invitation.offeredRateLabel}</dd></div>
-            <div><dt>Beneficiary</dt><dd>The tournament</dd></div>
+            <div><dt>Support benefits</dt><dd>{invitation.tournamentName}</dd></div>
             <div><dt>Status</dt><dd>Pending activation</dd></div>
             <div><dt>Invitation expires</dt><dd>{formatExpiration(invitation.expiresAt)}</dd></div>
           </dl>
-          {invitation.hotelPageUrl ? <a href={invitation.hotelPageUrl}>View the tournament hotel page</a> : null}
+          {invitation.hotelPageUrl ? (
+            <a href={invitation.hotelPageUrl} target="_blank" rel="noopener noreferrer">
+              View the tournament hotel page
+            </a>
+          ) : null}
         </section>
 
-        <EnrollmentForm action={boundAction} tournamentName={invitation.tournamentName} termsText={HOTEL_SUPPORT_TERMS_TEXT} />
+        <EnrollmentForm
+          action={boundAction}
+          tournamentName={invitation.tournamentName}
+          termsText={buildHotelSupportTermsV2(invitation.offeredRateCents)}
+        />
       </article>
     </main>
   );

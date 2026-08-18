@@ -45,3 +45,80 @@ from public.ti_hotel_support_invitations;
 select count(*) as acceptance_rows from public.ti_hotel_support_acceptances;
 select count(*) as review_rows from public.ti_hotel_support_enrollment_reviews;
 select count(*) as audit_rows from public.ti_hotel_support_enrollment_audit;
+
+-- Terms v2 / three-checkbox evidence migration checks.
+select
+  column_name,
+  data_type,
+  is_nullable,
+  column_default
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'ti_hotel_support_acceptances'
+  and column_name in (
+    'confirmation_version',
+    'confirm_authority',
+    'confirm_housing_eligibility',
+    'confirm_no_guarantee',
+    'confirm_eligible_attribution',
+    'confirm_terms'
+  )
+order by ordinal_position;
+
+select
+  conname,
+  pg_get_constraintdef(oid) as definition
+from pg_constraint
+where conrelid = 'public.ti_hotel_support_acceptances'::regclass
+  and conname in (
+    'ti_hotel_support_acceptances_recipient_type_check',
+    'ti_hotel_support_acceptances_confirmations_check',
+    'ti_hotel_support_acceptances_terms_confirmation_version_check'
+  )
+order by conname;
+
+select
+  to_regprocedure(
+    'public.submit_ti_hotel_support_enrollment_v2(text,text,text,text,text,text,text,boolean,boolean,boolean)'
+  ) as v2_submission_function,
+  has_function_privilege(
+    'anon',
+    'public.submit_ti_hotel_support_enrollment_v2(text,text,text,text,text,text,text,boolean,boolean,boolean)',
+    'EXECUTE'
+  ) as anon_execute,
+  has_function_privilege(
+    'authenticated',
+    'public.submit_ti_hotel_support_enrollment_v2(text,text,text,text,text,text,text,boolean,boolean,boolean)',
+    'EXECUTE'
+  ) as authenticated_execute,
+  has_function_privilege(
+    'service_role',
+    'public.submit_ti_hotel_support_enrollment_v2(text,text,text,text,text,text,text,boolean,boolean,boolean)',
+    'EXECUTE'
+  ) as service_role_execute;
+
+select terms_version, count(*) as acceptance_rows
+from public.ti_hotel_support_acceptances
+group by terms_version
+order by terms_version;
+
+select confirmation_version, count(*) as acceptance_rows
+from public.ti_hotel_support_acceptances
+group by confirmation_version
+order by confirmation_version;
+
+select count(*) as individual_recipient_rows
+from public.ti_hotel_support_acceptances
+where expected_recipient_type = 'individual';
+
+select
+  count(*) filter (
+    where confirmation_version = 'three_checkbox_v2'
+      and confirm_authority is true
+      and confirm_housing_eligibility is true
+      and confirm_no_guarantee is null
+      and confirm_eligible_attribution is null
+      and confirm_terms is true
+  ) as valid_three_checkbox_v2_rows,
+  count(*) filter (where confirmation_version = 'three_checkbox_v2') as total_three_checkbox_v2_rows
+from public.ti_hotel_support_acceptances;

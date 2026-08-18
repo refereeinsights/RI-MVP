@@ -13,6 +13,12 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-08-18
+
+- Tournament Hotel Support director enrollment UX/terms v2 implemented locally on the applied enrollment foundation. The private form now uses concise partnership copy, a restrained mobile headline, trusted tournament benefit naming, an exact UTC expiration cutoff, a protected new-tab hotel-page link, four organization-only recipient choices, three direct confirmations, and the director-facing `Enroll my tournament` activation-review message. Canonical `tournament_hotel_support_v2` terms are deterministic UTF-8 text with trusted $5/$10 economics and fixed SHA-256 hashes; v1 constants remain unchanged.
+- Added unapplied migration `20260818_ti_hotel_support_enrollment_ux_v2.sql`. It aborts if any historical `individual` recipient exists, removes that recipient value, adds explicit `five_checkbox_v1` / `three_checkbox_v2` evidence versions, stores removed v2 checkbox fields as `NULL`, preserves v1 submission compatibility, and adds an atomic service-role-only v2 submission RPC with exact already-consumed idempotency. The existing post-migration verification SQL was extended. No migration, enrollment submission, review, Hotel Program activation, or routing change was executed by this implementation.
+- Validation passed with 23/23 offline Hotel Support tests, TI and RI typechecks, both linters, diff checks, and the TI production build. Build warnings are pre-existing and unrelated.
+
 ## 2026-08-17
 
 - TI optional analytics now uses a shared bounded browser batcher: up to 20 ordinary behavioral events flush after two seconds or via beacon on page hide, and identical repeatable viewed/impression/loaded events are suppressed only within the same session and page/tournament/venue/planner/placement context. Critical Planner activation/persistence/auth, team-hotel conversion, travel-share, and saved-tournament events remain immediate and flush earlier queued funnel events first. `/api/analytics` accepts both legacy single events and bounded batches, writes one row array per destination table, and emits structured request duration/count logs without full properties. Revenue-critical `ti_outbound_clicks` attribution remains unchanged and unsampled. A read-only post-recovery volume/index diagnostic was added; sampling, retention, and index removal remain evidence-gated.

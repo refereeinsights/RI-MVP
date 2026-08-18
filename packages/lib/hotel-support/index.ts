@@ -1,9 +1,9 @@
 export const HOTEL_SUPPORT_RATES_CENTS = [500, 1000] as const;
 export type HotelSupportRateCents = (typeof HOTEL_SUPPORT_RATES_CENTS)[number];
 
-export const HOTEL_SUPPORT_TERMS_VERSION = "tournament_hotel_support_v1";
+export const HOTEL_SUPPORT_TERMS_VERSION_V1 = "tournament_hotel_support_v1";
 
-export const HOTEL_SUPPORT_TERMS_TEXT = `By submitting this enrollment, you confirm that you are authorized to enroll the identified tournament. TournamentInsights may provide a dedicated tournament hotel page and materials that the tournament can share with teams and families.
+export const HOTEL_SUPPORT_TERMS_TEXT_V1 = `By submitting this enrollment, you confirm that you are authorized to enroll the identified tournament. TournamentInsights may provide a dedicated tournament hotel page and materials that the tournament can share with teams and families.
 
 Eligible bookings that are successfully attributed to and validated through TournamentInsights may generate tournament support proceeds at the rate shown in this enrollment. Bookings, room nights, revenue, proceeds, and payment timing are not guaranteed. Cancellations, refunds, disputes, booking changes, duplicate transactions, fraud, errors, or ineligible bookings may reduce, reverse, or eliminate proceeds.
 
@@ -15,13 +15,18 @@ TournamentInsights may pause or terminate participation because of conflicting h
 
 Submitting this enrollment does not activate fee-enabled hotel routing. TournamentInsights must separately review, approve, and activate the tournament's Hotel Program.`;
 
+// Preserve the original exports for v1 evidence and rollback compatibility.
+export const HOTEL_SUPPORT_TERMS_VERSION = HOTEL_SUPPORT_TERMS_VERSION_V1;
+export const HOTEL_SUPPORT_TERMS_TEXT = HOTEL_SUPPORT_TERMS_TEXT_V1;
+
+export const HOTEL_SUPPORT_TERMS_VERSION_V2 = "tournament_hotel_support_v2";
+
 export const HOTEL_SUPPORT_INVITATION_LIFETIME_DAYS = 14;
 
 export const HOTEL_SUPPORT_RECIPIENT_TYPES = [
   "tournament_organization",
   "nonprofit_booster",
   "business",
-  "individual",
   "other",
 ] as const;
 
@@ -36,8 +41,6 @@ export type HotelSupportSubmissionInput = {
   expectedRecipientName: string;
   confirmAuthority: boolean;
   confirmHousingEligibility: boolean;
-  confirmNoGuarantee: boolean;
-  confirmEligibleAttribution: boolean;
   confirmTerms: boolean;
 };
 
@@ -66,6 +69,25 @@ export function formatHotelSupportRate(rateCents: HotelSupportRateCents) {
   return `$${(rateCents / 100).toFixed(2)} per eligible room night`;
 }
 
+/**
+ * Canonical v2 terms. The UTF-8 output is hash-significant: paragraphs use LF
+ * separators via exactly `\n\n`, with no leading/trailing whitespace or final
+ * newline. Do not alter this structure without a new terms version.
+ */
+export function buildHotelSupportTermsV2(rateCents: HotelSupportRateCents) {
+  const rateLabel = formatHotelSupportRate(rateCents);
+  return [
+    "By submitting this enrollment, you confirm that you are authorized to enroll the identified tournament. TournamentInsights may provide a dedicated tournament hotel page and materials that the tournament can share with teams and families.",
+    `Eligible bookings made through your TournamentInsights hotel page can generate ${rateLabel} in support proceeds for your tournament. Only bookings that are successfully attributed to and validated through TournamentInsights qualify. Bookings, room nights, proceeds, and payment timing are not guaranteed.`,
+    "Cancellations, refunds, disputes, booking changes, duplicate transactions, fraud, errors, or ineligible bookings may reduce, reverse, or eliminate proceeds.",
+    "Proceeds become payable only after TournamentInsights receives and verifies the applicable funds from its hotel provider. TournamentInsights may adjust or reverse amounts associated with ineligible, refunded, disputed, duplicate, fraudulent, or erroneous bookings.",
+    "Participation does not create exclusive lodging rights unless separately agreed. Participation must not conflict with a mandatory, exclusive, or stay-to-play lodging arrangement applicable to the tournament.",
+    "You may not describe this program as a charitable donation, tax deduction, guaranteed payment, or hotel discount unless TournamentInsights explicitly authorizes that description.",
+    "TournamentInsights may pause or terminate participation because of conflicting housing arrangements, misuse, fraud, attribution or technical issues, legal or compliance concerns, or changes to the underlying hotel program.",
+    "Enrollment does not activate the program. TournamentInsights must separately review, approve, and activate the tournament before the Tournament Hotel Support Program becomes active.",
+  ].join("\n\n");
+}
+
 export function validateHotelSupportSubmission(input: Record<string, unknown>): HotelSupportSubmissionValidation {
   const contactName = requiredText(input.contactName, 160);
   if (!contactName) return { ok: false, message: "Enter your name." };
@@ -90,8 +112,6 @@ export function validateHotelSupportSubmission(input: Record<string, unknown>): 
   const confirmations = [
     input.confirmAuthority,
     input.confirmHousingEligibility,
-    input.confirmNoGuarantee,
-    input.confirmEligibleAttribution,
     input.confirmTerms,
   ];
   if (!confirmations.every((value) => value === true)) {
@@ -109,8 +129,6 @@ export function validateHotelSupportSubmission(input: Record<string, unknown>): 
       expectedRecipientName,
       confirmAuthority: true,
       confirmHousingEligibility: true,
-      confirmNoGuarantee: true,
-      confirmEligibleAttribution: true,
       confirmTerms: true,
     },
   };

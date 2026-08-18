@@ -1,6 +1,6 @@
 import {
-  HOTEL_SUPPORT_TERMS_TEXT,
-  HOTEL_SUPPORT_TERMS_VERSION,
+  HOTEL_SUPPORT_TERMS_VERSION_V2,
+  buildHotelSupportTermsV2,
   formatHotelSupportRate,
   validateHotelSupportSubmission,
   type HotelSupportRateCents,
@@ -126,14 +126,12 @@ export async function submitPublicHotelSupportEnrollment(
     expectedRecipientName: formData.get("expected_recipient_name"),
     confirmAuthority: formData.get("confirm_authority") === "on",
     confirmHousingEligibility: formData.get("confirm_housing_eligibility") === "on",
-    confirmNoGuarantee: formData.get("confirm_no_guarantee") === "on",
-    confirmEligibleAttribution: formData.get("confirm_eligible_attribution") === "on",
     confirmTerms: formData.get("confirm_terms") === "on",
   });
   if (!validation.ok) return { status: "error", message: validation.message };
   const value = validation.value;
 
-  const response = await (supabaseAdmin as any).rpc("submit_ti_hotel_support_enrollment_v1", {
+  const response = await (supabaseAdmin as any).rpc("submit_ti_hotel_support_enrollment_v2", {
     p_token_hash: hashHotelSupportToken(token),
     p_contact_name: value.contactName,
     p_contact_email: value.contactEmail,
@@ -143,8 +141,6 @@ export async function submitPublicHotelSupportEnrollment(
     p_expected_recipient_name: value.expectedRecipientName,
     p_confirm_authority: true,
     p_confirm_housing_eligibility: true,
-    p_confirm_no_guarantee: true,
-    p_confirm_eligible_attribution: true,
     p_confirm_terms: true,
   });
   if (response.error) {
@@ -164,4 +160,4 @@ export async function submitPublicHotelSupportEnrollment(
   };
 }
 
-export { HOTEL_SUPPORT_TERMS_TEXT, HOTEL_SUPPORT_TERMS_VERSION };
+export { HOTEL_SUPPORT_TERMS_VERSION_V2, buildHotelSupportTermsV2 };

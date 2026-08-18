@@ -19,9 +19,9 @@
   max-width: 680px;
   margin: 12px 0 16px;
   color: #14382a;
-  font-size: clamp(2rem, 7vw, 3.5rem);
-  letter-spacing: -0.04em;
-  line-height: 1.02;
+  font-size: clamp(1.85rem, 5.5vw, 3.15rem);
+  letter-spacing: -0.035em;
+  line-height: 1.08;
 }
 
 .eyebrow {
@@ -76,6 +76,7 @@
 .summary dd {
   margin: 0;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .summary a {
@@ -159,7 +160,14 @@
   color: #465a51;
   font-size: 0.88rem;
   line-height: 1.6;
-  white-space: pre-wrap;
+}
+
+.termsText p {
+  margin: 0 0 14px;
+}
+
+.termsText p:last-child {
+  margin-bottom: 0;
 }
 
 .confirmations label {
@@ -169,6 +177,8 @@
   align-items: start;
   color: #263e34;
   line-height: 1.45;
+  min-height: 32px;
+  padding: 3px 0;
 }
 
 .confirmations input {
@@ -220,6 +230,15 @@
 }
 
 @media (max-width: 620px) {
+  .shell {
+    padding: 20px 12px 48px;
+  }
+
+  .card {
+    padding: 22px 18px;
+    border-radius: 16px;
+  }
+
   .fieldGrid {
     grid-template-columns: 1fr;
   }
@@ -227,5 +246,10 @@
   .summary dl div {
     grid-template-columns: 1fr;
     gap: 2px;
+  }
+
+  .submitButton {
+    justify-self: stretch;
+    width: 100%;
   }
 }

@@ -16,7 +16,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <button className={styles.submitButton} type="submit" disabled={pending}>
-      {pending ? "Submitting…" : "Submit enrollment"}
+      {pending ? "Enrolling…" : "Enroll my tournament"}
     </button>
   );
 }
@@ -68,8 +68,8 @@ export default function EnrollmentForm({
       </fieldset>
 
       <fieldset className={styles.fieldset}>
-        <legend>Expected payment recipient</legend>
-        <p className={styles.fieldHelp}>This is informational only. The trusted program beneficiary remains the tournament.</p>
+        <legend>Where should tournament support proceeds eventually be paid?</legend>
+        <p className={styles.fieldHelp}>We’ll confirm payment and tax details with you before any proceeds are paid.</p>
         <div className={styles.fieldGrid}>
           <label>
             Recipient type
@@ -77,9 +77,8 @@ export default function EnrollmentForm({
               <option value="" disabled>Select one</option>
               <option value="tournament_organization">Tournament organization</option>
               <option value="nonprofit_booster">Nonprofit / booster organization</option>
-              <option value="business">Business</option>
-              <option value="individual">Individual</option>
-              <option value="other">Other</option>
+              <option value="business">Business / club</option>
+              <option value="other">Other organization</option>
             </select>
           </label>
           <label>
@@ -91,21 +90,21 @@ export default function EnrollmentForm({
 
       <section className={styles.terms} aria-labelledby="program-terms">
         <h2 id="program-terms">Tournament Hotel Support Program Terms</h2>
-        <div className={styles.termsText}>{termsText}</div>
+        <div className={styles.termsText}>
+          {termsText.split("\n\n").map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+        </div>
       </section>
 
       <fieldset className={styles.confirmations}>
         <legend>Required confirmations</legend>
         <label><input type="checkbox" name="confirm_authority" required /> I am authorized to enroll this tournament.</label>
         <label><input type="checkbox" name="confirm_housing_eligibility" required /> To the best of my knowledge, participation does not conflict with a mandatory, exclusive, or stay-to-play lodging arrangement.</label>
-        <label><input type="checkbox" name="confirm_no_guarantee" required /> I understand bookings and support proceeds are not guaranteed.</label>
-        <label><input type="checkbox" name="confirm_eligible_attribution" required /> I understand only eligible bookings successfully attributed and validated through TournamentInsights qualify.</label>
-        <label><input type="checkbox" name="confirm_terms" required /> I agree to the Tournament Hotel Support Program Terms.</label>
+        <label><input type="checkbox" name="confirm_terms" required /> I have read and agree to the Tournament Hotel Support Program Terms.</label>
       </fieldset>
 
       {state.status === "error" ? <p className={styles.error} role="alert">{state.message}</p> : null}
       <SubmitButton />
-      <p className={styles.activationNotice}>Submitting this form does not activate hotel fee routing.</p>
+      <p className={styles.activationNotice}>Enrollment does not activate the program. We’ll review it and confirm when your tournament is active.</p>
     </form>
   );
 }
