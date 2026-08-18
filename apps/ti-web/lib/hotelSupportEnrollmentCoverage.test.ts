@@ -119,10 +119,14 @@ test("director form uses the refined recipient, CTA, and exactly three confirmat
   assert.equal(enrollmentForm.match(/type="checkbox"/g)?.length, 3);
 });
 
-test("director page uses trusted context, an exact UTC cutoff, and a protected new-tab hotel link", () => {
+test("director page uses the simplified trusted summary and a protected new-tab hotel link", () => {
   assert.match(enrollmentPage, /Tournament Hotel Support · Enrollment/);
-  assert.match(enrollmentPage, /Support benefits<\/dt><dd>\{invitation\.tournamentName\}/);
-  assert.match(enrollmentPage, /return `\$\{date\}, \$\{time\} UTC`/);
+  assert.match(enrollmentPage, /Help your teams find hotels and support your tournament/);
+  assert.match(enrollmentPage, /There’s nothing new for you to manage/);
+  assert.match(enrollmentPage, /Tournament support<\/dt><dd>\{formatTournamentSupportRate\(invitation\.offeredRateCents\)\}/);
+  assert.match(enrollmentPage, /Invitation valid through/);
+  assert.match(enrollmentPage, /timeZone: "UTC"/);
+  assert.doesNotMatch(enrollmentPage, /Support benefits<\/dt>|Status<\/dt>|hour: "numeric"|timeZoneName/);
   assert.match(enrollmentPage, /target="_blank" rel="noopener noreferrer"/);
   assert.doesNotMatch(enrollmentPage, /fee routing/);
 });

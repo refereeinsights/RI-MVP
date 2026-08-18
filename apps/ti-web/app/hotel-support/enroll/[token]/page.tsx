@@ -31,19 +31,16 @@ function formatTournamentDates(startDate: string | null, endDate: string | null)
 }
 
 function formatExpiration(value: string) {
-  const expiration = new Date(value);
-  const date = new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
     timeZone: "UTC",
-  }).format(expiration);
-  const time = new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "UTC",
-  }).format(expiration);
-  return `${date}, ${time} UTC`;
+  }).format(new Date(value));
+}
+
+function formatTournamentSupportRate(rateCents: number) {
+  return `$${rateCents / 100} per eligible room night`;
 }
 
 export default async function HotelSupportEnrollmentPage({ params }: { params: { token: string } }) {
@@ -81,9 +78,9 @@ export default async function HotelSupportEnrollmentPage({ params }: { params: {
     <main className={styles.shell}>
       <article className={styles.card}>
         <div className={styles.eyebrow}>Tournament Hotel Support · Enrollment</div>
-        <h1>Help your teams find hotels — and support your tournament</h1>
-        <p className={styles.intro}>TournamentInsights gives your tournament a dedicated hotel page you can share with teams and families. Eligible hotel bookings made through the TournamentInsights hotel program can generate support proceeds for your tournament.</p>
-        <p className={styles.noManagement}>There’s no additional hotel booking system for you to manage.</p>
+        <h1>Help your teams find hotels and support your tournament</h1>
+        <p className={styles.intro}>TournamentInsights gives your tournament a dedicated hotel page to share with teams and families. When families book eligible hotels through your page, those bookings can generate support proceeds for your tournament.</p>
+        <p className={styles.noManagement}>There’s nothing new for you to manage.</p>
 
         <section className={styles.summary} aria-labelledby="invitation-summary">
           <h2 id="invitation-summary">Invitation details</h2>
@@ -91,14 +88,12 @@ export default async function HotelSupportEnrollmentPage({ params }: { params: {
             <div><dt>Tournament</dt><dd>{invitation.tournamentName}</dd></div>
             <div><dt>Dates</dt><dd>{formatTournamentDates(invitation.startDate, invitation.endDate)}</dd></div>
             <div><dt>Location</dt><dd>{[invitation.city, invitation.state].filter(Boolean).join(", ") || "To be announced"}</dd></div>
-            <div><dt>Support rate</dt><dd>{invitation.offeredRateLabel}</dd></div>
-            <div><dt>Support benefits</dt><dd>{invitation.tournamentName}</dd></div>
-            <div><dt>Status</dt><dd>Pending activation</dd></div>
-            <div><dt>Invitation expires</dt><dd>{formatExpiration(invitation.expiresAt)}</dd></div>
+            <div><dt>Tournament support</dt><dd>{formatTournamentSupportRate(invitation.offeredRateCents)}</dd></div>
+            <div><dt>Invitation valid through</dt><dd>{formatExpiration(invitation.expiresAt)}</dd></div>
           </dl>
           {invitation.hotelPageUrl ? (
             <a href={invitation.hotelPageUrl} target="_blank" rel="noopener noreferrer">
-              View the tournament hotel page
+              View tournament hotel page
             </a>
           ) : null}
         </section>

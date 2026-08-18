@@ -19,8 +19,8 @@
   max-width: 680px;
   margin: 12px 0 16px;
   color: #14382a;
-  font-size: clamp(1.85rem, 5.5vw, 3.15rem);
-  letter-spacing: -0.035em;
+  font-size: clamp(1.55rem, 4.4vw, 2.5rem);
+  letter-spacing: -0.03em;
   line-height: 1.08;
 }
 
