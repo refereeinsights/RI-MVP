@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { normalizeIcsEvents, sanitizeImportedNotes, userSafeError } from "./ics-import";
+import { findStaleSourceEventIds, normalizeIcsEvents, sanitizeImportedNotes } from "./ics-import";
 
 function isoUtc(date: Date) {
   return date.toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -176,4 +176,14 @@ test("normalizeIcsEvents: generates deterministic fallback UID when UID is missi
   const uid2 = res2.events[0]?.source_event_uid ?? "";
   assert.ok(uid1.startsWith("hash_"));
   assert.equal(uid1, uid2);
+});
+
+test("findStaleSourceEventIds keeps current identities and selects only stale persisted rows", () => {
+  const rows = [
+    { id: "event-1", source_event_uid: "uid-1" },
+    { id: "event-2", source_event_uid: "uid-2" },
+    { id: "event-3", source_event_uid: null },
+  ];
+  assert.deepEqual(findStaleSourceEventIds(rows, ["uid-2"]), ["event-1"]);
+  assert.deepEqual(findStaleSourceEventIds(rows, ["uid-1", "uid-2"]), []);
 });

@@ -1,23 +1,23 @@
-import crypto from "node:crypto";
-import dns from "node:dns/promises";
-
-import ical from "node-ical";
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "@/lib/venues/isUuid";
-import { extractFieldLabelFromLocationText, resolvePlannerVenueMatches } from "@/lib/planner/venueResolution";
+import { resolvePlannerVenueMatches } from "@/lib/planner/venueResolution";
+import {
+  DEFAULT_MAX_SCHEDULE_EVENTS,
+  DEFAULT_SCHEDULE_WINDOW_FUTURE_DAYS,
+  DEFAULT_SCHEDULE_WINDOW_PAST_DAYS,
+  normalizeIcsSchedule,
+  sanitizeScheduleNotes,
+  type NormalizedScheduleEvent,
+} from "../../../../packages/lib/sports-schedule";
+import {
+  fetchIcsSchedule,
+  validateScheduleUrl,
+  type ScheduleFetchError,
+} from "../../../../packages/lib/sports-schedule/server";
 
-const MAX_URL_LEN = 2000;
-const MAX_ICS_CHARS = 2_000_000; // ~2MB
-const MAX_REDIRECTS = 3;
-const FETCH_TIMEOUT_MS = 10_000;
-const MAX_EVENTS_PER_SYNC = 500;
-
-const EVENT_WINDOW_PAST_DAYS = 30;
-const EVENT_WINDOW_FUTURE_DAYS = 548; // ~18 months
-
-const PRIVATE_HOST_SUFFIXES = [".local"];
-const BLOCKED_HOSTS = new Set(["localhost"]);
+const MAX_EVENTS_PER_SYNC = DEFAULT_MAX_SCHEDULE_EVENTS;
+const EVENT_WINDOW_PAST_DAYS = DEFAULT_SCHEDULE_WINDOW_PAST_DAYS;
+const EVENT_WINDOW_FUTURE_DAYS = DEFAULT_SCHEDULE_WINDOW_FUTURE_DAYS;
 
 export type IcsImportInput = {
   userId: string;
@@ -72,8 +72,9 @@ function clamp(value: string | null, maxLen: number) {
   return v.length > maxLen ? v.slice(0, maxLen) : v;
 }
 
-export function userSafeError(kind: "invalid_url" | "private_url" | "fetch_failed" | "not_ics" | "no_events" | "too_large") {
+export function userSafeError(kind: ScheduleFetchError | "no_events") {
   if (kind === "invalid_url") return "Enter a valid iCal/ICS calendar URL.";
+  if (kind === "unsupported_protocol") return "Calendar links must start with http:// or https://.";
   if (kind === "private_url") return "That calendar link cannot point to a private or local address.";
   if (kind === "fetch_failed") return "That calendar link could not be reached.";
   if (kind === "not_ics") return "That link does not appear to be an iCal/ICS calendar.";
@@ -81,269 +82,8 @@ export function userSafeError(kind: "invalid_url" | "private_url" | "fetch_faile
   return "No upcoming events were found in that calendar.";
 }
 
-function parseAndValidateUrl(raw: string) {
-  const trimmed = String(raw ?? "").trim();
-  if (!trimmed) return { ok: false as const, error: userSafeError("invalid_url") };
-  if (trimmed.length > MAX_URL_LEN) return { ok: false as const, error: userSafeError("invalid_url") };
-
-  let url: URL;
-  try {
-    url = new URL(trimmed);
-  } catch {
-    return { ok: false as const, error: userSafeError("invalid_url") };
-  }
-
-  const protocol = url.protocol.toLowerCase();
-  if (protocol !== "http:" && protocol !== "https:") {
-    return { ok: false as const, error: "Calendar links must start with http:// or https://." };
-  }
-
-  if (url.username || url.password) {
-    return { ok: false as const, error: userSafeError("invalid_url") };
-  }
-
-  // Normalize hostnames like "localhost." which may appear from copy/paste or redirect quirks.
-  const hostname = url.hostname.toLowerCase().replace(/\.+$/, "");
-  if (!hostname) return { ok: false as const, error: userSafeError("invalid_url") };
-  if (BLOCKED_HOSTS.has(hostname)) return { ok: false as const, error: userSafeError("private_url") };
-  if (hostname.endsWith(".localhost")) return { ok: false as const, error: userSafeError("private_url") };
-  if (PRIVATE_HOST_SUFFIXES.some((s) => hostname.endsWith(s))) return { ok: false as const, error: userSafeError("private_url") };
-
-  // Fast-path block for obvious IP literals.
-  if (isIpLiteral(hostname) && isPrivateIp(hostname)) return { ok: false as const, error: userSafeError("private_url") };
-
-  return { ok: true as const, url };
-}
-
-function isIpLiteral(host: string) {
-  // crude but sufficient for our needs
-  return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":");
-}
-
-function ipToV4Parts(ip: string): number[] | null {
-  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return null;
-  const parts = ip.split(".").map((p) => Number(p));
-  if (parts.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return null;
-  return parts;
-}
-
-function isPrivateIpv4(ip: string) {
-  const p = ipToV4Parts(ip);
-  if (!p) return false;
-  const [a, b] = p;
-  if (a === 10) return true;
-  if (a === 127) return true;
-  if (a === 0) return true;
-  if (a === 169 && b === 254) return true; // link-local
-  if (a === 192 && b === 168) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-  return false;
-}
-
-function normalizeIpv6(ip: string) {
-  return ip.toLowerCase();
-}
-
-function isPrivateIpv6(ip: string) {
-  const v = normalizeIpv6(ip);
-  if (v === "::1") return true;
-  if (v === "::") return true;
-  if (v.startsWith("fe80:")) return true; // link-local
-  if (v.startsWith("fc") || v.startsWith("fd")) return true; // ULA fc00::/7
-  return false;
-}
-
-function isPrivateIp(ip: string) {
-  if (ip.includes(":")) return isPrivateIpv6(ip);
-  return isPrivateIpv4(ip);
-}
-
-async function assertPublicHost(hostname: string) {
-  // Resolve all IPs; reject if ANY is private.
-  let addrs: { address: string }[] = [];
-  try {
-    addrs = await dns.lookup(hostname, { all: true });
-  } catch {
-    // If we can't resolve, treat as unreachable rather than private.
-    return { ok: false as const, error: userSafeError("fetch_failed") };
-  }
-  if (!addrs.length) return { ok: false as const, error: userSafeError("fetch_failed") };
-  for (const a of addrs) {
-    if (a.address && isPrivateIp(a.address)) {
-      return { ok: false as const, error: userSafeError("private_url") };
-    }
-  }
-  return { ok: true as const };
-}
-
-function stripContentTypeParams(contentType: string | null) {
-  if (!contentType) return null;
-  return contentType.split(";")[0]?.trim().toLowerCase() || null;
-}
-
-async function fetchIcsTextWithManualRedirects(inputUrl: URL) {
-  let current = inputUrl;
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const hostCheck = await assertPublicHost(current.hostname);
-    if (!hostCheck.ok) return hostCheck;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let res: Response;
-    try {
-      res = await fetch(current.toString(), { redirect: "manual", signal: controller.signal });
-    } catch {
-      clearTimeout(timeout);
-      return { ok: false as const, error: userSafeError("fetch_failed") };
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    // Manual redirect handling
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get("location");
-      if (!loc) return { ok: false as const, error: userSafeError("fetch_failed") };
-      let next: URL;
-      try {
-        next = new URL(loc, current);
-      } catch {
-        return { ok: false as const, error: userSafeError("fetch_failed") };
-      }
-      const validated = parseAndValidateUrl(next.toString());
-      if (!validated.ok) return validated;
-      current = validated.url;
-      continue;
-    }
-
-    const contentTypeBase = stripContentTypeParams(res.headers.get("content-type"));
-    const text = await res.text().catch(() => "");
-    if (!text) return { ok: false as const, error: userSafeError("fetch_failed") };
-    if (text.length > MAX_ICS_CHARS) return { ok: false as const, error: userSafeError("too_large") };
-
-    const hasCalendar = text.includes("BEGIN:VCALENDAR");
-    const contentOk =
-      contentTypeBase === "text/calendar" ||
-      (contentTypeBase === "text/plain" && hasCalendar) ||
-      (!contentTypeBase && hasCalendar);
-
-    if (!hasCalendar) return { ok: false as const, error: userSafeError("not_ics") };
-    if (!contentOk) return { ok: false as const, error: userSafeError("not_ics") };
-    return { ok: true as const, text, finalUrl: current.toString() };
-  }
-  return { ok: false as const, error: userSafeError("fetch_failed") };
-}
-
-function safeTimeZone(tz: string | null) {
-  const v = String(tz ?? "").trim();
-  if (!v || v.length > 64) return null;
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: v }).format(new Date());
-    return v;
-  } catch {
-    return null;
-  }
-}
-
-import { sanitizeImportedNotesText } from "./icsNoteSanitizer";
-
-function collapseWhitespace(value: string) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function stripHtml(value: string) {
-  return value.replace(/<[^>]*>/g, "");
-}
-
-export function sanitizeImportedNotes(rawNotes: string | null | undefined) {
-  return sanitizeImportedNotesText(rawNotes);
-}
-
-type ParsedStructuredDescription = {
-  cleanedNotes: string | null;
-  locationText: string | null;
-  sourceLink: string | null;
-};
-
-function normalizeStructuredNoteLabel(label: string) {
-  const value = collapseWhitespace(label).toLowerCase();
-  if (value === "arrive") return "Arrival";
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function formatStructuredArrival(value: string) {
-  const trimmed = collapseWhitespace(value);
-  if (!trimmed) return null;
-  if (/^arrive\b/i.test(trimmed)) return normalizeStructuredNoteLabel(trimmed);
-  return `Arrive ${trimmed}`;
-}
-
-function parseStructuredDescription(description: string): ParsedStructuredDescription {
-  const cleaned = collapseWhitespace(stripHtml(description));
-  if (!cleaned) return { cleanedNotes: null, locationText: null, sourceLink: null };
-
-  const labelPattern = /\b(Game|Practice|Location|Duration|Arrival|Uniform|Link):/gi;
-  const matches = Array.from(cleaned.matchAll(labelPattern));
-  if (!matches.length) {
-    return { cleanedNotes: cleaned, locationText: null, sourceLink: null };
-  }
-
-  const fields = new Map<string, string>();
-  for (let index = 0; index < matches.length; index += 1) {
-    const match = matches[index];
-    const next = matches[index + 1];
-    const key = String(match?.[1] ?? "").toLowerCase();
-    const value = collapseWhitespace(
-      cleaned.slice((match?.index ?? 0) + match?.[0].length, next?.index ?? cleaned.length),
-    );
-    if (!key || !value) continue;
-    fields.set(key, value);
-  }
-
-  const locationText = fields.get("location") ?? null;
-  const sourceLink = fields.get("link") ?? null;
-  const noteParts: string[] = [];
-
-  const arrival = fields.get("arrival");
-  if (arrival) {
-    const formattedArrival = formatStructuredArrival(arrival);
-    if (formattedArrival) noteParts.push(formattedArrival);
-  }
-
-  const uniform = fields.get("uniform");
-  if (uniform) {
-    noteParts.push(`Uniform: ${uniform}`);
-  }
-
-  const ignoredLabels = new Set(["game", "practice", "location", "duration", "arrival", "uniform", "link"]);
-  for (const [key, value] of fields.entries()) {
-    if (ignoredLabels.has(key)) continue;
-    noteParts.push(`${normalizeStructuredNoteLabel(key)}: ${value}`);
-  }
-
-  return {
-    cleanedNotes: noteParts.length ? noteParts.join(" · ") : null,
-    locationText,
-    sourceLink,
-  };
-}
-
-function hashStable(parts: string[]) {
-  return crypto.createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 32);
-}
-
-function startOfDayUtc(dateIso: string) {
-  return new Date(`${dateIso}T00:00:00Z`);
-}
-
 function addDays(d: Date, days: number) {
   return new Date(d.getTime() + days * 24 * 60 * 60 * 1000);
-}
-
-function inImportWindow(dt: Date, now: Date) {
-  const start = addDays(now, -EVENT_WINDOW_PAST_DAYS);
-  const end = addDays(now, EVENT_WINDOW_FUTURE_DAYS);
-  return dt >= start && dt <= end;
 }
 
 type NormalizedPlannerEvent = {
@@ -358,60 +98,8 @@ type NormalizedPlannerEvent = {
   source_event_uid: string;
 };
 
-function dateToIsoUtc(d: Date) {
-  return new Date(d.getTime()).toISOString();
-}
-
-function parseDateOnlyToUtcMidnight(params: { dateOnly: string; tzid: string | null }) {
-  // dateOnly: YYYYMMDD
-  const m = params.dateOnly.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (!m) return null;
-  const year = Number(m[1]);
-  const month = Number(m[2]);
-  const day = Number(m[3]);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
-
-  const tz = safeTimeZone(params.tzid);
-  if (!tz) {
-    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-  }
-
-  // Convert local midnight in tz to a UTC instant by using Intl parts on an initial guess.
-  const guessUtc = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(guessUtc);
-
-  // If guessUtc formats to previous day evening (common), we still want local midnight.
-  // We'll compute the UTC instant for local midnight by constructing the local date and asking for its offset.
-  const y = Number(parts.find((p) => p.type === "year")?.value ?? NaN);
-  const mo = Number(parts.find((p) => p.type === "month")?.value ?? NaN);
-  const da = Number(parts.find((p) => p.type === "day")?.value ?? NaN);
-  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(da)) return guessUtc;
-
-  const localMidnightGuessUtc = new Date(Date.UTC(y, mo - 1, da, 0, 0, 0, 0));
-  const offsetParts = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    timeZoneName: "shortOffset",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(localMidnightGuessUtc);
-  const tzName = offsetParts.find((p) => p.type === "timeZoneName")?.value ?? "";
-  const mm = tzName.match(/GMT([+-]\d{2}):(\d{2})/);
-  if (!mm) return localMidnightGuessUtc;
-  const sign = mm[1].startsWith("-") ? -1 : 1;
-  const hh = Math.abs(Number(mm[1]));
-  const mins = Number(mm[2]);
-  const offsetMinutes = sign * (hh * 60 + mins);
-  return new Date(localMidnightGuessUtc.getTime() - offsetMinutes * 60 * 1000);
+export function sanitizeImportedNotes(rawNotes: string | null | undefined) {
+  return sanitizeScheduleNotes(rawNotes) ?? "";
 }
 
 export function normalizeIcsEvents(params: {
@@ -419,135 +107,28 @@ export function normalizeIcsEvents(params: {
   sourceUrl: string;
   teamName: string | null;
 }) {
-  let parsed: any;
-  try {
-    parsed = ical.parseICS(params.icsText);
-  } catch {
-    return { events: [] as NormalizedPlannerEvent[], errors: [userSafeError("not_ics")], parsedTotal: 0 };
-  }
-  const now = new Date();
-  const out: NormalizedPlannerEvent[] = [];
-  const canceledSourceEventUids = new Set<string>();
-  const errors: string[] = [];
-  let parsedTotal = 0;
-
-  const toEventDate = (dt: unknown, tzid: string | null): Date | null => {
-    if (!dt) return null;
-    if (typeof dt === "string") {
-      return parseDateOnlyToUtcMidnight({ dateOnly: dt, tzid });
-    }
-    if (dt instanceof Date && Number.isFinite(dt.getTime())) return dt;
-    return null;
+  const normalized = normalizeIcsSchedule({
+    icsText: params.icsText,
+    sourceUrl: params.sourceUrl,
+  });
+  const teamName = clamp(params.teamName, 80);
+  const events: NormalizedPlannerEvent[] = normalized.events.map((event: NormalizedScheduleEvent) => ({
+    title: event.title,
+    starts_at: event.startsAt,
+    ends_at: event.endsAt,
+    timezone: event.timezone,
+    notes: event.notes,
+    address_text: event.location,
+    field_label: event.fieldLabel,
+    team_name: teamName,
+    source_event_uid: event.sourceEventUid,
+  }));
+  return {
+    events,
+    canceledSourceEventUids: normalized.canceledSourceEventUids,
+    errors: normalized.errors.map(userSafeError),
+    parsedTotal: normalized.parsedTotal,
   };
-
-  const buildSourceEventUid = (paramsForUid: {
-    uidRaw: string;
-    startDate: Date | null;
-    title: string;
-    addressText: string | null;
-    recurringInstance: boolean;
-  }) => {
-    const startsIso = paramsForUid.startDate ? dateToIsoUtc(paramsForUid.startDate) : "";
-    if (paramsForUid.uidRaw) {
-      if (paramsForUid.recurringInstance && startsIso) return `${paramsForUid.uidRaw}|${startsIso}`;
-      return paramsForUid.uidRaw;
-    }
-    const h = hashStable([params.sourceUrl, paramsForUid.title, startsIso, paramsForUid.addressText ?? ""]);
-    return `hash_${h}`;
-  };
-
-  const pushEvent = (ev: any, instanceStart?: Date) => {
-    parsedTotal += 1;
-
-    const uidRaw = String(ev.uid ?? "").trim();
-    const summaryRaw = String(ev.summary ?? "").trim();
-    const descRaw = String(ev.description ?? "").trim();
-    const locationRaw = String(ev.location ?? "").trim();
-    const tzid = safeTimeZone(String(ev.tzid ?? ev.timezone ?? "") || null);
-    const statusRaw = String(ev.status ?? "").trim().toUpperCase();
-    const isCancelled = statusRaw === "CANCELLED" || statusRaw === "CANCELED";
-
-    const parsedDescription = parseStructuredDescription(descRaw);
-    const canonicalLocationText = collapseWhitespace(stripHtml(locationRaw || parsedDescription.locationText || ""));
-    const normalizedLocation = extractFieldLabelFromLocationText(canonicalLocationText);
-    const title = clamp(collapseWhitespace(stripHtml(summaryRaw)), 140) || "Imported calendar event";
-    const notes = clamp(sanitizeImportedNotes(parsedDescription.cleanedNotes), 2000);
-    const addressText = clamp(normalizedLocation.cleanedLocation, 200);
-    const fieldLabel = clamp(normalizedLocation.fieldLabel, 80);
-
-    const startDate: Date | null = toEventDate(instanceStart ?? ev.start, tzid);
-
-    if (!startDate || !Number.isFinite(startDate.getTime())) return;
-    if (!inImportWindow(startDate, now)) return;
-
-    if (isCancelled) {
-      canceledSourceEventUids.add(
-        buildSourceEventUid({
-          uidRaw,
-          startDate,
-          title,
-          addressText,
-          recurringInstance: Boolean(instanceStart),
-        })
-      );
-      return;
-    }
-
-    let endDate: Date | null = null;
-    const end = ev.end ?? null;
-    if (end) endDate = toEventDate(end, tzid);
-    if (endDate && endDate.getTime() < startDate.getTime()) endDate = null;
-
-    const startsIso = dateToIsoUtc(startDate);
-    const endsIso = endDate ? dateToIsoUtc(endDate) : null;
-
-    const sourceEventUid = buildSourceEventUid({
-      uidRaw,
-      startDate,
-      title,
-      addressText,
-      recurringInstance: Boolean(instanceStart),
-    });
-
-    out.push({
-      title,
-      starts_at: startsIso,
-      ends_at: endsIso,
-      timezone: tzid,
-      notes,
-      address_text: addressText,
-      field_label: fieldLabel,
-      team_name: clamp(params.teamName, 80),
-      source_event_uid: sourceEventUid,
-    });
-  };
-
-  for (const k of Object.keys(parsed)) {
-    const ev: any = (parsed as any)[k];
-    if (!ev || ev.type !== "VEVENT") continue;
-
-    // Expand recurrence if rrule exists.
-    if (ev.rrule && typeof ev.rrule.between === "function") {
-      const now = new Date();
-      const { windowStart, windowEnd } = currentImportWindow(now);
-      let occurrences: Date[] = [];
-      try {
-        occurrences = ev.rrule.between(windowStart, windowEnd, true);
-      } catch {
-        occurrences = [];
-      }
-      for (const occStart of occurrences) {
-        pushEvent(ev, occStart);
-        if (out.length >= MAX_EVENTS_PER_SYNC) break;
-      }
-      continue;
-    }
-
-    pushEvent(ev);
-    if (out.length >= MAX_EVENTS_PER_SYNC) break;
-  }
-
-  return { events: out, canceledSourceEventUids: Array.from(canceledSourceEventUids), errors, parsedTotal };
 }
 
 async function loadExistingEventsByUid(params: { supabase: SupabaseClient; userId: string; sourceId: string; uids: string[] }) {
@@ -598,6 +179,20 @@ async function loadExistingEventsByUid(params: { supabase: SupabaseClient; userI
   return byUid;
 }
 
+export function findStaleSourceEventIds(
+  rows: Array<{ id?: unknown; source_event_uid?: unknown }>,
+  keepUids: string[],
+) {
+  const keepSet = new Set(keepUids);
+  return rows
+    .filter((row) => {
+      const uid = String(row?.source_event_uid ?? "").trim();
+      return uid && !keepSet.has(uid);
+    })
+    .map((row) => String(row?.id ?? "").trim())
+    .filter(Boolean);
+}
+
 async function pruneMissingSourceEvents(params: {
   supabase: SupabaseClient;
   userId: string;
@@ -618,14 +213,7 @@ async function pruneMissingSourceEvents(params: {
     return { ok: false as const };
   }
 
-  const keepSet = new Set(params.keepUids);
-  const staleIds = ((data ?? []) as any[])
-    .filter((row) => {
-      const uid = String(row?.source_event_uid ?? "").trim();
-      return uid && !keepSet.has(uid);
-    })
-    .map((row) => String(row?.id ?? "").trim())
-    .filter(Boolean);
+  const staleIds = findStaleSourceEventIds((data ?? []) as any[], params.keepUids);
 
   if (!staleIds.length) return { ok: true as const };
 
@@ -647,11 +235,11 @@ export async function importIcsToPlanner(params: {
   const { supabase, input } = params;
   if (!isUuid(input.userId)) return { ok: false, status: 400, error: userSafeError("invalid_url") };
 
-  const validated = parseAndValidateUrl(input.sourceUrl);
-  if (!validated.ok) return { ok: false, status: 400, error: validated.error };
+  const validated = validateScheduleUrl(input.sourceUrl);
+  if (!validated.ok) return { ok: false, status: 400, error: userSafeError(validated.error) };
 
-  const fetched = await fetchIcsTextWithManualRedirects(validated.url);
-  if (!fetched.ok) return { ok: false, status: 400, error: fetched.error };
+  const fetched = await fetchIcsSchedule(validated.url);
+  if (!fetched.ok) return { ok: false, status: 400, error: userSafeError(fetched.error) };
   if (!String(fetched.finalUrl ?? "").trim()) {
     console.error("[planner][ics-import] unexpected empty finalUrl after fetch");
     return { ok: false, status: 500, error: genericImportFailure() };
