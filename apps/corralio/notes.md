@@ -1,5 +1,20 @@
 # Corralio Notes
 
+## 2026-08-18 — Slice 3 connect schedule → This Weekend (local implementation)
+
+- Added the first product loop: an authenticated household owner can paste an ICS/iCal subscription URL, import normalized events, and see the applicable Friday-through-Sunday events in a mobile-first **This Weekend** view.
+- Kept the architecture boundary explicit:
+  - the shared `packages/lib/sports-schedule` engine owns SSRF-safe fetch, ICS parsing, recurrence expansion, normalization, stable source-event identity, location/field extraction, and note sanitization;
+  - the Corralio adapter owns authentication, owner-household resolution, private source reuse/creation, and translation into Corralio event columns;
+  - the service-role-only database RPC owns atomic imported-event upsert, explicit cancellation deletion, and source sync status.
+- Calendar URLs remain bearer-like secrets. They are accepted only by server actions/RPCs, matched only in trusted service-role code, omitted from ordinary reads, and excluded from application logs, analytics, user-visible errors, and RPC results.
+- The browser receives only RLS-authorized household metadata/events. It applies TI's existing local Friday-through-exclusive-Monday definition to a narrow server-loaded candidate window, avoiding timezone onboarding in this slice.
+- No analytics vendor or new analytics persistence was added because the Corralio app does not yet have an analytics abstraction.
+- Added focused tests for shared-engine ingestion, household-scoped adapter input, repeat-import identity, raw-location preservation, unauthenticated denial, credential-safe errors, and weekend range filtering.
+- Added `20260818_corralio_slice3_ics_persistence.sql`, which is intentionally **not applied automatically**. It must be applied in a controlled production migration before live imports are tested, then checked with `scripts/analysis/corralio_slice3_ingestion_post_migration_verification.sql`.
+- Required Corralio runtime variables are `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. The browser derives the auth callback from the current Corralio origin; that origin must be allowlisted in Supabase Auth. Secrets remain uncommitted.
+- Deferred: refresh scheduling, disconnect UI, imported-event suppression, child/team onboarding and assignment, collaboration, analytics infrastructure, conflict detection, leave-by, routing, TI matching, and canonical venue work.
+
 ## 2026-08-18 — Slice 2 household and schedule data foundation (applied and verified)
 
 - Applied the reviewed Slice 2 migration to the production Supabase project for private, household-owned Corralio data:
