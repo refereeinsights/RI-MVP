@@ -90,6 +90,63 @@ test("resolves an active fee program only for a confirmed tournament venue and t
   assert.equal(result.feeTargetAvailable, true);
 });
 
+test("resolves a tournament-only program only with verified server context", async () => {
+  const activeConfiguration = {
+    tournamentId,
+    programType: "tournament_support" as const,
+    rateCents: 500 as const,
+    status: "active" as const,
+    configurationVersion,
+  };
+  const trusted = await resolveHotelProgramSnapshot(
+    { tournamentId, venueId: null, sourcePageType: "tournament_hotels", tournamentContextTrusted: true },
+    {
+      repository: repository({
+        async findConfiguration() { return { data: activeConfiguration, error: null }; },
+        async hasConfirmedVenueAssociation() { throw new Error("venue lookup must not run"); },
+      }),
+      getFeeTarget: () => "https://www.hotelplanner.com/fee",
+    }
+  );
+  assert.equal(trusted.snapshot.programType, "tournament_support");
+
+  const untrusted = await resolveHotelProgramSnapshot(
+    { tournamentId, venueId: null, sourcePageType: "tournament_hotels" },
+    {
+      repository: repository({ async findConfiguration() { return { data: activeConfiguration, error: null }; } }),
+      getFeeTarget: () => "https://www.hotelplanner.com/fee",
+    }
+  );
+  assert.equal(untrusted.snapshot, STANDARD_HOTEL_PROGRAM_SNAPSHOT);
+  assert.equal(untrusted.fallbackReason, "untrusted_context");
+});
+
+test("tournament support remains eligible through the event and becomes standard after completion", async () => {
+  const dependencies = {
+    repository: repository({
+      async findConfiguration() {
+        return {
+          data: { tournamentId, programType: "tournament_support" as const, rateCents: 500 as const, status: "active" as const, configurationVersion },
+          error: null,
+        };
+      },
+    }),
+    getFeeTarget: () => "https://www.hotelplanner.com/fee",
+  };
+  const during = await resolveHotelProgramSnapshot(
+    { tournamentId, venueId: null, sourcePageType: "tournament_hotels", tournamentContextTrusted: true, tournamentCompleted: false },
+    dependencies
+  );
+  assert.equal(during.snapshot.programType, "tournament_support");
+
+  const after = await resolveHotelProgramSnapshot(
+    { tournamentId, venueId: null, sourcePageType: "tournament_hotels", tournamentContextTrusted: true, tournamentCompleted: true },
+    dependencies
+  );
+  assert.deepEqual(after.snapshot, STANDARD_HOTEL_PROGRAM_SNAPSHOT);
+  assert.equal(after.fallbackReason, "tournament_completed");
+});
+
 test("falls back to standard for unconfirmed context, inactive config, or missing fee target", async () => {
   const configuration = {
     tournamentId,

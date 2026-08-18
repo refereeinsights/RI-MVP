@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getTournamentHotelProgram } from "@/lib/lodging/tournamentHotelProgram";
+import { issueTournamentHotelContext } from "@/lib/lodging/tournamentHotelContext";
 import {
   formatTournamentDateRange,
   initialTournamentHotelDates,
@@ -127,7 +128,15 @@ export default async function TournamentHotelsPage({ params }: { params: { slug:
   const searchableVenues = searchableTournamentHotelVenues(venues);
   const initialVenue = selectInitialTournamentHotelVenue(venues);
   const initialDates = initialTournamentHotelDates({ startDate: tournament.start_date, endDate: tournament.end_date });
-  const program = await getTournamentHotelProgram(tournament.id, initialVenue?.id ?? null);
+  const tournamentContext = issueTournamentHotelContext(tournament.id);
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const tournamentCompleted = Boolean(tournament.end_date && tournament.end_date < todayUtc);
+  const program = await getTournamentHotelProgram(
+    tournament.id,
+    initialVenue?.id ?? null,
+    !initialVenue && Boolean(tournamentContext),
+    tournamentCompleted
+  );
   const location = [tournament.city, tournament.state].filter(Boolean).join(", ");
   const canonicalSlug = tournament.slug ?? params.slug;
 
@@ -167,6 +176,7 @@ export default async function TournamentHotelsPage({ params }: { params: { slug:
           initialVenueId={initialVenue?.id ?? null}
           initialDates={initialDates}
           showTournamentSupportDisclosure={program.showTournamentSupportDisclosure}
+          tournamentContext={tournamentContext}
         />
       </div>
     </main>

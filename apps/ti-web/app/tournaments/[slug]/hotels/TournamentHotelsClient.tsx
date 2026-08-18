@@ -115,6 +115,7 @@ export default function TournamentHotelsClient({
   initialVenueId,
   initialDates,
   showTournamentSupportDisclosure,
+  tournamentContext,
 }: {
   tournament: Tournament;
   venues: TournamentHotelsVenue[];
@@ -122,6 +123,7 @@ export default function TournamentHotelsClient({
   initialVenueId: string | null;
   initialDates: { checkin: string; checkout: string; source: Exclude<TournamentHotelsDateSource, "user_adjusted" | "unavailable"> };
   showTournamentSupportDisclosure: boolean;
+  tournamentContext: string | null;
 }) {
   const [selectedVenueId, setSelectedVenueId] = useState(initialVenueId);
   const [checkin, setCheckin] = useState(initialDates.checkin);
@@ -283,6 +285,9 @@ export default function TournamentHotelsClient({
     url.searchParams.set("page_type", "tournament_hotels");
     url.searchParams.set("cta_placement", placement);
     url.searchParams.set("tournamentId", tournament.id);
+    if (!selectedVenue && tournamentContext) {
+      url.searchParams.set("tournament_context", tournamentContext);
+    }
     url.searchParams.set("tournament_slug", tournament.slug);
     if (selectedVenue) url.searchParams.set("venueId", selectedVenue.id);
     if (sessionIdRef.current) url.searchParams.set("session_id", sessionIdRef.current);

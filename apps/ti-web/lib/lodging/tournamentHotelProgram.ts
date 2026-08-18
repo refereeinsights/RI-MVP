@@ -143,18 +143,26 @@ export async function resolveHotelProgramSnapshot(
     tournamentId: string | null;
     venueId: string | null;
     sourcePageType: HotelPlannerSourcePageType;
+    tournamentContextTrusted?: boolean;
+    tournamentCompleted?: boolean;
   },
   dependencies: {
     repository?: HotelProgramRepository;
     getFeeTarget?: typeof getHotelPlannerFeeTarget;
   } = {}
 ): Promise<ResolvedHotelProgram> {
-  if (!input.tournamentId || !input.venueId || !UUID_RE.test(input.tournamentId) || !UUID_RE.test(input.venueId)) {
+  if (!input.tournamentId || !UUID_RE.test(input.tournamentId)) {
     return standardResolved("untrusted_context");
   }
   const repository = dependencies.repository ?? createSupabaseRepository();
+  const venueContextPresent = Boolean(input.venueId);
+  if (venueContextPresent && !UUID_RE.test(input.venueId!)) return standardResolved("untrusted_context");
+  if (!venueContextPresent && !input.tournamentContextTrusted) return standardResolved("untrusted_context");
+
   const [association, configuration] = await Promise.all([
-    repository.hasConfirmedVenueAssociation(input.tournamentId, input.venueId),
+    venueContextPresent
+      ? repository.hasConfirmedVenueAssociation(input.tournamentId, input.venueId!)
+      : Promise.resolve({ trusted: Boolean(input.tournamentContextTrusted), error: null }),
     repository.findConfiguration(input.tournamentId),
   ]);
   if (association.error || configuration.error) {
@@ -164,12 +172,19 @@ export async function resolveHotelProgramSnapshot(
     tournamentId: input.tournamentId,
     trustedContext: association.trusted,
     configuration: configuration.data,
+    tournamentCompleted: input.tournamentCompleted,
     isFeeConfigurationAvailable: (key) => Boolean((dependencies.getFeeTarget ?? getHotelPlannerFeeTarget)(key)),
   }));
 }
 
 export async function resolveHotelProgramSnapshotSafely(
-  input: { tournamentId: string | null; venueId: string | null; sourcePageType: HotelPlannerSourcePageType },
+  input: {
+    tournamentId: string | null;
+    venueId: string | null;
+    sourcePageType: HotelPlannerSourcePageType;
+    tournamentContextTrusted?: boolean;
+    tournamentCompleted?: boolean;
+  },
   resolver: typeof resolveHotelProgramSnapshot = resolveHotelProgramSnapshot
 ): Promise<ResolvedHotelProgram> {
   try {
@@ -185,8 +200,19 @@ export async function resolveHotelProgramSnapshotSafely(
   }
 }
 
-export async function getTournamentHotelProgram(tournamentId: string, venueId: string | null) {
-  return resolveHotelProgramSnapshotSafely({ tournamentId, venueId, sourcePageType: "tournament_hotels" });
+export async function getTournamentHotelProgram(
+  tournamentId: string,
+  venueId: string | null,
+  tournamentContextTrusted = false,
+  tournamentCompleted = false
+) {
+  return resolveHotelProgramSnapshotSafely({
+    tournamentId,
+    venueId,
+    sourcePageType: "tournament_hotels",
+    tournamentContextTrusted,
+    tournamentCompleted,
+  });
 }
 
 export function getResolvedHotelProgramFeeTarget(program: ResolvedHotelProgram) {

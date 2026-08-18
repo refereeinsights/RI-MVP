@@ -32,6 +32,7 @@ test("uses standard for absent, pending, paused, untrusted, and unavailable conf
   const available = () => true;
   assert.equal(resolveEffectiveHotelProgram({ tournamentId, trustedContext: true, configuration: null, isFeeConfigurationAvailable: available }).programType, "standard");
   assert.equal(resolveEffectiveHotelProgram({ tournamentId, trustedContext: true, configuration: configuration({ status: "pending" }), isFeeConfigurationAvailable: available }).fallbackReason, "pending");
+  assert.equal(resolveEffectiveHotelProgram({ tournamentId, trustedContext: true, configuration: configuration({ programType: "tournament_support" }), tournamentCompleted: true, isFeeConfigurationAvailable: available }).fallbackReason, "tournament_completed");
   assert.equal(resolveEffectiveHotelProgram({ tournamentId, trustedContext: true, configuration: configuration({ status: "paused" }), isFeeConfigurationAvailable: available }).fallbackReason, "paused");
   assert.equal(resolveEffectiveHotelProgram({ tournamentId, trustedContext: false, configuration: configuration(), isFeeConfigurationAvailable: available }).fallbackReason, "untrusted_context");
   assert.equal(resolveEffectiveHotelProgram({ tournamentId, trustedContext: true, configuration: configuration(), isFeeConfigurationAvailable: () => false }).fallbackReason, "missing_fee_configuration");

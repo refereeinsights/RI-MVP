@@ -18,6 +18,7 @@ import {
   resolveHotelProgramSnapshotSafely,
   selectHotelHandoffMode,
 } from "@/lib/lodging/tournamentHotelProgram";
+import { verifyTournamentHotelContext } from "@/lib/lodging/tournamentHotelContext";
 import {
   parseVenueHotelUuid,
   sanitizePageUrl,
@@ -279,6 +280,7 @@ export async function GET(request: Request) {
   const reqUrl = new URL(request.url);
   const venueId = String(reqUrl.searchParams.get("venueId") ?? "").trim();
   const tournamentId = String(reqUrl.searchParams.get("tournamentId") ?? "").trim();
+  const tournamentContext = String(reqUrl.searchParams.get("tournament_context") ?? "").trim();
   const ssOverride = String(reqUrl.searchParams.get("ss") ?? "").trim();
   const checkinRaw = String(reqUrl.searchParams.get("checkin") ?? "").trim();
   const checkoutRaw = String(reqUrl.searchParams.get("checkout") ?? "").trim();
@@ -330,6 +332,7 @@ export async function GET(request: Request) {
     source === "weekend_planner" ||
     source === "tournament_directory" ||
     source === "tournament_detail" ||
+    source === "tournament_hotels" ||
     (sourcePath ?? "").startsWith("/weekend-planner") ||
     (sourcePath ?? "").startsWith("/book-travel");
 
@@ -358,6 +361,9 @@ export async function GET(request: Request) {
     : { data: null as { id: string; name: string | null; city: string | null; state: string | null; zip: string | null; latitude: number | null; longitude: number | null } | null };
 
   const requestedTournamentId = tournamentId && isUuid(tournamentId) ? tournamentId : null;
+  const verifiedTournamentContext = !venueId
+    ? verifyTournamentHotelContext(tournamentContext, requestedTournamentId)
+    : { ok: false as const, reason: "format" as const };
   const { data: tournament } = requestedTournamentId
     ? await supabaseAdmin
         .from("tournaments_public" as any)
@@ -399,10 +405,15 @@ export async function GET(request: Request) {
     hasVenueId: venueIdValid,
   });
   const sourceSurface = sourcePageType;
+  const tournamentCompleted = Boolean(
+    tournament?.end_date && isValidIsoDate(tournament.end_date) && compareIso(tournament.end_date, todayUtcIso()) < 0
+  );
   const hotelProgram = await resolveHotelProgramSnapshotSafely({
     tournamentId: tournament?.id ?? null,
     venueId: venue?.id ?? null,
     sourcePageType,
+    tournamentContextTrusted: verifiedTournamentContext.ok,
+    tournamentCompleted,
   });
   const hotelProgramSnapshot = hotelProgram.snapshot;
   const hasCityState = Boolean(String(venue?.city ?? "").trim() && String(venue?.state ?? "").trim());

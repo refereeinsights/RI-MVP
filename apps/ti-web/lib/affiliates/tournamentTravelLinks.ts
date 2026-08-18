@@ -1,3 +1,5 @@
+import { issueTournamentHotelContext } from "@/lib/lodging/tournamentHotelContext";
+
 function cleanCityState(args: { city: string | null; state: string | null }) {
   const city = String(args.city ?? "").trim();
   const state = String(args.state ?? "").trim().toUpperCase();
@@ -20,6 +22,8 @@ export function buildTournamentHotelsHref(args: {
     source: args.source,
     tournamentId: args.tournamentId,
   });
+  const tournamentContext = issueTournamentHotelContext(args.tournamentId);
+  if (tournamentContext) qp.set("tournament_context", tournamentContext);
   if (ss) qp.set("ss", ss);
   return `/go/hotels?${qp.toString()}`;
 }
@@ -40,4 +44,3 @@ export function buildTournamentVrboHref(args: {
   if (destination) qp.set("destination", destination);
   return `/go/vrbo?${qp.toString()}`;
 }
-

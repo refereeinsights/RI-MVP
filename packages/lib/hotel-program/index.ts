@@ -30,6 +30,7 @@ export type HotelProgramFallbackReason =
   | "not_enrolled"
   | "pending"
   | "paused"
+  | "tournament_completed"
   | "untrusted_context"
   | "invalid_configuration"
   | "missing_fee_configuration"
@@ -132,6 +133,7 @@ export function resolveEffectiveHotelProgram(input: {
   tournamentId: string | null;
   trustedContext: boolean;
   configuration: StoredTournamentHotelProgram | null;
+  tournamentCompleted?: boolean;
   isFeeConfigurationAvailable: (key: HotelPlannerFeeConfigurationKey) => boolean;
 }): EffectiveHotelProgram {
   if (!input.configuration) return STANDARD_EFFECTIVE_HOTEL_PROGRAM;
@@ -143,6 +145,9 @@ export function resolveEffectiveHotelProgram(input: {
   if (!input.trustedContext) return standardFallback(configuration.status, "untrusted_context", identity);
   if (configuration.status === "pending") return standardFallback("pending", "pending", identity);
   if (configuration.status === "paused") return standardFallback("paused", "paused", identity);
+  if (configuration.programType === "tournament_support" && input.tournamentCompleted) {
+    return standardFallback("active", "tournament_completed", identity);
+  }
   if (!input.isFeeConfigurationAvailable(identity)) {
     return standardFallback("active", "missing_fee_configuration", identity);
   }
@@ -169,6 +174,7 @@ export function formatEffectiveHotelRouting(program: EffectiveHotelProgram, tour
     if (program.fallbackReason === "missing_fee_configuration") return "Missing fee configuration → Standard / no fee";
     if (program.fallbackReason === "invalid_configuration") return "Invalid configuration → Standard / no fee";
     if (program.fallbackReason === "untrusted_context") return "Untrusted context → Standard / no fee";
+    if (program.fallbackReason === "tournament_completed") return "Tournament completed → Standard / no fee";
     return "Standard / no fee";
   }
   const rate = `$${program.rateCents / 100}`;
