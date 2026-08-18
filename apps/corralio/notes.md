@@ -1,5 +1,15 @@
 # Corralio Notes
 
+## 2026-08-18 — Slice 3.1 secure schedule connections (local implementation)
+
+- Added optional source-level sport metadata on `corralio_schedule_sources`; sport remains outside the shared schedule engine and imported event rows derive it through `schedule_source_id` rather than duplicating it.
+- The connect form now strongly prompts with a native sport selector and clears all submitted fields after success, so the bearer-like ICS URL no longer remains visible. Connected-source cards show only safe name, sport, and status metadata and permit later sport editing.
+- Calendar-link replacement uses a fresh empty URL input. The trusted server fetches and normalizes the candidate first, then a service-role-only database function atomically replaces the secret URL and delegates event upsert/explicit-cancellation behavior to `corralio_persist_ics_ingestion_v1`. Failed validation or persistence leaves the previous URL, source state, and existing events intact. The legacy authenticated direct-replacement grant is removed by the migration.
+- For this pilot, initial and replacement feeds must currently produce at least one usable event. Existing events absent from a later feed are not deleted; only explicit cancellation identities use the existing deletion behavior. Stale-event lifecycle remains deferred.
+- Weekend event cards resolve the source sport for a compact icon. Authorized location text opens a small user-initiated chooser for Apple Maps, Google Maps, Waze, or copying the address. Corralio performs no geocoding, coordinate lookup, routing, traffic calculation, installed-app detection, or preferred-map persistence.
+- Added unapplied migration `20260818_corralio_slice31_secure_schedule_connections.sql` and rollback-only verification `scripts/analysis/corralio_slice31_secure_schedule_connections_verification.sql`. Production application and verification remain manual.
+- Automatic ICS refresh is not part of Slice 3.1. A future Slice 3.2 should add a bounded protected scheduled server job, overlap control, per-source failure isolation, and reuse of the same SSRF-safe fetch and canonical persistence boundaries. Until then, imports occur at connection or explicit link replacement.
+
 ## 2026-08-18 — Shared Supabase auth-email branding contract (local implementation)
 
 - Corralio's single `signInWithOtp` flow now supplies `/auth/confirm?brand=corralio`, allowing the shared Supabase Confirm Signup and Magic Link templates to identify Corralio by exact callback equality without trusting branding data for authorization.

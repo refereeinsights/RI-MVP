@@ -21,7 +21,7 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: wait; opacity: .7; }
 
@@ -44,10 +44,12 @@ button:disabled { cursor: wait; opacity: .7; }
 .stackForm { display: grid; gap: 10px; }
 .stackForm label { margin-top: 4px; font-size: .86rem; font-weight: 750; }
 .stackForm label span { color: var(--corralio-muted); font-weight: 500; }
-.stackForm input { width: 100%; min-height: 48px; padding: 11px 13px; border: 1px solid #bdc7cd; border-radius: 12px; background: #fff; color: var(--corralio-ink); }
-.stackForm input:focus { border-color: var(--corralio-teal); outline: 3px solid rgba(15,118,110,.14); }
+.stackForm input, .stackForm select, .inlineSourceForm input, .inlineSourceForm select { width: 100%; min-height: 48px; padding: 11px 13px; border: 1px solid #bdc7cd; border-radius: 12px; background: #fff; color: var(--corralio-ink); }
+.stackForm input:focus, .stackForm select:focus, .inlineSourceForm input:focus, .inlineSourceForm select:focus { border-color: var(--corralio-teal); outline: 3px solid rgba(15,118,110,.14); }
 .primaryButton { min-height: 48px; margin-top: 6px; padding: 11px 16px; border: 0; border-radius: 12px; background: var(--corralio-teal); color: #fff; font-weight: 800; }
 .primaryButton:hover { background: var(--corralio-teal-dark); }
+.secondaryButton { min-height: 44px; padding: 9px 12px; border: 1px solid #b9c7ca; border-radius: 11px; background: #fff; color: var(--corralio-teal-dark); font-size: .82rem; font-weight: 750; }
+.secondaryButton:hover { border-color: var(--corralio-teal); background: #f5fbfa; }
 .fieldHelp { margin: -2px 0 2px; color: var(--corralio-muted); font-size: .78rem; line-height: 1.45; }
 .formNotice { margin: 4px 0 0; padding: 10px 12px; border-radius: 10px; font-size: .86rem; line-height: 1.45; }
 .formNotice.success { background: var(--corralio-teal-soft); color: var(--corralio-teal-dark); }
@@ -71,20 +73,43 @@ button:disabled { cursor: wait; opacity: .7; }
 .eventCard time { display: flex; flex-direction: column; gap: 4px; color: var(--corralio-teal-dark); font-size: .78rem; line-height: 1.3; }
 .eventCard time span { color: var(--corralio-muted); }
 .eventBody h3, .emptyState h3 { margin: 0; font-size: 1rem; line-height: 1.3; }
+.eventTitleRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sportIcon { flex: 0 0 auto; display: inline-grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: var(--corralio-teal-soft); font-size: 1.05rem; }
 .eventLabel { margin: 5px 0 0; color: var(--corralio-coral); font-size: .8rem; font-weight: 750; }
-.eventLocation { margin: 7px 0 0; color: var(--corralio-muted); font-size: .82rem; line-height: 1.4; overflow-wrap: anywhere; }
+.eventLocation { display: block; margin: 7px 0 0; padding: 0; border: 0; background: transparent; color: var(--corralio-teal-dark); font-size: .82rem; line-height: 1.4; text-align: left; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.eventLocation:hover { color: var(--corralio-teal); }
 .emptyState { padding: 20px; border-radius: 16px; background: #f4f7f6; text-align: center; }
 .emptyState p { margin: 8px auto 0; max-width: 440px; color: var(--corralio-muted); font-size: .9rem; line-height: 1.5; }
 .weekendLoading { padding: 28px; color: var(--corralio-muted); text-align: center; }
 .connectCard { margin-top: 18px; }
 .sourceList { list-style: none; margin: 26px 0 0; padding: 18px 0 0; border-top: 1px solid var(--corralio-border); display: grid; gap: 10px; }
-.sourceList li { display: flex; justify-content: space-between; gap: 12px; font-size: .86rem; }
+.sourceCard { display: grid; gap: 14px; padding: 15px; border: 1px solid var(--corralio-border); border-radius: 15px; background: #fbfcfc; font-size: .86rem; }
+.sourceSummary { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sourceSummary > div { min-width: 0; display: grid; gap: 5px; }
+.sourceSummary strong { overflow-wrap: anywhere; }
+.sourceSport { color: var(--corralio-muted); font-size: .8rem; }
+.sourceActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.inlineSourceForm { display: grid; gap: 9px; padding-top: 13px; border-top: 1px solid var(--corralio-border); }
+.inlineSourceForm label { font-size: .82rem; font-weight: 750; }
 .status { color: var(--corralio-muted); text-transform: capitalize; }
 .status.success { color: var(--corralio-teal-dark); font-weight: 750; }
+.status.error { color: var(--corralio-error); font-weight: 750; }
+
+.navigationDialog { width: min(calc(100% - 24px), 440px); margin: auto auto 12px; padding: 0; border: 0; border-radius: 20px; background: #fff; color: var(--corralio-ink); box-shadow: 0 22px 65px rgba(17,26,46,.25); }
+.navigationDialog::backdrop { background: rgba(17,26,46,.48); }
+.navigationSheet { padding: 22px; }
+.navigationSheet h3 { margin: 0; font-size: 1.2rem; }
+.navigationSheet > div:first-child > p:last-child { margin: 8px 0 18px; color: var(--corralio-muted); font-size: .84rem; line-height: 1.45; overflow-wrap: anywhere; }
+.navigationChoices { display: grid; gap: 9px; }
+.navigationChoices a, .navigationChoices button { display: grid; min-height: 48px; place-items: center; padding: 11px 14px; border: 1px solid #b9c7ca; border-radius: 12px; background: #fff; color: var(--corralio-teal-dark); font-weight: 750; text-decoration: none; }
+.navigationChoices a:hover, .navigationChoices button:hover { border-color: var(--corralio-teal); background: #f5fbfa; }
 
 @media (max-width: 520px) {
   .landingCard, .contentCard { border-radius: 18px; }
   .eventCard { grid-template-columns: 1fr; gap: 9px; }
   .eventCard time { flex-direction: row; justify-content: space-between; }
+  .sourceSummary { align-items: flex-start; }
+  .sourceActions { display: grid; grid-template-columns: 1fr; }
+  .navigationDialog { margin-bottom: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior: auto !important; } }

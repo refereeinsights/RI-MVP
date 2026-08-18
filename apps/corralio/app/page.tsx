@@ -1,13 +1,15 @@
 import { signOut } from "@/app/actions";
 import { ConnectScheduleForm } from "@/app/components/ConnectScheduleForm";
+import { ConnectedScheduleList, type ConnectedSchedule } from "@/app/components/ConnectedScheduleList";
 import { SignInForm } from "@/app/components/SignInForm";
 import { ThisWeekend, type WeekendEvent } from "@/app/components/ThisWeekend";
 import { createCorralioSupabaseServerClient } from "@/lib/supabase/server";
+import { parseCorralioSport } from "@/lib/schedules/sport";
 import { getWeekendCandidateWindow } from "@/lib/weekend";
 
 export const dynamic = "force-dynamic";
 
-type SourceRow = { id: string; display_name: string; sync_status: string; last_synced_at: string | null };
+type SourceRow = { id: string; display_name: string; sport: string | null; sync_status: string; last_synced_at: string | null };
 type NamedRow = { id: string; display_name: string };
 type EventRow = {
   id: string;
@@ -81,7 +83,7 @@ export default async function HomePage() {
     const [sourceResult, eventResult, childResult, teamResult] = await Promise.all([
       supabase
         .from("corralio_schedule_sources")
-        .select("id,display_name,sync_status,last_synced_at")
+        .select("id,display_name,sport,sync_status,last_synced_at")
         .eq("household_id", householdId)
         .neq("sync_status", "disconnected")
         .order("created_at", { ascending: true }),
@@ -103,6 +105,7 @@ export default async function HomePage() {
   }
 
   const sourceLabels = new Map(sources.map((source) => [source.id, source.display_name]));
+  const sourceSports = new Map(sources.map((source) => [source.id, parseCorralioSport(source.sport)]));
   const childLabels = new Map(children.map((child) => [child.id, child.display_name]));
   const teamLabels = new Map(teams.map((team) => [team.id, team.display_name]));
   const weekendEvents: WeekendEvent[] = events.map((event) => ({
@@ -114,12 +117,22 @@ export default async function HomePage() {
     location: event.source_location_text ?? event.display_location_text,
     fieldLabel: event.source_location_text ? null : event.field_label,
     sourceLabel: event.schedule_source_id ? sourceLabels.get(event.schedule_source_id) ?? null : null,
+    sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null,
     assignmentLabel: event.child_id
       ? childLabels.get(event.child_id) ?? null
       : event.team_id
         ? teamLabels.get(event.team_id) ?? null
         : null,
   }));
+  const connectedSources: ConnectedSchedule[] = sources.flatMap((source) => {
+    if (source.sync_status !== "pending" && source.sync_status !== "success" && source.sync_status !== "error") return [];
+    return [{
+      id: source.id,
+      displayName: source.display_name,
+      sport: parseCorralioSport(source.sport),
+      syncStatus: source.sync_status,
+    }];
+  });
 
   return (
     <main className="appShell">
@@ -152,13 +165,7 @@ export default async function HomePage() {
           <h2 id="connect-heading">Connect a schedule</h2>
           <p className="sectionIntro">Your private calendar URL stays on the server and is never shown in the app after you connect it.</p>
           <ConnectScheduleForm />
-          {sources.length ? (
-            <ul className="sourceList" aria-label="Connected schedules">
-              {sources.map((source) => (
-                <li key={source.id}><span>{source.display_name}</span><span className={`status ${source.sync_status}`}>{source.sync_status === "success" ? "Connected" : source.sync_status}</span></li>
-              ))}
-            </ul>
-          ) : null}
+          {connectedSources.length ? <ConnectedScheduleList sources={connectedSources} /> : null}
         </section>
       </div>
     </main>

@@ -4,6 +4,7 @@ import {
   fetchIcsSchedule,
   type ScheduleFetchError,
 } from "../../../../packages/lib/sports-schedule/server";
+import type { CorralioSport } from "./sport";
 
 export type CorralioOwnerContext = { userId: string; householdId: string };
 
@@ -26,10 +27,19 @@ export type CorralioScheduleStore = {
     householdId: string;
     displayName: string;
     sourceUrl: string;
+    sport: CorralioSport | null;
   }): Promise<string>;
+  updateSourceSport(sourceId: string, sport: CorralioSport | null): Promise<void>;
   persistIngestion(input: {
     householdId: string;
     sourceId: string;
+    events: PersistedScheduleEvent[];
+    canceledSourceEventUids: string[];
+  }): Promise<void>;
+  replaceSourceAndPersist(input: {
+    householdId: string;
+    sourceId: string;
+    sourceUrl: string;
     events: PersistedScheduleEvent[];
     canceledSourceEventUids: string[];
   }): Promise<void>;
@@ -81,7 +91,7 @@ export function toPersistedScheduleEvent(event: NormalizedScheduleEvent): Persis
 
 export async function ingestCorralioSchedule(
   store: CorralioScheduleStore,
-  input: { sourceUrl: string; displayName?: string | null },
+  input: { sourceUrl: string; displayName?: string | null; sport?: CorralioSport | null },
   dependencies: IngestionDependencies = {},
 ): Promise<CorralioScheduleIngestionResult> {
   const owner = await store.resolveOwnerContext();
@@ -106,7 +116,10 @@ export async function ingestCorralioSchedule(
         householdId: owner.householdId,
         displayName,
         sourceUrl,
+        sport: input.sport ?? null,
       });
+    } else if (input.sport) {
+      await store.updateSourceSport(sourceId, input.sport);
     }
     await store.persistIngestion({
       householdId: owner.householdId,
@@ -117,6 +130,40 @@ export async function ingestCorralioSchedule(
     return { ok: true, sourceId, imported: normalized.events.length };
   } catch {
     if (sourceId) await store.markSourceError(sourceId, owner.householdId).catch(() => undefined);
+    return { ok: false, error: userSafeError("persistence") };
+  }
+}
+
+export async function replaceCorralioSchedule(
+  store: CorralioScheduleStore,
+  input: { sourceId: string; sourceUrl: string },
+  dependencies: IngestionDependencies = {},
+): Promise<CorralioScheduleIngestionResult> {
+  const owner = await store.resolveOwnerContext();
+  if (!owner) return { ok: false, error: userSafeError("unauthorized") };
+
+  const sourceUrl = normalizeSubmittedScheduleUrl(input.sourceUrl);
+  const fetchSchedule = dependencies.fetchSchedule ?? fetchIcsSchedule;
+  const fetched = await fetchSchedule(sourceUrl);
+  if (!fetched.ok) return { ok: false, error: userSafeError(fetched.error) };
+
+  const normalizeSchedule = dependencies.normalizeSchedule ?? normalizeIcsSchedule;
+  const normalized = normalizeSchedule({ icsText: fetched.text, sourceUrl: fetched.finalUrl });
+  if (normalized.errors.length) return { ok: false, error: userSafeError("not_ics") };
+  // Intentional pilot constraint: do not replace a working connection unless
+  // the submitted feed currently proves it contains usable events.
+  if (!normalized.events.length) return { ok: false, error: userSafeError("no_events") };
+
+  try {
+    await store.replaceSourceAndPersist({
+      householdId: owner.householdId,
+      sourceId: input.sourceId,
+      sourceUrl,
+      events: normalized.events.map(toPersistedScheduleEvent),
+      canceledSourceEventUids: normalized.canceledSourceEventUids,
+    });
+    return { ok: true, sourceId: input.sourceId, imported: normalized.events.length };
+  } catch {
     return { ok: false, error: userSafeError("persistence") };
   }
 }

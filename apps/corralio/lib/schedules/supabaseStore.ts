@@ -48,15 +48,24 @@ export function createSupabaseScheduleStore(
     },
 
     async createSource(input) {
-      const { data, error } = await authenticatedClient.rpc("corralio_create_schedule_source", {
+      const { data, error } = await authenticatedClient.rpc("corralio_create_schedule_source_v2", {
         p_household_id: input.householdId,
         p_display_name: input.displayName,
         p_source_url: input.sourceUrl,
+        p_sport: input.sport,
         p_child_id: null,
         p_team_id: null,
       });
       if (error || typeof data !== "string") databaseFailure("create_source", error);
       return data as string;
+    },
+
+    async updateSourceSport(sourceId, sport) {
+      const { error } = await authenticatedClient.rpc("corralio_update_schedule_source_sport_v1", {
+        p_source_id: sourceId,
+        p_sport: sport,
+      });
+      if (error) databaseFailure("update_source_sport", error);
     },
 
     async persistIngestion(input) {
@@ -67,6 +76,17 @@ export function createSupabaseScheduleStore(
         p_canceled_source_event_uids: input.canceledSourceEventUids,
       });
       if (error) databaseFailure("persist_events", error);
+    },
+
+    async replaceSourceAndPersist(input) {
+      const { error } = await adminClient.rpc("corralio_replace_schedule_source_and_persist_ics_v1", {
+        p_household_id: input.householdId,
+        p_source_id: input.sourceId,
+        p_source_url: input.sourceUrl,
+        p_events: input.events,
+        p_canceled_source_event_uids: input.canceledSourceEventUids,
+      });
+      if (error) databaseFailure("replace_source", error);
     },
 
     async markSourceError(sourceId, householdId) {
