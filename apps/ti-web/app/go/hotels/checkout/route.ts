@@ -23,6 +23,11 @@ import {
   sanitizeText,
   resolveDeviceTypeFromUserAgent,
 } from "@/lib/venueHotelFunnel";
+import {
+  isKnownAutomatedHotelUserAgent,
+  normalizeHotelDistributionSource,
+  resolveHotelTrafficSource,
+} from "@/lib/hotelMeasurement";
 
 export const runtime = "nodejs";
 
@@ -77,6 +82,8 @@ function buildFallbackPath(args: {
   checkInMmdd: string | null;
   checkOutMmdd: string | null;
   source: string | null;
+  sessionId: string | null;
+  distributionSource: string | null;
 }) {
   if (!args.venueId || !isUuid(args.venueId)) return "/";
   const href = buildHotelsHref({
@@ -90,6 +97,8 @@ function buildFallbackPath(args: {
   const checkoutIso = parseMmDdYyyyToIso(args.checkOutMmdd);
   if (checkinIso) url.searchParams.set("checkin", checkinIso);
   if (checkoutIso) url.searchParams.set("checkout", checkoutIso);
+  if (args.sessionId) url.searchParams.set("session_id", args.sessionId);
+  if (args.distributionSource) url.searchParams.set("distribution_source", args.distributionSource);
   return `${url.pathname}${url.search}`;
 }
 
@@ -151,7 +160,14 @@ export async function POST(request: Request) {
   });
   const ctaPlacement = sanitizeText(pickFormOrQuery(formData, reqUrl, "cta_placement"), 64);
   const plannerSessionId = parseVenueHotelUuid(pickFormOrQuery(formData, reqUrl, "planner_session_id"));
-  const trafficSource = sanitizeText(pickFormOrQuery(formData, reqUrl, "traffic_source"), 64);
+  const sessionId = parseVenueHotelUuid(pickFormOrQuery(formData, reqUrl, "session_id"));
+  const distributionSource = normalizeHotelDistributionSource(
+    pickFormOrQuery(formData, reqUrl, "distribution_source")
+  );
+  const trafficSource = resolveHotelTrafficSource({
+    distributionSource,
+    existingTrafficSource: sanitizeText(pickFormOrQuery(formData, reqUrl, "traffic_source"), 64),
+  });
   const pageType = sanitizeText(pickFormOrQuery(formData, reqUrl, "page_type"), 32);
   const pageUrl = sanitizePageUrl(pickFormOrQuery(formData, reqUrl, "page_url"));
 
@@ -211,6 +227,8 @@ export async function POST(request: Request) {
     checkInMmdd: checkIn,
     checkOutMmdd: checkOut,
     source,
+    sessionId,
+    distributionSource,
   });
   const fallbackUrl = new URL(fallbackPath, request.url).toString();
 
@@ -229,7 +247,7 @@ export async function POST(request: Request) {
   const feeActionUrl = feeBaseUrl ? `${feeBaseUrl}/Accept/CheckOut.htm` : "";
   const intendedTarget = hotelProgramSnapshot.programType === "standard" ? actionUrl : feeActionUrl;
   let persistenceSucceeded = false;
-  if (!isLocalHost(host)) {
+  if (!isLocalHost(host) && !isKnownAutomatedHotelUserAgent(userAgent)) {
     const persistenceResult = await persistHotelOutboundWithSnapshot({
       snapshot: hotelProgramSnapshot,
       row: {
@@ -250,6 +268,7 @@ export async function POST(request: Request) {
         outbound_request_id: rawRequestId,
         outbound_attribution_id: outboundAttributionId,
         cta_placement: ctaPlacement,
+        session_id: sessionId,
         traffic_source: trafficSource,
         device_type: deviceType,
         page_url: pageUrl,

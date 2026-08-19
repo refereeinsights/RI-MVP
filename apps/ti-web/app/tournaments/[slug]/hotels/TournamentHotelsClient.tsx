@@ -11,6 +11,12 @@ import {
   sanitizeHotelPlannerSpreadsheetContext,
 } from "@/lib/hotelPlannerAttribution";
 import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
+import {
+  appendHotelMeasurementParams,
+  readOrRememberHotelDistributionSource,
+  resolveHotelTrafficSource,
+  type HotelDistributionSource,
+} from "@/lib/hotelMeasurement";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import {
   mmDdYyyyToIso,
@@ -138,6 +144,7 @@ export default function TournamentHotelsClient({
   const requestGenerationRef = useRef(0);
   const pageViewedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
+  const distributionSourceRef = useRef<HotelDistributionSource | null>(null);
 
   const selectedVenue = useMemo(
     () => searchableVenues.find((venue) => venue.id === selectedVenueId) ?? null,
@@ -150,6 +157,7 @@ export default function TournamentHotelsClient({
 
   useEffect(() => {
     sessionIdRef.current = readOrCreateLodgingSessionId();
+    distributionSourceRef.current = readOrRememberHotelDistributionSource();
     if (pageViewedRef.current) return;
     pageViewedRef.current = true;
     void trackTiEvent("tournament_hotels_page_viewed", {
@@ -161,6 +169,8 @@ export default function TournamentHotelsClient({
       has_valid_venues: searchableVenues.length > 0,
       initial_date_source: initialDates.source,
       page_type: "tournament_hotels",
+      session_id: sessionIdRef.current,
+      distribution_source: distributionSourceRef.current,
     });
   }, [initialDates.source, searchableVenues.length, tournament, venues.length]);
 
@@ -205,6 +215,9 @@ export default function TournamentHotelsClient({
             page_type: "tournament_hotels",
             page_url: window.location.pathname,
             session_id: sessionIdRef.current,
+            traffic_source: resolveHotelTrafficSource({
+              distributionSource: distributionSourceRef.current,
+            }),
             cta_placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.tournamentHotelsViewAll,
             sc: attribution.sc,
             keyword: attribution.keyword,
@@ -290,7 +303,12 @@ export default function TournamentHotelsClient({
     }
     url.searchParams.set("tournament_slug", tournament.slug);
     if (selectedVenue) url.searchParams.set("venueId", selectedVenue.id);
-    if (sessionIdRef.current) url.searchParams.set("session_id", sessionIdRef.current);
+    appendHotelMeasurementParams(url, {
+      sessionId: sessionIdRef.current,
+      distributionSource: distributionSourceRef.current,
+    });
+    const trafficSource = resolveHotelTrafficSource({ distributionSource: distributionSourceRef.current });
+    if (trafficSource) url.searchParams.set("traffic_source", trafficSource);
     if (searchSessionId) url.searchParams.set("lodging_search_id", searchSessionId);
     url.searchParams.set("outbound_request_id", outboundRequestId);
     url.searchParams.set("outbound_attribution_id", outboundAttributionId);
@@ -314,6 +332,8 @@ export default function TournamentHotelsClient({
       property_id: hotel.propertyId,
       date_source: dateSource,
       source_page_type: "tournament_hotels",
+      session_id: sessionIdRef.current,
+      distribution_source: distributionSourceRef.current,
     });
   }
 
@@ -332,7 +352,8 @@ export default function TournamentHotelsClient({
       source_page_type: "tournament_hotels",
       page_url: window.location.pathname,
       device_type: window.innerWidth < 768 ? "mobile" : "desktop",
-      traffic_source: null,
+      traffic_source: resolveHotelTrafficSource({ distributionSource: distributionSourceRef.current }),
+      distribution_source: distributionSourceRef.current,
       venue_id: selectedVenue?.id ?? null,
       tournament_id: tournament.id,
       tournament_slug: tournament.slug,
@@ -506,6 +527,8 @@ export default function TournamentHotelsClient({
             current_page_path: window.location.pathname,
             date_source: dateSource,
             sport: tournament.sport,
+            session_id: sessionIdRef.current,
+            distribution_source: distributionSourceRef.current,
           });
         }}
       >

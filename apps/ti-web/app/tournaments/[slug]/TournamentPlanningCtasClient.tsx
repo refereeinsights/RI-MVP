@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
+import { readOrRememberHotelDistributionSource } from "@/lib/hotelMeasurement";
 import { buildTeamHotelBookingHref } from "@/lib/teamHotelBooking";
 import { createTeamHotelCtaInteractionId, rememberPendingTeamHotelEntry, rememberLastTeamHotelCtaInteractionId } from "@/lib/teamHotelClientTracking";
 import { evaluateTournamentTeamTravelEligibility } from "@/lib/teamTravelEligibility";
@@ -186,6 +188,10 @@ export default function TournamentPlanningCtasClient(props: {
               cta_type: "hotels",
               cta_location: "stay_close",
               context_type: "tournament",
+              tournament_id: props.tournamentId,
+              tournament_slug: slug,
+              session_id: readOrCreateLodgingSessionId(),
+              distribution_source: readOrRememberHotelDistributionSource(),
             });
           }}
         >

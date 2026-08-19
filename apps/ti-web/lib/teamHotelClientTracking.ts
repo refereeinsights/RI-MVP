@@ -4,9 +4,10 @@ import {
   deriveTeamHotelAcquisitionContext,
   type TeamHotelAcquisitionContext,
 } from "./teamHotelAcquisition";
+import { readOrCreateLodgingSessionId } from "./lodgingSession";
+import { readOrRememberHotelDistributionSource, resolveHotelTrafficSource } from "./hotelMeasurement";
 
 const ANONYMOUS_VISITOR_KEY = "ti_anonymous_visitor_id";
-const TEAM_HOTEL_SESSION_KEY = "ti_team_hotel_session_id";
 const LAST_CTA_INTERACTION_KEY = "ti_team_hotel_last_cta_interaction_id";
 const LANDING_VIEW_PREFIX = "ti_team_hotel_landing_viewed:";
 const PENDING_ENTRY_KEY = "ti_team_hotel_pending_entry";
@@ -58,7 +59,7 @@ export function getAnonymousVisitorId() {
 }
 
 export function getTeamHotelSessionId() {
-  return getOrCreateStorageId("session", TEAM_HOTEL_SESSION_KEY);
+  return readOrCreateLodgingSessionId();
 }
 
 export function getTeamHotelAcquisitionContext(): TeamHotelAcquisitionContext | null {
@@ -68,17 +69,32 @@ export function getTeamHotelAcquisitionContext(): TeamHotelAcquisitionContext | 
   if (existing) {
     try {
       const parsed = JSON.parse(existing) as TeamHotelAcquisitionContext;
-      if (typeof parsed.trafficSource === "string") return parsed;
+      if (typeof parsed.trafficSource === "string") {
+        return {
+          ...parsed,
+          trafficSource: resolveHotelTrafficSource({
+            distributionSource: readOrRememberHotelDistributionSource(),
+            existingTrafficSource: parsed.trafficSource,
+          }) ?? parsed.trafficSource,
+        };
+      }
     } catch {
       // Replace malformed session data with a freshly derived context.
     }
   }
 
-  const context = deriveTeamHotelAcquisitionContext({
+  const derived = deriveTeamHotelAcquisitionContext({
     pageUrl: window.location.href,
     referrer: document.referrer,
     siteOrigin: window.location.origin,
   });
+  const context = {
+    ...derived,
+    trafficSource: resolveHotelTrafficSource({
+      distributionSource: readOrRememberHotelDistributionSource(),
+      existingTrafficSource: derived.trafficSource,
+    }) ?? derived.trafficSource,
+  };
   try {
     storage?.setItem(ACQUISITION_CONTEXT_KEY, JSON.stringify(context));
   } catch {

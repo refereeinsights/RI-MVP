@@ -1,6 +1,8 @@
 "use client";
 
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
+import { readOrRememberHotelDistributionSource } from "@/lib/hotelMeasurement";
 
 type Props = {
   href: string;
@@ -24,6 +26,8 @@ export default function TournamentDetailHotelCtaClient({ href, label, minWidth }
           cta_type: "hotels",
           cta_location: "stay_close",
           context_type: "tournament",
+          session_id: readOrCreateLodgingSessionId(),
+          distribution_source: readOrRememberHotelDistributionSource(),
         });
       }}
     >

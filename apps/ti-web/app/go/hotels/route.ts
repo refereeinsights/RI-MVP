@@ -25,6 +25,11 @@ import {
   sanitizeText,
   resolveDeviceTypeFromUserAgent,
 } from "@/lib/venueHotelFunnel";
+import {
+  isKnownAutomatedHotelUserAgent,
+  normalizeHotelDistributionSource,
+  resolveHotelTrafficSource,
+} from "@/lib/hotelMeasurement";
 
 export const runtime = "nodejs";
 
@@ -41,12 +46,6 @@ function isLocalHost(host: string | null) {
 function isLocalDevelopment(host: string | null) {
   if (isLocalHost(host)) return true;
   return process.env.NODE_ENV !== "production";
-}
-
-function looksLikeBot(userAgent: string | null) {
-  const ua = String(userAgent ?? "").toLowerCase();
-  if (!ua) return false;
-  return /(bot|spider|crawler|facebookexternalhit|slackbot|discordbot|whatsapp|telegrambot|preview)/i.test(ua);
 }
 
 function sourcePathFromReferer(referer: string | null) {
@@ -316,7 +315,11 @@ export async function GET(request: Request) {
   const flowType = sanitizeText(pickTrackingParam(reqUrl, "flow_type"), 32);
   const pageType = sanitizeText(pickTrackingParam(reqUrl, "page_type"), 32);
   const pageUrl = sanitizePageUrl(pickTrackingParam(reqUrl, "page_url"));
-  const trafficSource = sanitizeText(pickTrackingParam(reqUrl, "traffic_source"), 64);
+  const distributionSource = normalizeHotelDistributionSource(pickTrackingParam(reqUrl, "distribution_source"));
+  const trafficSource = resolveHotelTrafficSource({
+    distributionSource,
+    existingTrafficSource: sanitizeText(pickTrackingParam(reqUrl, "traffic_source"), 64),
+  });
   const outboundAttributionId = pickOutboundAttributionId(reqUrl);
   const deviceType =
     sanitizeText(pickTrackingParam(reqUrl, "device_type"), 32) ?? resolveDeviceTypeFromUserAgent(userAgent);
@@ -656,7 +659,7 @@ export async function GET(request: Request) {
   }
 
   const local = isLocalHost(host);
-  const bot = looksLikeBot(userAgent);
+  const bot = isKnownAutomatedHotelUserAgent(userAgent);
   const intendedTarget = hotelProgramSnapshot.programType === "standard" ? hotelPlannerTarget : feeHotelPlannerTarget;
   const targetUrl = intendedTarget;
 

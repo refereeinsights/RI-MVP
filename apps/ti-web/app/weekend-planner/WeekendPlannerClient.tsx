@@ -8,6 +8,11 @@ import {
   createOutboundAttributionId,
   HOTEL_PLANNER_BOOKING_PLACEMENTS,
 } from "@/lib/hotelPlannerAttribution";
+import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
+import {
+  readOrRememberHotelDistributionSource,
+  resolveHotelTrafficSource,
+} from "@/lib/hotelMeasurement";
 import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import { markPlannerSessionEventSeen, type PlannerSessionContext, wasPlannerSessionEventSeen } from "@/lib/planner/plannerSession";
 import styles from "./WeekendPlanner.module.css";
@@ -408,6 +413,9 @@ export default function WeekendPlannerClient(props: {
       custom1: `src:${sourcePageType}`,
       custom2: destination.trim() || sourcePageType,
     });
+    const sessionId = readOrCreateLodgingSessionId();
+    const distributionSource = readOrRememberHotelDistributionSource();
+    const trafficSource = resolveHotelTrafficSource({ distributionSource });
     qp.set("ss", destination.trim());
     qp.set("source", sourcePageType);
     const checkinIso = mmDdYyyyToIso(hotelResolvedCheckIn) ?? isoFromUserDate(checkinText);
@@ -431,18 +439,9 @@ export default function WeekendPlannerClient(props: {
     if (attribution.custom5) qp.set("custom5", attribution.custom5);
     if (attribution.custom6) qp.set("custom6", attribution.custom6);
     if (attribution.custom7) qp.set("custom7", attribution.custom7);
-    // Propagate the shared hotel session id so the /go/hotels DB row carries a non-null session_id.
-    if (typeof window !== "undefined") {
-      try {
-        const SESSION_KEY = "ti_venue_hotel_session_id";
-        let sid = window.sessionStorage.getItem(SESSION_KEY);
-        if (!sid) {
-          sid = globalThis.crypto?.randomUUID?.() ?? null;
-          if (sid) window.sessionStorage.setItem(SESSION_KEY, sid);
-        }
-        if (sid) qp.set("session_id", sid);
-      } catch {}
-    }
+    if (sessionId) qp.set("session_id", sessionId);
+    if (distributionSource) qp.set("distribution_source", distributionSource);
+    if (trafficSource) qp.set("traffic_source", trafficSource);
     return qp;
   }
 
@@ -477,6 +476,9 @@ export default function WeekendPlannerClient(props: {
       custom1: `src:${sourcePageType}`,
       custom2: destination.trim() || sourcePageType,
     });
+    const sessionId = readOrCreateLodgingSessionId();
+    const distributionSource = readOrRememberHotelDistributionSource();
+    const trafficSource = resolveHotelTrafficSource({ distributionSource });
     const directUrl = new URL("/go/hotels/property", window.location.origin);
     directUrl.searchParams.set("hotelId", hotel.propertyId);
     directUrl.searchParams.set("idTypeId", String(hotel.hotelIDTypeID ?? 0));
@@ -502,6 +504,9 @@ export default function WeekendPlannerClient(props: {
     if (props.plannerSessionContext?.tournament_id) directUrl.searchParams.set("tournamentId", props.plannerSessionContext.tournament_id);
     if (props.plannerSessionContext?.venue_id) directUrl.searchParams.set("venueId", props.plannerSessionContext.venue_id);
     directUrl.searchParams.set("page_url", window.location.pathname);
+    if (sessionId) directUrl.searchParams.set("session_id", sessionId);
+    if (distributionSource) directUrl.searchParams.set("distribution_source", distributionSource);
+    if (trafficSource) directUrl.searchParams.set("traffic_source", trafficSource);
     return directUrl.toString();
   }
 
@@ -518,6 +523,9 @@ export default function WeekendPlannerClient(props: {
     setHotelResolvedLatitude(null);
     setHotelResolvedLongitude(null);
 
+    const sessionId = readOrCreateLodgingSessionId();
+    const distributionSource = readOrRememberHotelDistributionSource();
+    const trafficSource = resolveHotelTrafficSource({ distributionSource });
     try {
       const response = await fetch(new URL("/api/lodging/search", window.location.origin), {
         method: "POST",
@@ -544,6 +552,9 @@ export default function WeekendPlannerClient(props: {
           page_type: "planner",
           page_url: window.location.pathname,
           request_source: sourcePageRef.current,
+          session_id: sessionId,
+          distribution_source: distributionSource,
+          traffic_source: trafficSource,
         }),
       });
 
@@ -700,6 +711,8 @@ export default function WeekendPlannerClient(props: {
                   check_in: isoFromUserDate(checkinText),
                   check_out: isoFromUserDate(checkoutText),
                   has_dates: Boolean(isoFromUserDate(checkinText) && isoFromUserDate(checkoutText)),
+                  session_id: readOrCreateLodgingSessionId(),
+                  distribution_source: readOrRememberHotelDistributionSource(),
                 });
                 await runBookTravelHotelSearch();
               }}

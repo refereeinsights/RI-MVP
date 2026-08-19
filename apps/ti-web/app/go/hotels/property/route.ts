@@ -23,6 +23,11 @@ import {
   sanitizeText,
   resolveDeviceTypeFromUserAgent,
 } from "@/lib/venueHotelFunnel";
+import {
+  isKnownAutomatedHotelUserAgent,
+  normalizeHotelDistributionSource,
+  resolveHotelTrafficSource,
+} from "@/lib/hotelMeasurement";
 
 export const runtime = "nodejs";
 
@@ -151,7 +156,11 @@ export async function GET(request: Request) {
   const ctaType = sanitizeText(pickTrackingParam(reqUrl, "cta_type"), 32);
   const flowType = sanitizeText(pickTrackingParam(reqUrl, "flow_type"), 32);
   const pageUrl = sanitizePageUrl(pickTrackingParam(reqUrl, "page_url"));
-  const trafficSource = sanitizeText(pickTrackingParam(reqUrl, "traffic_source"), 64);
+  const distributionSource = normalizeHotelDistributionSource(pickTrackingParam(reqUrl, "distribution_source"));
+  const trafficSource = resolveHotelTrafficSource({
+    distributionSource,
+    existingTrafficSource: sanitizeText(pickTrackingParam(reqUrl, "traffic_source"), 64),
+  });
   const deviceType = sanitizeText(pickTrackingParam(reqUrl, "device_type"), 32) ?? resolveDeviceTypeFromUserAgent(userAgent);
   const venueId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "venueId"));
   const tournamentId = parseVenueHotelUuid(pickTrackingParam(reqUrl, "tournamentId"));
@@ -199,7 +208,7 @@ export async function GET(request: Request) {
   const intendedTarget = hotelProgramSnapshot.programType === "standard" ? standardTarget : feeTarget;
 
   let persistenceSucceeded = false;
-  if (!isLocalHost(host)) {
+  if (!isLocalHost(host) && !isKnownAutomatedHotelUserAgent(userAgent)) {
     const persistenceResult = await persistHotelOutboundWithSnapshot({
       snapshot: hotelProgramSnapshot,
       row: {

@@ -15,6 +15,11 @@ import { buildHotelsHref } from "@/lib/booking/venueBooking";
 import { buildCampingHref, CAMPSPOT_CTA_PLACEMENTS, hasValidCampspotDestination } from "@/lib/affiliates/campspot";
 import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
 import {
+  appendHotelMeasurementParams,
+  readOrRememberHotelDistributionSource,
+  resolveHotelTrafficSource,
+} from "@/lib/hotelMeasurement";
+import {
   buildHotelPlannerBookingAttribution,
   createOutboundAttributionId,
   HOTEL_PLANNER_BOOKING_PLACEMENTS,
@@ -968,7 +973,13 @@ export default function TournamentVenueMapClient({
   };
 
   const trackLodgingEvent = (name: string, properties: Record<string, unknown>) => {
-    void trackTiEvent(name as Parameters<typeof trackTiEvent>[0], properties as never);
+    const sessionId = readOrCreateLodgingSessionId();
+    const distributionSource = readOrRememberHotelDistributionSource();
+    void trackTiEvent(name as Parameters<typeof trackTiEvent>[0], {
+      ...properties,
+      session_id: sessionId,
+      distribution_source: distributionSource,
+    } as never);
   };
 
   const loadHotelPinsForVenue = async (venue: MapVenue) => {
@@ -1280,6 +1291,13 @@ export default function TournamentVenueMapClient({
     if (attribution.custom3) url.searchParams.set("custom3", attribution.custom3);
     if (attribution.custom4) url.searchParams.set("custom4", attribution.custom4);
     if (attribution.custom5) url.searchParams.set("custom5", attribution.custom5);
+    const distributionSource = readOrRememberHotelDistributionSource();
+    appendHotelMeasurementParams(url, {
+      sessionId: readOrCreateLodgingSessionId(),
+      distributionSource,
+    });
+    const trafficSource = resolveHotelTrafficSource({ distributionSource });
+    if (trafficSource) url.searchParams.set("traffic_source", trafficSource);
     return {
       url: url.toString(),
       checkIn: dateRange.checkIn,
@@ -2850,6 +2868,8 @@ export default function TournamentVenueMapClient({
                             tournament_id: tournament.id,
                             tournament_slug: tournament.slug,
                             venue_id: hotelVenueId,
+                            session_id: readOrCreateLodgingSessionId(),
+                            distribution_source: readOrRememberHotelDistributionSource(),
                           });
                           const baseHref = buildVenueHotelsHref({
                             venue: hotelVenueForRedirect,
@@ -2857,7 +2877,10 @@ export default function TournamentVenueMapClient({
                           });
                           const url = new URL(baseHref, window.location.origin);
                           const sid = readOrCreateLodgingSessionId();
-                          if (sid) url.searchParams.set("session_id", sid);
+                          const distributionSource = readOrRememberHotelDistributionSource();
+                          appendHotelMeasurementParams(url, { sessionId: sid, distributionSource });
+                          const trafficSource = resolveHotelTrafficSource({ distributionSource });
+                          if (trafficSource) url.searchParams.set("traffic_source", trafficSource);
                           const w = window.open(`${url.pathname}${url.search}`, "_blank", "noopener,noreferrer");
                           if (w) w.opener = null;
                         }}

@@ -1,6 +1,19 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeAnalyticsRequestBody } from "../../../../../packages/lib/analytics-batch";
+import { normalizeHotelMeasurementProperties } from "@/lib/hotelMeasurement";
+
+const HOTEL_MEASUREMENT_EVENTS = new Set([
+  "hotel_cta_impression",
+  "hotel_cta_clicked",
+  "hotel_card_click",
+  "tournament_hotels_page_viewed",
+  "tournament_detail_hotel_cta_clicked",
+  "hotels_click",
+  "venue_map_hotels_clicked",
+  "venue_hotels_cta_clicked",
+  "book_travel_hotels_clicked",
+]);
 
 const QUICK_CHECK_EVENTS = new Set([
   "Venue Quick Check Opened",
@@ -351,8 +364,12 @@ export async function POST(request: Request) {
     const newValue = asTextWithLimit((props as any).new_value, 64);
     const cta = asTextWithLimit((props as any).cta ?? (props as any).cta_placement, 64);
 
+    const hotelMeasurement = HOTEL_MEASUREMENT_EVENTS.has(payload.event)
+      ? normalizeHotelMeasurementProperties(props)
+      : null;
     const properties = {
       ...(props as any),
+      ...(hotelMeasurement ?? {}),
       ua: (props as any).ua ?? userAgent ?? null,
       host: (props as any).host ?? host ?? null,
       origin: (props as any).origin ?? origin ?? null,
@@ -388,8 +405,12 @@ export async function POST(request: Request) {
     const travelType = asTextWithLimit((props as any).travel_type, 16);
     const ctaLocation = asTextWithLimit((props as any).cta_location, 64);
 
+    const hotelMeasurement = HOTEL_MEASUREMENT_EVENTS.has(payload.event)
+      ? normalizeHotelMeasurementProperties(props)
+      : null;
     const properties = {
       ...(props as any),
+      ...(hotelMeasurement ?? {}),
       ua: (props as any).ua ?? userAgent ?? null,
       host: (props as any).host ?? host ?? null,
       origin: (props as any).origin ?? origin ?? null,
@@ -461,6 +482,7 @@ export async function POST(request: Request) {
     const activationFlow = asTextWithLimit((props as any).activation_flow, 64);
     const dateSource = asTextWithLimit((props as any).date_source, 32);
     const ctaPlacement = asTextWithLimit((props as any).cta_placement, 64);
+    const hotelMeasurement = normalizeHotelMeasurementProperties(props);
 
     const hasPlannerActivationShape =
       payload.event.startsWith("weekend_planner_") ||
@@ -475,6 +497,8 @@ export async function POST(request: Request) {
           cta_type: ctaType,
           cta_placement: ctaPlacement,
           planner_session_id: plannerSessionId,
+          session_id: hotelMeasurement.session_id,
+          distribution_source: hotelMeasurement.distribution_source,
           entry_source: entrySource,
           entry_page_type: entryPageType,
           entry_path: entryPath,

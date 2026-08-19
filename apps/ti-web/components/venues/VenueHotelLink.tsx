@@ -5,6 +5,12 @@ import { useEffect, useRef } from "react";
 import { sendTiAnalytics } from "@/lib/analytics";
 import { readOrCreateLodgingSessionId } from "@/lib/lodgingSession";
 import {
+  appendHotelMeasurementParams,
+  readOrRememberHotelDistributionSource,
+  resolveHotelTrafficSource,
+  type HotelDistributionSource,
+} from "@/lib/hotelMeasurement";
+import {
   acceptVenueHotelClickAttempt,
   appendVenueHotelTrackingToHref,
   completeVenueHotelClickAttempt,
@@ -49,10 +55,12 @@ export default function VenueHotelLink({
   const impressionStateRef = useRef(createInitialImpressionTrackerState());
   const clickStateRef = useRef(createInitialClickAttemptState());
   const sessionIdRef = useRef<string | null>(null);
+  const distributionSourceRef = useRef<HotelDistributionSource | null>(null);
   const clickCooldownTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     sessionIdRef.current = readOrCreateLodgingSessionId();
+    distributionSourceRef.current = readOrRememberHotelDistributionSource();
     return () => {
       if (clickCooldownTimeoutRef.current !== null && typeof window !== "undefined") {
         window.clearTimeout(clickCooldownTimeoutRef.current);
@@ -98,13 +106,17 @@ export default function VenueHotelLink({
             sessionId,
             ctaInstanceId: ctaInstanceIdRef.current,
             deviceType: resolveDeviceType(window.innerWidth),
-            trafficSource: resolveTrafficSourceFromPageUrl(pageUrl),
+            trafficSource: resolveHotelTrafficSource({
+              distributionSource: distributionSourceRef.current,
+              existingTrafficSource: resolveTrafficSourceFromPageUrl(pageUrl),
+            }),
           });
           void sendTiAnalytics("hotel_cta_impression", {
             ...context,
             venue_id: venueId,
             tournament_id: tournamentId ?? null,
             referrer: document.referrer || null,
+            distribution_source: distributionSourceRef.current,
           });
         }, 500);
       },
@@ -142,10 +154,13 @@ export default function VenueHotelLink({
         const pageUrl = currentPageUrl();
         const sessionId = sessionIdRef.current;
         const deviceType = resolveDeviceType(window.innerWidth);
-        const trafficSource = resolveTrafficSourceFromPageUrl(pageUrl);
+        const trafficSource = resolveHotelTrafficSource({
+          distributionSource: distributionSourceRef.current,
+          existingTrafficSource: resolveTrafficSourceFromPageUrl(pageUrl),
+        });
         const outboundRequestId = makeAnalyticsUuid();
         const interactionId = clickAttempt.interactionId;
-        const trackedHref = appendVenueHotelTrackingToHref({
+        const baseTrackedHref = appendVenueHotelTrackingToHref({
           href,
           sessionId,
           ctaInstanceId: ctaInstanceIdRef.current,
@@ -156,6 +171,13 @@ export default function VenueHotelLink({
           trafficSource,
           outboundRequestId,
         });
+        const measuredUrl = appendHotelMeasurementParams(new URL(baseTrackedHref, window.location.origin), {
+          sessionId,
+          distributionSource: distributionSourceRef.current,
+        });
+        const trackedHref = /^https?:\/\//i.test(baseTrackedHref)
+          ? measuredUrl.toString()
+          : `${measuredUrl.pathname}${measuredUrl.search}${measuredUrl.hash}`;
         const context = resolveVenueHotelContext({
           ctaPlacement,
           pageUrl,
@@ -172,6 +194,7 @@ export default function VenueHotelLink({
           tournament_id: tournamentId ?? null,
           referrer: document.referrer || null,
           outbound_request_id: outboundRequestId,
+          distribution_source: distributionSourceRef.current,
         });
         void sendTiAnalytics("venue_hotels_cta_clicked", {
           ...context,
@@ -179,6 +202,7 @@ export default function VenueHotelLink({
           tournament_id: tournamentId ?? null,
           href: trackedHref,
           referrer: document.referrer || null,
+          distribution_source: distributionSourceRef.current,
         });
 
         const openedWindow =
