@@ -54,11 +54,35 @@ button:disabled { cursor: wait; opacity: .7; }
 .formNotice { margin: 4px 0 0; padding: 10px 12px; border-radius: 10px; font-size: .86rem; line-height: 1.45; }
 .formNotice.success { background: var(--corralio-teal-soft); color: var(--corralio-teal-dark); }
 .formNotice.error { background: #fee9e5; color: var(--corralio-error); }
+.passwordLabelRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+.passwordLabelRow label { margin: 0; }
+.passwordLabelRow a, .authTextLink { color: var(--corralio-teal-dark); font-size: .82rem; font-weight: 700; text-underline-offset: 3px; }
+.passwordInputRow { position: relative; }
+.passwordInputRow input { padding-right: 68px; }
+.passwordInputRow button { position: absolute; top: 50%; right: 8px; min-height: 36px; padding: 6px 9px; transform: translateY(-50%); border: 0; border-radius: 8px; background: transparent; color: var(--corralio-teal-dark); font-size: .78rem; font-weight: 800; }
+.passwordInputRow button:hover { background: var(--corralio-teal-soft); }
+.authDivider { display: flex; align-items: center; gap: 10px; color: var(--corralio-muted); font-size: .76rem; text-transform: uppercase; }
+.authDivider::before, .authDivider::after { content: ""; height: 1px; flex: 1; background: var(--corralio-border); }
+.authSecondaryButton { width: 100%; }
+.authHelp { margin: 2px 0 0; color: var(--corralio-muted); font-size: .78rem; line-height: 1.45; }
+
+.authShell { min-height: 100vh; min-height: 100svh; display: grid; place-items: center; padding: 24px 16px; background: radial-gradient(circle at 12% 12%, rgba(15,118,110,.12), transparent 34%), var(--corralio-warm-white); }
+.authCard { width: min(100%, 520px); padding: clamp(24px,6vw,40px); border: 1px solid var(--corralio-border); border-radius: 22px; background: var(--corralio-paper); box-shadow: 0 18px 55px rgba(17,26,46,.1); }
+.authBrand { display: inline-block; margin-bottom: 30px; color: var(--corralio-ink); font-size: 1.25rem; font-weight: 850; letter-spacing: -.03em; text-decoration: none; }
+.authCard h1 { margin: 0 0 10px; font-size: clamp(1.7rem,7vw,2.25rem); letter-spacing: -.04em; line-height: 1.08; }
+.authCard .stackForm { margin-top: 20px; }
+.authCard > .authTextLink { display: inline-block; margin-top: 22px; }
+.authCardHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.authCardHeader .authBrand { margin-bottom: 30px; }
+.quietButton { padding: 7px; border: 0; background: transparent; color: var(--corralio-muted); font-size: .8rem; font-weight: 700; }
+.primaryLinkButton { display: flex; min-height: 48px; align-items: center; justify-content: center; margin-top: 16px; padding: 11px 16px; border-radius: 12px; background: var(--corralio-teal); color: #fff; font-weight: 800; text-decoration: none; }
 
 .appShell { min-height: 100vh; background: linear-gradient(180deg, var(--corralio-ink) 0 270px, var(--corralio-warm-white) 270px); }
 .appHeader { max-width: 760px; margin: 0 auto; padding: 18px 18px 0; display: flex; align-items: center; justify-content: space-between; color: #fff; }
 .appHeader .brandMark { background: #fff; color: var(--corralio-ink); }
 .textButton { padding: 8px; border: 0; background: transparent; color: rgba(255,255,255,.82); font-size: .86rem; font-weight: 700; }
+.accountNav { display: flex; align-items: center; gap: 8px; }
+.accountNav > a { padding: 8px; color: rgba(255,255,255,.82); font-size: .86rem; font-weight: 700; text-decoration: none; }
 .appContent { width: min(100%,760px); margin: 0 auto; padding: 38px 16px 72px; }
 .heroSection { color: #fff; padding: 8px 2px 30px; }
 .eyebrow, .sectionKicker { margin: 0 0 7px; color: var(--corralio-teal); font-size: .72rem; font-weight: 850; letter-spacing: .11em; text-transform: uppercase; }
@@ -105,7 +129,7 @@ button:disabled { cursor: wait; opacity: .7; }
 .navigationChoices a:hover, .navigationChoices button:hover { border-color: var(--corralio-teal); background: #f5fbfa; }
 
 @media (max-width: 520px) {
-  .landingCard, .contentCard { border-radius: 18px; }
+  .landingCard, .contentCard, .authCard { border-radius: 18px; }
   .eventCard { grid-template-columns: 1fr; gap: 9px; }
   .eventCard time { flex-direction: row; justify-content: space-between; }
   .sourceSummary { align-items: flex-start; }

@@ -5,13 +5,17 @@ const SAFE_AUTH_RESULT_PATHS = new Set([
   "/?auth=invalid",
   "/?auth=unavailable",
   "/?auth=expired",
+  "/account/reset-password",
+  "/account/reset-password?auth=expired",
 ]);
 
 export type CorralioAuthResultPath =
   | "/"
   | "/?auth=invalid"
   | "/?auth=unavailable"
-  | "/?auth=expired";
+  | "/?auth=expired"
+  | "/account/reset-password"
+  | "/account/reset-password?auth=expired";
 
 export function createCorralioAuthResultRedirect(path: CorralioAuthResultPath) {
   if (!SAFE_AUTH_RESULT_PATHS.has(path)) {

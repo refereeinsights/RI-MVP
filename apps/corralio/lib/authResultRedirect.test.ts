@@ -9,6 +9,8 @@ test("auth result redirects stay relative to the browser-facing origin", () => {
     "/?auth=invalid",
     "/?auth=unavailable",
     "/?auth=expired",
+    "/account/reset-password",
+    "/account/reset-password?auth=expired",
   ] as const) {
     const response = createCorralioAuthResultRedirect(path);
     assert.equal(response.status, 303);

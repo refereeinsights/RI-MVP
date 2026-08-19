@@ -14,7 +14,7 @@ Current presentation/sentinel parameters are:
 
 `brand` and `auth_callback` are non-authoritative. They must never control authorization, identity, ownership, entitlements, or privileged behavior. Application-created redirect URLs must never contain `token_hash`, `code`, or another authentication secret.
 
-This invariant is scoped to Confirm Signup and Magic Link. Recovery, invitation, email-change, and OAuth flows retain their existing contracts.
+This invariant is scoped to Confirm Signup and Magic Link. Corralio Recovery has the separate query-bearing contract below. Invitation, email-change, and OAuth flows retain their existing contracts.
 
 ## Required template fallback
 
@@ -73,6 +73,20 @@ Complete dashboard-ready reference bodies are stored at:
 
 These are manual configuration references, not automatically deployed Supabase configuration.
 
+## Corralio Recovery contract
+
+Corralio password recovery is requested by the server with a trusted, server-only `CORRALIO_SITE_URL`. The application passes this callback to Supabase:
+
+```text
+{CORRALIO_SITE_URL}/auth/confirm?brand=corralio&flow=recovery
+```
+
+`CORRALIO_SITE_URL` must be an absolute HTTP(S) origin with no path, query, fragment, or credentials. It is never derived from `request.url`, `Host`, forwarded-host headers, browser input, or a `NEXT_PUBLIC_*` variable. Missing or invalid configuration fails closed instead of falling back to TI, RI, Supabase Site URL, or `0.0.0.0`.
+
+The shared Recovery template appends `&token_hash=...&type=recovery` only when `RedirectTo` exists and otherwise retains `.ConfirmationURL`. It identifies Corralio only through exact equality with the local and canonical production callbacks above. The `brand` and `flow` values are non-authoritative; the token and authenticated recovery session provide authorization.
+
+The complete manual dashboard reference is `docs/templates/supabase-recovery-shared.html`. Use the neutral global Recovery subject `Reset your password`. The non-Corralio branch preserves the existing TI behavior. RI currently sends its own product-branded recovery email through its existing server route and does not depend on this global Recovery body; that path must remain unchanged.
+
 ## Application handlers
 
 Callback routes:
@@ -85,7 +99,7 @@ They read their supported `code` or `token_hash`/`type` values and ignore the pr
 
 ## Supabase manual configuration
 
-Repository changes do not update the Supabase dashboard. After deploying compatible application callbacks, manually update both global templates and verify that the redirect allowlist covers the intended callback paths, including:
+Repository changes do not update the Supabase dashboard. After deploying compatible application callbacks, manually update the applicable global templates and verify that the redirect allowlist covers the intended callback paths, including:
 
 - `http://localhost:3002/auth/confirm`
 - `https://corralio.com/auth/confirm`
@@ -101,6 +115,8 @@ After code and dashboard templates are both live, exercise:
 - Corralio new-account confirmation and existing-account Magic Link
 - TI signup confirmation, resend, Magic Link, and `next` preservation
 - RI signup confirmation and admin resend
+- Corralio password recovery and same-origin reset-page handoff
+- TI password recovery fallback
 - missing, invalid, expired, and already-used links
 - a no-`RedirectTo` template invocation, which must continue through `.ConfirmationURL`
 

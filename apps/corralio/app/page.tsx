@@ -1,4 +1,5 @@
 import { signOut } from "@/app/actions";
+import Link from "next/link";
 import { ConnectScheduleForm } from "@/app/components/ConnectScheduleForm";
 import { ConnectedScheduleList, type ConnectedSchedule } from "@/app/components/ConnectedScheduleList";
 import { SignInForm } from "@/app/components/SignInForm";
@@ -46,7 +47,7 @@ function SignInPage() {
         </div>
         <div className="signInPanel">
           <h2>Sign in to your family planner</h2>
-          <p>We’ll email you a secure sign-in link.</p>
+          <p>Use your password, or ask us to email you a secure sign-in link.</p>
           <SignInForm />
         </div>
       </section>
@@ -138,7 +139,10 @@ export default async function HomePage() {
     <main className="appShell">
       <header className="appHeader">
         <Brand />
-        <form action={signOut}><button className="textButton" type="submit">Sign out</button></form>
+        <nav className="accountNav" aria-label="Account">
+          <Link href="/account">Account</Link>
+          <form action={signOut}><button className="textButton" type="submit">Sign out</button></form>
+        </nav>
       </header>
       <div className="appContent">
         <section className="heroSection">
