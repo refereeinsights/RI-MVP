@@ -1,5 +1,11 @@
 # Corralio Notes
 
+## 2026-08-18 — Auth callback same-origin redirect repair (local implementation)
+
+- Local browser UAT proved the OTP request and shared Supabase Magic Link template correctly carried the Corralio callback, but a dev server started with `--hostname 0.0.0.0` caused the callback route's `new URL(..., request.url)` redirects to emit `http://0.0.0.0:3002/`. The auth cookie was attached to the callback response for the browser-facing localhost origin, then became unavailable after the cross-origin redirect.
+- Corralio auth-result redirects now use bounded relative `Location` headers for success, invalid, unavailable, and expired outcomes. The browser therefore remains on the exact origin that received the callback—localhost, a controlled LAN hostname, preview, or production—without trusting `Host`/forwarded-host headers or adding environment-specific origins.
+- Focused regression coverage proves all result locations remain relative, never contain `0.0.0.0` or another host, and retain auth cookies on the same 303 response. No Supabase template, allowlist, database, authorization, or email/password behavior changed.
+
 ## 2026-08-18 — Slice 3.1 secure schedule connections (local implementation)
 
 - Added optional source-level sport metadata on `corralio_schedule_sources`; sport remains outside the shared schedule engine and imported event rows derive it through `schedule_source_id` rather than duplicating it.
