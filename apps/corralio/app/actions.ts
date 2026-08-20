@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { nextChildColor, normalizeFamilyName, parseTeamSport } from "@/lib/family";
+import { isValidUuid, parseScheduleAssignmentInput } from "@/lib/schedules/assignment";
 import { ingestCorralioSchedule, replaceCorralioSchedule } from "@/lib/schedules/ingest";
 import { CORRALIO_SPORTS, parseCorralioSport } from "@/lib/schedules/sport";
 import { createSupabaseScheduleStore } from "@/lib/schedules/supabaseStore";
@@ -24,10 +25,6 @@ async function getOwnerContext() {
   if (householdError || typeof householdId !== "string") throw new Error("unauthorized");
 
   return { supabase, householdId };
-}
-
-function validUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 export async function connectSchedule(_state: FormState, formData: FormData): Promise<FormState> {
@@ -60,7 +57,7 @@ export async function connectSchedule(_state: FormState, formData: FormData): Pr
 export async function updateScheduleSport(_state: FormState, formData: FormData): Promise<FormState> {
   const sourceId = String(formData.get("sourceId") ?? "").trim();
   const submittedSport = String(formData.get("sport") ?? "").trim().toLowerCase();
-  if (!validUuid(sourceId)) return { status: "error", message: "That schedule could not be updated." };
+  if (!isValidUuid(sourceId)) return { status: "error", message: "That schedule could not be updated." };
   if (submittedSport && !CORRALIO_SPORTS.includes(submittedSport as (typeof CORRALIO_SPORTS)[number])) {
     return { status: "error", message: "Choose a valid sport or leave it unselected." };
   }
@@ -79,10 +76,35 @@ export async function updateScheduleSport(_state: FormState, formData: FormData)
   }
 }
 
+export async function updateScheduleAssignment(_state: FormState, formData: FormData): Promise<FormState> {
+  const sourceId = String(formData.get("sourceId") ?? "").trim();
+  const assignment = parseScheduleAssignmentInput(formData.get("childId"), formData.get("teamId"));
+  if (!isValidUuid(sourceId) || !assignment.ok) {
+    return { status: "error", message: "Choose a valid family assignment." };
+  }
+
+  try {
+    const supabase = createCorralioSupabaseServerClient();
+    const { data, error } = await supabase.rpc("corralio_update_schedule_source_assignment_v1", {
+      p_source_id: sourceId,
+      p_child_id: assignment.childId,
+      p_team_id: assignment.teamId,
+    });
+    if (error || data !== true) throw new Error("assignment update failed");
+    revalidatePath("/");
+    return {
+      status: "success",
+      message: assignment.childId ? "Schedule assignment updated." : "Schedule is now unassigned.",
+    };
+  } catch {
+    return { status: "error", message: "We couldn’t update that assignment right now." };
+  }
+}
+
 export async function replaceScheduleLink(_state: FormState, formData: FormData): Promise<FormState> {
   const sourceId = String(formData.get("sourceId") ?? "").trim();
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
-  if (!validUuid(sourceId)) return { status: "error", message: "That schedule could not be updated." };
+  if (!isValidUuid(sourceId)) return { status: "error", message: "That schedule could not be updated." };
   if (!sourceUrl) return { status: "error", message: "Paste the replacement iCal/ICS calendar URL." };
 
   try {
@@ -146,7 +168,7 @@ export async function createChild(_state: FormState, formData: FormData): Promis
 export async function renameChild(_state: FormState, formData: FormData): Promise<FormState> {
   const childId = String(formData.get("childId") ?? "").trim();
   const displayName = normalizeFamilyName(formData.get("displayName"), 80);
-  if (!validUuid(childId)) return { status: "error", message: "That child could not be updated." };
+  if (!isValidUuid(childId)) return { status: "error", message: "That child could not be updated." };
   if (!displayName) return { status: "error", message: "Enter a child name between 1 and 80 characters." };
 
   try {
@@ -171,7 +193,7 @@ export async function createTeam(_state: FormState, formData: FormData): Promise
   const childId = String(formData.get("childId") ?? "").trim();
   const displayName = normalizeFamilyName(formData.get("displayName"), 100);
   const sport = parseTeamSport(formData.get("sport"));
-  if (!validUuid(childId)) return { status: "error", message: "Choose a child for this team." };
+  if (!isValidUuid(childId)) return { status: "error", message: "Choose a child for this team." };
   if (!displayName) return { status: "error", message: "Enter a team name between 1 and 100 characters." };
   if (sport === undefined) return { status: "error", message: "Choose a valid sport or leave it unselected." };
 
@@ -216,7 +238,7 @@ export async function updateTeam(_state: FormState, formData: FormData): Promise
   const teamId = String(formData.get("teamId") ?? "").trim();
   const displayName = normalizeFamilyName(formData.get("displayName"), 100);
   const sport = parseTeamSport(formData.get("sport"));
-  if (!validUuid(teamId)) return { status: "error", message: "That team could not be updated." };
+  if (!isValidUuid(teamId)) return { status: "error", message: "That team could not be updated." };
   if (!displayName) return { status: "error", message: "Enter a team name between 1 and 100 characters." };
   if (sport === undefined) return { status: "error", message: "Choose a valid sport or leave it unselected." };
 

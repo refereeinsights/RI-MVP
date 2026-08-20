@@ -6,6 +6,7 @@ import { FamilySection, type FamilyChild, type FamilyTeam } from "@/app/componen
 import { SignInForm } from "@/app/components/SignInForm";
 import { ThisWeekend, type WeekendEvent } from "@/app/components/ThisWeekend";
 import { parseChildColor } from "@/lib/family";
+import { resolveAssignmentPresentation } from "@/lib/schedules/assignment";
 import { createCorralioSupabaseServerClient } from "@/lib/supabase/server";
 import { parseCorralioSport } from "@/lib/schedules/sport";
 import { getWeekendCandidateWindow } from "@/lib/weekend";
@@ -19,6 +20,8 @@ type SourceRow = {
   sync_status: string;
   last_synced_at: string | null;
   refresh_paused_at: string | null;
+  child_id: string | null;
+  team_id: string | null;
 };
 type ChildRow = { id: string; display_name: string; color_token: string; sort_order: number };
 type TeamRow = { id: string; child_id: string; display_name: string; sport: string | null; sort_order: number };
@@ -94,7 +97,7 @@ export default async function HomePage() {
     const [sourceResult, eventResult, childResult, teamResult] = await Promise.all([
       supabase
         .from("corralio_schedule_sources")
-        .select("id,display_name,sport,sync_status,last_synced_at,refresh_paused_at")
+        .select("id,display_name,sport,sync_status,last_synced_at,refresh_paused_at,child_id,team_id")
         .eq("household_id", householdId)
         .neq("sync_status", "disconnected")
         .order("created_at", { ascending: true }),
@@ -129,8 +132,6 @@ export default async function HomePage() {
 
   const sourceLabels = new Map(sources.map((source) => [source.id, source.display_name]));
   const sourceSports = new Map(sources.map((source) => [source.id, parseCorralioSport(source.sport)]));
-  const childLabels = new Map(children.map((child) => [child.id, child.display_name]));
-  const teamLabels = new Map(teams.map((team) => [team.id, team.display_name]));
   const familyChildren: FamilyChild[] = children.map((child) => ({
     id: child.id,
     displayName: child.display_name,
@@ -142,30 +143,42 @@ export default async function HomePage() {
     displayName: team.display_name,
     sport: parseCorralioSport(team.sport),
   }));
-  const weekendEvents: WeekendEvent[] = events.map((event) => ({
-    id: event.id,
-    title: event.title,
-    startsAt: event.starts_at,
-    endsAt: event.ends_at,
-    timezone: event.timezone,
-    location: event.source_location_text ?? event.display_location_text,
-    fieldLabel: event.source_location_text ? null : event.field_label,
-    sourceLabel: event.schedule_source_id ? sourceLabels.get(event.schedule_source_id) ?? null : null,
-    sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null,
-    assignmentLabel: event.child_id
-      ? childLabels.get(event.child_id) ?? null
-      : event.team_id
-        ? teamLabels.get(event.team_id) ?? null
-        : null,
-  }));
+  const weekendEvents: WeekendEvent[] = events.map((event) => {
+    const assignment = resolveAssignmentPresentation(
+      { childId: event.child_id, teamId: event.team_id },
+      familyChildren,
+      familyTeams,
+    );
+    return {
+      id: event.id,
+      title: event.title,
+      startsAt: event.starts_at,
+      endsAt: event.ends_at,
+      timezone: event.timezone,
+      location: event.source_location_text ?? event.display_location_text,
+      fieldLabel: event.source_location_text ? null : event.field_label,
+      sourceLabel: event.schedule_source_id ? sourceLabels.get(event.schedule_source_id) ?? null : null,
+      sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null,
+      assignmentLabel: assignment.label,
+    };
+  });
   const connectedSources: ConnectedSchedule[] = sources.flatMap((source) => {
     if (source.sync_status !== "pending" && source.sync_status !== "success" && source.sync_status !== "error") return [];
+    const assignment = resolveAssignmentPresentation(
+      { childId: source.child_id, teamId: source.team_id },
+      familyChildren,
+      familyTeams,
+    );
     return [{
       id: source.id,
       displayName: source.display_name,
       sport: parseCorralioSport(source.sport),
       syncStatus: source.sync_status,
       refreshPausedAt: source.refresh_paused_at,
+      childId: source.child_id,
+      teamId: source.team_id,
+      assignmentLabel: assignment.label ?? "Not assigned",
+      assignmentUnavailable: assignment.kind === "unavailable",
     }];
   });
 
@@ -205,7 +218,9 @@ export default async function HomePage() {
           <h2 id="connect-heading">Connect a schedule</h2>
           <p className="sectionIntro">Your private calendar URL stays on the server and is never shown in the app after you connect it.</p>
           <ConnectScheduleForm />
-          {connectedSources.length ? <ConnectedScheduleList sources={connectedSources} /> : null}
+          {connectedSources.length ? (
+            <ConnectedScheduleList sources={connectedSources} familyChildren={familyChildren} teams={familyTeams} />
+          ) : null}
         </section>
       </div>
     </main>
