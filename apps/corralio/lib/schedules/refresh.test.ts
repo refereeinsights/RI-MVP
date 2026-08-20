@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   CORRALIO_REFRESH_BATCH_LIMIT,
+  CORRALIO_REFRESH_FAILURE_THRESHOLD,
   runCorralioScheduledRefresh,
   type CorralioRefreshClaim,
   type CorralioRefreshFailureCode,
@@ -32,6 +33,7 @@ function memoryStore(claims: CorralioRefreshClaim[]) {
     },
     async failClaimed(input) {
       failures.push({ sourceId: input.sourceId, failureCode: input.failureCode });
+      return true;
     },
   };
   return { store, persisted, failures, requestedLimit: () => requestedLimit };
@@ -87,6 +89,21 @@ test("one feed failure is sanitized, finalized, and does not block later sources
   assert.deepEqual(state.persisted, ["source-2"]);
   assert.deepEqual(state.failures, [{ sourceId: "source-1", failureCode: "private_url" }]);
   assert.doesNotMatch(JSON.stringify(result), /private-|calendar\.example|token=/);
+});
+
+test("a stale claim finalization is skipped instead of counted as a persisted failure", async () => {
+  const state = memoryStore([claim(1)]);
+  state.store.failClaimed = async () => false;
+  const result = await runCorralioScheduledRefresh(state.store, {
+    fetchSchedule: async () => ({ ok: false, error: "fetch_failed" }),
+    nowMs: () => 100,
+  });
+  assert.equal(result.failed, 0);
+  assert.equal(result.skipped, 1);
+});
+
+test("persistent failure threshold remains fixed at three", () => {
+  assert.equal(CORRALIO_REFRESH_FAILURE_THRESHOLD, 3);
 });
 
 test("a valid empty feed delegates safely to canonical persistence", async () => {

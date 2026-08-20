@@ -9,6 +9,7 @@ import { toPersistedScheduleEvent, type PersistedScheduleEvent } from "./ingest"
 export const CORRALIO_REFRESH_BATCH_LIMIT = 10;
 export const CORRALIO_REFRESH_FRESHNESS_HOURS = 23;
 export const CORRALIO_REFRESH_CLAIM_TIMEOUT_MINUTES = 10;
+export const CORRALIO_REFRESH_FAILURE_THRESHOLD = 3;
 
 export type CorralioRefreshFailureCode = ScheduleFetchError | "event_limit" | "persistence";
 
@@ -31,7 +32,7 @@ export type CorralioRefreshStore = {
     sourceId: string;
     claimToken: string;
     failureCode: CorralioRefreshFailureCode;
-  }): Promise<void>;
+  }): Promise<boolean>;
 };
 
 export type CorralioRefreshResult = {
@@ -68,6 +69,7 @@ export async function runCorralioScheduledRefresh(
   let refreshed = 0;
   let validEmpty = 0;
   let failed = 0;
+  let skipped = 0;
 
   for (const claim of claims) {
     let failureCode: CorralioRefreshFailureCode | null = null;
@@ -97,12 +99,19 @@ export async function runCorralioScheduledRefresh(
     }
 
     if (failureCode) {
-      failed += 1;
-      await store.failClaimed({
-        sourceId: claim.sourceId,
-        claimToken: claim.claimToken,
-        failureCode,
-      }).catch(() => undefined);
+      try {
+        const finalized = await store.failClaimed({
+          sourceId: claim.sourceId,
+          claimToken: claim.claimToken,
+          failureCode,
+        });
+        if (finalized) failed += 1;
+        else skipped += 1;
+      } catch {
+        // The source attempt failed operationally, but no persisted failure
+        // count is assumed when finalization itself cannot be confirmed.
+        failed += 1;
+      }
     }
   }
 
@@ -112,7 +121,7 @@ export async function runCorralioScheduledRefresh(
     refreshed,
     valid_empty: validEmpty,
     failed,
-    skipped: 0,
+    skipped,
     batch_full: claims.length === CORRALIO_REFRESH_BATCH_LIMIT,
     duration_ms: Math.max(0, (dependencies.nowMs ?? Date.now)() - startedAt),
   };

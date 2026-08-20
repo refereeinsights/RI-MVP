@@ -28,13 +28,15 @@ function memoryStore(householdId = "household-a") {
   const sourceSports = new Map<string, CorralioSport | null>();
   const events = new Map<string, PersistedScheduleEvent>();
   const calls: Array<{ householdId: string; sourceId: string }> = [];
+  const pausedSources = new Set<string>();
   const store: CorralioScheduleStore = {
     async resolveOwnerContext() {
       return { userId: "user-a", householdId };
     },
     async findSourceByUrl(requestedHouseholdId, url) {
       assert.equal(requestedHouseholdId, householdId);
-      return sources.get(url) ?? null;
+      const sourceId = sources.get(url);
+      return sourceId ? { sourceId, refreshPaused: pausedSources.has(sourceId) } : null;
     },
     async createSource(input) {
       assert.equal(input.householdId, householdId);
@@ -61,7 +63,7 @@ function memoryStore(householdId = "household-a") {
     },
     async markSourceError() {},
   };
-  return { store, sources, sourceUrls, sourceSports, events, calls };
+  return { store, sources, sourceUrls, sourceSports, events, calls, pausedSources };
 }
 
 const fetchSuccess = async () => ({
@@ -92,6 +94,20 @@ test("re-import reuses the source and stable event identity instead of duplicati
   assert.equal(state.sources.size, 1);
   assert.equal(state.events.size, 1);
   assert.equal(state.calls.length, 2);
+});
+
+test("a paused source can recover only through the validated replacement path", async () => {
+  const state = memoryStore();
+  const sourceUrl = "https://calendar.example/team.ics";
+  await ingestCorralioSchedule(state.store, { sourceUrl }, { fetchSchedule: fetchSuccess });
+  state.pausedSources.add("source-1");
+
+  const result = await ingestCorralioSchedule(state.store, { sourceUrl }, { fetchSchedule: fetchSuccess });
+  assert.deepEqual(result, {
+    ok: false,
+    error: "This schedule needs attention. Use Replace calendar link on the connected schedule to reconnect updates.",
+  });
+  assert.equal(state.calls.length, 1);
 });
 
 test("unauthenticated ingestion stops before fetching", async () => {

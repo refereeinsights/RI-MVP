@@ -35,7 +35,7 @@ export function createSupabaseScheduleStore(
     async findSourceByUrl(householdId, sourceUrl) {
       const { data, error } = await adminClient
         .from("corralio_schedule_sources")
-        .select("id")
+        .select("id,refresh_paused_at")
         .eq("household_id", householdId)
         .eq("source_type", "ics")
         .eq("source_url", sourceUrl)
@@ -44,7 +44,9 @@ export function createSupabaseScheduleStore(
         .limit(1)
         .maybeSingle();
       if (error) databaseFailure("find_source", error);
-      return typeof data?.id === "string" ? data.id : null;
+      return typeof data?.id === "string"
+        ? { sourceId: data.id, refreshPaused: typeof data.refresh_paused_at === "string" }
+        : null;
     },
 
     async createSource(input) {

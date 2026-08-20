@@ -7,6 +7,7 @@ import {
 import type { CorralioSport } from "./sport";
 
 export type CorralioOwnerContext = { userId: string; householdId: string };
+export type CorralioExistingSource = { sourceId: string; refreshPaused: boolean };
 
 export type PersistedScheduleEvent = {
   title: string;
@@ -22,7 +23,7 @@ export type PersistedScheduleEvent = {
 
 export type CorralioScheduleStore = {
   resolveOwnerContext(): Promise<CorralioOwnerContext | null>;
-  findSourceByUrl(householdId: string, sourceUrl: string): Promise<string | null>;
+  findSourceByUrl(householdId: string, sourceUrl: string): Promise<CorralioExistingSource | null>;
   createSource(input: {
     householdId: string;
     displayName: string;
@@ -57,7 +58,7 @@ export type CorralioScheduleIngestionResult =
   | { ok: true; sourceId: string; imported: number }
   | { ok: false; error: string };
 
-function userSafeError(error: ScheduleFetchError | "no_events" | "unauthorized" | "persistence") {
+function userSafeError(error: ScheduleFetchError | "no_events" | "unauthorized" | "persistence" | "needs_replacement") {
   if (error === "invalid_url") return "Enter a valid iCal/ICS calendar URL.";
   if (error === "unsupported_protocol") return "Calendar links must start with http:// or https://.";
   if (error === "private_url") return "That calendar link cannot point to a private or local address.";
@@ -66,6 +67,7 @@ function userSafeError(error: ScheduleFetchError | "no_events" | "unauthorized" 
   if (error === "too_large") return "That calendar is too large to import right now.";
   if (error === "no_events") return "No upcoming events were found in that calendar.";
   if (error === "unauthorized") return "Sign in to connect a schedule.";
+  if (error === "needs_replacement") return "This schedule needs attention. Use Replace calendar link on the connected schedule to reconnect updates.";
   return "We couldn’t save that schedule right now. Please try again.";
 }
 
@@ -110,7 +112,11 @@ export async function ingestCorralioSchedule(
   const displayName = String(input.displayName ?? "").trim().slice(0, 100) || "Sports schedule";
   let sourceId: string | null = null;
   try {
-    sourceId = await store.findSourceByUrl(owner.householdId, sourceUrl);
+    const existingSource = await store.findSourceByUrl(owner.householdId, sourceUrl);
+    if (existingSource?.refreshPaused) {
+      return { ok: false, error: userSafeError("needs_replacement") };
+    }
+    sourceId = existingSource?.sourceId ?? null;
     if (!sourceId) {
       sourceId = await store.createSource({
         householdId: owner.householdId,

@@ -23,11 +23,13 @@ export type ConnectedSchedule = {
   displayName: string;
   sport: CorralioSport | null;
   syncStatus: "pending" | "success" | "error";
+  refreshPausedAt: string | null;
 };
 
-function statusLabel(status: ConnectedSchedule["syncStatus"]) {
-  if (status === "success") return "Connected";
-  if (status === "error") return "Needs attention";
+function statusLabel(source: ConnectedSchedule) {
+  if (source.syncStatus === "success") return "Connected";
+  if (source.syncStatus === "error" && source.refreshPausedAt) return "Schedule needs attention";
+  if (source.syncStatus === "error") return "Refresh delayed";
   return "Connecting";
 }
 
@@ -49,6 +51,10 @@ function ConnectedScheduleCard({ source }: { source: ConnectedSchedule }) {
     }
   }, [replaceState]);
 
+  const refreshPaused = source.syncStatus === "error" && Boolean(source.refreshPausedAt);
+  const refreshDelayed = source.syncStatus === "error" && !source.refreshPausedAt;
+  const statusTone = refreshPaused ? "attention" : source.syncStatus;
+
   return (
     <li className="sourceCard">
       <div className="sourceSummary">
@@ -58,8 +64,11 @@ function ConnectedScheduleCard({ source }: { source: ConnectedSchedule }) {
             {source.sport ? `${corralioSportIcon(source.sport)} ${corralioSportLabel(source.sport)}` : "Sport not selected"}
           </span>
         </div>
-        <span className={`status ${source.syncStatus}`}><span aria-hidden="true">{source.syncStatus === "success" ? "✓" : "•"}</span> {statusLabel(source.syncStatus)}</span>
+        <span className={`status ${statusTone}`}><span aria-hidden="true">{source.syncStatus === "success" ? "✓" : "•"}</span> {statusLabel(source)}</span>
       </div>
+
+      {refreshDelayed ? <p className="sourceStatusHelp">We’ll try this schedule again automatically. Your existing events are still available.</p> : null}
+      {refreshPaused ? <p className="sourceStatusHelp attention">Corralio couldn’t refresh this schedule. Your existing events are still available. Replace the calendar link to reconnect updates.</p> : null}
 
       <div className="sourceActions">
         <button className="secondaryButton" type="button" onClick={() => setEditingSport((open) => !open)} aria-expanded={editingSport}>

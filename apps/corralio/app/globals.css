@@ -118,6 +118,9 @@ button:disabled { cursor: wait; opacity: .7; }
 .status { color: var(--corralio-muted); text-transform: capitalize; }
 .status.success { color: var(--corralio-teal-dark); font-weight: 750; }
 .status.error { color: var(--corralio-error); font-weight: 750; }
+.status.attention { color: var(--corralio-error); font-weight: 750; }
+.sourceStatusHelp { margin: -4px 0 0; color: var(--corralio-muted); line-height: 1.45; }
+.sourceStatusHelp.attention { color: var(--corralio-error); }
 
 .navigationDialog { width: min(calc(100% - 24px), 440px); margin: auto auto 12px; padding: 0; border: 0; border-radius: 20px; background: #fff; color: var(--corralio-ink); box-shadow: 0 22px 65px rgba(17,26,46,.25); }
 .navigationDialog::backdrop { background: rgba(17,26,46,.48); }

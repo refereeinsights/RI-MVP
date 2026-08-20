@@ -52,12 +52,13 @@ export function createCorralioRefreshSupabaseStore(adminClient: SupabaseClient):
     },
 
     async failClaimed(input) {
-      const { error } = await adminClient.rpc("corralio_fail_claimed_ics_refresh_v1", {
+      const { data, error } = await adminClient.rpc("corralio_fail_claimed_ics_refresh_v1", {
         p_source_id: input.sourceId,
         p_claim_token: input.claimToken,
         p_failure_code: input.failureCode,
       });
       if (error) databaseFailure("fail_claimed", error);
+      return data === true;
     },
   };
 }

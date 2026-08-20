@@ -10,7 +10,14 @@ import { getWeekendCandidateWindow } from "@/lib/weekend";
 
 export const dynamic = "force-dynamic";
 
-type SourceRow = { id: string; display_name: string; sport: string | null; sync_status: string; last_synced_at: string | null };
+type SourceRow = {
+  id: string;
+  display_name: string;
+  sport: string | null;
+  sync_status: string;
+  last_synced_at: string | null;
+  refresh_paused_at: string | null;
+};
 type NamedRow = { id: string; display_name: string };
 type EventRow = {
   id: string;
@@ -84,7 +91,7 @@ export default async function HomePage() {
     const [sourceResult, eventResult, childResult, teamResult] = await Promise.all([
       supabase
         .from("corralio_schedule_sources")
-        .select("id,display_name,sport,sync_status,last_synced_at")
+        .select("id,display_name,sport,sync_status,last_synced_at,refresh_paused_at")
         .eq("household_id", householdId)
         .neq("sync_status", "disconnected")
         .order("created_at", { ascending: true }),
@@ -132,6 +139,7 @@ export default async function HomePage() {
       displayName: source.display_name,
       sport: parseCorralioSport(source.sport),
       syncStatus: source.sync_status,
+      refreshPausedAt: source.refresh_paused_at,
     }];
   });
 
