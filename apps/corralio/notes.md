@@ -1,5 +1,15 @@
 # Corralio Notes
 
+## 2026-08-20 — Slice 4.0A children and teams foundation (local implementation)
+
+- Activated the existing private `corralio_children` and `corralio_teams` model in the authenticated Corralio home page. Household owners can add and rename active children, add child-owned private teams, and edit team names and optional sport. Archived rows remain excluded; delete, archive, restore, reorder, color editing, team-child reassignment, roster, and collaboration behavior remain deliberately deferred.
+- Kept the applied Slice 2 cardinality unchanged: one child may own multiple private team rows, while each private team belongs to exactly one child. Siblings may use separate team rows with the same display name; no shared-team junction, canonical sports entity, or name-uniqueness rule was added.
+- Child colors are assigned automatically in the existing six-token order (`forest`, `ocean`, `amber`, `violet`, `rose`, `teal`). The persisted `rose` compatibility key is retained with the accessible fuchsia presentation; no color picker or new schema field was added.
+- All family mutations use the authenticated cookie-backed Supabase server client and the existing idempotent owner-household RPC, validate IDs/names/sport server-side, scope writes to the resulting active owner household, and continue relying on the existing RLS and composite household foreign keys. No family mutation uses the service role or accepts a browser-supplied household ID.
+- Added the unapplied, preflight-protected migration `20260820_corralio_slice40a_family_foundation.sql` to narrow the existing optional `corralio_teams.sport` field to the established nine-value Corralio taxonomy. It does not coerce existing values and aborts if incompatible rows exist. Read-only catalog and rollback-only behavioral verification scripts are ready for the controlled manual production migration workflow.
+- Schedule behavior is unchanged. Slice 4.0A does not assign schedule sources or events, fetch/refresh a feed, alter canonical ingestion, mutate imported events, add analytics, or change the weekend plan. Child/team assignment remains Slice 4.0B.
+- Offline validation passed all 47 Corralio tests, TypeScript, lint, production build, and diff checks. No production SQL, private data mutation, live feed request, cron invocation, push, or deployment was performed.
+
 ## 2026-08-19 — Slice 3.3 persistent refresh failure and recovery (local implementation)
 
 - Extended the existing Slice 3.2 source state instead of adding a new `sync_status`: the unapplied migration `20260819_corralio_slice33_persistent_refresh_recovery.sql` adds a private consecutive-failure counter saturated at the fixed threshold of three and a safe `refresh_paused_at` marker. One and two accepted claimed failures remain eligible after the normal 23-hour window; the third keeps the source connected as `error`, preserves its URL/events/household/sport, releases the claim, and excludes it from later cron batches. No table, queue, cron, poller, history rows, or index were added.

@@ -2,8 +2,10 @@ import { signOut } from "@/app/actions";
 import Link from "next/link";
 import { ConnectScheduleForm } from "@/app/components/ConnectScheduleForm";
 import { ConnectedScheduleList, type ConnectedSchedule } from "@/app/components/ConnectedScheduleList";
+import { FamilySection, type FamilyChild, type FamilyTeam } from "@/app/components/FamilySection";
 import { SignInForm } from "@/app/components/SignInForm";
 import { ThisWeekend, type WeekendEvent } from "@/app/components/ThisWeekend";
+import { parseChildColor } from "@/lib/family";
 import { createCorralioSupabaseServerClient } from "@/lib/supabase/server";
 import { parseCorralioSport } from "@/lib/schedules/sport";
 import { getWeekendCandidateWindow } from "@/lib/weekend";
@@ -18,7 +20,8 @@ type SourceRow = {
   last_synced_at: string | null;
   refresh_paused_at: string | null;
 };
-type NamedRow = { id: string; display_name: string };
+type ChildRow = { id: string; display_name: string; color_token: string; sort_order: number };
+type TeamRow = { id: string; child_id: string; display_name: string; sport: string | null; sort_order: number };
 type EventRow = {
   id: string;
   title: string;
@@ -84,8 +87,8 @@ export default async function HomePage() {
 
   let sources: SourceRow[] = [];
   let events: EventRow[] = [];
-  let children: NamedRow[] = [];
-  let teams: NamedRow[] = [];
+  let children: ChildRow[] = [];
+  let teams: TeamRow[] = [];
   if (householdId) {
     const window = getWeekendCandidateWindow(new Date());
     const [sourceResult, eventResult, childResult, teamResult] = await Promise.all([
@@ -103,19 +106,42 @@ export default async function HomePage() {
         .lt("starts_at", window.to)
         .order("starts_at", { ascending: true })
         .limit(200),
-      supabase.from("corralio_children").select("id,display_name").eq("household_id", householdId).is("archived_at", null),
-      supabase.from("corralio_teams").select("id,display_name").eq("household_id", householdId).is("archived_at", null),
+      supabase
+        .from("corralio_children")
+        .select("id,display_name,color_token,sort_order")
+        .eq("household_id", householdId)
+        .is("archived_at", null)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("corralio_teams")
+        .select("id,child_id,display_name,sport,sort_order")
+        .eq("household_id", householdId)
+        .is("archived_at", null)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
     ]);
     sources = (sourceResult.data ?? []) as SourceRow[];
     events = (eventResult.data ?? []) as EventRow[];
-    children = (childResult.data ?? []) as NamedRow[];
-    teams = (teamResult.data ?? []) as NamedRow[];
+    children = (childResult.data ?? []) as ChildRow[];
+    teams = (teamResult.data ?? []) as TeamRow[];
   }
 
   const sourceLabels = new Map(sources.map((source) => [source.id, source.display_name]));
   const sourceSports = new Map(sources.map((source) => [source.id, parseCorralioSport(source.sport)]));
   const childLabels = new Map(children.map((child) => [child.id, child.display_name]));
   const teamLabels = new Map(teams.map((team) => [team.id, team.display_name]));
+  const familyChildren: FamilyChild[] = children.map((child) => ({
+    id: child.id,
+    displayName: child.display_name,
+    colorToken: parseChildColor(child.color_token),
+  }));
+  const familyTeams: FamilyTeam[] = teams.map((team) => ({
+    id: team.id,
+    childId: team.child_id,
+    displayName: team.display_name,
+    sport: parseCorralioSport(team.sport),
+  }));
   const weekendEvents: WeekendEvent[] = events.map((event) => ({
     id: event.id,
     title: event.title,
@@ -171,6 +197,8 @@ export default async function HomePage() {
             </div>
           )}
         </section>
+
+        <FamilySection familyChildren={familyChildren} teams={familyTeams} />
 
         <section className="contentCard connectCard" aria-labelledby="connect-heading">
           <p className="eyebrow">{sources.length ? "Add another" : "Get started"}</p>

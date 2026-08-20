@@ -106,6 +106,37 @@ button:disabled { cursor: wait; opacity: .7; }
 .emptyState p { margin: 8px auto 0; max-width: 440px; color: var(--corralio-muted); font-size: .9rem; line-height: 1.5; }
 .weekendLoading { padding: 28px; color: var(--corralio-muted); text-align: center; }
 .connectCard { margin-top: 18px; }
+.familyCard > .sectionIntro { margin-bottom: 22px; }
+.familyList { display: grid; gap: 14px; }
+.familyChild { min-width: 0; padding: 16px; border: 1px solid var(--corralio-border); border-radius: 16px; background: #fbfcfc; }
+.familyChildHeading { display: flex; align-items: center; gap: 11px; }
+.familyChildHeading h3 { margin: 0; font-size: 1.02rem; overflow-wrap: anywhere; }
+.familyChildHeading p { margin: 3px 0 0; color: var(--corralio-muted); font-size: .78rem; }
+.childColor { flex: 0 0 auto; width: 14px; height: 36px; border-radius: 999px; background: #6b7280; }
+.childColor-forest { background: #166534; }
+.childColor-ocean { background: #1d4ed8; }
+.childColor-amber { background: #b45309; }
+.childColor-violet { background: #7c3aed; }
+.childColor-rose { background: #a21caf; }
+.childColor-teal { background: #0f766e; }
+.familyChild details > summary, .familyAddChild > summary { min-height: 44px; display: flex; align-items: center; color: var(--corralio-teal-dark); font-size: .82rem; font-weight: 750; cursor: pointer; }
+.familyChildEdit { margin-top: 5px; }
+.familyEditForm, .familyTeamForm, .familyAddForm { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: #f3f7f6; }
+.familyEditForm label, .familyTeamForm label, .familyAddForm label { display: block; margin-bottom: 5px; font-size: .8rem; font-weight: 750; }
+.familyEditForm label span, .familyTeamForm label span { color: var(--corralio-muted); font-weight: 500; }
+.familyEditForm input, .familyTeamForm input, .familyTeamForm select, .familyAddForm input { width: 100%; min-height: 44px; padding: 9px 11px; border: 1px solid #bdc7cd; border-radius: 10px; background: #fff; color: var(--corralio-ink); }
+.familyEditForm input:focus, .familyTeamForm input:focus, .familyTeamForm select:focus, .familyAddForm input:focus { border-color: var(--corralio-teal); outline: 3px solid rgba(15,118,110,.14); }
+.familyTeams { list-style: none; display: grid; gap: 8px; margin: 12px 0 0; padding: 0; }
+.familyTeamItem { min-width: 0; padding: 11px 12px; border: 1px solid var(--corralio-border); border-radius: 12px; background: #fff; }
+.familyTeamSummary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.familyTeamSummary span:first-child { min-width: 0; font-size: .88rem; font-weight: 750; overflow-wrap: anywhere; }
+.familyTeamSummary span:last-child { flex: 0 0 auto; color: var(--corralio-muted); font-size: .76rem; }
+.familyTeamItem details > summary { min-height: 38px; display: flex; align-items: center; color: var(--corralio-teal-dark); font-size: .76rem; font-weight: 700; cursor: pointer; }
+.familyEmpty { margin: 13px 0 0; color: var(--corralio-muted); font-size: .84rem; line-height: 1.45; }
+.familyAddTeam { margin-top: 7px; }
+.familyAddChild { margin-top: 18px; padding-top: 8px; border-top: 1px solid var(--corralio-border); }
+.familyAddForm { grid-template-columns: minmax(0,1fr) auto; align-items: end; }
+.familyAddForm .formNotice { grid-column: 1 / -1; }
 .sourceList { list-style: none; margin: 26px 0 0; padding: 18px 0 0; border-top: 1px solid var(--corralio-border); display: grid; gap: 10px; }
 .sourceCard { display: grid; gap: 14px; padding: 15px; border: 1px solid var(--corralio-border); border-radius: 15px; background: #fbfcfc; font-size: .86rem; }
 .sourceSummary { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -137,6 +168,8 @@ button:disabled { cursor: wait; opacity: .7; }
   .eventCard time { flex-direction: row; justify-content: space-between; }
   .sourceSummary { align-items: flex-start; }
   .sourceActions { display: grid; grid-template-columns: 1fr; }
+  .familyTeamSummary { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .familyAddForm { grid-template-columns: 1fr; }
   .navigationDialog { margin-bottom: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior: auto !important; } }
