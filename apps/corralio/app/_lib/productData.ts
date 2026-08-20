@@ -1,11 +1,11 @@
 import type { ConnectedSchedule } from "@/app/components/ConnectedScheduleList";
 import type { FamilyChild, FamilyTeam } from "@/app/components/FamilySection";
-import type { WeekendEvent } from "@/app/components/ThisWeekend";
 import { parseChildColor } from "@/lib/family";
 import { resolveAssignmentPresentation } from "@/lib/schedules/assignment";
 import { parseCorralioSport } from "@/lib/schedules/sport";
 import { createCorralioSupabaseServerClient } from "@/lib/supabase/server";
 import { getWeekendCandidateWindow } from "@/lib/weekend";
+import { resolveWeekendEventIdentity, type WeekendPlanEvent } from "@/lib/weekendPlan";
 
 type SourceRow = { id: string; display_name: string; sport: string | null; sync_status: string; last_synced_at: string | null; refresh_paused_at: string | null; child_id: string | null; team_id: string | null };
 type ChildRow = { id: string; display_name: string; color_token: string; sort_order: number };
@@ -42,20 +42,26 @@ function mapFamily(children: ChildRow[], teams: TeamRow[]) {
   return { familyChildren, familyTeams };
 }
 
+async function loadWeekendEventRows(viewer: CorralioViewer) {
+  if (!viewer.householdId) return [] as EventRow[];
+  const window = getWeekendCandidateWindow(new Date());
+  const eventResult = await viewer.supabase.from("corralio_events").select("id,title,starts_at,ends_at,timezone,source_location_text,display_location_text,field_label,schedule_source_id,child_id,team_id").eq("household_id", viewer.householdId).gte("starts_at", window.from).lt("starts_at", window.to).order("starts_at", { ascending: true }).limit(200);
+  return (eventResult.data ?? []) as EventRow[];
+}
+
 export async function loadWeekendData(viewer: CorralioViewer) {
-  const familyRows = await loadFamilyRows(viewer);
+  const [familyRows, events] = await Promise.all([loadFamilyRows(viewer), loadWeekendEventRows(viewer)]);
   const { familyChildren, familyTeams } = mapFamily(familyRows.children, familyRows.teams);
-  let events: EventRow[] = [];
-  if (viewer.householdId) {
-    const window = getWeekendCandidateWindow(new Date());
-    const eventResult = await viewer.supabase.from("corralio_events").select("id,title,starts_at,ends_at,timezone,source_location_text,display_location_text,field_label,schedule_source_id,child_id,team_id").eq("household_id", viewer.householdId).gte("starts_at", window.from).lt("starts_at", window.to).order("starts_at", { ascending: true }).limit(200);
-    events = (eventResult.data ?? []) as EventRow[];
-  }
   const sourceLabels = new Map(familyRows.sources.map((source) => [source.id, source.display_name]));
   const sourceSports = new Map(familyRows.sources.map((source) => [source.id, parseCorralioSport(source.sport)]));
-  const weekendEvents: WeekendEvent[] = events.map((event) => {
-    const assignment = resolveAssignmentPresentation({ childId: event.child_id, teamId: event.team_id }, familyChildren, familyTeams);
-    return { id: event.id, title: event.title, startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone, location: event.source_location_text ?? event.display_location_text, fieldLabel: event.source_location_text ? null : event.field_label, sourceLabel: event.schedule_source_id ? sourceLabels.get(event.schedule_source_id) ?? null : null, sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null, assignmentLabel: assignment.label };
+  const weekendEvents: WeekendPlanEvent[] = events.map((event) => {
+    const identity = resolveWeekendEventIdentity(
+      { childId: event.child_id, teamId: event.team_id },
+      event.schedule_source_id ? sourceLabels.get(event.schedule_source_id) ?? null : null,
+      familyChildren,
+      familyTeams,
+    );
+    return { id: event.id, title: event.title, startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone, location: event.source_location_text ?? event.display_location_text, fieldLabel: event.source_location_text ? null : event.field_label, sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null, identityKind: identity.kind, identityLabel: identity.label, childColor: identity.childColor };
   });
   return { sourceCount: familyRows.sources.length, weekendEvents };
 }

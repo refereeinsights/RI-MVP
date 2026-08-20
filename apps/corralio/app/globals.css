@@ -23,6 +23,12 @@
   --header-muted: #c9d1dd;
   --shadow: rgba(22, 35, 58, .1);
   --content-width: 1040px;
+  --child-forest: #166534;
+  --child-ocean: #1d4ed8;
+  --child-amber: #b45309;
+  --child-violet: #7c3aed;
+  --child-rose: #a21caf;
+  --child-teal: #0f766e;
 }
 
 * { box-sizing: border-box; }
@@ -175,14 +181,43 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .contentCard { margin-top: 16px; padding: clamp(20px, 5vw, 30px); border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: 0 12px 35px var(--shadow); }
 .sectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 22px; }
 .countBadge { flex: 0 0 auto; letter-spacing: 0; text-transform: none; }
+.weekendPlan > .sectionKicker { margin-bottom: 20px; }
+.weekendDays { display: grid; gap: 28px; }
+.weekendDay { min-width: 0; }
+.weekendDay + .weekendDay { padding-top: 26px; border-top: 1px solid var(--border); }
+.weekendDayHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.weekendDayHeading h3 { margin: 0; font-size: clamp(1.15rem, 3vw, 1.35rem); letter-spacing: -.025em; }
+.weekendDayHeading span { flex: 0 0 auto; color: var(--muted); font-size: .76rem; font-weight: 700; }
 .eventList { list-style: none; display: grid; gap: 11px; margin: 0; padding: 0; }
-.eventCard { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
-.eventCard time { display: flex; flex-direction: column; gap: 4px; color: var(--accent); font-size: .78rem; line-height: 1.3; }
-.eventCard time span { color: var(--muted); }
-.eventBody h3, .emptyState h3 { margin: 0; font-size: 1rem; line-height: 1.3; }
-.eventTitleRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.sportIcon { flex: 0 0 auto; display: inline-grid; width: 36px; height: 36px; place-items: center; border-radius: 10px; background: var(--accent-soft); font-size: 1.05rem; }
-.eventLabel { margin: 5px 0 0; color: var(--primary); font-size: .8rem; font-weight: 750; }
+.eventCard {
+  --event-identity: var(--border);
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  padding: 15px 16px 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.eventCard::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--event-identity); }
+.eventCard-unavailable { --event-identity: var(--attention); }
+.eventColor-forest { --event-identity: var(--child-forest); }
+.eventColor-ocean { --event-identity: var(--child-ocean); }
+.eventColor-amber { --event-identity: var(--child-amber); }
+.eventColor-violet { --event-identity: var(--child-violet); }
+.eventColor-rose { --event-identity: var(--child-rose); }
+.eventColor-teal { --event-identity: var(--child-teal); }
+.eventIdentityRow { min-width: 0; display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 9px; margin-bottom: 10px; }
+.eventIdentityMarker { width: 9px; height: 9px; border-radius: 999px; background: var(--event-identity); }
+.eventIdentityRow p { min-width: 0; margin: 0; color: var(--foreground); font-size: .82rem; font-weight: 800; overflow-wrap: anywhere; }
+.eventCard-unassigned .eventIdentityRow p { color: var(--muted); }
+.eventCard-unavailable .eventIdentityRow p { color: var(--attention); }
+.sportIcon { flex: 0 0 auto; display: inline-grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: var(--accent-soft); font-size: 1rem; }
+.eventCardContent { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 16px; align-items: start; }
+.eventCard time { color: var(--accent); font-size: .88rem; line-height: 1.35; }
+.eventCard time strong { font-weight: 800; }
+.eventBody { min-width: 0; }
+.eventBody h4, .emptyState h3 { margin: 0; font-size: 1rem; line-height: 1.35; overflow-wrap: anywhere; }
 .eventLocation { display: block; min-height: 44px; margin: 2px 0 0; padding: 7px 0; border: 0; border-radius: 4px; background: transparent; color: var(--link); font-size: .82rem; line-height: 1.4; text-align: left; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
 .eventLocation:hover { color: var(--accent); }
 .emptyState, .upcomingPlaceholder { padding: 24px; border-radius: 16px; background: var(--surface-subtle); text-align: center; }
@@ -196,9 +231,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .familyChildHeading { display: flex; align-items: center; gap: 11px; }
 .familyChildHeading h3 { margin: 0; font-size: 1.02rem; overflow-wrap: anywhere; }
 .familyChildHeading p { margin: 3px 0 0; color: var(--muted); font-size: .78rem; }
-.childColor { flex: 0 0 auto; width: 14px; height: 36px; border-radius: 999px; background: #6b7280; }
-.childColor-forest { background: #166534; } .childColor-ocean { background: #1d4ed8; } .childColor-amber { background: #b45309; }
-.childColor-violet { background: #7c3aed; } .childColor-rose { background: #a21caf; } .childColor-teal { background: #0f766e; }
+.childColor { flex: 0 0 auto; width: 14px; height: 36px; border-radius: 999px; background: var(--muted); }
+.childColor-forest { background: var(--child-forest); } .childColor-ocean { background: var(--child-ocean); } .childColor-amber { background: var(--child-amber); }
+.childColor-violet { background: var(--child-violet); } .childColor-rose { background: var(--child-rose); } .childColor-teal { background: var(--child-teal); }
 .familyChild details > summary, .familyAddChild > summary, .familyTeamItem details > summary { min-height: 44px; display: flex; align-items: center; color: var(--link); font-size: .82rem; font-weight: 750; cursor: pointer; }
 .familyChildEdit { margin-top: 5px; }
 .familyEditForm, .familyTeamForm, .familyAddForm { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: var(--surface); }
@@ -262,6 +297,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
     --destructive: #ffb2a4;
     --destructive-surface: #482b2d;
     --shadow: rgba(0, 0, 0, .28);
+    --child-forest: #67c981;
+    --child-ocean: #82a9ff;
+    --child-amber: #f2b568;
+    --child-violet: #bfa2ff;
+    --child-rose: #e68bda;
+    --child-teal: #6bd0c6;
   }
   .brandLogoLight { display: none; }
   .brandLogoDark { display: block; }
@@ -280,8 +321,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .accountNav { gap: 0; }
   .accountNav > a, .textButton { padding-inline: 7px; font-size: .78rem; }
   .productNav a { padding-inline: 9px; font-size: .78rem; }
-  .eventCard { grid-template-columns: 1fr; gap: 9px; }
-  .eventCard time { flex-direction: row; justify-content: space-between; }
+  .eventCardContent { grid-template-columns: 1fr; gap: 5px; }
   .sourceActions { display: grid; grid-template-columns: 1fr; }
   .familyTeamSummary { align-items: flex-start; flex-direction: column; gap: 3px; }
   .familyAddForm { grid-template-columns: 1fr; }

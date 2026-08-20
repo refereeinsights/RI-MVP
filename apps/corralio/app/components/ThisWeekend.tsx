@@ -3,21 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { buildNavigationLinks } from "@/lib/navigation";
-import { corralioSportIcon, corralioSportLabel, type CorralioSport } from "@/lib/schedules/sport";
-import { getThisWeekendRangeLocal, isInThisWeekend } from "@/lib/weekend";
-
-export type WeekendEvent = {
-  id: string;
-  title: string;
-  startsAt: string;
-  endsAt: string | null;
-  timezone: string | null;
-  location: string | null;
-  fieldLabel: string | null;
-  sourceLabel: string | null;
-  sport: CorralioSport | null;
-  assignmentLabel: string | null;
-};
+import { corralioSportIcon, corralioSportLabel } from "@/lib/schedules/sport";
+import { getThisWeekendRangeLocal } from "@/lib/weekend";
+import { groupWeekendEventsByLocalDay, type WeekendPlanEvent } from "@/lib/weekendPlan";
 
 function validTimeZone(timezone: string | null) {
   if (!timezone) return undefined;
@@ -29,22 +17,58 @@ function validTimeZone(timezone: string | null) {
   }
 }
 
-export function ThisWeekend({ events }: { events: WeekendEvent[] }) {
+function EventCard({ event, onNavigate }: { event: WeekendPlanEvent; onNavigate: (location: string) => void }) {
+  const starts = new Date(event.startsAt);
+  const timeZone = validTimeZone(event.timezone);
+  const colorClass = event.childColor ? ` eventColor-${event.childColor}` : "";
+  const location = event.location;
+
+  return (
+    <li className={`eventCard eventCard-${event.identityKind}${colorClass}`}>
+      <div className="eventIdentityRow">
+        <span className="eventIdentityMarker" aria-hidden="true" />
+        <p>{event.identityLabel}</p>
+        {event.sport ? (
+          <span className="sportIcon" aria-label={corralioSportLabel(event.sport)} title={corralioSportLabel(event.sport)}>
+            {corralioSportIcon(event.sport)}
+          </span>
+        ) : null}
+      </div>
+      <div className="eventCardContent">
+        <time dateTime={event.startsAt}>
+          <strong>{starts.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone })}</strong>
+        </time>
+        <div className="eventBody">
+          <h4>{event.title}</h4>
+          {location ? (
+            <button className="eventLocation" type="button" aria-haspopup="dialog" onClick={() => onNavigate(location)}>
+              {location}{event.fieldLabel ? ` · ${event.fieldLabel}` : ""}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+export function ThisWeekend({ events }: { events: WeekendPlanEvent[] }) {
   const [now, setNow] = useState<Date | null>(null);
   const [navigationLocation, setNavigationLocation] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const navigationDialogRef = useRef<HTMLDialogElement>(null);
+
   useEffect(() => setNow(new Date()), []);
   useEffect(() => {
     const dialog = navigationDialogRef.current;
     if (navigationLocation && dialog && !dialog.open) dialog.showModal();
   }, [navigationLocation]);
-  const weekendEvents = useMemo(
-    () => (now ? events.filter((event) => isInThisWeekend(event.startsAt, now)) : []),
+
+  const dayGroups = useMemo(
+    () => (now ? groupWeekendEventsByLocalDay(events, now) : []),
     [events, now],
   );
 
-  if (!now) return <div className="weekendLoading">Loading this weekend…</div>;
+  if (!now) return <div className="weekendLoading" role="status">Loading this weekend…</div>;
   const range = getThisWeekendRangeLocal(now);
   const rangeLabel = `${range.start.toLocaleDateString("en-US", { month: "short", day: "numeric" })}–${new Date(range.end.getTime() - 1).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
   const navigationLinks = navigationLocation ? buildNavigationLinks(navigationLocation) : null;
@@ -66,49 +90,34 @@ export function ThisWeekend({ events }: { events: WeekendEvent[] }) {
   }
 
   return (
-    <div>
+    <div className="weekendPlan">
       <p className="sectionKicker">{rangeLabel}</p>
-      {weekendEvents.length ? (
-        <ol className="eventList">
-          {weekendEvents.map((event) => {
-            const starts = new Date(event.startsAt);
-            const timeZone = validTimeZone(event.timezone);
+      {dayGroups.length ? (
+        <div className="weekendDays">
+          {dayGroups.map((group) => {
+            const headingId = `weekend-day-${group.key}`;
             return (
-              <li className="eventCard" key={event.id}>
-                <time dateTime={event.startsAt}>
-                  <strong>{starts.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone })}</strong>
-                  <span>{starts.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone })}</span>
-                </time>
-                <div className="eventBody">
-                  <div className="eventTitleRow">
-                    <h3>{event.title}</h3>
-                    {event.sport ? (
-                      <span className="sportIcon" aria-label={corralioSportLabel(event.sport)} title={corralioSportLabel(event.sport)}>
-                        {corralioSportIcon(event.sport)}
-                      </span>
-                    ) : null}
-                  </div>
-                  {event.assignmentLabel || event.sourceLabel ? (
-                    <p className="eventLabel">{event.assignmentLabel ?? event.sourceLabel}</p>
-                  ) : null}
-                  {event.location ? (
-                    <button
-                      className="eventLocation"
-                      type="button"
-                      aria-haspopup="dialog"
-                      onClick={() => {
-                        setCopied(false);
-                        setNavigationLocation(event.location);
-                      }}
-                    >
-                      {event.location}{event.fieldLabel ? ` · ${event.fieldLabel}` : ""}
-                    </button>
-                  ) : null}
+              <section className="weekendDay" aria-labelledby={headingId} key={group.key}>
+                <div className="weekendDayHeading">
+                  <h3 id={headingId}>{group.label}</h3>
+                  <span>{group.events.length} {group.events.length === 1 ? "event" : "events"}</span>
                 </div>
-              </li>
+                <ol className="eventList">
+                  {group.events.map((event) => (
+                    <EventCard
+                      event={event}
+                      key={event.id}
+                      onNavigate={(location) => {
+                        setCopied(false);
+                        setNavigationLocation(location);
+                      }}
+                    />
+                  ))}
+                </ol>
+              </section>
             );
           })}
-        </ol>
+        </div>
       ) : (
         <div className="emptyState">
           <h3>No events this weekend</h3>
