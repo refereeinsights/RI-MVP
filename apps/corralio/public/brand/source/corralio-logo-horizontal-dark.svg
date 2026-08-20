@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 56" height="56">
+  <!-- Corralio primary horizontal lockup. Wordmark set in Manrope ExtraBold (800).
+       For production hand-off, convert the <text> element to outlines in your
+       design tool before shipping, so the mark never depends on the font being
+       installed/loaded at render time. -->
+  <g transform="translate(0,0) scale(0.56)">
+      <path d="M 74.52 72.08 A 33 33 0 1 1 79.66 35.53" fill="none" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round"/>
+      <circle cx="80.7" cy="54.31" r="10" fill="#CC3F2C"/>
+    </g>
+  <text x="72" y="40" font-family="Manrope, sans-serif" font-weight="800"
+        font-size="34" letter-spacing="-0.5" fill="#FFFFFF">corral<tspan fill="#FF8A73">i</tspan>o</text>
+</svg>

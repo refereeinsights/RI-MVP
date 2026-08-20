@@ -1,5 +1,14 @@
 # Corralio Notes
 
+## 2026-08-20 — Brand asset handoff (partial — conversion tooling required)
+
+- Copied 23 production brand files from the approved design source into the repo: `docs/brand/BRAND-SPEC.md`, 10 SVGs under `apps/corralio/public/brand/`, 11 PNG icons under `apps/corralio/public/icons/`, and 1 PNG social avatar under `apps/corralio/public/social/`.
+- Structural audit of all 10 brand SVGs: the 4 mark variants (`corralio-mark.svg`, `corralio-mark-light.svg`, `corralio-mark-mono-black.svg`, `corralio-mark-mono-white.svg`) are fully production-safe — no `<text>`, no `font-family`, no external dependencies.
+- The 6 wordmark and horizontal-logo variants all contain live `<text font-family="Manrope, sans-serif">` with a `<tspan>` accent color on the letter "i". These cannot be shipped as production assets without text-to-path conversion.
+- **Conversion blocker:** No tooling capable of faithfully outlining Manrope glyphs is available in this environment. Inkscape CLI, fontforge, cairosvg, and rsvg-convert are all absent. Manrope font files are not installed on the system. **Required tooling:** Inkscape ≥ 1.x CLI (`inkscape --export-text-to-path --export-plain-svg`) with the Manrope variable font file (`Manrope[wght].ttf` or the weight-800 static `Manrope-ExtraBold.ttf`) present on the PATH.
+- Live-text originals have been moved to `apps/corralio/public/brand/source/` (non-shipping; must not be referenced by application code). The production filenames for wordmark and horizontal-logo variants are currently vacant pending conversion.
+- Manrope webfont for product UI typography (Slice 4.0C) is not yet configured in the Corralio app. Required for Slice 4.0C: add `next/font/google` or self-host the variable TTF under `apps/corralio/public/fonts/`.
+
 ## 2026-08-20 — Slice 4.0B schedule family assignment (complete)
 
 - Added and manually applied `20260820_corralio_slice40b_schedule_assignment.sql` with one `postgres`-owned, locked-search-path `SECURITY DEFINER` RPC. It derives the active owner household from `auth.uid()` before locking the caller-owned connected ICS source, rejects disconnected/foreign sources and inactive or mismatched targets, accepts a child as team-validation context, and persists the established mutually exclusive shapes: both null, child only, or team only.
