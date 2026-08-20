@@ -76,7 +76,7 @@ where conrelid in (
     'corralio_events_team_household_fk',
     'corralio_teams_child_household_fk'
   )
-order by table_name::text, conname;
+order by conrelid::regclass::text, conname;
 
 select indexname, indexdef
 from pg_indexes

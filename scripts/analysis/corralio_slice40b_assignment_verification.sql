@@ -293,6 +293,7 @@ begin
     raise exception using errcode = 'P0001', message = 'bare service role unexpectedly succeeded';
   exception when sqlstate 'P0001' then raise; when others then null; end;
 end;
+$test$;
 reset role;
 
 -- Anonymous execution is denied by function privilege.
@@ -308,6 +309,7 @@ begin
     raise exception using errcode = 'P0001', message = 'anonymous call unexpectedly succeeded';
   exception when sqlstate 'P0001' then raise; when others then null; end;
 end;
+$test$;
 reset role;
 
 -- Force event propagation to fail and prove the source update rolls back too.
