@@ -9,6 +9,10 @@ const migrationSource = readFileSync(
   new URL("../../../supabase/migrations/20260820_corralio_slice40a_family_foundation.sql", import.meta.url),
   "utf8",
 );
+const verificationSource = readFileSync(
+  new URL("../../../scripts/analysis/corralio_slice40a_family_verification.sql", import.meta.url),
+  "utf8",
+);
 
 const familyActionSource = actionsSource.slice(
   actionsSource.indexOf("export async function createChild"),
@@ -46,4 +50,13 @@ test("the optional migration narrows team sport without changing family cardinal
   assert.match(migrationSource, /sport is null/);
   assert.match(migrationSource, /preflight failed/i);
   assert.doesNotMatch(migrationSource, /create table|drop table|delete from|update public\.corralio_teams/i);
+});
+
+test("the rollback fixture retains cross-household IDs without bypassing RLS", () => {
+  assert.match(verificationSource, /set_config\(\s*'corralio\.verification\.household_b'/);
+  assert.match(verificationSource, /current_setting\('corralio\.verification\.household_b'\)::uuid/);
+  assert.doesNotMatch(
+    verificationSource,
+    /select household_id into strict v_household_b[\s\S]*?user_id = 'ca410000-0000-4000-8000-000000000002'/,
+  );
 });

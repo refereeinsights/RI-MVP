@@ -37,7 +37,11 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', 'ca410000-0000-4000-8000-000000000001', true);
 select public.corralio_ensure_owner_household('Slice 4.0A Household A');
 select set_config('request.jwt.claim.sub', 'ca410000-0000-4000-8000-000000000002', true);
-select public.corralio_ensure_owner_household('Slice 4.0A Household B');
+select set_config(
+  'corralio.verification.household_b',
+  public.corralio_ensure_owner_household('Slice 4.0A Household B')::text,
+  true
+);
 
 select set_config('request.jwt.claim.sub', 'ca410000-0000-4000-8000-000000000001', true);
 insert into public.corralio_children (id, household_id, display_name, color_token, sort_order)
@@ -125,12 +129,8 @@ select pg_temp.corralio_slice40a_assert(
 
 do $test$
 declare
-  v_household_b uuid;
+  v_household_b uuid := current_setting('corralio.verification.household_b')::uuid;
 begin
-  select household_id into strict v_household_b
-  from public.corralio_household_members
-  where user_id = 'ca410000-0000-4000-8000-000000000002';
-
   begin
     update public.corralio_children
     set household_id = v_household_b
