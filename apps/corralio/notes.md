@@ -1,13 +1,12 @@
 # Corralio Notes
 
-## 2026-08-20 — Brand asset handoff (partial — conversion tooling required)
+## 2026-08-20 — Brand asset handoff (complete)
 
-- Copied 23 production brand files from the approved design source into the repo: `docs/brand/BRAND-SPEC.md`, 10 SVGs under `apps/corralio/public/brand/`, 11 PNG icons under `apps/corralio/public/icons/`, and 1 PNG social avatar under `apps/corralio/public/social/`.
-- Structural audit of all 10 brand SVGs: the 4 mark variants (`corralio-mark.svg`, `corralio-mark-light.svg`, `corralio-mark-mono-black.svg`, `corralio-mark-mono-white.svg`) are fully production-safe — no `<text>`, no `font-family`, no external dependencies.
-- The 6 wordmark and horizontal-logo variants all contain live `<text font-family="Manrope, sans-serif">` with a `<tspan>` accent color on the letter "i". These cannot be shipped as production assets without text-to-path conversion.
-- **Conversion blocker:** No tooling capable of faithfully outlining Manrope glyphs is available in this environment. Inkscape CLI, fontforge, cairosvg, and rsvg-convert are all absent. Manrope font files are not installed on the system. **Required tooling:** Inkscape ≥ 1.x CLI (`inkscape --export-text-to-path --export-plain-svg`) with the Manrope variable font file (`Manrope[wght].ttf` or the weight-800 static `Manrope-ExtraBold.ttf`) present on the PATH.
-- Live-text originals have been moved to `apps/corralio/public/brand/source/` (non-shipping; must not be referenced by application code). The production filenames for wordmark and horizontal-logo variants are currently vacant pending conversion.
-- Manrope webfont for product UI typography (Slice 4.0C) is not yet configured in the Corralio app. Required for Slice 4.0C: add `next/font/google` or self-host the variable TTF under `apps/corralio/public/fonts/`.
+- Completed all 10 production SVGs under `apps/corralio/public/brand/`: 4 existing self-contained mark variants plus 6 wordmark/horizontal-lockup variants converted with Inkscape 1.4.4 from the approved Manrope ExtraBold 800 source. Every production SVG parses and contains no live `<text>`, `<tspan>`, font metadata, embedded font, raster data, script, or external dependency.
+- Moved the six retained live-text design sources to `docs/brand/source/`. They are intentionally outside Next.js `public`; application code must never reference them. This corrects the earlier `public/brand/source/` staging location, whose contents would have remained deployable even when unreferenced.
+- Added the official Google Fonts Manrope 4.504 variable TTF (weights 200–800), OFL 1.1 license, `FONTLOG.txt`, and `METADATA.pb` under `apps/corralio/app/fonts/`. The TTF SHA-256 is `d0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40`. Slice 4.0C must use this file through `next/font/local`; no Google Fonts build-time fetch is permitted.
+- Source and outlined versions produced byte-identical 1200px PNG renders for all six converted assets. Light/dark treatments were visually checked on warm-white/navy at large size and at the 120px minimum lockup width with correct Manrope glyphs, accent colors, spacing, proportions, and no clipping.
+- `docs/brand/BRAND-SPEC.md` now records the approved asset-to-background mapping, font provenance/license, production checksums, and validation evidence. The artwork production-readiness blocker for Slice 4.0C is resolved; product-shell implementation and local-font wiring remain deliberately outside this artwork task.
 
 ## 2026-08-20 — Slice 4.0B schedule family assignment (complete)
 
