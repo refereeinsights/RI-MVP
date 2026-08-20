@@ -76,12 +76,12 @@ test("the server action uses one authenticated RPC and no direct or remote mutat
 });
 
 test("the UI exposes explicit active-family assignment without source credentials", () => {
-  const page = readFileSync(new URL("../../app/page.tsx", import.meta.url), "utf8");
+  const productData = readFileSync(new URL("../../app/_lib/productData.ts", import.meta.url), "utf8");
   const connectedList = readFileSync(
     new URL("../../app/components/ConnectedScheduleList.tsx", import.meta.url),
     "utf8",
   );
-  const sourceSelect = page.match(/\.from\("corralio_schedule_sources"\)[\s\S]*?\.select\("([^"]+)"\)/)?.[1] ?? "";
+  const sourceSelect = productData.match(/\.from\("corralio_schedule_sources"\)[\s\S]*?\.select\("([^"]+)"\)/)?.[1] ?? "";
   assert.match(sourceSelect, /child_id/);
   assert.match(sourceSelect, /team_id/);
   assert.doesNotMatch(sourceSelect, /source_url/);

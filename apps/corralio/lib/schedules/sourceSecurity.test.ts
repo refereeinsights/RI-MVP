@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const pageSource = readFileSync(new URL("../../app/page.tsx", import.meta.url), "utf8");
+const productDataSource = readFileSync(new URL("../../app/_lib/productData.ts", import.meta.url), "utf8");
 const connectedSourceUi = readFileSync(
   new URL("../../app/components/ConnectedScheduleList.tsx", import.meta.url),
   "utf8",
 );
 
 test("ordinary connected-source payloads contain safe metadata but never source_url", () => {
-  const sourceSelect = pageSource.match(/\.from\("corralio_schedule_sources"\)[\s\S]*?\.select\("([^"]+)"\)/)?.[1];
+  const sourceSelect = productDataSource.match(/\.from\("corralio_schedule_sources"\)[\s\S]*?\.select\("([^"]+)"\)/)?.[1];
   assert.ok(sourceSelect, "expected an explicit schedule-source select");
   assert.match(sourceSelect, /\bsport\b/);
   assert.match(sourceSelect, /\brefresh_paused_at\b/);

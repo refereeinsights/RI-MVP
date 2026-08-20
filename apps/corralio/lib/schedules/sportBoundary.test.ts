@@ -8,7 +8,7 @@ const migrationSource = readFileSync(
   new URL("../../../../supabase/migrations/20260820_corralio_slice40a1_broader_sports_taxonomy.sql", import.meta.url),
   "utf8",
 );
-const pageSource = readFileSync(new URL("../../app/page.tsx", import.meta.url), "utf8");
+const productDataSource = readFileSync(new URL("../../app/_lib/productData.ts", import.meta.url), "utf8");
 const weekendSource = readFileSync(new URL("../../app/components/ThisWeekend.tsx", import.meta.url), "utf8");
 const connectFormSource = readFileSync(new URL("../../app/components/ConnectScheduleForm.tsx", import.meta.url), "utf8");
 const connectedListSource = readFileSync(new URL("../../app/components/ConnectedScheduleList.tsx", import.meta.url), "utf8");
@@ -57,8 +57,8 @@ test("Corralio sport presentation remains local and shared by every selector", (
 });
 
 test("imported events still derive sport through schedule source identity", () => {
-  const eventType = pageSource.match(/type EventRow = \{[\s\S]*?\n\};/)?.[0] ?? "";
+  const eventType = productDataSource.match(/type EventRow = \{[\s\S]*?\};/)?.[0] ?? "";
   assert.doesNotMatch(eventType, /\bsport:/);
-  assert.match(pageSource, /schedule_source_id/);
-  assert.match(pageSource, /sourceSports\.get\(event\.schedule_source_id\)/);
+  assert.match(productDataSource, /schedule_source_id/);
+  assert.match(productDataSource, /sourceSports\.get\(event\.schedule_source_id\)/);
 });

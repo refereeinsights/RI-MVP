@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { signOut } from "@/app/actions";
+import { BrandLogo } from "@/app/components/BrandLogo";
 import { PasswordForm } from "@/app/components/PasswordForm";
 import { createCorralioSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -22,7 +23,7 @@ export default async function AccountPage() {
     <main className="authShell">
       <section className="authCard" aria-labelledby="account-password-heading">
         <div className="authCardHeader">
-          <Link className="authBrand" href="/">Corralio</Link>
+          <Link className="authBrand" href="/" aria-label="Corralio home"><BrandLogo /></Link>
           <form action={signOut}><button className="quietButton" type="submit">Sign out</button></form>
         </div>
         <p className="eyebrow">Account security</p>

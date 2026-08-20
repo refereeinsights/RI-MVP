@@ -14,6 +14,11 @@ import {
 
 export type FormState = { status: "idle" | "success" | "error"; message: string };
 
+function revalidatePlanner() {
+  revalidatePath("/");
+  revalidatePath("/family");
+}
+
 async function getOwnerContext() {
   const supabase = createCorralioSupabaseServerClient();
   const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -44,7 +49,7 @@ export async function connectSchedule(_state: FormState, formData: FormData): Pr
       { sourceUrl, displayName, sport: parseCorralioSport(submittedSport) },
     );
     if (!result.ok) return { status: "error", message: result.error };
-    revalidatePath("/");
+    revalidatePlanner();
     return {
       status: "success",
       message: `Schedule connected. ${result.imported} upcoming ${result.imported === 1 ? "event" : "events"} imported.`,
@@ -69,7 +74,7 @@ export async function updateScheduleSport(_state: FormState, formData: FormData)
       p_sport: parseCorralioSport(submittedSport),
     });
     if (error) throw new Error("sport update failed");
-    revalidatePath("/");
+    revalidatePlanner();
     return { status: "success", message: "Sport updated." };
   } catch {
     return { status: "error", message: "We couldn’t update that sport right now." };
@@ -91,7 +96,7 @@ export async function updateScheduleAssignment(_state: FormState, formData: Form
       p_team_id: assignment.teamId,
     });
     if (error || data !== true) throw new Error("assignment update failed");
-    revalidatePath("/");
+    revalidatePlanner();
     return {
       status: "success",
       message: assignment.childId ? "Schedule assignment updated." : "Schedule is now unassigned.",
@@ -115,7 +120,7 @@ export async function replaceScheduleLink(_state: FormState, formData: FormData)
       { sourceId, sourceUrl },
     );
     if (!result.ok) return { status: "error", message: result.error };
-    revalidatePath("/");
+    revalidatePlanner();
     return {
       status: "success",
       message: `Calendar link replaced. ${result.imported} upcoming ${result.imported === 1 ? "event" : "events"} imported.`,
@@ -158,7 +163,7 @@ export async function createChild(_state: FormState, formData: FormData): Promis
       sort_order: sortOrder,
     });
     if (error) throw new Error("child insert failed");
-    revalidatePath("/");
+    revalidatePlanner();
     return { status: "success", message: `${displayName} added.` };
   } catch {
     return { status: "error", message: "We couldn’t add that child right now." };
@@ -182,7 +187,7 @@ export async function renameChild(_state: FormState, formData: FormData): Promis
       .select("id")
       .maybeSingle();
     if (error || !data) throw new Error("child update failed");
-    revalidatePath("/");
+    revalidatePlanner();
     return { status: "success", message: "Child updated." };
   } catch {
     return { status: "error", message: "We couldn’t update that child right now." };
@@ -227,7 +232,7 @@ export async function createTeam(_state: FormState, formData: FormData): Promise
       sort_order: sortOrder,
     });
     if (error) throw new Error("team insert failed");
-    revalidatePath("/");
+    revalidatePlanner();
     return { status: "success", message: `${displayName} added.` };
   } catch {
     return { status: "error", message: "We couldn’t add that team right now." };
@@ -253,7 +258,7 @@ export async function updateTeam(_state: FormState, formData: FormData): Promise
       .select("id")
       .maybeSingle();
     if (error || !data) throw new Error("team update failed");
-    revalidatePath("/");
+    revalidatePlanner();
     return { status: "success", message: "Team updated." };
   } catch {
     return { status: "error", message: "We couldn’t update that team right now." };

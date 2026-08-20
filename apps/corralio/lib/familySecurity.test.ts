@@ -4,7 +4,8 @@ import test from "node:test";
 
 const actionsSource = readFileSync(new URL("../app/actions.ts", import.meta.url), "utf8");
 const familyUiSource = readFileSync(new URL("../app/components/FamilySection.tsx", import.meta.url), "utf8");
-const pageSource = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+const productDataSource = readFileSync(new URL("../app/_lib/productData.ts", import.meta.url), "utf8");
+const familyPageSource = readFileSync(new URL("../app/family/page.tsx", import.meta.url), "utf8");
 const migrationSource = readFileSync(
   new URL("../../../supabase/migrations/20260820_corralio_slice40a_family_foundation.sql", import.meta.url),
   "utf8",
@@ -37,9 +38,9 @@ test("Slice 4.0A exposes only create and bounded edit controls", () => {
 });
 
 test("family reads are bounded to active household rows and do not alter schedule reads", () => {
-  assert.match(pageSource, /\.from\("corralio_children"\)[\s\S]*?\.is\("archived_at", null\)/);
-  assert.match(pageSource, /\.from\("corralio_teams"\)[\s\S]*?\.is\("archived_at", null\)/);
-  assert.match(pageSource, /<FamilySection familyChildren=\{familyChildren\} teams=\{familyTeams\}/);
+  assert.match(productDataSource, /\.from\("corralio_children"\)[\s\S]*?\.is\("archived_at", null\)/);
+  assert.match(productDataSource, /\.from\("corralio_teams"\)[\s\S]*?\.is\("archived_at", null\)/);
+  assert.match(familyPageSource, /<FamilySection familyChildren=\{familyChildren\} teams=\{familyTeams\}/);
 });
 
 test("the optional migration narrows team sport without changing family cardinality", () => {

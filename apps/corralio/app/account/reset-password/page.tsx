@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PasswordForm } from "@/app/components/PasswordForm";
+import { BrandLogo } from "@/app/components/BrandLogo";
 import { createCorralioSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function ResetPasswordPage() {
   return (
     <main className="authShell">
       <section className="authCard" aria-labelledby="reset-password-heading">
-        <Link className="authBrand" href="/">Corralio</Link>
+        <Link className="authBrand" href="/" aria-label="Corralio home"><BrandLogo /></Link>
         <p className="eyebrow">Account recovery</p>
         <h1 id="reset-password-heading">Choose a new password</h1>
         {authenticated ? (

@@ -138,7 +138,7 @@ export function FamilySection({ familyChildren, teams }: { familyChildren: Famil
     <section className="contentCard familyCard" aria-labelledby="family-heading">
       <p className="eyebrow">Every kid. Every team.</p>
       <h2 id="family-heading">Your family</h2>
-      <p className="sectionIntro">Add the children and teams you plan for. Schedule assignment comes next.</p>
+      <p className="sectionIntro">Add the children and teams you plan for, then assign each connected schedule to the right person or team.</p>
 
       {familyChildren.length ? (
         <div className="familyList">
