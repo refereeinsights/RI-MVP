@@ -1,5 +1,14 @@
 # Corralio Notes
 
+## 2026-08-20 — Slice 4.0A.1 broader sports taxonomy (local implementation)
+
+- Expanded the application-local Corralio planning taxonomy from nine to 17 bounded tokens by adding Tennis, Swimming, Gymnastics, Track & Field, Golf, Wrestling, Cheer, and Dance. Existing sport tokens, labels, and icons remain unchanged; new emoji are presentation-only and are neither persisted nor used for application identity. `other` remains a sports/competitive-athletics fallback rather than free-form calendar input.
+- The preflight found no runtime TI sport-taxonomy import or tournament-matching dependency in Corralio. Corralio planning support and future TI enrichment eligibility remain separate capabilities; this slice adds no TI/RI code or matching behavior.
+- Preserved the current household model and ingestion boundary. A schedule may remain unassigned, and the existing schema already supports child or team assignment without requiring a fake team. Imported events continue deriving sport through `schedule_source_id`; no Activity entity, event sport column, schedule assignment, or manual-event sport model was added.
+- Added the unapplied forward migration `20260820_corralio_slice40a1_broader_sports_taxonomy.sql`. It preflights existing team/source sport values, expands both exact constraints and both source-sport RPC validators, and preserves function signatures, authorization, ownership, locked search paths, grants, RLS, and calendar URL secrecy. Read-only catalog, rollback-only behavioral, and separate cleanup verification scripts are ready for manual production use.
+- Updated the canonical product roadmap, architecture decisions, and founder/mentor handoff with ADR-029 and the explicit sports-first/TI-optional boundary. Conflicts, leave-by, tournament matching, weather, travel, manual events, and source assignment remain future sport-agnostic capabilities rather than additions to this slice.
+- Offline validation passed all 53 Corralio tests, TypeScript, lint, the production build, and diff checks. No production SQL, retained private-data mutation, live feed request, push, or deployment was performed.
+
 ## 2026-08-20 — Slice 4.0A children and teams foundation (complete)
 
 - Activated the existing private `corralio_children` and `corralio_teams` model in the authenticated Corralio home page. Household owners can add and rename active children, add child-owned private teams, and edit team names and optional sport. Archived rows remain excluded; delete, archive, restore, reorder, color editing, team-child reassignment, roster, and collaboration behavior remain deliberately deferred.

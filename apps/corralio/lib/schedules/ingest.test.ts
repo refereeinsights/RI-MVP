@@ -86,6 +86,20 @@ test("an authenticated owner imports shared-engine events into only the resolved
   assert.equal([...state.events.values()][0]?.source_location_text, "Regional Sports Park, Field 6");
 });
 
+test("a Tennis schedule uses canonical ingestion and preserves ordinary location behavior", async () => {
+  const state = memoryStore();
+  const result = await ingestCorralioSchedule(
+    state.store,
+    { sourceUrl: "https://calendar.example/tennis.ics", displayName: "Emma Tennis", sport: "tennis" },
+    { fetchSchedule: fetchSuccess },
+  );
+
+  assert.deepEqual(result, { ok: true, sourceId: "source-1", imported: 1 });
+  assert.equal(state.sourceSports.get("source-1"), "tennis");
+  assert.deepEqual(state.calls, [{ householdId: "household-a", sourceId: "source-1" }]);
+  assert.equal([...state.events.values()][0]?.source_location_text, "Regional Sports Park, Field 6");
+});
+
 test("re-import reuses the source and stable event identity instead of duplicating", async () => {
   const state = memoryStore();
   const input = { sourceUrl: "https://calendar.example/team.ics" };

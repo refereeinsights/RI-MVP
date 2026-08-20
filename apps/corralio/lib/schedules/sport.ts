@@ -7,6 +7,14 @@ export const CORRALIO_SPORTS = [
   "hockey",
   "lacrosse",
   "football",
+  "tennis",
+  "swimming",
+  "gymnastics",
+  "track_field",
+  "golf",
+  "wrestling",
+  "cheer",
+  "dance",
   "other",
 ] as const;
 
@@ -21,6 +29,14 @@ const SPORT_LABELS: Record<CorralioSport, string> = {
   hockey: "Hockey",
   lacrosse: "Lacrosse",
   football: "Football",
+  tennis: "Tennis",
+  swimming: "Swimming",
+  gymnastics: "Gymnastics",
+  track_field: "Track & Field",
+  golf: "Golf",
+  wrestling: "Wrestling",
+  cheer: "Cheer",
+  dance: "Dance",
   other: "Other",
 };
 
@@ -33,6 +49,14 @@ const SPORT_ICONS: Record<CorralioSport, string> = {
   hockey: "🏒",
   lacrosse: "🥍",
   football: "🏈",
+  tennis: "🎾",
+  swimming: "🏊",
+  gymnastics: "🤸",
+  track_field: "🏃",
+  golf: "⛳",
+  wrestling: "🤼",
+  cheer: "📣",
+  dance: "💃",
   other: "🏅",
 };
 

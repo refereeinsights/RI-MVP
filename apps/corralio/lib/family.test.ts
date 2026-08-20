@@ -27,6 +27,8 @@ test("family names are trimmed and bounded", () => {
 
 test("team sport accepts only the canonical taxonomy or an empty value", () => {
   assert.equal(parseTeamSport(" Soccer "), "soccer");
+  assert.equal(parseTeamSport(" Tennis "), "tennis");
+  assert.equal(parseTeamSport("Track_Field"), "track_field");
   assert.equal(parseTeamSport(""), null);
   assert.equal(parseTeamSport("curling"), undefined);
 });
