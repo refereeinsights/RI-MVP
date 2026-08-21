@@ -237,6 +237,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .familyChild details > summary, .familyAddChild > summary, .familyTeamItem details > summary { min-height: 44px; display: flex; align-items: center; color: var(--link); font-size: .82rem; font-weight: 750; cursor: pointer; }
 .familyChildEdit { margin-top: 5px; }
 .familyEditForm, .familyTeamForm, .familyAddForm { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: var(--surface); }
+.teamScheduleForm { margin-top: 10px; padding-top: 18px; border-top: 1px solid var(--border); border-radius: 0 0 12px 12px; }
 .familyEditForm label, .familyTeamForm label, .familyAddForm label { display: block; margin-bottom: 5px; font-size: .8rem; font-weight: 750; }
 .familyTeams { list-style: none; display: grid; gap: 8px; margin: 12px 0 0; padding: 0; }
 .familyTeamItem { min-width: 0; padding: 11px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }

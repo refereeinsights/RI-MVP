@@ -29,6 +29,8 @@ export type CorralioScheduleStore = {
     displayName: string;
     sourceUrl: string;
     sport: CorralioSport | null;
+    childId: string | null;
+    teamId: string | null;
   }): Promise<string>;
   updateSourceSport(sourceId: string, sport: CorralioSport | null): Promise<void>;
   persistIngestion(input: {
@@ -58,7 +60,7 @@ export type CorralioScheduleIngestionResult =
   | { ok: true; sourceId: string; imported: number }
   | { ok: false; error: string };
 
-function userSafeError(error: ScheduleFetchError | "no_events" | "unauthorized" | "persistence" | "needs_replacement") {
+function userSafeError(error: ScheduleFetchError | "already_connected" | "no_events" | "unauthorized" | "persistence" | "needs_replacement") {
   if (error === "invalid_url") return "Enter a valid iCal/ICS calendar URL.";
   if (error === "unsupported_protocol") return "Calendar links must start with http:// or https://.";
   if (error === "private_url") return "That calendar link cannot point to a private or local address.";
@@ -68,6 +70,7 @@ function userSafeError(error: ScheduleFetchError | "no_events" | "unauthorized" 
   if (error === "no_events") return "No upcoming events were found in that calendar.";
   if (error === "unauthorized") return "Sign in to connect a schedule.";
   if (error === "needs_replacement") return "This schedule needs attention. Use Replace calendar link on the connected schedule to reconnect updates.";
+  if (error === "already_connected") return "This calendar is already connected. Use Edit assignment on the connected schedule to move it to this team.";
   return "We couldn’t save that schedule right now. Please try again.";
 }
 
@@ -93,7 +96,12 @@ export function toPersistedScheduleEvent(event: NormalizedScheduleEvent): Persis
 
 export async function ingestCorralioSchedule(
   store: CorralioScheduleStore,
-  input: { sourceUrl: string; displayName?: string | null; sport?: CorralioSport | null },
+  input: {
+    sourceUrl: string;
+    displayName?: string | null;
+    sport?: CorralioSport | null;
+    assignment?: { childId: string; teamId: string | null };
+  },
   dependencies: IngestionDependencies = {},
 ): Promise<CorralioScheduleIngestionResult> {
   const owner = await store.resolveOwnerContext();
@@ -116,6 +124,9 @@ export async function ingestCorralioSchedule(
     if (existingSource?.refreshPaused) {
       return { ok: false, error: userSafeError("needs_replacement") };
     }
+    if (existingSource && input.assignment) {
+      return { ok: false, error: userSafeError("already_connected") };
+    }
     sourceId = existingSource?.sourceId ?? null;
     if (!sourceId) {
       sourceId = await store.createSource({
@@ -123,6 +134,8 @@ export async function ingestCorralioSchedule(
         displayName,
         sourceUrl,
         sport: input.sport ?? null,
+        childId: input.assignment?.childId ?? null,
+        teamId: input.assignment?.teamId ?? null,
       });
     } else if (input.sport) {
       await store.updateSourceSport(sourceId, input.sport);

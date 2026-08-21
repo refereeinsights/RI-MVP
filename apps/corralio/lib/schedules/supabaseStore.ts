@@ -55,8 +55,8 @@ export function createSupabaseScheduleStore(
         p_display_name: input.displayName,
         p_source_url: input.sourceUrl,
         p_sport: input.sport,
-        p_child_id: null,
-        p_team_id: null,
+        p_child_id: input.childId,
+        p_team_id: input.teamId,
       });
       if (error || typeof data !== "string") databaseFailure("create_source", error);
       return data as string;

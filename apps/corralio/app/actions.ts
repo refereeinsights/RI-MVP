@@ -130,6 +130,45 @@ export async function replaceScheduleLink(_state: FormState, formData: FormData)
   }
 }
 
+export async function connectTeamSchedule(_state: FormState, formData: FormData): Promise<FormState> {
+  const teamId = String(formData.get("teamId") ?? "").trim();
+  const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
+  if (!isValidUuid(teamId)) return { status: "error", message: "That team could not be found." };
+  if (!sourceUrl) return { status: "error", message: "Paste your team’s iCal/ICS calendar URL." };
+
+  try {
+    const { supabase, householdId } = await getOwnerContext();
+    const { data: team, error: teamError } = await supabase
+      .from("corralio_teams")
+      .select("id,child_id,display_name,sport")
+      .eq("id", teamId)
+      .eq("household_id", householdId)
+      .is("archived_at", null)
+      .maybeSingle();
+    if (teamError || !team || typeof team.child_id !== "string") throw new Error("team unavailable");
+
+    const authenticatedClient = createCorralioSupabaseServerClient();
+    const adminClient = createCorralioSupabaseAdminClient();
+    const result = await ingestCorralioSchedule(
+      createSupabaseScheduleStore(authenticatedClient, adminClient),
+      {
+        sourceUrl,
+        displayName: String(team.display_name ?? ""),
+        sport: parseCorralioSport(team.sport),
+        assignment: { childId: team.child_id, teamId: team.id },
+      },
+    );
+    if (!result.ok) return { status: "error", message: result.error };
+    revalidatePlanner();
+    return {
+      status: "success",
+      message: `Team schedule connected. ${result.imported} upcoming ${result.imported === 1 ? "event" : "events"} imported.`,
+    };
+  } catch {
+    return { status: "error", message: "We couldn’t connect that team schedule right now. Please try again." };
+  }
+}
+
 export async function createChild(_state: FormState, formData: FormData): Promise<FormState> {
   const displayName = normalizeFamilyName(formData.get("displayName"), 80);
   if (!displayName) return { status: "error", message: "Enter a child name between 1 and 80 characters." };

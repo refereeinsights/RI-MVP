@@ -26,6 +26,7 @@ function memoryStore(householdId = "household-a") {
   const sources = new Map<string, string>();
   const sourceUrls = new Map<string, string>();
   const sourceSports = new Map<string, CorralioSport | null>();
+  const sourceAssignments = new Map<string, { childId: string | null; teamId: string | null }>();
   const events = new Map<string, PersistedScheduleEvent>();
   const calls: Array<{ householdId: string; sourceId: string }> = [];
   const pausedSources = new Set<string>();
@@ -44,6 +45,7 @@ function memoryStore(householdId = "household-a") {
       sources.set(input.sourceUrl, id);
       sourceUrls.set(id, input.sourceUrl);
       sourceSports.set(id, input.sport);
+      sourceAssignments.set(id, { childId: input.childId, teamId: input.teamId });
       return id;
     },
     async updateSourceSport(sourceId, sport) {
@@ -63,7 +65,7 @@ function memoryStore(householdId = "household-a") {
     },
     async markSourceError() {},
   };
-  return { store, sources, sourceUrls, sourceSports, events, calls, pausedSources };
+  return { store, sources, sourceUrls, sourceSports, sourceAssignments, events, calls, pausedSources };
 }
 
 const fetchSuccess = async () => ({
@@ -108,6 +110,36 @@ test("re-import reuses the source and stable event identity instead of duplicati
   assert.equal(state.sources.size, 1);
   assert.equal(state.events.size, 1);
   assert.equal(state.calls.length, 2);
+});
+
+test("a team connection creates the source with its validated family assignment", async () => {
+  const state = memoryStore();
+  const result = await ingestCorralioSchedule(state.store, {
+    sourceUrl: "https://calendar.example/assigned-team.ics",
+    displayName: "Falcons",
+    sport: "soccer",
+    assignment: { childId: "child-a", teamId: "team-a" },
+  }, { fetchSchedule: fetchSuccess });
+
+  assert.deepEqual(result, { ok: true, sourceId: "source-1", imported: 1 });
+  assert.deepEqual(state.sourceAssignments.get("source-1"), { childId: "child-a", teamId: "team-a" });
+});
+
+test("a team connection never silently reassigns an already-connected calendar", async () => {
+  const state = memoryStore();
+  const sourceUrl = "https://calendar.example/team.ics";
+  await ingestCorralioSchedule(state.store, { sourceUrl }, { fetchSchedule: fetchSuccess });
+  const result = await ingestCorralioSchedule(state.store, {
+    sourceUrl,
+    assignment: { childId: "child-b", teamId: "team-b" },
+  }, { fetchSchedule: fetchSuccess });
+
+  assert.deepEqual(result, {
+    ok: false,
+    error: "This calendar is already connected. Use Edit assignment on the connected schedule to move it to this team.",
+  });
+  assert.deepEqual(state.sourceAssignments.get("source-1"), { childId: null, teamId: null });
+  assert.equal(state.calls.length, 1);
 });
 
 test("a paused source can recover only through the validated replacement path", async () => {

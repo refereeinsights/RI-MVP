@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useFormState } from "react-dom";
 
 import {
+  connectTeamSchedule,
   createChild,
   createTeam,
   renameChild,
@@ -100,6 +101,13 @@ function AddTeamForm({ child }: { child: FamilyChild }) {
 
 function TeamEditor({ team }: { team: FamilyTeam }) {
   const [state, action] = useFormState(updateTeam, INITIAL_FORM_STATE);
+  const [scheduleState, scheduleAction] = useFormState(connectTeamSchedule, INITIAL_FORM_STATE);
+  const scheduleFormRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (scheduleState.status === "success") scheduleFormRef.current?.reset();
+  }, [scheduleState]);
+
   return (
     <li className="familyTeamItem">
       <div className="familyTeamSummary">
@@ -120,6 +128,24 @@ function TeamEditor({ team }: { team: FamilyTeam }) {
           </div>
           <FormSubmitButton idle="Save team" pending="Saving…" variant="secondary" />
           <FormNotice state={state} />
+        </form>
+        <form className="familyTeamForm teamScheduleForm" action={scheduleAction} ref={scheduleFormRef}>
+          <input type="hidden" name="teamId" value={team.id} />
+          <div>
+            <label htmlFor={`team-schedule-url-${team.id}`}>Team iCal/ICS calendar URL</label>
+            <input
+              id={`team-schedule-url-${team.id}`}
+              name="sourceUrl"
+              type="url"
+              inputMode="url"
+              autoComplete="url"
+              placeholder="https://…/schedule.ics"
+              required
+            />
+          </div>
+          <p className="fieldHelp">Paste the private subscription link. New events will be assigned to this team automatically.</p>
+          <FormSubmitButton idle="Import team schedule" pending="Importing…" variant="secondary" />
+          <FormNotice state={scheduleState} />
         </form>
       </details>
     </li>
