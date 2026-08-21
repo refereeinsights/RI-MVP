@@ -110,12 +110,12 @@ function TeamEditor({ team }: { team: FamilyTeam }) {
 
   return (
     <li className="familyTeamItem">
-      <div className="familyTeamSummary">
-        <span>{team.displayName}</span>
-        <span>{team.sport ? corralioSportLabel(team.sport) : "Sport not selected"}</span>
-      </div>
-      <details>
-        <summary>Edit team</summary>
+      <details className="familyTeamDetails">
+        <summary className="familyTeamSummary" aria-label={`Edit team: ${team.displayName}`}>
+          <span className="familyTeamName">{team.displayName}</span>
+          <span className="familyTeamSport">{team.sport ? corralioSportLabel(team.sport) : "Sport not selected"}</span>
+          <span className="familyTeamDisclosure" aria-hidden="true">›</span>
+        </summary>
         <form className="familyTeamForm" action={action}>
           <input type="hidden" name="teamId" value={team.id} />
           <div>

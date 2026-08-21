@@ -241,9 +241,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .familyEditForm label, .familyTeamForm label, .familyAddForm label { display: block; margin-bottom: 5px; font-size: .8rem; font-weight: 750; }
 .familyTeams { list-style: none; display: grid; gap: 8px; margin: 12px 0 0; padding: 0; }
 .familyTeamItem { min-width: 0; padding: 11px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
-.familyTeamSummary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.familyTeamSummary span:first-child { min-width: 0; font-size: .88rem; font-weight: 750; overflow-wrap: anywhere; }
-.familyTeamSummary span:last-child { flex: 0 0 auto; color: var(--muted); font-size: .76rem; }
+.familyTeamDetails > .familyTeamSummary { display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; align-items: center; gap: 12px; color: var(--foreground); list-style: none; }
+.familyTeamDetails > .familyTeamSummary::-webkit-details-marker { display: none; }
+.familyTeamName { min-width: 0; color: var(--link); font-size: .88rem; font-weight: 750; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.familyTeamSport { flex: 0 0 auto; color: var(--muted); font-size: .76rem; font-weight: 500; }
+.familyTeamDisclosure { color: var(--link); font-size: 1.35rem; line-height: 1; text-align: center; transform: rotate(0deg); transition: transform .16s ease; }
+.familyTeamDetails[open] > .familyTeamSummary { margin-bottom: 6px; }
+.familyTeamDetails[open] > .familyTeamSummary .familyTeamDisclosure { transform: rotate(90deg); }
 .familyEmpty { margin: 13px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.45; }
 .familyAddTeam { margin-top: 7px; }
 .familyAddChild { margin-top: 18px; padding-top: 8px; border-top: 1px solid var(--border); }
@@ -324,7 +328,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .productNav a { padding-inline: 9px; font-size: .78rem; }
   .eventCardContent { grid-template-columns: 1fr; gap: 5px; }
   .sourceActions { display: grid; grid-template-columns: 1fr; }
-  .familyTeamSummary { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .familyTeamDetails > .familyTeamSummary { grid-template-columns: minmax(0, 1fr) auto 18px; gap: 8px; }
   .familyAddForm { grid-template-columns: 1fr; }
   .navigationDialog { margin-bottom: 8px; }
 }

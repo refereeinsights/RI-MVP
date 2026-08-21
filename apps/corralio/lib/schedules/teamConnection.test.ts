@@ -21,6 +21,8 @@ test("team schedule connection resolves active family context on the server", ()
 });
 
 test("the edit-team panel accepts a resettable private URL without rendering it back", () => {
+  assert.match(familyUi, /<summary className="familyTeamSummary"[^>]*aria-label=\{`Edit team:/);
+  assert.match(familyUi, /className="familyTeamName">\{team\.displayName\}<\/span>/);
   assert.match(familyUi, /Team iCal\/ICS calendar URL/);
   assert.match(familyUi, /name="sourceUrl"/);
   assert.match(familyUi, /type="url"/);
