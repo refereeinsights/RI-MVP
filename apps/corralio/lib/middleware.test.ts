@@ -10,7 +10,10 @@ import {
   TI_WEEKEND_PLANNER_PROVENANCE,
 } from "./acquisition";
 
-async function runWithoutSupabase(url: string, init?: RequestInit) {
+async function runWithoutSupabase(
+  url: string,
+  init?: ConstructorParameters<typeof NextRequest>[1],
+) {
   const savedUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const savedKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   delete process.env.NEXT_PUBLIC_SUPABASE_URL;

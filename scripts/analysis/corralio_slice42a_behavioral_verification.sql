@@ -131,6 +131,7 @@ $test$;
 -- Unavailable ignores the other two inputs. Later verified views accumulate,
 -- preserving both availability history and the week's maximum conflict count.
 select public.corralio_record_weekly_engagement_v1(true, -99, true);
+reset role;
 select set_config(
   'corralio.verification.first_viewed_at',
   (select first_viewed_at::text
@@ -138,6 +139,10 @@ select set_config(
    where household_id = current_setting('corralio.verification.household_a')::uuid),
   true
 );
+
+set local role authenticated;
+select set_config('request.jwt.claim.role', 'authenticated', true);
+select set_config('request.jwt.claim.sub', 'c42a0000-0000-4000-8000-000000000001', true);
 select public.corralio_record_weekly_engagement_v1(false, 0, false);
 select public.corralio_record_weekly_engagement_v1(true, 2, false);
 select public.corralio_record_weekly_engagement_v1(true, 1, false);
