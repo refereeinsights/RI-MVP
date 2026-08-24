@@ -1,7 +1,9 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 
+import { CORRALIO_ACQUISITION_COOKIE, resolveAcquisitionProvenanceCookie } from "../acquisition";
 import type { CorralioScheduleStore } from "./ingest";
 
 function databaseFailure(stage: string, error: { code?: string } | null) {
@@ -27,6 +29,9 @@ export function createSupabaseScheduleStore(
 
       const { data, error } = await authenticatedClient.rpc("corralio_ensure_owner_household", {
         p_display_name: null,
+        p_acquisition_provenance: resolveAcquisitionProvenanceCookie(
+          cookies().get(CORRALIO_ACQUISITION_COOKIE)?.value,
+        ),
       });
       if (error || typeof data !== "string") databaseFailure("owner_household", error);
       return { userId: user.id, householdId: data as string };

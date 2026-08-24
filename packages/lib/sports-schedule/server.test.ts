@@ -28,6 +28,25 @@ test("rejects local, private, credentialed, and non-HTTP schedule URLs", () => {
   assert.equal(isPrivateScheduleIp("::ffff:127.0.0.1"), true);
 });
 
+test("rejects the Slice 4.2A unsupported-protocol fixture before DNS or fetch", async () => {
+  let lookupCalls = 0;
+  let fetchCalls = 0;
+  const result = await fetchIcsSchedule("ftp://slice42a.invalid/synthetic.ics", {
+    lookupHost: async () => {
+      lookupCalls += 1;
+      return [{ address: "203.0.113.20" }];
+    },
+    fetchImpl: (async () => {
+      fetchCalls += 1;
+      return response(ICS_TEXT);
+    }) as typeof fetch,
+  });
+
+  assert.deepEqual(result, { ok: false, error: "unsupported_protocol" });
+  assert.equal(lookupCalls, 0);
+  assert.equal(fetchCalls, 0);
+});
+
 test("rejects a hostname when DNS resolves any address to a private network", async () => {
   const result = await fetchIcsSchedule("https://example.com/feed.ics", {
     lookupHost: async () => [{ address: "203.0.113.20" }, { address: "192.168.1.2" }],

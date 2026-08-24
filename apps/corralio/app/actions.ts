@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
+import { resolveCorralioViewer } from "@/app/_lib/productData";
+import { CORRALIO_ACQUISITION_COOKIE, resolveAcquisitionProvenanceCookie } from "@/lib/acquisition";
 import { nextChildColor, normalizeFamilyName, parseTeamSport } from "@/lib/family";
 import { isValidUuid, parseScheduleAssignmentInput } from "@/lib/schedules/assignment";
 import { ingestCorralioSchedule, replaceCorralioSchedule } from "@/lib/schedules/ingest";
@@ -11,6 +14,7 @@ import {
   createCorralioSupabaseAdminClient,
   createCorralioSupabaseServerClient,
 } from "@/lib/supabase/server";
+import { recordWeeklyEngagement, type EngagementPayload } from "@/lib/weeklyEngagement";
 
 export type FormState = { status: "idle" | "success" | "error"; message: string };
 
@@ -26,10 +30,31 @@ async function getOwnerContext() {
 
   const { data: householdId, error: householdError } = await supabase.rpc("corralio_ensure_owner_household", {
     p_display_name: null,
+    p_acquisition_provenance: resolveAcquisitionProvenanceCookie(
+      cookies().get(CORRALIO_ACQUISITION_COOKIE)?.value,
+    ),
   });
   if (householdError || typeof householdId !== "string") throw new Error("unauthorized");
 
   return { supabase, householdId };
+}
+
+export async function recordWeeklyEngagementAction(payload: EngagementPayload): Promise<void> {
+  await recordWeeklyEngagement(
+    {
+      resolveViewer: resolveCorralioViewer,
+      callRpc: async (viewer, sanitizedPayload) => {
+        const { error } = await viewer.supabase.rpc("corralio_record_weekly_engagement_v1", {
+          p_had_conflict: sanitizedPayload.hadConflict,
+          p_conflict_count: sanitizedPayload.conflictCount,
+          p_conflict_check_unavailable: sanitizedPayload.conflictCheckUnavailable,
+        });
+        return { error };
+      },
+      log: (message) => console.warn(message),
+    },
+    payload,
+  );
 }
 
 export async function connectSchedule(_state: FormState, formData: FormData): Promise<FormState> {

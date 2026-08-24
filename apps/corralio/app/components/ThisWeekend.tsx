@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { recordWeeklyEngagementAction } from "@/app/actions";
 import { buildNavigationLinks } from "@/lib/navigation";
 import { corralioSportIcon, corralioSportLabel } from "@/lib/schedules/sport";
 import { getThisWeekendRangeLocal } from "@/lib/weekend";
@@ -71,6 +72,7 @@ export function ThisWeekend({ events, candidateLimitReached = false }: { events:
   const [navigationLocation, setNavigationLocation] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const navigationDialogRef = useRef<HTMLDialogElement>(null);
+  const engagementRecordedRef = useRef(false);
 
   useEffect(() => setNow(new Date()), []);
   useEffect(() => {
@@ -82,6 +84,27 @@ export function ThisWeekend({ events, candidateLimitReached = false }: { events:
     () => (now ? buildWeekendPlan(events, now, candidateLimitReached) : null),
     [candidateLimitReached, events, now],
   );
+  useEffect(() => {
+    if (!plan || engagementRecordedRef.current) return;
+    engagementRecordedRef.current = true;
+
+    // The analytics period is a server-computed UTC ISO week. The plan shown
+    // here intentionally keeps its existing browser-local Fri-Sun boundary.
+    void recordWeeklyEngagementAction(
+      plan.conflictStatus === "candidate-limit-reached"
+        ? {
+            hadConflict: null,
+            conflictCount: null,
+            conflictCheckUnavailable: true,
+          }
+        : {
+            hadConflict: plan.conflicts.length > 0,
+            conflictCount: plan.conflicts.length,
+            conflictCheckUnavailable: false,
+          },
+    );
+  }, [plan]);
+
   const conflictPresentation = useMemo(() => {
     const eventById = new Map((plan?.events ?? []).map((event) => [event.id, event]));
     const conflictsByEventId = new Map<string, WeekendConflict[]>();
