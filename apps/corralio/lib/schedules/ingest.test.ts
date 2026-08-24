@@ -136,7 +136,7 @@ test("a team connection never silently reassigns an already-connected calendar",
 
   assert.deepEqual(result, {
     ok: false,
-    error: "This calendar is already connected. Use Edit assignment on the connected schedule to move it to this team.",
+    error: "This calendar is already connected. Use Change assignment on the connected schedule to move it to this team.",
   });
   assert.deepEqual(state.sourceAssignments.get("source-1"), { childId: null, teamId: null });
   assert.equal(state.calls.length, 1);

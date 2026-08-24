@@ -1,34 +1,13 @@
 import { loadWeekendData, resolveCorralioViewer } from "@/app/_lib/productData";
-import { BrandLogo } from "@/app/components/BrandLogo";
 import { ProductShell } from "@/app/components/ProductShell";
-import { SignInForm } from "@/app/components/SignInForm";
+import { SignedOutLanding } from "@/app/components/SignedOutLanding";
 import { ThisWeekend } from "@/app/components/ThisWeekend";
 
 export const dynamic = "force-dynamic";
 
-function SignInPage() {
-  return (
-    <main className="landingShell">
-      <section className="landingCard" aria-labelledby="corralio-title">
-        <BrandLogo />
-        <div className="launchBadge">Private pilot</div>
-        <div className="messageBlock">
-          <h1 id="corralio-title">Know what’s happening this weekend.</h1>
-          <p className="promise">Connect one team schedule. See the weekend clearly.</p>
-        </div>
-        <div className="signInPanel">
-          <h2>Sign in to your family planner</h2>
-          <p>Use your password, or ask us to email you a secure sign-in link.</p>
-          <SignInForm />
-        </div>
-      </section>
-    </main>
-  );
-}
-
 export default async function HomePage() {
   const viewer = await resolveCorralioViewer();
-  if (!viewer) return <SignInPage />;
+  if (!viewer) return <SignedOutLanding />;
 
   const { sourceCount, weekendEvents } = await loadWeekendData(viewer);
   return (
@@ -46,7 +25,7 @@ export default async function HomePage() {
         {sourceCount ? <ThisWeekend events={weekendEvents} /> : (
           <div className="emptyState">
             <h3>Your weekend starts with one schedule</h3>
-            <p>Open Family to connect your team’s iCal link and bring upcoming games and practices into one place.</p>
+            <p>Open Family to connect a team schedule and bring upcoming games and practices into one place.</p>
           </div>
         )}
       </section>

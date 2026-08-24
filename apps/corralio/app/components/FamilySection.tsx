@@ -132,7 +132,7 @@ function TeamEditor({ team }: { team: FamilyTeam }) {
         <form className="familyTeamForm teamScheduleForm" action={scheduleAction} ref={scheduleFormRef}>
           <input type="hidden" name="teamId" value={team.id} />
           <div>
-            <label htmlFor={`team-schedule-url-${team.id}`}>Team iCal/ICS calendar URL</label>
+            <label htmlFor={`team-schedule-url-${team.id}`}>Calendar link</label>
             <input
               id={`team-schedule-url-${team.id}`}
               name="sourceUrl"
@@ -143,8 +143,8 @@ function TeamEditor({ team }: { team: FamilyTeam }) {
               required
             />
           </div>
-          <p className="fieldHelp">Paste the private subscription link. New events will be assigned to this team automatically.</p>
-          <FormSubmitButton idle="Import team schedule" pending="Importing…" variant="secondary" />
+          <p className="fieldHelp">Paste the link provided by your team app. It may be called an iCal or ICS subscription link. New events will be assigned to this team automatically.</p>
+          <FormSubmitButton idle="Connect team schedule" pending="Connecting…" variant="secondary" />
           <FormNotice state={scheduleState} />
         </form>
       </details>

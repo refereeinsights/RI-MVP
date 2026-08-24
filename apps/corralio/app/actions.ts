@@ -36,7 +36,7 @@ export async function connectSchedule(_state: FormState, formData: FormData): Pr
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
   const displayName = String(formData.get("displayName") ?? "").trim();
   const submittedSport = String(formData.get("sport") ?? "").trim().toLowerCase();
-  if (!sourceUrl) return { status: "error", message: "Paste your iCal/ICS calendar URL." };
+  if (!sourceUrl) return { status: "error", message: "Paste your calendar link." };
   if (submittedSport && !CORRALIO_SPORTS.includes(submittedSport as (typeof CORRALIO_SPORTS)[number])) {
     return { status: "error", message: "Choose a valid sport or leave it unselected." };
   }
@@ -110,7 +110,7 @@ export async function replaceScheduleLink(_state: FormState, formData: FormData)
   const sourceId = String(formData.get("sourceId") ?? "").trim();
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
   if (!isValidUuid(sourceId)) return { status: "error", message: "That schedule could not be updated." };
-  if (!sourceUrl) return { status: "error", message: "Paste the replacement iCal/ICS calendar URL." };
+  if (!sourceUrl) return { status: "error", message: "Paste the replacement calendar link." };
 
   try {
     const authenticatedClient = createCorralioSupabaseServerClient();
@@ -134,7 +134,7 @@ export async function connectTeamSchedule(_state: FormState, formData: FormData)
   const teamId = String(formData.get("teamId") ?? "").trim();
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
   if (!isValidUuid(teamId)) return { status: "error", message: "That team could not be found." };
-  if (!sourceUrl) return { status: "error", message: "Paste your team’s iCal/ICS calendar URL." };
+  if (!sourceUrl) return { status: "error", message: "Paste your team’s calendar link." };
 
   try {
     const { supabase, householdId } = await getOwnerContext();

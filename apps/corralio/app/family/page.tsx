@@ -18,7 +18,7 @@ export default async function FamilyPage() {
       <FamilySection familyChildren={familyChildren} teams={familyTeams} />
       <section className="contentCard connectCard" aria-labelledby="connect-heading">
         <p className="eyebrow">{sourceCount ? "Add another" : "Get started"}</p><h2 id="connect-heading">Connect a schedule</h2>
-        <p className="sectionIntro">Your private calendar URL stays on the server and is never shown in the app after you connect it.</p>
+        <p className="sectionIntro">Your private calendar link stays on the server and is never shown in the app after you connect it.</p>
         <ConnectScheduleForm />
         {connectedSources.length ? <ConnectedScheduleList sources={connectedSources} familyChildren={familyChildren} teams={familyTeams} /> : null}
       </section>

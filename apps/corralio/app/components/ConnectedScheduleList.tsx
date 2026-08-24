@@ -121,7 +121,7 @@ function ConnectedScheduleCard({
           aria-expanded={editingAssignment}
           aria-controls={`source-assignment-form-${source.id}`}
         >
-          Edit assignment
+          Change assignment
         </button>
         <button className="secondaryButton" type="button" onClick={() => setReplacingLink((open) => !open)} aria-expanded={replacingLink}>
           Replace calendar link
@@ -177,7 +177,7 @@ function ConnectedScheduleCard({
       {replacingLink ? (
         <form className="inlineSourceForm" action={replaceAction} ref={replaceFormRef}>
           <input type="hidden" name="sourceId" value={source.id} />
-          <label htmlFor={`replacement-url-${source.id}`}>New iCal/ICS calendar URL</label>
+          <label htmlFor={`replacement-url-${source.id}`}>New calendar link</label>
           <input
             id={`replacement-url-${source.id}`}
             name="sourceUrl"
@@ -187,7 +187,7 @@ function ConnectedScheduleCard({
             required
             placeholder="https://…/schedule.ics"
           />
-          <p className="fieldHelp">Your current connection stays active unless the replacement imports successfully.</p>
+          <p className="fieldHelp">Paste the new iCal or ICS subscription link. Your current connection stays active unless the replacement imports successfully.</p>
           <FormSubmitButton idle="Validate and replace" pending="Validating…" variant="secondary" />
           {replaceState.message ? <p className={`formNotice ${replaceState.status}`} role="status">{replaceState.message}</p> : null}
         </form>

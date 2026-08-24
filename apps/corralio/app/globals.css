@@ -67,14 +67,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
     var(--background);
 }
 .landingCard, .authCard {
-  width: min(100%, 680px);
-  padding: clamp(28px, 7vw, 60px);
   border: 1px solid var(--border);
   border-radius: 28px;
   background: var(--surface);
   box-shadow: 0 24px 70px var(--shadow);
 }
-.launchBadge, .countBadge {
+.landingCard { width: min(100%, 1120px); padding: clamp(24px, 5vw, 54px); }
+.countBadge {
   display: inline-flex;
   padding: 7px 11px;
   border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
@@ -86,13 +85,38 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   letter-spacing: .1em;
   text-transform: uppercase;
 }
-.launchBadge { margin-top: 40px; }
-.messageBlock { margin-top: 20px; }
-.messageBlock h1 { max-width: 580px; margin: 0; font-size: clamp(2.2rem, 8vw, 4.5rem); font-weight: 800; letter-spacing: -.05em; line-height: 1; text-wrap: balance; }
-.promise { margin: 22px 0 0; color: var(--accent); font-size: clamp(1.05rem, 3vw, 1.35rem); font-weight: 750; line-height: 1.4; }
-.signInPanel { margin-top: 38px; padding-top: 28px; border-top: 1px solid var(--border); }
+.landingHeroGrid { display: grid; gap: clamp(34px, 6vw, 72px); margin-top: clamp(40px, 7vw, 72px); }
+.landingMessage { min-width: 0; }
+.landingMessage h1 { max-width: 650px; margin: 0; font-size: clamp(2.35rem, 7vw, 4.25rem); font-weight: 800; letter-spacing: -.055em; line-height: 1; text-wrap: balance; }
+.landingPromise { margin: 20px 0 0; color: var(--accent); font-size: clamp(1.15rem, 3vw, 1.45rem); font-weight: 800; line-height: 1.35; }
+.landingDescription { max-width: 620px; margin: 18px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.65; }
+.landingDifference { max-width: 600px; margin: 16px 0 0; font-weight: 750; line-height: 1.5; }
+.landingActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 28px; }
+.landingActions .primaryLinkButton { min-width: 160px; margin: 0; }
+.landingSignInLink { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: 10px 16px; border-radius: 12px; color: var(--link); font-weight: 800; text-underline-offset: 4px; }
+.landingSignInLink:hover { background: var(--surface-subtle); }
+.landingPrivacy { display: flex; align-items: center; gap: 8px; margin: 20px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.landingPrivacy span { color: var(--success); font-size: .65rem; }
+
+.weekendPreview { min-width: 0; align-self: start; padding: clamp(19px, 4vw, 28px); border: 1px solid var(--border); border-radius: 22px; background: var(--surface-subtle); box-shadow: 0 18px 45px var(--shadow); }
+.weekendPreviewHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.weekendPreviewHeading h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.025em; }
+.weekendPreviewHeading > span { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 999px; background: var(--success-surface); color: var(--success); font-weight: 800; }
+.previewDays { display: grid; gap: 20px; }
+.previewDay + .previewDay { padding-top: 18px; border-top: 1px solid var(--border); }
+.previewDay h3 { margin: 0 0 9px; font-size: .88rem; letter-spacing: .02em; }
+.previewDay ul { list-style: none; display: grid; gap: 8px; margin: 0; padding: 0; }
+.previewEvent { --preview-color: var(--child-ocean); min-width: 0; padding: 11px 12px; border-left: 4px solid var(--preview-color); border-radius: 10px; background: var(--surface); }
+.previewEvent-1 { --preview-color: var(--child-violet); }
+.previewEvent-2 { --preview-color: var(--child-teal); }
+.previewEvent p { margin: 0 0 5px; font-size: .78rem; font-weight: 800; overflow-wrap: anywhere; }
+.previewEvent div { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--muted); font-size: .75rem; line-height: 1.35; }
+.previewEvent strong { color: var(--accent); }
+.previewOutcome { margin: 20px 0 0; color: var(--accent); font-size: .9rem; font-weight: 800; text-align: center; }
+
+.signInPanel { display: grid; gap: 26px; margin-top: clamp(42px, 7vw, 72px); padding-top: clamp(28px, 5vw, 42px); border-top: 1px solid var(--border); scroll-margin-top: 24px; }
 .signInPanel h2, .contentCard h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.025em; }
-.signInPanel > p, .sectionIntro { margin: 8px 0 20px; color: var(--muted); line-height: 1.55; }
+.signInIntro > p:last-child, .sectionIntro { margin: 8px 0 20px; color: var(--muted); line-height: 1.55; }
 
 .stackForm { display: grid; gap: 10px; }
 .stackForm label { margin-top: 4px; font-size: .86rem; font-weight: 750; }
@@ -149,6 +173,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .authDivider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .76rem; text-transform: uppercase; }
 .authDivider::before, .authDivider::after { content: ""; height: 1px; flex: 1; background: var(--border); }
 .authSecondaryButton { width: 100%; }
+.returningSignIn { margin-top: 4px; scroll-margin-top: 24px; }
+.returningSignIn h3 { margin: 0; font-size: 1rem; }
+.returningSignIn p { margin: 5px 0 0; color: var(--muted); font-size: .8rem; }
 
 .authCard { width: min(100%, 520px); padding: clamp(24px, 6vw, 40px); border-radius: 22px; }
 .authBrand { display: inline-flex; min-height: 48px; align-items: center; margin-bottom: 30px; border-radius: 8px; }
@@ -314,6 +341,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @media (min-width: 760px) {
+  .landingHeroGrid { grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr); align-items: center; }
+  .signInPanel { grid-template-columns: minmax(0, .85fr) minmax(340px, 1.15fr); align-items: start; }
   .productNav { width: fit-content; min-width: 520px; }
   .productNav a { min-width: 160px; }
   .appContent > .contentCard { max-width: 860px; }

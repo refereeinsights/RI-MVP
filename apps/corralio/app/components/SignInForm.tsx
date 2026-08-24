@@ -75,8 +75,32 @@ export function SignInForm() {
 
   return (
     <form className="stackForm" onSubmit={signInWithPassword}>
-      <label htmlFor="email">Email address</label>
-      <input ref={emailRef} id="email" name="email" type="email" autoComplete="email" required placeholder="parent@example.com" />
+      <label htmlFor="get-started-email">Email address</label>
+      <input
+        ref={emailRef}
+        id="get-started-email"
+        name="email"
+        type="email"
+        autoComplete="email"
+        required
+        placeholder="parent@example.com"
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          void sendMagicLink();
+        }}
+      />
+
+      <button className="primaryButton" type="button" onClick={sendMagicLink} disabled={pending !== null}>
+        {pending === "magic-link" ? "Sending secure link…" : "Get Started with email"}
+      </button>
+      <p className="authHelp">New or returning, you can use the secure link we send to your email.</p>
+
+      <div className="authDivider" aria-hidden="true"><span>Returning family?</span></div>
+      <div className="returningSignIn" id="returning-sign-in">
+        <h3>Sign in with your password</h3>
+        <p>Use the same email address above.</p>
+      </div>
 
       <div className="passwordLabelRow">
         <label htmlFor="password">Password</label>
@@ -96,15 +120,9 @@ export function SignInForm() {
         </button>
       </div>
 
-      <button className="primaryButton" type="submit" disabled={pending !== null}>
+      <button className="secondaryButton authSecondaryButton" type="submit" disabled={pending !== null}>
         {pending === "password" ? "Signing in…" : "Sign in"}
       </button>
-
-      <div className="authDivider" aria-hidden="true"><span>or</span></div>
-      <button className="secondaryButton authSecondaryButton" type="button" onClick={sendMagicLink} disabled={pending !== null}>
-        {pending === "magic-link" ? "Sending link…" : "Email me a sign-in link"}
-      </button>
-      <p className="authHelp">New here? Email yourself a sign-in link to create or confirm your account.</p>
       {notice ? <p className={`formNotice ${notice.status}`} role="status">{notice.message}</p> : null}
     </form>
   );

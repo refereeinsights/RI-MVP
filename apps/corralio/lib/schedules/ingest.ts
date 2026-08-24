@@ -70,7 +70,7 @@ function userSafeError(error: ScheduleFetchError | "already_connected" | "no_eve
   if (error === "no_events") return "No upcoming events were found in that calendar.";
   if (error === "unauthorized") return "Sign in to connect a schedule.";
   if (error === "needs_replacement") return "This schedule needs attention. Use Replace calendar link on the connected schedule to reconnect updates.";
-  if (error === "already_connected") return "This calendar is already connected. Use Edit assignment on the connected schedule to move it to this team.";
+  if (error === "already_connected") return "This calendar is already connected. Use Change assignment on the connected schedule to move it to this team.";
   return "We couldn’t save that schedule right now. Please try again.";
 }
 

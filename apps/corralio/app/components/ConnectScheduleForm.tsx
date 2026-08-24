@@ -26,7 +26,7 @@ export function ConnectScheduleForm() {
         <option value="">Choose a sport</option>
         {CORRALIO_SPORTS.map((sport) => <option value={sport} key={sport}>{corralioSportLabel(sport)}</option>)}
       </select>
-      <label htmlFor="sourceUrl">iCal/ICS calendar URL</label>
+      <label htmlFor="sourceUrl">Calendar link</label>
       <input
         id="sourceUrl"
         name="sourceUrl"
@@ -36,8 +36,8 @@ export function ConnectScheduleForm() {
         required
         placeholder="https://…/schedule.ics"
       />
-      <p className="fieldHelp">Paste the private calendar subscription link from your team schedule.</p>
-      <FormSubmitButton idle="Import schedule" pending="Importing…" />
+      <p className="fieldHelp">Paste the calendar link provided by your team app. It may be called an iCal or ICS subscription link.</p>
+      <FormSubmitButton idle="Connect schedule" pending="Connecting…" />
       {state.message ? <p className={`formNotice ${state.status}`} role="status">{state.message}</p> : null}
     </form>
   );
