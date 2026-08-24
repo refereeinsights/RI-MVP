@@ -13,6 +13,8 @@ type ChildRow = { id: string; display_name: string; color_token: string; sort_or
 type TeamRow = { id: string; child_id: string; display_name: string; sport: string | null; sort_order: number };
 type EventRow = { id: string; title: string; starts_at: string; ends_at: string | null; timezone: string | null; source_location_text: string | null; display_location_text: string | null; field_label: string | null; schedule_source_id: string | null; child_id: string | null; team_id: string | null };
 
+const WEEKEND_CANDIDATE_LIMIT = 200;
+
 export async function resolveCorralioViewer() {
   try {
     const supabase = createCorralioSupabaseServerClient();
@@ -64,7 +66,7 @@ async function loadWeekendEventRows(viewer: CorralioViewer, activeSourceIds: str
   query = sourceFilter
     ? query.or(sourceFilter)
     : query.is("schedule_source_id", null);
-  const eventResult = await query.order("starts_at", { ascending: true }).limit(200);
+  const eventResult = await query.order("starts_at", { ascending: true }).limit(WEEKEND_CANDIDATE_LIMIT);
   return (eventResult.data ?? []) as EventRow[];
 }
 
@@ -86,9 +88,9 @@ export async function loadWeekendData(viewer: CorralioViewer) {
       familyChildren,
       familyTeams,
     );
-    return { id: event.id, title: event.title, startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone, location: event.source_location_text ?? event.display_location_text, fieldLabel: event.source_location_text ? null : event.field_label, sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null, identityKind: identity.kind, identityLabel: identity.label, childColor: identity.childColor };
+    return { id: event.id, title: event.title, startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone, location: event.source_location_text ?? event.display_location_text, fieldLabel: event.source_location_text ? null : event.field_label, sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null, identityKind: identity.kind, identityLabel: identity.label, childColor: identity.childColor, resolvedChildId: identity.resolvedChildId };
   });
-  return { sourceCount: sources.length, weekendEvents };
+  return { sourceCount: sources.length, weekendEvents, candidateLimitReached: events.length === WEEKEND_CANDIDATE_LIMIT };
 }
 
 export async function loadFamilyData(viewer: CorralioViewer) {

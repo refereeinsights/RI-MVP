@@ -24,8 +24,11 @@ test("the database predicate is applied before event ordering and the 200-row li
   );
   const predicatePosition = Math.max(eventLoader.indexOf("query.or(sourceFilter)"), eventLoader.indexOf('query.is("schedule_source_id", null)'));
   const orderPosition = eventLoader.indexOf('.order("starts_at"');
-  const limitPosition = eventLoader.indexOf(".limit(200)");
+  const limitPosition = eventLoader.indexOf(".limit(WEEKEND_CANDIDATE_LIMIT)");
   assert.ok(predicatePosition > 0 && predicatePosition < orderPosition);
   assert.ok(orderPosition > 0 && orderPosition < limitPosition);
+  assert.match(productData, /const WEEKEND_CANDIDATE_LIMIT = 200;/);
+  assert.match(productData, /candidateLimitReached: events\.length === WEEKEND_CANDIDATE_LIMIT/);
+  assert.match(productData, /resolvedChildId: identity\.resolvedChildId/);
   assert.doesNotMatch(eventLoader, /\.filter\(/);
 });

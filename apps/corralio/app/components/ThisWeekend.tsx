@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildNavigationLinks } from "@/lib/navigation";
 import { corralioSportIcon, corralioSportLabel } from "@/lib/schedules/sport";
 import { getThisWeekendRangeLocal } from "@/lib/weekend";
-import { groupWeekendEventsByLocalDay, type WeekendPlanEvent } from "@/lib/weekendPlan";
+import { buildWeekendPlan, type WeekendConflict, type WeekendPlanEvent } from "@/lib/weekendPlan";
 
 function validTimeZone(timezone: string | null) {
   if (!timezone) return undefined;
@@ -17,7 +17,14 @@ function validTimeZone(timezone: string | null) {
   }
 }
 
-function EventCard({ event, onNavigate }: { event: WeekendPlanEvent; onNavigate: (location: string) => void }) {
+function formatOverlapTime(conflict: WeekendConflict) {
+  const starts = new Date(conflict.overlapStartsAt);
+  const ends = new Date(conflict.overlapEndsAt);
+  const options: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+  return `${starts.toLocaleTimeString("en-US", options)}–${ends.toLocaleTimeString("en-US", options)} local time`;
+}
+
+function EventCard({ event, conflicts, onNavigate }: { event: WeekendPlanEvent; conflicts: WeekendConflict[]; onNavigate: (location: string) => void }) {
   const starts = new Date(event.startsAt);
   const timeZone = validTimeZone(event.timezone);
   const colorClass = event.childColor ? ` eventColor-${event.childColor}` : "";
@@ -34,6 +41,14 @@ function EventCard({ event, onNavigate }: { event: WeekendPlanEvent; onNavigate:
           </span>
         ) : null}
       </div>
+      {conflicts.length ? (
+        <p className="eventConflictBadge">
+          <span aria-hidden="true">!</span>
+          {conflicts.length === 1
+            ? conflicts[0]?.kind === "same-child" ? "Same child conflict" : "Schedule conflict"
+            : `${conflicts.length} schedule conflicts`}
+        </p>
+      ) : null}
       <div className="eventCardContent">
         <time dateTime={event.startsAt}>
           <strong>{starts.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone })}</strong>
@@ -51,7 +66,7 @@ function EventCard({ event, onNavigate }: { event: WeekendPlanEvent; onNavigate:
   );
 }
 
-export function ThisWeekend({ events }: { events: WeekendPlanEvent[] }) {
+export function ThisWeekend({ events, candidateLimitReached = false }: { events: WeekendPlanEvent[]; candidateLimitReached?: boolean }) {
   const [now, setNow] = useState<Date | null>(null);
   const [navigationLocation, setNavigationLocation] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -63,15 +78,29 @@ export function ThisWeekend({ events }: { events: WeekendPlanEvent[] }) {
     if (navigationLocation && dialog && !dialog.open) dialog.showModal();
   }, [navigationLocation]);
 
-  const dayGroups = useMemo(
-    () => (now ? groupWeekendEventsByLocalDay(events, now) : []),
-    [events, now],
+  const plan = useMemo(
+    () => (now ? buildWeekendPlan(events, now, candidateLimitReached) : null),
+    [candidateLimitReached, events, now],
   );
+  const conflictPresentation = useMemo(() => {
+    const eventById = new Map((plan?.events ?? []).map((event) => [event.id, event]));
+    const conflictsByEventId = new Map<string, WeekendConflict[]>();
+    for (const conflict of plan?.conflicts ?? []) {
+      for (const eventId of conflict.eventIds) {
+        const current = conflictsByEventId.get(eventId) ?? [];
+        current.push(conflict);
+        conflictsByEventId.set(eventId, current);
+      }
+    }
+    return { eventById, conflictsByEventId };
+  }, [plan]);
 
   if (!now) return <div className="weekendLoading" role="status">Loading this weekend…</div>;
   const range = getThisWeekendRangeLocal(now);
   const rangeLabel = `${range.start.toLocaleDateString("en-US", { month: "short", day: "numeric" })}–${new Date(range.end.getTime() - 1).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
   const navigationLinks = navigationLocation ? buildNavigationLinks(navigationLocation) : null;
+  const dayGroups = plan?.dayGroups ?? [];
+  const conflicts = plan?.conflicts ?? [];
 
   function closeNavigation() {
     navigationDialogRef.current?.close();
@@ -92,6 +121,33 @@ export function ThisWeekend({ events }: { events: WeekendPlanEvent[] }) {
   return (
     <div className="weekendPlan">
       <p className="sectionKicker">{rangeLabel}</p>
+      {plan?.conflictStatus === "candidate-limit-reached" ? (
+        <div className="conflictCoverageNotice" role="status">
+          <strong>Conflict check unavailable</strong>
+          <p>There are too many nearby schedule events to verify every overlap right now. Your weekend events are still shown below.</p>
+        </div>
+      ) : conflicts.length ? (
+        <section className="conflictSummary" aria-labelledby="conflict-summary-heading">
+          <div>
+            <p className="eyebrow">Schedule check</p>
+            <h3 id="conflict-summary-heading">{conflicts.length} {conflicts.length === 1 ? "conflict" : "conflicts"} this weekend</h3>
+          </div>
+          <ol>
+            {conflicts.map((conflict) => {
+              const first = conflictPresentation.eventById.get(conflict.eventIds[0]);
+              const second = conflictPresentation.eventById.get(conflict.eventIds[1]);
+              if (!first || !second) return null;
+              return (
+                <li key={conflict.key}>
+                  <span>{conflict.kind === "same-child" ? "Same child conflict" : "Schedule conflict"}</span>
+                  <p><strong>{first.identityLabel} · {first.title}</strong> overlaps <strong>{second.identityLabel} · {second.title}</strong>.</p>
+                  <p className="conflictOverlap">Overlap: {formatOverlapTime(conflict)}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : null}
       {dayGroups.length ? (
         <div className="weekendDays">
           {dayGroups.map((group) => {
@@ -106,6 +162,7 @@ export function ThisWeekend({ events }: { events: WeekendPlanEvent[] }) {
                   {group.events.map((event) => (
                     <EventCard
                       event={event}
+                      conflicts={conflictPresentation.conflictsByEventId.get(event.id) ?? []}
                       key={event.id}
                       onNavigate={(location) => {
                         setCopied(false);

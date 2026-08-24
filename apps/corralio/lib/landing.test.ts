@@ -33,6 +33,9 @@ test("Get Started reuses the established Magic Link account path", () => {
   assert.match(auth, /void sendMagicLink\(\)/);
   assert.match(auth, /Sign in with your password/);
   assert.match(auth, /signInWithPassword/);
+  assert.match(auth, /authSecondaryButton" type="button" onClick=\{\(\) => void signInWithPassword\(\)\}/);
+  assert.doesNotMatch(auth, /authSecondaryButton" type="submit"/);
+  assert.match(auth, /event\.preventDefault\(\);\s+void signInWithPassword\(\);/);
   assert.match(auth, /Forgot password\?/);
 });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState } from "react";
 
 import { buildCorralioAuthEmailRedirect } from "@/lib/authEmailRedirect";
 import { getCorralioSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -23,9 +23,8 @@ export function SignInForm() {
     return input.value.trim();
   }
 
-  async function signInWithPassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
+  async function signInWithPassword() {
+    const form = passwordRef.current?.form;
     const email = getEmail();
     const password = passwordRef.current?.value ?? "";
     if (!email || !password) return;
@@ -39,7 +38,7 @@ export function SignInForm() {
         setNotice({ status: "error", message: INVALID_PASSWORD_MESSAGE });
         return;
       }
-      form.reset();
+      form?.reset();
       window.location.assign("/");
     } catch {
       setNotice({ status: "error", message: INVALID_PASSWORD_MESSAGE });
@@ -74,7 +73,13 @@ export function SignInForm() {
   }
 
   return (
-    <form className="stackForm" onSubmit={signInWithPassword}>
+    <form
+      className="stackForm"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void signInWithPassword();
+      }}
+    >
       <label htmlFor="get-started-email">Email address</label>
       <input
         ref={emailRef}
@@ -114,13 +119,18 @@ export function SignInForm() {
           type={showPassword ? "text" : "password"}
           autoComplete="current-password"
           required
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            void signInWithPassword();
+          }}
         />
         <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-controls="password" aria-pressed={showPassword}>
           {showPassword ? "Hide" : "Show"}
         </button>
       </div>
 
-      <button className="secondaryButton authSecondaryButton" type="submit" disabled={pending !== null}>
+      <button className="secondaryButton authSecondaryButton" type="button" onClick={() => void signInWithPassword()} disabled={pending !== null}>
         {pending === "password" ? "Signing in…" : "Sign in"}
       </button>
       {notice ? <p className={`formNotice ${notice.status}`} role="status">{notice.message}</p> : null}

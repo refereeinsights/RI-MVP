@@ -9,7 +9,7 @@ export default async function HomePage() {
   const viewer = await resolveCorralioViewer();
   if (!viewer) return <SignedOutLanding />;
 
-  const { sourceCount, weekendEvents } = await loadWeekendData(viewer);
+  const { sourceCount, weekendEvents, candidateLimitReached } = await loadWeekendData(viewer);
   return (
     <ProductShell activeSection="weekend">
       <section className="heroSection">
@@ -22,7 +22,7 @@ export default async function HomePage() {
           <div><p className="eyebrow">Your plan</p><h2 id="weekend-heading">What’s happening</h2></div>
           {sourceCount ? <span className="countBadge">{sourceCount} {sourceCount === 1 ? "schedule" : "schedules"}</span> : null}
         </div>
-        {sourceCount ? <ThisWeekend events={weekendEvents} /> : (
+        {sourceCount ? <ThisWeekend events={weekendEvents} candidateLimitReached={candidateLimitReached} /> : (
           <div className="emptyState">
             <h3>Your weekend starts with one schedule</h3>
             <p>Open Family to connect a team schedule and bring upcoming games and practices into one place.</p>
