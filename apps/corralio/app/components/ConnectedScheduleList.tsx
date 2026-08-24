@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 
 import {
+  disconnectSchedule,
   replaceScheduleLink,
   updateScheduleAssignment,
   updateScheduleSport,
@@ -16,6 +17,7 @@ import {
   type CorralioSport,
 } from "@/lib/schedules/sport";
 import { FormSubmitButton } from "./FormSubmitButton";
+import { LifecycleConfirmation } from "./LifecycleConfirmation";
 import type { FamilyChild, FamilyTeam } from "./FamilySection";
 
 const INITIAL_FORM_STATE: FormState = { status: "idle", message: "" };
@@ -126,6 +128,16 @@ function ConnectedScheduleCard({
         <button className="secondaryButton" type="button" onClick={() => setReplacingLink((open) => !open)} aria-expanded={replacingLink}>
           Replace calendar link
         </button>
+        <LifecycleConfirmation
+          action={disconnectSchedule}
+          fieldName="sourceId"
+          fieldValue={source.id}
+          triggerLabel="Disconnect schedule"
+          title={`Disconnect ${source.displayName}?`}
+          description="Corralio will stop updating this schedule, and its imported events will leave your active family plan. The saved schedule and event history are not permanently erased."
+          confirmLabel="Disconnect schedule"
+          pendingLabel="Disconnecting…"
+        />
       </div>
 
       {editingSport ? (

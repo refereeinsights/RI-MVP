@@ -159,6 +159,17 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   font-weight: 750;
 }
 .secondaryButton:hover { border-color: var(--accent); background: var(--surface-subtle); }
+.destructiveButton {
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--destructive);
+  border-radius: 11px;
+  background: var(--destructive);
+  color: var(--primary-foreground);
+  font-size: .82rem;
+  font-weight: 800;
+}
+.destructiveButton:hover { background: var(--primary-hover); }
 .fieldHelp, .authHelp { margin: -2px 0 2px; color: var(--muted); font-size: .78rem; line-height: 1.45; }
 .formNotice { margin: 4px 0 0; padding: 10px 12px; border-radius: 10px; font-size: .86rem; line-height: 1.45; }
 .formNotice.success { background: var(--success-surface); color: var(--success); }
@@ -278,6 +289,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .familyEmpty { margin: 13px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.45; }
 .familyAddTeam { margin-top: 7px; }
 .familyAddChild { margin-top: 18px; padding-top: 8px; border-top: 1px solid var(--border); }
+.familyLifecycleAction { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
 .familyAddForm { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
 .familyAddForm .formNotice { grid-column: 1 / -1; }
 
@@ -297,15 +309,24 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .status.error, .status.attention { color: var(--attention); font-weight: 750; }
 .sourceStatusHelp { margin: -4px 0 0; color: var(--muted); line-height: 1.45; }
 .sourceStatusHelp.attention { padding: 10px; border-radius: 10px; background: var(--attention-surface); color: var(--attention); }
+.lifecycleTrigger { min-height: 44px; padding: 8px 4px; border: 0; border-radius: 7px; background: transparent; color: var(--destructive); font-size: .82rem; font-weight: 750; text-decoration: underline; text-underline-offset: 3px; }
+.lifecycleTrigger:hover { background: var(--destructive-surface); }
 
 .navigationDialog { width: min(calc(100% - 24px), 440px); margin: auto auto 12px; padding: 0; border: 0; border-radius: 20px; background: var(--surface); color: var(--foreground); box-shadow: 0 22px 65px var(--shadow); }
-.navigationDialog::backdrop { background: color-mix(in srgb, var(--header) 55%, transparent); }
+.navigationDialog::backdrop, .lifecycleDialog::backdrop { background: color-mix(in srgb, var(--header) 55%, transparent); }
 .navigationSheet { padding: 22px; }
 .navigationSheet h3 { margin: 0; font-size: 1.2rem; }
 .navigationSheet > div:first-child > p:last-child { margin: 8px 0 18px; color: var(--muted); font-size: .84rem; line-height: 1.45; overflow-wrap: anywhere; }
 .navigationChoices { display: grid; gap: 9px; }
 .navigationChoices a, .navigationChoices button { display: grid; min-height: 48px; place-items: center; padding: 11px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--link); font-weight: 750; text-decoration: none; }
 .navigationChoices a:hover, .navigationChoices button:hover { border-color: var(--accent); background: var(--surface-subtle); }
+.lifecycleDialog { width: min(calc(100% - 24px), 460px); margin: auto; padding: 0; border: 0; border-radius: 20px; background: var(--surface); color: var(--foreground); box-shadow: 0 22px 65px var(--shadow); }
+.lifecycleSheet { padding: 24px; }
+.lifecycleSheet h3 { margin: 0; font-size: 1.2rem; line-height: 1.35; overflow-wrap: anywhere; }
+.lifecycleSheet > p:not(.eyebrow) { margin: 10px 0 20px; color: var(--muted); font-size: .88rem; line-height: 1.55; }
+.lifecycleSheet form { display: grid; gap: 14px; }
+.lifecycleChoices { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.lifecycleChoices > button { width: 100%; }
 
 @media (prefers-color-scheme: dark) {
   :root {

@@ -106,6 +106,23 @@ export async function updateScheduleAssignment(_state: FormState, formData: Form
   }
 }
 
+export async function disconnectSchedule(_state: FormState, formData: FormData): Promise<FormState> {
+  const sourceId = String(formData.get("sourceId") ?? "").trim();
+  if (!isValidUuid(sourceId)) return { status: "error", message: "That schedule is unavailable." };
+
+  try {
+    const supabase = createCorralioSupabaseServerClient();
+    const { data, error } = await supabase.rpc("corralio_disconnect_schedule_source_v1", {
+      p_source_id: sourceId,
+    });
+    if (error || data !== true) throw new Error("schedule unavailable");
+    revalidatePlanner();
+    return { status: "success", message: "Schedule disconnected." };
+  } catch {
+    return { status: "error", message: "That schedule is unavailable or was already disconnected." };
+  }
+}
+
 export async function replaceScheduleLink(_state: FormState, formData: FormData): Promise<FormState> {
   const sourceId = String(formData.get("sourceId") ?? "").trim();
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
@@ -301,6 +318,40 @@ export async function updateTeam(_state: FormState, formData: FormData): Promise
     return { status: "success", message: "Team updated." };
   } catch {
     return { status: "error", message: "We couldn’t update that team right now." };
+  }
+}
+
+export async function removeTeam(_state: FormState, formData: FormData): Promise<FormState> {
+  const teamId = String(formData.get("teamId") ?? "").trim();
+  if (!isValidUuid(teamId)) return { status: "error", message: "That team is unavailable." };
+
+  try {
+    const supabase = createCorralioSupabaseServerClient();
+    const { data, error } = await supabase.rpc("corralio_archive_team_v1", {
+      p_team_id: teamId,
+    });
+    if (error || data !== true) throw new Error("team unavailable");
+    revalidatePlanner();
+    return { status: "success", message: "Team removed from the family plan." };
+  } catch {
+    return { status: "error", message: "That team is unavailable or was already removed." };
+  }
+}
+
+export async function removeChild(_state: FormState, formData: FormData): Promise<FormState> {
+  const childId = String(formData.get("childId") ?? "").trim();
+  if (!isValidUuid(childId)) return { status: "error", message: "That child is unavailable." };
+
+  try {
+    const supabase = createCorralioSupabaseServerClient();
+    const { data, error } = await supabase.rpc("corralio_archive_child_v1", {
+      p_child_id: childId,
+    });
+    if (error || data !== true) throw new Error("child unavailable");
+    revalidatePlanner();
+    return { status: "success", message: "Child removed from the family plan." };
+  } catch {
+    return { status: "error", message: "That child is unavailable or was already removed." };
   }
 }
 

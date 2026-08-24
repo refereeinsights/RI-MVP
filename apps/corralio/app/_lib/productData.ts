@@ -1,5 +1,6 @@
 import type { ConnectedSchedule } from "@/app/components/ConnectedScheduleList";
 import type { FamilyChild, FamilyTeam } from "@/app/components/FamilySection";
+import { buildActivePlanningEventSourceFilter } from "@/lib/activePlanning";
 import { parseChildColor } from "@/lib/family";
 import { resolveAssignmentPresentation } from "@/lib/schedules/assignment";
 import { parseCorralioSport } from "@/lib/schedules/sport";
@@ -26,14 +27,27 @@ export async function resolveCorralioViewer() {
 
 type CorralioViewer = NonNullable<Awaited<ReturnType<typeof resolveCorralioViewer>>>;
 
-async function loadFamilyRows(viewer: CorralioViewer) {
-  if (!viewer.householdId) return { sources: [] as SourceRow[], children: [] as ChildRow[], teams: [] as TeamRow[] };
-  const [sourceResult, childResult, teamResult] = await Promise.all([
-    viewer.supabase.from("corralio_schedule_sources").select("id,display_name,sport,sync_status,last_synced_at,refresh_paused_at,child_id,team_id").eq("household_id", viewer.householdId).neq("sync_status", "disconnected").order("created_at", { ascending: true }),
+async function loadActiveSourceRows(viewer: CorralioViewer) {
+  if (!viewer.householdId) return [] as SourceRow[];
+  const sourceResult = await viewer.supabase.from("corralio_schedule_sources").select("id,display_name,sport,sync_status,last_synced_at,refresh_paused_at,child_id,team_id").eq("household_id", viewer.householdId).neq("sync_status", "disconnected").order("created_at", { ascending: true });
+  return (sourceResult.data ?? []) as SourceRow[];
+}
+
+async function loadActiveFamilyRows(viewer: CorralioViewer) {
+  if (!viewer.householdId) return { children: [] as ChildRow[], teams: [] as TeamRow[] };
+  const [childResult, teamResult] = await Promise.all([
     viewer.supabase.from("corralio_children").select("id,display_name,color_token,sort_order").eq("household_id", viewer.householdId).is("archived_at", null).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
     viewer.supabase.from("corralio_teams").select("id,child_id,display_name,sport,sort_order").eq("household_id", viewer.householdId).is("archived_at", null).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
   ]);
-  return { sources: (sourceResult.data ?? []) as SourceRow[], children: (childResult.data ?? []) as ChildRow[], teams: (teamResult.data ?? []) as TeamRow[] };
+  return { children: (childResult.data ?? []) as ChildRow[], teams: (teamResult.data ?? []) as TeamRow[] };
+}
+
+async function loadFamilyRows(viewer: CorralioViewer) {
+  const [sources, familyRows] = await Promise.all([
+    loadActiveSourceRows(viewer),
+    loadActiveFamilyRows(viewer),
+  ]);
+  return { sources, ...familyRows };
 }
 
 function mapFamily(children: ChildRow[], teams: TeamRow[]) {
@@ -42,18 +56,29 @@ function mapFamily(children: ChildRow[], teams: TeamRow[]) {
   return { familyChildren, familyTeams };
 }
 
-async function loadWeekendEventRows(viewer: CorralioViewer) {
+async function loadWeekendEventRows(viewer: CorralioViewer, activeSourceIds: string[]) {
   if (!viewer.householdId) return [] as EventRow[];
   const window = getWeekendCandidateWindow(new Date());
-  const eventResult = await viewer.supabase.from("corralio_events").select("id,title,starts_at,ends_at,timezone,source_location_text,display_location_text,field_label,schedule_source_id,child_id,team_id").eq("household_id", viewer.householdId).gte("starts_at", window.from).lt("starts_at", window.to).order("starts_at", { ascending: true }).limit(200);
+  const sourceFilter = buildActivePlanningEventSourceFilter(activeSourceIds);
+  let query = viewer.supabase.from("corralio_events").select("id,title,starts_at,ends_at,timezone,source_location_text,display_location_text,field_label,schedule_source_id,child_id,team_id").eq("household_id", viewer.householdId).gte("starts_at", window.from).lt("starts_at", window.to);
+  query = sourceFilter
+    ? query.or(sourceFilter)
+    : query.is("schedule_source_id", null);
+  const eventResult = await query.order("starts_at", { ascending: true }).limit(200);
   return (eventResult.data ?? []) as EventRow[];
 }
 
 export async function loadWeekendData(viewer: CorralioViewer) {
-  const [familyRows, events] = await Promise.all([loadFamilyRows(viewer), loadWeekendEventRows(viewer)]);
+  const sourcePromise = loadActiveSourceRows(viewer);
+  const familyPromise = loadActiveFamilyRows(viewer);
+  const sources = await sourcePromise;
+  const [familyRows, events] = await Promise.all([
+    familyPromise,
+    loadWeekendEventRows(viewer, sources.map((source) => source.id)),
+  ]);
   const { familyChildren, familyTeams } = mapFamily(familyRows.children, familyRows.teams);
-  const sourceLabels = new Map(familyRows.sources.map((source) => [source.id, source.display_name]));
-  const sourceSports = new Map(familyRows.sources.map((source) => [source.id, parseCorralioSport(source.sport)]));
+  const sourceLabels = new Map(sources.map((source) => [source.id, source.display_name]));
+  const sourceSports = new Map(sources.map((source) => [source.id, parseCorralioSport(source.sport)]));
   const weekendEvents: WeekendPlanEvent[] = events.map((event) => {
     const identity = resolveWeekendEventIdentity(
       { childId: event.child_id, teamId: event.team_id },
@@ -63,7 +88,7 @@ export async function loadWeekendData(viewer: CorralioViewer) {
     );
     return { id: event.id, title: event.title, startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone, location: event.source_location_text ?? event.display_location_text, fieldLabel: event.source_location_text ? null : event.field_label, sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null, identityKind: identity.kind, identityLabel: identity.label, childColor: identity.childColor };
   });
-  return { sourceCount: familyRows.sources.length, weekendEvents };
+  return { sourceCount: sources.length, weekendEvents };
 }
 
 export async function loadFamilyData(viewer: CorralioViewer) {

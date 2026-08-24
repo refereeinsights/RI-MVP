@@ -8,12 +8,15 @@ import {
   createChild,
   createTeam,
   renameChild,
+  removeChild,
+  removeTeam,
   updateTeam,
   type FormState,
 } from "@/app/actions";
 import type { CorralioChildColor } from "@/lib/family";
 import { CORRALIO_SPORTS, corralioSportLabel, type CorralioSport } from "@/lib/schedules/sport";
 import { FormSubmitButton } from "./FormSubmitButton";
+import { LifecycleConfirmation } from "./LifecycleConfirmation";
 
 const INITIAL_FORM_STATE: FormState = { status: "idle", message: "" };
 
@@ -147,6 +150,18 @@ function TeamEditor({ team }: { team: FamilyTeam }) {
           <FormSubmitButton idle="Connect team schedule" pending="Connecting…" variant="secondary" />
           <FormNotice state={scheduleState} />
         </form>
+        <div className="familyLifecycleAction">
+          <LifecycleConfirmation
+            action={removeTeam}
+            fieldName="teamId"
+            fieldValue={team.id}
+            triggerLabel="Remove team"
+            title={`Remove ${team.displayName}?`}
+            description="This team will leave your active family plan. Its schedules will stay connected and become unassigned."
+            confirmLabel="Remove team"
+            pendingLabel="Removing…"
+          />
+        </div>
       </details>
     </li>
   );
@@ -185,6 +200,18 @@ export function FamilySection({ familyChildren, teams }: { familyChildren: Famil
                   <summary>Add a team for {child.displayName}</summary>
                   <AddTeamForm child={child} />
                 </details>
+                <div className="familyLifecycleAction">
+                  <LifecycleConfirmation
+                    action={removeChild}
+                    fieldName="childId"
+                    fieldValue={child.id}
+                    triggerLabel="Remove child"
+                    title={`Remove ${child.displayName} from the family plan?`}
+                    description="This child and their active teams will leave your family plan. Their schedules will stay connected and become unassigned."
+                    confirmLabel="Remove child"
+                    pendingLabel="Removing…"
+                  />
+                </div>
               </article>
             );
           })}

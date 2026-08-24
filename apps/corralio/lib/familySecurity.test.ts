@@ -28,12 +28,14 @@ test("family mutations derive the owner household server-side and never use the 
   assert.doesNotMatch(familyActionSource, /corralio_schedule_sources|corralio_events/);
 });
 
-test("Slice 4.0A exposes only create and bounded edit controls", () => {
+test("Family exposes bounded editing and RPC-backed lifecycle controls", () => {
   assert.match(familyUiSource, /Add a child/);
   assert.match(familyUiSource, /Add a team for/);
   assert.match(familyUiSource, /Edit child name/);
   assert.match(familyUiSource, /Edit team/);
-  assert.doesNotMatch(familyUiSource, /Delete child|Delete team|Archive|Restore|Reassign/i);
+  assert.match(familyUiSource, /Remove child/);
+  assert.match(familyUiSource, /Remove team/);
+  assert.doesNotMatch(familyUiSource, /Delete child|Delete team|Archive|Restore/i);
   assert.doesNotMatch(familyActionSource, /\.delete\(|\.update\(\{[^}]*archived_at|child_id:\s*formData/);
 });
 

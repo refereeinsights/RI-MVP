@@ -9,11 +9,16 @@ export function FormSubmitButton({
 }: {
   idle: string;
   pending: string;
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "secondary" | "destructive";
 }) {
   const status = useFormStatus();
+  const className = variant === "primary"
+    ? "primaryButton"
+    : variant === "destructive"
+      ? "destructiveButton"
+      : "secondaryButton";
   return (
-    <button className={variant === "primary" ? "primaryButton" : "secondaryButton"} type="submit" disabled={status.pending}>
+    <button className={className} type="submit" disabled={status.pending}>
       {status.pending ? pending : idle}
     </button>
   );
