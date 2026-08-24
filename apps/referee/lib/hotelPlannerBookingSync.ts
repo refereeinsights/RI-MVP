@@ -533,3 +533,120 @@ export async function loadHotelBookingSummary(windowDays = 7): Promise<{
     topTournamentSlugs,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Lifetime (all-time) summary — no date filter.
+// Use this for cumulative reporting once the sync has been running long enough
+// to represent the full booking history. The rolling 7-day sync accumulates
+// records over time; a manual backfill (syncHotelPlannerBookings with a large
+// lookbackDays) is needed to populate data from before the sync started.
+// Not included in the daily email by default — call separately when needed.
+// ---------------------------------------------------------------------------
+
+export type HotelBookingLifetimeSummary = {
+  totalCount: number;
+  confirmedCount: number;
+  cancelledCount: number;
+  pendingCount: number;
+  totalBookingValueUsd: number;
+  expectedCommissionUsd: number;
+  paidCommissionUsd: number;
+  earliestPurchasedAt: string | null;
+  latestPurchasedAt: string | null;
+  topTournamentSlugs: Array<{ slug: string; count: number }>;
+  topHotels: Array<{ name: string; count: number; totalUsd: number }>;
+};
+
+export async function loadHotelBookingLifetimeSummary(): Promise<HotelBookingLifetimeSummary> {
+  const { data, error } = await (supabaseAdmin as any)
+    .from("ti_hotel_bookings")
+    .select("status,total_usd,expected_commission_usd,paid_commission_usd,custom2,hotel_name,purchased_at")
+    .order("purchased_at", { ascending: true });
+
+  if (error) {
+    console.error("[hotel-booking-sync] lifetime summary error", error.message);
+    return {
+      totalCount: 0,
+      confirmedCount: 0,
+      cancelledCount: 0,
+      pendingCount: 0,
+      totalBookingValueUsd: 0,
+      expectedCommissionUsd: 0,
+      paidCommissionUsd: 0,
+      earliestPurchasedAt: null,
+      latestPurchasedAt: null,
+      topTournamentSlugs: [],
+      topHotels: [],
+    };
+  }
+
+  const rows = (data ?? []) as Array<{
+    status: string | null;
+    total_usd: number | null;
+    expected_commission_usd: number | null;
+    paid_commission_usd: number | null;
+    custom2: string | null;
+    hotel_name: string | null;
+    purchased_at: string | null;
+  }>;
+
+  let confirmedCount = 0;
+  let cancelledCount = 0;
+  let pendingCount = 0;
+  let totalBookingValueUsd = 0;
+  let expectedCommissionUsd = 0;
+  let paidCommissionUsd = 0;
+  const slugCounts = new Map<string, number>();
+  const hotelTotals = new Map<string, { count: number; totalUsd: number }>();
+  let earliestPurchasedAt: string | null = null;
+  let latestPurchasedAt: string | null = null;
+
+  for (const row of rows) {
+    const status = (row.status ?? "").toLowerCase();
+    if (status === "confirmed") confirmedCount += 1;
+    else if (status.includes("cancel")) cancelledCount += 1;
+    else pendingCount += 1;
+
+    totalBookingValueUsd += Number(row.total_usd ?? 0);
+    expectedCommissionUsd += Number(row.expected_commission_usd ?? 0);
+    paidCommissionUsd += Number(row.paid_commission_usd ?? 0);
+
+    if (row.purchased_at) {
+      if (!earliestPurchasedAt || row.purchased_at < earliestPurchasedAt) earliestPurchasedAt = row.purchased_at;
+      if (!latestPurchasedAt || row.purchased_at > latestPurchasedAt) latestPurchasedAt = row.purchased_at;
+    }
+
+    const slug = (row.custom2 ?? "").trim();
+    if (slug) slugCounts.set(slug, (slugCounts.get(slug) ?? 0) + 1);
+
+    const hotel = (row.hotel_name ?? "").trim();
+    if (hotel) {
+      const existing = hotelTotals.get(hotel) ?? { count: 0, totalUsd: 0 };
+      hotelTotals.set(hotel, { count: existing.count + 1, totalUsd: existing.totalUsd + Number(row.total_usd ?? 0) });
+    }
+  }
+
+  const topTournamentSlugs = Array.from(slugCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([slug, count]) => ({ slug, count }));
+
+  const topHotels = Array.from(hotelTotals.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 10)
+    .map(([name, { count, totalUsd }]) => ({ name, count, totalUsd }));
+
+  return {
+    totalCount: rows.length,
+    confirmedCount,
+    cancelledCount,
+    pendingCount,
+    totalBookingValueUsd,
+    expectedCommissionUsd,
+    paidCommissionUsd,
+    earliestPurchasedAt,
+    latestPurchasedAt,
+    topTournamentSlugs,
+    topHotels,
+  };
+}
