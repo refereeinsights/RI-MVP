@@ -217,7 +217,8 @@ export async function geocodeWithGeocodio(input: {
   try {
     const url = new URL("https://api.geocod.io/v2/geocode");
     url.searchParams.set("q", input.address);
-    url.searchParams.set("country", "US");
+    // Geocodio's request vocabulary uses USA; successful responses use US.
+    url.searchParams.set("country", "USA");
     url.searchParams.set("api_key", input.apiKey);
     const response = await input.fetchImpl(url, {
       method: "GET",

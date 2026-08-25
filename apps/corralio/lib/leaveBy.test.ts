@@ -94,7 +94,7 @@ test("isolates Geocodio HTTP request handling behind injected fetch", async () =
   });
   assert.equal(result.kind, "success");
   assert.match(requestedUrl, /^https:\/\/api\.geocod\.io\/v2\/geocode\?/);
-  assert.match(requestedUrl, /country=US/);
+  assert.match(requestedUrl, /country=USA/);
 });
 
 test("isolates ORS HTTP request and uses longitude-latitude coordinate order", async () => {

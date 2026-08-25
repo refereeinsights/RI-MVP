@@ -70,6 +70,10 @@ test("server orchestration scopes client event IDs to the authenticated househol
 
 test("origin results are claim-bound so stale concurrent saves cannot overwrite", () => {
   assert.match(server, /claimOrigin\(admin, householdId, address\)/);
+  assert.match(server, /attempt\("unclaimed"\)[\s\S]*?attempt\("stale"\)/);
+  assert.match(server, /query\.is\("origin_geocode_claimed_at", null\)/);
+  assert.match(server, /query\.lt\("origin_geocode_claimed_at", staleClaimTimestamp\(\)\)/);
+  assert.doesNotMatch(server, /origin_geocode_claimed_at\.is\.null/);
   assert.match(server, /\.eq\("origin_address", address\)[\s\S]*?\.eq\("origin_geocode_claimed_at", claimTimestamp\)/);
   assert.match(migration, /from public\.corralio_households household[\s\S]*?for update/);
 });

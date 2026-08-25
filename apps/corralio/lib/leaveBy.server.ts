@@ -120,17 +120,23 @@ async function clearOriginClaim(admin: AdminClient, householdId: string, claimTi
 
 async function claimOrigin(admin: AdminClient, householdId: string, address: string) {
   const claimTimestamp = currentTimestamp();
-  const { data, error } = await admin
-    .from("corralio_households")
-    .update({ origin_geocode_claimed_at: claimTimestamp })
-    .eq("id", householdId)
-    .eq("origin_address", address)
-    .is("origin_geocoded_at", null)
-    .is("origin_geocode_failed_at", null)
-    .or(`origin_geocode_claimed_at.is.null,origin_geocode_claimed_at.lt.${staleClaimTimestamp()}`)
-    .select("id")
-    .maybeSingle();
-  return !error && data?.id === householdId ? claimTimestamp : null;
+  const attempt = async (availability: "unclaimed" | "stale") => {
+    let query = admin
+      .from("corralio_households")
+      .update({ origin_geocode_claimed_at: claimTimestamp })
+      .eq("id", householdId)
+      .eq("origin_address", address)
+      .is("origin_geocoded_at", null)
+      .is("origin_geocode_failed_at", null);
+    query = availability === "unclaimed"
+      ? query.is("origin_geocode_claimed_at", null)
+      : query.lt("origin_geocode_claimed_at", staleClaimTimestamp());
+    const { data, error } = await query.select("id").maybeSingle();
+    return !error && data?.id === householdId;
+  };
+  return (await attempt("unclaimed") || await attempt("stale"))
+    ? claimTimestamp
+    : null;
 }
 
 export async function saveHouseholdOrigin(input: {
@@ -230,17 +236,23 @@ async function claimEvent(
   admin: AdminClient,
   input: { householdId: string; eventId: string; claimColumn: "location_geocode_claimed_at" | "route_claimed_at" },
 ) {
-  let query = admin
-    .from("corralio_events")
-    .update({ [input.claimColumn]: currentTimestamp() })
-    .eq("household_id", input.householdId)
-    .eq("id", input.eventId)
-    .or(`${input.claimColumn}.is.null,${input.claimColumn}.lt.${staleClaimTimestamp()}`);
-  query = input.claimColumn === "location_geocode_claimed_at"
-    ? query.is("location_geocoded_at", null).is("location_geocode_failed_at", null)
-    : query.is("estimated_drive_minutes", null).is("route_failed_at", null);
-  const { data, error } = await query.select("id").maybeSingle();
-  return !error && data?.id === input.eventId;
+  const claimTimestamp = currentTimestamp();
+  const attempt = async (availability: "unclaimed" | "stale") => {
+    let query = admin
+      .from("corralio_events")
+      .update({ [input.claimColumn]: claimTimestamp })
+      .eq("household_id", input.householdId)
+      .eq("id", input.eventId);
+    query = availability === "unclaimed"
+      ? query.is(input.claimColumn, null)
+      : query.lt(input.claimColumn, staleClaimTimestamp());
+    query = input.claimColumn === "location_geocode_claimed_at"
+      ? query.is("location_geocoded_at", null).is("location_geocode_failed_at", null)
+      : query.is("estimated_drive_minutes", null).is("route_failed_at", null);
+    const { data, error } = await query.select("id").maybeSingle();
+    return !error && data?.id === input.eventId;
+  };
+  return await attempt("unclaimed") || await attempt("stale");
 }
 
 async function clearEventClaim(
