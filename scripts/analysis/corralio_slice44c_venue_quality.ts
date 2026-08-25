@@ -24,6 +24,16 @@ async function allRows(table: string, columns: string) {
   }
 }
 
+async function optionalRows(table: string, columns: string) {
+  const { data, error } = await supabase.from(table).select(columns).range(0, 999);
+  if (error) {
+    if (error.code === "42P01" || /does not exist/i.test(error.message)) return [];
+    throw new Error("Venue quality report query failed");
+  }
+  if (!Array.isArray(data)) throw new Error("Venue quality report query failed");
+  return data as unknown as Array<Record<string, unknown>>;
+}
+
 function distribution(values: number[]) {
   const buckets = new Map<number, number>();
   for (const value of values) buckets.set(value, (buckets.get(value) ?? 0) + 1);
@@ -31,11 +41,16 @@ function distribution(values: number[]) {
 }
 
 async function main() {
-  const [events, matches, provisional, evidence] = await Promise.all([
+  const [events, matches, provisional, evidence, overtureCandidates, overtureRefreshes] = await Promise.all([
     allRows("corralio_events", "id,origin_type,source_location_text,display_location_text,location_lat,location_lng,location_geocoded_at"),
     allRows("corralio_event_venue_matches", "event_id,match_status,provisional_venue_id"),
     allRows("corralio_provisional_venues", "id,normalized_place_name,city,state,lifecycle_status"),
     allRows("corralio_provisional_venue_evidence", "provisional_venue_id,evidence_type,source_scope_fingerprint"),
+    optionalRows(
+      "corralio_overture_candidates",
+      "canonical_venue_id,provisional_venue_id,category,overture_feature_id,name,latitude,longitude,active",
+    ),
+    optionalRows("corralio_overture_refreshes", "status,overture_release,venues_considered,candidates_examined"),
   ]);
 
   const matchByEvent = new Map(matches.flatMap((row) =>
@@ -117,7 +132,8 @@ async function main() {
       (row.lifecycle_status === "active" || row.lifecycle_status === "suppressed" || row.lifecycle_status === "merged" || row.lifecycle_status === "reconciled")
       && evaluateProvisionalPromotionEligibilityV1({
         lifecycleStatus: row.lifecycle_status,
-        evidenceTypes: evidenceTypes.filter((type): type is "ics_observation" => type === "ics_observation"),
+        evidenceTypes: evidenceTypes.filter((type): type is "ics_observation" | "overture_place_match" =>
+          type === "ics_observation" || type === "overture_place_match"),
         hasIdentityConflict: duplicateIds.has(row.id),
         hasPrivacyBlocker: false,
         identityCoherent: true,
@@ -133,6 +149,47 @@ async function main() {
   ).length;
   const potentialDuplicateRows = duplicateIds.size;
   const percent = (value: number, denominator: number) => denominator ? Number((value * 100 / denominator).toFixed(2)) : 0;
+  const identityKey = (row: Record<string, unknown>) =>
+    typeof row.canonical_venue_id === "string" ? `canonical:${row.canonical_venue_id}`
+      : typeof row.provisional_venue_id === "string" ? `provisional:${row.provisional_venue_id}` : null;
+  const associatedIdentityEventCounts = new Map<string, number>();
+  for (const row of matches) {
+    const key = identityKey(row);
+    if (key) associatedIdentityEventCounts.set(key, (associatedIdentityEventCounts.get(key) ?? 0) + 1);
+  }
+  const activeCandidates = overtureCandidates.filter((row) => row.active === true);
+  const countByIdentityCategory = new Map<string, number>();
+  const nearDuplicateKeys = new Set<string>();
+  let duplicateCandidateRows = 0;
+  for (const row of activeCandidates) {
+    const key = identityKey(row);
+    if (!key || (row.category !== "food" && row.category !== "coffee")) continue;
+    const bucket = `${key}:${row.category}`;
+    countByIdentityCategory.set(bucket, (countByIdentityCategory.get(bucket) ?? 0) + 1);
+    const duplicateKey = [
+      bucket,
+      typeof row.name === "string" ? row.name.trim().toLowerCase() : "",
+      typeof row.latitude === "number" ? row.latitude.toFixed(4) : "",
+      typeof row.longitude === "number" ? row.longitude.toFixed(4) : "",
+    ].join("\0");
+    if (nearDuplicateKeys.has(duplicateKey)) duplicateCandidateRows += 1;
+    nearDuplicateKeys.add(duplicateKey);
+  }
+  const identities = [...associatedIdentityEventCounts.keys()];
+  const poolDistribution = (category: "food" | "coffee") => {
+    const values = identities.map((key) => countByIdentityCategory.get(`${key}:${category}`) ?? 0);
+    return {
+      zero: values.filter((value) => value === 0).length,
+      partial: values.filter((value) => value > 0 && value < 15).length,
+      full: values.filter((value) => value >= 15).length,
+    };
+  };
+  const foodFilled = identities.filter((key) => (countByIdentityCategory.get(`${key}:food`) ?? 0) > 0);
+  const coffeeFilled = identities.filter((key) => (countByIdentityCategory.get(`${key}:coffee`) ?? 0) > 0);
+  const weightedEvents = [...associatedIdentityEventCounts.values()].reduce((sum, value) => sum + value, 0);
+  const weightedFoodEvents = foodFilled.reduce((sum, key) => sum + (associatedIdentityEventCounts.get(key) ?? 0), 0);
+  const activeRefreshes = overtureRefreshes.filter((row) => row.status === "active").length;
+  const failedRefreshes = overtureRefreshes.filter((row) => row.status === "failed").length;
 
   console.log(JSON.stringify({
     successfullyGeocodedIcs,
@@ -154,10 +211,27 @@ async function main() {
     strongEvidenceTypeCounts: Object.fromEntries([...strongTypeCounts].sort(([a], [b]) => a.localeCompare(b))),
     eligibilityRuleVersion: CORRALIO_ELIGIBILITY_RULE_VERSION,
     promotionEligibleCount,
+    overtureNearby: {
+      venueLevelFoodFillRatePercent: percent(foodFilled.length, identities.length),
+      eventWeightedFoodCandidateCoveragePercent: percent(weightedFoodEvents, weightedEvents),
+      venueLevelCoffeeFillRatePercent: percent(coffeeFilled.length, identities.length),
+      poolDistribution: {
+        food: poolDistribution("food"),
+        coffee: poolDistribution("coffee"),
+      },
+      duplicateRatePercent: percent(duplicateCandidateRows, activeCandidates.length),
+      enrichmentSuccessFailure: {
+        activeRefreshes,
+        failedRefreshes,
+        successRatePercent: percent(activeRefreshes, activeRefreshes + failedRefreshes),
+        failureRatePercent: percent(failedRefreshes, activeRefreshes + failedRefreshes),
+      },
+      activeCandidateCount: activeCandidates.length,
+    },
   }, null, 2));
 }
 
 main().catch(() => {
-  console.error("Corralio 4.4C venue quality report failed");
+  console.error("Corralio venue quality report failed");
   process.exitCode = 1;
 });
