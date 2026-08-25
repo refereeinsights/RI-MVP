@@ -13,6 +13,7 @@ const quickCheck = source("../../ti-web/app/api/venue-quick-check/route.ts");
 const report = source("../../../scripts/analysis/corralio_slice44c_venue_quality.ts");
 const catalogVerifier = source("../../../scripts/analysis/corralio_slice44c_catalog_verification.sql");
 const behavioralVerifier = source("../../../scripts/analysis/corralio_slice44c_behavioral_verification.sql");
+const conflictRepair = source("../../../supabase/migrations/20260825_corralio_slice44c_provisional_lifecycle_evidence_fix.sql");
 
 test("4.4C preserves isolated lifecycle vocabulary and does not create canonical venues", () => {
   assert.match(migration, /lifecycle_status in \('active', 'suppressed', 'merged', 'reconciled'\)/);
@@ -32,6 +33,17 @@ test("production evidence is ICS-only, typed, bounded, and function-written", ()
   assert.match(migration, /revoke all on table public\.corralio_provisional_venue_evidence[\s\S]*grant select[\s\S]*to service_role/);
   assert.doesNotMatch(evidenceTable, /jsonb|strong_evidence|source_url|household_id|schedule_source_id|event_description/i);
   assert.doesNotMatch(migration, /create function[^;]*(?:insert|record).*evidence_type/i);
+  assert.doesNotMatch(migration, /on conflict \(provisional_venue_id, observation_fingerprint\)/);
+  assert.equal(
+    migration.match(/on conflict on constraint corralio_provisional_evidence_observation_unique do nothing/g)?.length,
+    2,
+  );
+});
+
+test("the applied-migration repair replaces the ambiguous PL/pgSQL conflict target", () => {
+  assert.match(conflictRepair, /pg_get_functiondef/);
+  assert.match(conflictRepair, /replace\(v_definition, v_old, v_new\)/);
+  assert.match(conflictRepair, /SLICE 4\.4C EVIDENCE CONFLICT REPAIR PASSED/);
 });
 
 test("keyed fingerprints are server-only and runtime has no unsafe fallback", () => {

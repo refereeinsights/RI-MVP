@@ -37,6 +37,7 @@ The migration deliberately removes the unaudited 4.4B V1 mutation functions as i
 ## Prepared Stage 2 artifacts
 
 - Migration: `supabase/migrations/20260825_corralio_slice44c_provisional_lifecycle_evidence.sql`
+- Applied-migration repair: `supabase/migrations/20260825_corralio_slice44c_provisional_lifecycle_evidence_fix.sql`
 - Catalog verifier: `scripts/analysis/corralio_slice44c_catalog_verification.sql`
 - Rollback-only behavioral verifier: `scripts/analysis/corralio_slice44c_behavioral_verification.sql`
 - Aggregate-only quality report: `scripts/analysis/corralio_slice44c_venue_quality.ts`
@@ -44,6 +45,8 @@ The migration deliberately removes the unaudited 4.4B V1 mutation functions as i
 The report covers identity coverage, lifecycle counts, zero-association rows, duplicate candidates, raw-observation and distinct-source-scope distributions, supported strong-evidence counts, eligibility-rule version, and eligible count. It was typechecked but not run because the migration is unapplied; aggregate production results, including the expected zero eligible count, remain Stage 2 evidence.
 
 The behavioral verifier uses fixed synthetic `.invalid` fixtures inside one explicit transaction ending in `ROLLBACK`. It covers evidence idempotency and independence, unsupported evidence rejection, suppression and forced-failure atomicity, exact/trusted merges and one-hop redirects, existing-canonical reconciliation without canonical mutation, retained anonymized evidence after source deletion, role denials, and an independent cleanup-zero assertion. It makes no provider or source-feed call.
+
+After the original migration was applied, the behavioral verifier exposed a PL/pgSQL name collision between the V2 function's `provisional_venue_id` output variable and the evidence table column in the column-list `ON CONFLICT` target. The source migration now uses the named unique constraint, and the additive repair migration safely rewrites the already-installed function definition without mutating data. Both catalog and architecture verification reject recurrence of the ambiguous form.
 
 ## Validation and usage
 

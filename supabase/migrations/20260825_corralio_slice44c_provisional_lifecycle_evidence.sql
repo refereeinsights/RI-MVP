@@ -353,7 +353,7 @@ begin
       v_existing.id, 'ics_observation', p_observation_fingerprint,
       p_source_scope_fingerprint, p_fingerprint_version,
       btrim(p_normalizer_version), v_now
-    ) on conflict (provisional_venue_id, observation_fingerprint) do nothing;
+    ) on conflict on constraint corralio_provisional_evidence_observation_unique do nothing;
     update public.corralio_event_venue_matches
     set venue_id = v_existing.canonical_venue_id,
         provisional_venue_id = null,
@@ -431,7 +431,7 @@ begin
     v_existing.id, 'ics_observation', p_observation_fingerprint,
     p_source_scope_fingerprint, p_fingerprint_version,
     btrim(p_normalizer_version), v_now
-  ) on conflict (provisional_venue_id, observation_fingerprint) do nothing;
+  ) on conflict on constraint corralio_provisional_evidence_observation_unique do nothing;
 
   update public.corralio_event_venue_matches
   set venue_id = null,

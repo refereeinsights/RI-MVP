@@ -105,6 +105,17 @@ begin
         or pg_get_userbyid(proowner) <> 'postgres')
   ) then raise exception '4.4C catalog failed: eligibility function security'; end if;
 
+  if position(
+       'on conflict (provisional_venue_id, observation_fingerprint)'
+       in pg_get_functiondef(v_create)
+     ) > 0
+     or position(
+       'on conflict on constraint corralio_provisional_evidence_observation_unique do nothing'
+       in pg_get_functiondef(v_create)
+     ) = 0 then
+    raise exception '4.4C catalog failed: ambiguous evidence conflict target';
+  end if;
+
   if exists (
     select 1 from pg_proc p,
     lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
