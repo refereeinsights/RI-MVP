@@ -10,6 +10,10 @@ const activationRepair = readFileSync(
   new URL("../../../supabase/migrations/20260825_corralio_slice45_activation_completeness_fix.sql", import.meta.url),
   "utf8",
 );
+const behavioralVerifier = readFileSync(
+  new URL("../../../scripts/analysis/corralio_slice45_behavioral_verification.sql", import.meta.url),
+  "utf8",
+);
 const runtime = readFileSync(new URL("./overtureNearby.server.ts", import.meta.url), "utf8");
 
 test("uses explicit exactly-one venue identities and trusted canonical coordinates", () => {
@@ -51,4 +55,12 @@ test("server adapter has no household-origin inputs or query", () => {
   assert.match(runtime, /corralio_read_canonical_venue_coordinate_v1/);
   assert.match(runtime, /\.eq\("lifecycle_status", "active"\)/);
   assert.match(runtime, /corralio_activate_overture_refresh_v1/);
+});
+
+test("behavioral verification sequences activation before observing state", () => {
+  const activation = behavioralVerifier.indexOf("v_activated := public.corralio_activate_overture_refresh_v1");
+  const stateCheck = behavioralVerifier.indexOf("atomic activation state was not visible");
+  assert.ok(activation >= 0 && stateCheck > activation);
+  assert.doesNotMatch(behavioralVerifier, /if not public\.corralio_activate_overture_refresh_v1/);
+  assert.match(behavioralVerifier, /rollback;/);
 });

@@ -17,6 +17,7 @@ declare
   v_second_evidence uuid;
   v_refresh uuid;
   v_failed uuid;
+  v_activated boolean;
 begin
   v_evidence := public.corralio_record_overture_place_match_v1(
     'c4500000-0000-4000-8000-000000000001', repeat('5',64), repeat('6',64),
@@ -69,11 +70,13 @@ begin
     candidate_id, property_name, dataset, license_id, source_record_id
   ) select id, 'names', 'meta', 'CDLA-Permissive-2.0', 'fixture-food-record'
     from public.corralio_overture_candidates where refresh_id = v_refresh;
-  if not public.corralio_activate_overture_refresh_v1(v_refresh)
-     or not exists (
-       select 1 from public.corralio_overture_candidates
-       where refresh_id = v_refresh and active and activated_at is not null
-     ) then raise exception 'atomic activation failed'; end if;
+  v_activated := public.corralio_activate_overture_refresh_v1(v_refresh);
+  if v_activated is distinct from true
+  then raise exception 'atomic activation returned false'; end if;
+  if not exists (
+    select 1 from public.corralio_overture_candidates
+    where refresh_id = v_refresh and active and activated_at is not null
+  ) then raise exception 'atomic activation state was not visible'; end if;
 
   insert into public.corralio_overture_refreshes (
     overture_release, mode, max_venues, max_boxes, max_downloaded_bytes,
