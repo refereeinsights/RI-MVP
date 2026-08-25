@@ -6,6 +6,10 @@ const migration = readFileSync(
   new URL("../../../supabase/migrations/20260825_corralio_slice45_overture_nearby_foundation.sql", import.meta.url),
   "utf8",
 );
+const activationRepair = readFileSync(
+  new URL("../../../supabase/migrations/20260825_corralio_slice45_activation_completeness_fix.sql", import.meta.url),
+  "utf8",
+);
 const runtime = readFileSync(new URL("./overtureNearby.server.ts", import.meta.url), "utf8");
 
 test("uses explicit exactly-one venue identities and trusted canonical coordinates", () => {
@@ -36,6 +40,8 @@ test("refresh is staged, bounded, atomic, and failure preserving", () => {
   assert.match(migration, /create function public\.corralio_activate_overture_refresh_v1/);
   assert.match(migration, /from public\.corralio_overture_refresh_scopes scope/);
   assert.match(migration, /create function public\.corralio_fail_overture_refresh_v1/);
+  assert.match(activationRepair, /not exists \([\s\S]*corralio_overture_provenance provenance/);
+  assert.match(activationRepair, /having count\(\*\) > v_refresh\.max_candidates_per_category/);
   assert.match(runtime, /if \(input\.dryRun\) return aggregate/);
 });
 

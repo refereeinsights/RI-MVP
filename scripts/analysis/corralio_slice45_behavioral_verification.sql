@@ -14,6 +14,7 @@ insert into public.corralio_provisional_venues (
 do $test$
 declare
   v_evidence uuid;
+  v_second_evidence uuid;
   v_refresh uuid;
   v_failed uuid;
 begin
@@ -25,20 +26,22 @@ begin
     array['fixture-record'], array[null::timestamptz]
   );
   if v_evidence is null then raise exception 'evidence writer rejected valid match'; end if;
-  if public.corralio_record_overture_place_match_v1(
+  v_second_evidence := public.corralio_record_overture_place_match_v1(
     'c4500000-0000-4000-8000-000000000001', repeat('5',64), repeat('6',64),
     'overture-fixture-place', false, null, 'fixture-release', 1,
     'sports_complex', 0.9, 'corralio-overture-match-v1', 'matched', now(),
     array['meta'], array['names'], array['CDLA-Permissive-2.0'],
     array['fixture-record'], array[null::timestamptz]
-  ) <> v_evidence then raise exception 'evidence writer is not idempotent'; end if;
+  );
+  if v_second_evidence is distinct from v_evidence
+  then raise exception 'evidence writer is not idempotent'; end if;
   if not public.corralio_provisional_venue_promotion_eligible_v1(
     'c4500000-0000-4000-8000-000000000001'
   ) then raise exception 'typed Overture evidence did not satisfy eligibility'; end if;
 
-  insert into public.corralio_overture_provenance (
-    evidence_id, property_name, dataset, license_id, source_record_id
-  ) values (v_evidence, 'names', 'meta', 'CDLA-Permissive-2.0', 'fixture-record');
+  if (select count(*) from public.corralio_overture_provenance
+      where evidence_id = v_evidence) <> 1
+  then raise exception 'evidence provenance was not atomic and idempotent'; end if;
 
   insert into public.corralio_overture_refreshes (
     overture_release, mode, max_venues, max_boxes, max_downloaded_bytes,
@@ -62,6 +65,10 @@ begin
     v_refresh, 'c4500000-0000-4000-8000-000000000001', 'food',
     'fixture-food', 'fixture-release', 1, 'Fixture Food', 47.5001, -122.2001, 0.9, 14
   );
+  insert into public.corralio_overture_provenance (
+    candidate_id, property_name, dataset, license_id, source_record_id
+  ) select id, 'names', 'meta', 'CDLA-Permissive-2.0', 'fixture-food-record'
+    from public.corralio_overture_candidates where refresh_id = v_refresh;
   if not public.corralio_activate_overture_refresh_v1(v_refresh)
      or not exists (
        select 1 from public.corralio_overture_candidates

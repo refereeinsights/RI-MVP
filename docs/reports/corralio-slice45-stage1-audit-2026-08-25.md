@@ -81,8 +81,11 @@ These cap and confidence values are provisional. A live Stage 1 sample was not r
 ## Stage 2 handoff
 
 1. Human applies `supabase/migrations/20260825_corralio_slice45_overture_nearby_foundation.sql`.
-2. Run `scripts/analysis/corralio_slice45_catalog_verification.sql`.
-3. Run `scripts/analysis/corralio_slice45_behavioral_verification.sql`; it is rollback-only.
-4. Prepare a small Overture extract around eligible non-private venues within the declared bounds.
-5. Run the refresh CLI dry-run, finalize cap/floor if warranted, then explicitly authorize any apply UAT.
-6. Run the aggregate quality report and independently verify cleanup zero.
+2. For databases where the base migration was applied before the verifier repair, apply `supabase/migrations/20260825_corralio_slice45_activation_completeness_fix.sql`. It replaces only the activation RPC and preserves existing data.
+3. Run `scripts/analysis/corralio_slice45_catalog_verification.sql`.
+4. Run `scripts/analysis/corralio_slice45_behavioral_verification.sql`; it is rollback-only.
+5. Prepare a small Overture extract around eligible non-private venues within the declared bounds.
+6. Run the refresh CLI dry-run, finalize cap/floor if warranted, then explicitly authorize any apply UAT.
+7. Run the aggregate quality report and independently verify cleanup zero.
+
+The first catalog-verifier attempt after base migration application failed read-only because PostgreSQL's `pg_tables` view does not expose `forcerowsecurity`. The repaired verifier reads `pg_class.relforcerowsecurity`. The accompanying audit also made activation fail closed for missing candidate provenance or an over-cap pool and corrected the rollback verifier to recognize that evidence provenance is already written atomically by the evidence RPC.
