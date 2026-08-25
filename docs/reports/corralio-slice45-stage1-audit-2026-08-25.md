@@ -91,3 +91,11 @@ These cap and confidence values are provisional. A live Stage 1 sample was not r
 The first catalog-verifier attempt after base migration application failed read-only because PostgreSQL's `pg_tables` view does not expose `forcerowsecurity`. The repaired verifier reads `pg_class.relforcerowsecurity`. The accompanying audit also made activation fail closed for missing candidate provenance or an over-cap pool and corrected the rollback verifier to recognize that evidence provenance is already written atomically by the evidence RPC.
 
 The first behavioral-verifier attempt then exposed an assertion-order bug: it invoked the mutating activation RPC and queried active state inside one Boolean expression, whose evaluation order PostgreSQL does not guarantee. The corrected verifier assigns the activation result first and checks state in a following statement. The failed run remained inside its transaction and retained no fixture.
+
+## Stage 2 SQL verification status
+
+The user applied the base migration and activation-completeness repair. The corrected read-only catalog verifier passed. The corrected rollback-only behavioral verifier then returned the exact sentinel:
+
+`SLICE 4.5 BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO`
+
+SQL verification is complete. The bounded real-data dry-run/UAT, final threshold decision, aggregate quality and usage reports, and independent cleanup-zero check remain before the final Slice 4.5 verdict.
