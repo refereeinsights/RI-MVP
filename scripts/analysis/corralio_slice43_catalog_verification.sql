@@ -34,7 +34,7 @@ where conrelid in (
   'public.corralio_external_call_daily_quota'::regclass
 )
   and conname like 'corralio_%'
-order by table_name::text, constraint_name;
+order by (conrelid::regclass)::text, conname;
 
 select
   c.relname as table_name,
@@ -60,14 +60,15 @@ where n.nspname = 'public'
 order by c.relname;
 
 select
-  trigger_name,
-  event_manipulation,
-  action_timing,
-  action_statement
-from information_schema.triggers
-where event_object_schema = 'public'
-  and event_object_table = 'corralio_events'
-  and trigger_name = 'corralio_events_prepare_location';
+  t.tgname as trigger_name,
+  pg_get_triggerdef(t.oid) as definition
+from pg_trigger t
+join pg_class c on c.oid = t.tgrelid
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+  and c.relname = 'corralio_events'
+  and t.tgname = 'corralio_events_prepare_location'
+  and not t.tgisinternal;
 
 select
   p.proname,
