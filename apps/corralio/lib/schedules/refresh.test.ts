@@ -22,6 +22,8 @@ function claim(index: number): CorralioRefreshClaim {
 function memoryStore(claims: CorralioRefreshClaim[]) {
   const persisted: string[] = [];
   const failures: Array<{ sourceId: string; failureCode: CorralioRefreshFailureCode }> = [];
+  const matchingCalls: string[] = [];
+  let matchingFailure = false;
   let requestedLimit = 0;
   const store: CorralioRefreshStore = {
     async claimBatch(limit) {
@@ -31,12 +33,23 @@ function memoryStore(claims: CorralioRefreshClaim[]) {
     async persistClaimed(input) {
       persisted.push(input.sourceId);
     },
+    async matchPersistedEvents(input) {
+      matchingCalls.push(input.sourceId);
+      if (matchingFailure) throw new Error("synthetic matcher failure");
+    },
     async failClaimed(input) {
       failures.push({ sourceId: input.sourceId, failureCode: input.failureCode });
       return true;
     },
   };
-  return { store, persisted, failures, requestedLimit: () => requestedLimit };
+  return {
+    store,
+    persisted,
+    failures,
+    matchingCalls,
+    failMatching() { matchingFailure = true; },
+    requestedLimit: () => requestedLimit,
+  };
 }
 
 const normalizedEvent = {
@@ -116,6 +129,29 @@ test("a valid empty feed delegates safely to canonical persistence", async () =>
   assert.equal(result.valid_empty, 1);
   assert.deepEqual(state.persisted, ["source-1"]);
   assert.deepEqual(state.failures, []);
+});
+
+test("venue matching failure after refresh persistence never changes source health", async () => {
+  const state = memoryStore([claim(1)]);
+  state.failMatching();
+  const originalWarn = console.warn;
+  const warnings: unknown[][] = [];
+  console.warn = (...args: unknown[]) => warnings.push(args);
+  try {
+    const result = await runCorralioScheduledRefresh(state.store, {
+      fetchSchedule: async (url) => ({ ok: true, text: "calendar", finalUrl: String(url) }),
+      normalizeSchedule: () => ({ events: [normalizedEvent], canceledSourceEventUids: [], errors: [], parsedTotal: 1 }),
+      nowMs: () => 100,
+    });
+    assert.equal(result.refreshed, 1);
+    assert.equal(result.failed, 0);
+    assert.deepEqual(state.persisted, ["source-1"]);
+    assert.deepEqual(state.matchingCalls, ["source-1"]);
+    assert.deepEqual(state.failures, []);
+    assert.deepEqual(warnings, [["[corralio][venue-matching] post-persistence evaluation failed"]]);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test("processing is sequential and never creates unbounded fetch concurrency", async () => {

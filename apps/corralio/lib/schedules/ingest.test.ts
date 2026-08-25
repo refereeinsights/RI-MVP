@@ -29,6 +29,8 @@ function memoryStore(householdId = "household-a") {
   const sourceAssignments = new Map<string, { childId: string | null; teamId: string | null }>();
   const events = new Map<string, PersistedScheduleEvent>();
   const calls: Array<{ householdId: string; sourceId: string }> = [];
+  const matchingCalls: Array<{ householdId: string; sourceId: string; sourceEventUids: string[] }> = [];
+  let matchingFailure = false;
   const pausedSources = new Set<string>();
   const store: CorralioScheduleStore = {
     async resolveOwnerContext() {
@@ -63,9 +65,24 @@ function memoryStore(householdId = "household-a") {
       for (const event of input.events) events.set(`${input.sourceId}:${event.source_event_uid}`, event);
       for (const uid of input.canceledSourceEventUids) events.delete(`${input.sourceId}:${uid}`);
     },
+    async matchPersistedEvents(input) {
+      matchingCalls.push(input);
+      if (matchingFailure) throw new Error("synthetic matcher failure");
+    },
     async markSourceError() {},
   };
-  return { store, sources, sourceUrls, sourceSports, sourceAssignments, events, calls, pausedSources };
+  return {
+    store,
+    sources,
+    sourceUrls,
+    sourceSports,
+    sourceAssignments,
+    events,
+    calls,
+    matchingCalls,
+    pausedSources,
+    failMatching() { matchingFailure = true; },
+  };
 }
 
 const fetchSuccess = async () => ({
@@ -86,6 +103,23 @@ test("an authenticated owner imports shared-engine events into only the resolved
   assert.equal(state.events.size, 1);
   assert.equal(state.sourceSports.get("source-1"), "soccer");
   assert.equal([...state.events.values()][0]?.source_location_text, "Regional Sports Park, Field 6");
+  assert.deepEqual(state.matchingCalls, [{ householdId: "household-a", sourceId: "source-1", sourceEventUids: ["game-1"] }]);
+});
+
+test("post-persistence venue matching failure never changes ingestion success", async () => {
+  const state = memoryStore();
+  state.failMatching();
+  const originalWarn = console.warn;
+  const warnings: unknown[][] = [];
+  console.warn = (...args: unknown[]) => warnings.push(args);
+  try {
+    const result = await ingestCorralioSchedule(state.store, { sourceUrl: "https://calendar.example/team.ics" }, { fetchSchedule: fetchSuccess });
+    assert.deepEqual(result, { ok: true, sourceId: "source-1", imported: 1 });
+    assert.equal(state.events.size, 1);
+    assert.deepEqual(warnings, [["[corralio][venue-matching] post-persistence evaluation failed"]]);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test("a Tennis schedule uses canonical ingestion and preserves ordinary location behavior", async () => {

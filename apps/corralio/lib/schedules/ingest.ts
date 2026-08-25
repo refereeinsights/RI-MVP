@@ -46,6 +46,12 @@ export type CorralioScheduleStore = {
     events: PersistedScheduleEvent[];
     canceledSourceEventUids: string[];
   }): Promise<void>;
+  matchPersistedEvents(input: {
+    householdId: string;
+    sourceId: string;
+    sourceEventUids: string[];
+    forceRematch?: boolean;
+  }): Promise<void>;
   markSourceError(sourceId: string, householdId: string): Promise<void>;
 };
 
@@ -59,6 +65,20 @@ type IngestionDependencies = {
 export type CorralioScheduleIngestionResult =
   | { ok: true; sourceId: string; imported: number }
   | { ok: false; error: string };
+
+async function runBestEffortVenueMatching(store: CorralioScheduleStore, input: {
+  householdId: string;
+  sourceId: string;
+  sourceEventUids: string[];
+}) {
+  try {
+    await store.matchPersistedEvents(input);
+  } catch {
+    // The schedule is already safely persisted. Never include location or
+    // candidate data in this deliberately constant failure signal.
+    console.warn("[corralio][venue-matching] post-persistence evaluation failed");
+  }
+}
 
 function userSafeError(error: ScheduleFetchError | "already_connected" | "no_events" | "unauthorized" | "persistence" | "needs_replacement") {
   if (error === "invalid_url") return "Enter a valid iCal/ICS calendar URL.";
@@ -146,6 +166,11 @@ export async function ingestCorralioSchedule(
       events: normalized.events.map(toPersistedScheduleEvent),
       canceledSourceEventUids: normalized.canceledSourceEventUids,
     });
+    await runBestEffortVenueMatching(store, {
+      householdId: owner.householdId,
+      sourceId,
+      sourceEventUids: normalized.events.map((event) => event.sourceEventUid),
+    });
     return { ok: true, sourceId, imported: normalized.events.length };
   } catch {
     if (sourceId) await store.markSourceError(sourceId, owner.householdId).catch(() => undefined);
@@ -180,6 +205,11 @@ export async function replaceCorralioSchedule(
       sourceUrl,
       events: normalized.events.map(toPersistedScheduleEvent),
       canceledSourceEventUids: normalized.canceledSourceEventUids,
+    });
+    await runBestEffortVenueMatching(store, {
+      householdId: owner.householdId,
+      sourceId: input.sourceId,
+      sourceEventUids: normalized.events.map((event) => event.sourceEventUid),
     });
     return { ok: true, sourceId: input.sourceId, imported: normalized.events.length };
   } catch {

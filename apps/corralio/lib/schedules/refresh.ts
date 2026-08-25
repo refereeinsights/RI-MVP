@@ -28,6 +28,11 @@ export type CorralioRefreshStore = {
     events: PersistedScheduleEvent[];
     canceledSourceEventUids: string[];
   }): Promise<void>;
+  matchPersistedEvents(input: {
+    householdId: string;
+    sourceId: string;
+    sourceEventUids: string[];
+  }): Promise<void>;
   failClaimed(input: {
     sourceId: string;
     claimToken: string;
@@ -90,6 +95,17 @@ export async function runCorralioScheduledRefresh(
             events: normalized.events.map(toPersistedScheduleEvent),
             canceledSourceEventUids: normalized.canceledSourceEventUids,
           });
+          try {
+            await store.matchPersistedEvents({
+              householdId: claim.householdId,
+              sourceId: claim.sourceId,
+              sourceEventUids: normalized.events.map((event) => event.sourceEventUid),
+            });
+          } catch {
+            // Persistence has succeeded and finalized the refresh claim. Venue
+            // intelligence is best-effort and must not alter refresh health.
+            console.warn("[corralio][venue-matching] post-persistence evaluation failed");
+          }
           if (normalized.events.length === 0) validEmpty += 1;
           else refreshed += 1;
         }

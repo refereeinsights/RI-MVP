@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 import { CORRALIO_ACQUISITION_COOKIE, resolveAcquisitionProvenanceCookie } from "../acquisition";
+import { matchPersistedCorralioEvents } from "../venueMatching.server";
 import type { CorralioScheduleStore } from "./ingest";
 
 function databaseFailure(stage: string, error: { code?: string } | null) {
@@ -94,6 +95,10 @@ export function createSupabaseScheduleStore(
         p_canceled_source_event_uids: input.canceledSourceEventUids,
       });
       if (error) databaseFailure("replace_source", error);
+    },
+
+    async matchPersistedEvents(input) {
+      await matchPersistedCorralioEvents(adminClient, input);
     },
 
     async markSourceError(sourceId, householdId) {

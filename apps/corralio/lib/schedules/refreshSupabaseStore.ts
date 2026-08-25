@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { CorralioRefreshClaim, CorralioRefreshStore } from "./refresh";
+import { matchPersistedCorralioEvents } from "../venueMatching.server";
 
 function databaseFailure(stage: string, error: { code?: string } | null) {
   console.warn("[corralio][scheduled-refresh] database operation failed", {
@@ -49,6 +50,10 @@ export function createCorralioRefreshSupabaseStore(adminClient: SupabaseClient):
         p_canceled_source_event_uids: input.canceledSourceEventUids,
       });
       if (error) databaseFailure("persist_claimed", error);
+    },
+
+    async matchPersistedEvents(input) {
+      await matchPersistedCorralioEvents(adminClient, input);
     },
 
     async failClaimed(input) {
