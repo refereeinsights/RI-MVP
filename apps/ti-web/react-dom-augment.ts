@@ -1,6 +1,8 @@
 // TypeScript-only module augmentation for React DOM hooks used by Next.js Server Actions.
 // react-dom@18.3.1 ships no TS types; we rely on @types/react-dom and augment the "react-dom"
 // module to include `useFormState` / `useFormStatus`, which exist at runtime.
+import {} from "react/experimental";
+
 declare module "react-dom" {
   interface FormStatusNotPending {
     pending: false;
@@ -34,4 +36,3 @@ declare module "react-dom" {
 }
 
 export {};
-
