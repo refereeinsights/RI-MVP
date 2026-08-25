@@ -1,5 +1,12 @@
 # Corralio Notes
 
+## 2026-08-25 — Slice 4.4C provisional lifecycle and evidence Stage 1 ready
+
+- The repository audit verdict is `QUICK_CHECK_NOT_STRONG_ENOUGH`: TI's quick-check is anonymous/browser-scoped and subjective, so production 4.4C supports only low-trust `ics_observation`, exposes no strong-evidence writer, and correctly produces zero promotion-eligible provisional venues. Future strong-evidence behavior is covered only at the pure deterministic rule boundary.
+- Prepared, but did not apply, `20260825_corralio_slice44c_provisional_lifecycle_evidence.sql`. It adds coherent `active`/`suppressed`/`merged`/`reconciled` lifecycle state, immutable transition history, service-only exact and trusted merge paths, one-hop redirects, suppression, and reconciliation to existing read-only canonical truth without creating or modifying canonical venues. The V2 create/reuse RPC is canonical-first and handles every lifecycle state.
+- Added typed, bounded, idempotent evidence with versioned keyed HMAC source-scope/observation fingerprints. Evidence stores no raw URL, credential, private source/household/event ID, location, note, or arbitrary payload; anonymized evidence intentionally survives source deletion. The dedicated server-only key has no unsafe fallback. Generic ICS volume and distinct-source counts remain non-strong.
+- Prepared machine-failing catalog and rollback-only behavioral verifiers plus an aggregate-only quality report. Stage 1 passed 168 Corralio tests, both TypeScript checks, zero-warning Corralio lint, `git diff --check`, and production builds for all four workspaces; RI/TI warnings remain pre-existing. Usage was zero provider/source-feed calls, database mutations, backfills, cron, canonical writes, pushes, or deployments. Canonical ADR/roadmap files were not touched because they contain unrelated changes; exact proposed amendments are recorded in the Stage 1 report. Verdict: **SLICE 4.4C READY AFTER MIGRATION AND STAGE 2 VERIFICATION**.
+
 ## 2026-08-25 — Slice 4.4B shared provisional venues complete locally
 
 - After the user applied `20260825_corralio_slice44b_shared_provisional_venues.sql`, the owner-level catalog verifier passed the exact table owner, forced-RLS/no-policy boundary, grants, typed association and coherence constraint, invoker/fixed-search-path RPC contracts, and unchanged public venue surface. The rollback-only behavioral verifier passed manual-event rejection, cross-household reuse, suppression/detachment, authenticated denial, and its independent post-`ROLLBACK` cleanup-zero assertion.

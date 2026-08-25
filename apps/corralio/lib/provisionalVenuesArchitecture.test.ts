@@ -40,7 +40,7 @@ test("trusted RPC is atomic, ICS/geocode gated, and preserves suppression tombst
 
 test("runtime reuses persisted geocodes and keeps enrichment best effort", () => {
   assert.match(adapter, /location_geocoded_at/);
-  assert.match(adapter, /corralio_create_or_reuse_provisional_venue_v1/);
+  assert.match(adapter, /corralio_create_or_reuse_provisional_venue_v2/);
   assert.doesNotMatch(adapter, /source_url|notes|field_label|fetch\(|GEOCODIO_API_KEY|OPENROUTESERVICE_API_KEY|overture|mapbox/i);
   assert.match(leaveBy, /matchPersistedCorralioEventIds/);
   assert.match(leaveBy, /post-geocode evaluation failed/);

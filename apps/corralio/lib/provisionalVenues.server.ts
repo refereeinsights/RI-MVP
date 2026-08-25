@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { parseProvisionalPlaceIdentity } from "./provisionalVenues";
+import { buildIcsEvidenceFingerprints } from "./provisionalVenueEvidence";
 import { eventLocationText, type VenueMatchEvent } from "./venueMatching";
 
 const EVENT_LIMIT = 200;
@@ -12,6 +13,8 @@ type EligibleEvent = VenueMatchEvent & {
   latitude: number | null;
   longitude: number | null;
   geocodedAt: string | null;
+  sourceId: string | null;
+  sourceEventUid: string | null;
 };
 
 function databaseFailure() {
@@ -30,6 +33,8 @@ function asEvent(value: unknown): EligibleEvent | null {
     latitude: typeof row.location_lat === "number" ? row.location_lat : null,
     longitude: typeof row.location_lng === "number" ? row.location_lng : null,
     geocodedAt: typeof row.location_geocoded_at === "string" ? row.location_geocoded_at : null,
+    sourceId: typeof row.schedule_source_id === "string" ? row.schedule_source_id : null,
+    sourceEventUid: typeof row.source_event_uid === "string" ? row.source_event_uid : null,
   };
 }
 
@@ -39,10 +44,12 @@ export async function createOrReuseProvisionalVenues(admin: SupabaseClient, inpu
 }) {
   const eventIds = [...new Set(input.eventIds.filter(Boolean))].slice(0, EVENT_LIMIT);
   if (!eventIds.length) return { considered: 0, created: 0, reused: 0, blocked: 0 };
+  const fingerprintKey = process.env.CORRALIO_EVIDENCE_FINGERPRINT_KEY?.trim();
+  if (!fingerprintKey) throw new Error("Provisional venue evidence configuration missing");
 
   const [{ data: eventData, error: eventError }, { data: matchData, error: matchError }] = await Promise.all([
     admin.from("corralio_events")
-      .select("id,origin_type,source_location_text,display_location_text,location_lat,location_lng,location_geocoded_at")
+      .select("id,origin_type,schedule_source_id,source_event_uid,source_location_text,display_location_text,location_lat,location_lng,location_geocoded_at")
       .eq("household_id", input.householdId)
       .eq("origin_type", "ics")
       .in("id", eventIds),
@@ -68,12 +75,20 @@ export async function createOrReuseProvisionalVenues(admin: SupabaseClient, inpu
       || event.latitude === null
       || event.longitude === null
       || !event.geocodedAt
+      || !event.sourceId
+      || !event.sourceEventUid
     ) continue;
     const identity = parseProvisionalPlaceIdentity(eventLocationText(event));
     if (!identity) continue;
+    const fingerprints = buildIcsEvidenceFingerprints({
+      key: fingerprintKey,
+      sourceId: event.sourceId,
+      sourceEventUid: event.sourceEventUid,
+      provisionalIdentityKey: identity.identityKey,
+    });
     stats.considered += 1;
 
-    const { data, error } = await admin.rpc("corralio_create_or_reuse_provisional_venue_v1", {
+    const { data, error } = await admin.rpc("corralio_create_or_reuse_provisional_venue_v2", {
       p_household_id: input.householdId,
       p_event_id: event.id,
       p_identity_key: identity.identityKey,
@@ -85,11 +100,14 @@ export async function createOrReuseProvisionalVenues(admin: SupabaseClient, inpu
       p_latitude: event.latitude,
       p_longitude: event.longitude,
       p_normalizer_version: identity.normalizerVersion,
+      p_observation_fingerprint: fingerprints.observationFingerprint,
+      p_source_scope_fingerprint: fingerprints.sourceScopeFingerprint,
+      p_fingerprint_version: fingerprints.fingerprintVersion,
     });
     if (error || !Array.isArray(data) || typeof data[0]?.outcome !== "string") databaseFailure();
     const outcome = data[0].outcome;
     if (outcome === "created") stats.created += 1;
-    else if (outcome === "reused") stats.reused += 1;
+    else if (outcome === "reused" || outcome === "redirected_provisional") stats.reused += 1;
     else stats.blocked += 1;
   }
   return stats;
