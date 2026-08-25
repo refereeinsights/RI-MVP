@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 
 import ical from "node-ical";
+import { sanitizeScheduleNotes } from "./sanitize";
+
+export { sanitizeScheduleNotes } from "./sanitize";
 
 export const DEFAULT_SCHEDULE_WINDOW_PAST_DAYS = 30;
 export const DEFAULT_SCHEDULE_WINDOW_FUTURE_DAYS = 548;
@@ -59,20 +62,6 @@ function clamp(value: string | null, maxLength: number) {
   const normalized = String(value ?? "").trim();
   if (!normalized) return null;
   return normalized.length > maxLength ? normalized.slice(0, maxLength) : normalized;
-}
-
-export function sanitizeScheduleNotes(rawNotes: string | null | undefined) {
-  const raw = collapseWhitespace(String(rawNotes ?? "").trim());
-  if (!raw) return null;
-  const withoutUrls = raw.replace(/\b(?:https?:\/\/|www\.)[^\s"'<>]+/gi, " ");
-  const withoutUuid = withoutUrls.replace(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, " ");
-  const withoutHexDigest = withoutUuid.replace(/\b[0-9a-f]{32}\b/gi, " ");
-  const withoutStructuredArtifacts = withoutHexDigest.replace(
-    /\b(?:Game|Practice|Location|Duration|Link)\s*:\s*.*?(?=\s+\b(?:Game|Practice|Location|Duration|Arrival|Uniform|Link)\s*:|$)/gi,
-    " ",
-  );
-  const withoutPunctuationGaps = withoutStructuredArtifacts.replace(/\s+([.,;:!?])/g, "$1");
-  return collapseWhitespace(withoutPunctuationGaps) || null;
 }
 
 function normalizeStructuredNoteLabel(label: string) {

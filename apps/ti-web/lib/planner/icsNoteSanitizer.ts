@@ -1,4 +1,4 @@
-import { sanitizeScheduleNotes } from "../../../../packages/lib/sports-schedule";
+import { sanitizeScheduleNotes } from "../../../../packages/lib/sports-schedule/sanitize";
 
 export function sanitizeImportedNotesText(rawNotes: string | null | undefined) {
   return sanitizeScheduleNotes(rawNotes);
