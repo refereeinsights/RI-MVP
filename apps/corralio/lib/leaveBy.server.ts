@@ -18,6 +18,7 @@ import {
   sanitizeOriginAddress,
   skippedAuditRow,
 } from "./leaveBy";
+import { matchPersistedCorralioEventIds } from "./venueMatching.server";
 import { createCorralioSupabaseAdminClient } from "./supabase/server";
 import { getWeekendCandidateWindow } from "./weekend";
 
@@ -687,5 +688,15 @@ export async function computeWeekendLeaveBy(input: {
     originGeocodedAt: household.origin_geocoded_at,
     rows,
   });
+  try {
+    await matchPersistedCorralioEventIds(admin, {
+      householdId: input.householdId,
+      eventIds: rows.map((row) => row.id),
+    });
+  } catch {
+    // Event geocoding/routing already succeeded. Keep provisional enrichment
+    // best-effort and emit no location, candidate, household, or provider data.
+    console.warn("[corralio][provisional-venues] post-geocode evaluation failed");
+  }
   return { changed: geocodeChanged || routeChanged };
 }

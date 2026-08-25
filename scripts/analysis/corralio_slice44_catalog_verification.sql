@@ -93,7 +93,7 @@ begin
   if v_columns is distinct from array[
     'event_id', 'household_id', 'venue_id', 'match_status',
     'location_fingerprint', 'matcher_version', 'evaluated_at',
-    'matched_at', 'recheck_after'
+    'matched_at', 'recheck_after', 'provisional_venue_id'
   ]::text[] then
     raise exception 'Corralio Slice 4.4 catalog verification failed: unexpected columns %', v_columns;
   end if;
@@ -178,7 +178,8 @@ $verify$;
 select 'SLICE 4.4 CATALOG VERIFICATION PASSED' as corralio_slice44_catalog_verification;
 
 -- Expected:
--- - exactly nine match-table columns with no raw location or canonical fields;
+-- - exactly ten match-table columns after 4.4B adds its typed provisional ID,
+--   with no raw location or canonical fields;
 -- - one event PK, the household-safe composite event FK, all coherence checks,
 --   and the supporting household/status and unmatched-recheck indexes;
 -- - postgres ownership, enabled/forced RLS, no policies, no public/anon/

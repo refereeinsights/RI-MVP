@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 export const CORRALIO_VENUE_MATCHER_VERSION = "corralio-v1";
 export const CORRALIO_UNMATCHED_RECHECK_DAYS = 30;
 
-export type VenueMatchStatus = "matched" | "unmatched" | "private_skipped" | "insufficient_location";
+export type VenueMatchStatus = "matched" | "provisional" | "unmatched" | "private_skipped" | "insufficient_location";
 
 export type VenueMatchEvent = {
   id: string;
@@ -14,6 +14,7 @@ export type VenueMatchEvent = {
 export type ExistingVenueMatch = {
   eventId: string;
   venueId: string | null;
+  provisionalVenueId: string | null;
   matchStatus: VenueMatchStatus;
   locationFingerprint: string;
   matcherVersion: string;
@@ -31,6 +32,7 @@ export type VenueCandidate = {
 export type VenueMatchResult = {
   eventId: string;
   venueId: string | null;
+  provisionalVenueId: string | null;
   matchStatus: VenueMatchStatus;
   locationFingerprint: string;
   matcherVersion: string;
@@ -59,6 +61,7 @@ type LocationContext = {
 type MatchDependencies = {
   listCandidates(city: string, state: string): Promise<{ candidates: VenueCandidate[]; queryCount: number }>;
   currentVenueIds(venueIds: readonly string[]): Promise<Set<string>>;
+  currentProvisionalVenueIds(provisionalVenueIds: readonly string[]): Promise<Set<string>>;
 };
 
 const STATE_ALIASES = new Map<string, string>([
@@ -231,6 +234,7 @@ function isReusable(existing: ExistingVenueMatch | undefined, fingerprint: strin
   if (classification.status !== "public") return existing.matchStatus === classification.status;
   if (existing.matchStatus === "private_skipped" || existing.matchStatus === "insufficient_location") return false;
   if (existing.matchStatus === "matched" && (!existing.venueId || !currentVenueIds.has(existing.venueId))) return false;
+  if (existing.matchStatus === "provisional") return Boolean(existing.provisionalVenueId && existing.recheckAfter && Date.parse(existing.recheckAfter) > now.getTime());
   if (existing.matchStatus === "unmatched") return Boolean(existing.recheckAfter && Date.parse(existing.recheckAfter) > now.getTime());
   return true;
 }
@@ -268,14 +272,22 @@ export async function evaluateVenueMatches(input: {
     const preparedRow = preparedByEvent.get(row.eventId);
     return preparedRow?.classification.status === "public" && row.matchStatus === "matched" && row.venueId ? [row.venueId] : [];
   });
-  const currentVenueIds = matchedVenueIds.length ? await dependencies.currentVenueIds([...new Set(matchedVenueIds)]) : new Set<string>();
-  const pending = prepared.filter((row) => !isReusable(existingByEvent.get(row.event.id), row.fingerprint, row.classification, now, input.forceRematch === true, currentVenueIds));
+  const provisionalVenueIds = input.existing.flatMap((row) => row.matchStatus === "provisional" && row.provisionalVenueId ? [row.provisionalVenueId] : []);
+  const [currentVenueIds, currentProvisionalVenueIds] = await Promise.all([
+    matchedVenueIds.length ? dependencies.currentVenueIds([...new Set(matchedVenueIds)]) : new Set<string>(),
+    provisionalVenueIds.length ? dependencies.currentProvisionalVenueIds([...new Set(provisionalVenueIds)]) : new Set<string>(),
+  ]);
+  const pending = prepared.filter((row) => {
+    const existing = existingByEvent.get(row.event.id);
+    if (existing?.matchStatus === "provisional" && existing.provisionalVenueId && !currentProvisionalVenueIds.has(existing.provisionalVenueId)) return true;
+    return !isReusable(existing, row.fingerprint, row.classification, now, input.forceRematch === true, currentVenueIds);
+  });
   const results: VenueMatchResult[] = [];
   const publicRows: Array<typeof pending[number] & { context: LocationContext }> = [];
 
   for (const row of pending) {
     if (row.classification.status !== "public") {
-      results.push({ eventId: row.event.id, venueId: null, matchStatus: row.classification.status, locationFingerprint: row.fingerprint, matcherVersion: CORRALIO_VENUE_MATCHER_VERSION, evaluatedAt, matchedAt: null, recheckAfter: null });
+      results.push({ eventId: row.event.id, venueId: null, provisionalVenueId: null, matchStatus: row.classification.status, locationFingerprint: row.fingerprint, matcherVersion: CORRALIO_VENUE_MATCHER_VERSION, evaluatedAt, matchedAt: null, recheckAfter: null });
       continue;
     }
     publicRows.push({ ...row, context: row.classification.context });
@@ -297,6 +309,7 @@ export async function evaluateVenueMatches(input: {
       results.push({
         eventId: row.event.id,
         venueId,
+        provisionalVenueId: null,
         matchStatus: matched ? "matched" : "unmatched",
         locationFingerprint: row.fingerprint,
         matcherVersion: CORRALIO_VENUE_MATCHER_VERSION,

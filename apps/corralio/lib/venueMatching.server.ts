@@ -9,6 +9,7 @@ import {
   type VenueMatchEvent,
   type VenueMatchStatus,
 } from "./venueMatching";
+import { createOrReuseProvisionalVenues } from "./provisionalVenues.server";
 
 const VENUE_PAGE_SIZE = 500;
 const IN_FILTER_BATCH_SIZE = 100;
@@ -39,7 +40,7 @@ function asEvent(value: unknown): VenueMatchEvent | null {
 function asExisting(value: unknown): ExistingVenueMatch | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
-  const allowedStatuses: VenueMatchStatus[] = ["matched", "unmatched", "private_skipped", "insufficient_location"];
+  const allowedStatuses: VenueMatchStatus[] = ["matched", "provisional", "unmatched", "private_skipped", "insufficient_location"];
   if (
     typeof row.event_id !== "string"
     || typeof row.match_status !== "string"
@@ -50,6 +51,7 @@ function asExisting(value: unknown): ExistingVenueMatch | null {
   return {
     eventId: row.event_id,
     venueId: typeof row.venue_id === "string" ? row.venue_id : null,
+    provisionalVenueId: typeof row.provisional_venue_id === "string" ? row.provisional_venue_id : null,
     matchStatus: row.match_status as VenueMatchStatus,
     locationFingerprint: row.location_fingerprint,
     matcherVersion: row.matcher_version,
@@ -115,7 +117,7 @@ export async function matchPersistedCorralioEvents(admin: SupabaseClient, input:
 
   const existingResults = await Promise.all(batches(eventIds).map((eventIdBatch) => admin
     .from("corralio_event_venue_matches")
-    .select("event_id,venue_id,match_status,location_fingerprint,matcher_version,recheck_after")
+    .select("event_id,venue_id,provisional_venue_id,match_status,location_fingerprint,matcher_version,recheck_after")
     .in("event_id", eventIdBatch)));
   if (existingResults.some((result) => result.error || !Array.isArray(result.data))) databaseFailure();
   const existingData = existingResults.flatMap((result) => result.data as unknown[]);
@@ -143,6 +145,16 @@ export async function matchPersistedCorralioEvents(admin: SupabaseClient, input:
       if (results.some((result) => result.error || !Array.isArray(result.data))) databaseFailure();
       return new Set(results.flatMap((result) => result.data as Array<{ id?: unknown }>).flatMap((row) => typeof row.id === "string" ? [row.id] : []));
     },
+    async currentProvisionalVenueIds(provisionalVenueIds) {
+      if (!provisionalVenueIds.length) return new Set<string>();
+      const results = await Promise.all(batches(provisionalVenueIds).map((venueIdBatch) => admin
+        .from("corralio_provisional_venues")
+        .select("id")
+        .eq("lifecycle_status", "active")
+        .in("id", venueIdBatch)));
+      if (results.some((result) => result.error || !Array.isArray(result.data))) databaseFailure();
+      return new Set(results.flatMap((result) => result.data as Array<{ id?: unknown }>).flatMap((row) => typeof row.id === "string" ? [row.id] : []));
+    },
   });
 
   if (evaluated.results.length) {
@@ -151,6 +163,7 @@ export async function matchPersistedCorralioEvents(admin: SupabaseClient, input:
         event_id: row.eventId,
         household_id: input.householdId,
         venue_id: row.venueId,
+        provisional_venue_id: row.provisionalVenueId,
         match_status: row.matchStatus,
         location_fingerprint: row.locationFingerprint,
         matcher_version: row.matcherVersion,
@@ -163,5 +176,42 @@ export async function matchPersistedCorralioEvents(admin: SupabaseClient, input:
     if (error) databaseFailure();
   }
 
-  console.info("[corralio][venue-matching] evaluation completed", evaluated.stats);
+  const provisionalStats = await createOrReuseProvisionalVenues(admin, {
+    householdId: input.householdId,
+    eventIds,
+  });
+
+  console.info("[corralio][venue-matching] evaluation completed", {
+    ...evaluated.stats,
+    provisionalConsidered: provisionalStats.considered,
+    provisionalCreated: provisionalStats.created,
+    provisionalReused: provisionalStats.reused,
+    provisionalBlocked: provisionalStats.blocked,
+  });
+}
+
+export async function matchPersistedCorralioEventIds(admin: SupabaseClient, input: {
+  householdId: string;
+  eventIds: readonly string[];
+}) {
+  const eventIds = [...new Set(input.eventIds.filter(Boolean))].slice(0, 200);
+  if (!eventIds.length) return;
+  const { data, error } = await admin.from("corralio_events")
+    .select("schedule_source_id,source_event_uid")
+    .eq("household_id", input.householdId)
+    .eq("origin_type", "ics")
+    .in("id", eventIds);
+  if (error || !Array.isArray(data)) databaseFailure();
+  const groups = new Map<string, string[]>();
+  for (const row of data as Array<{ schedule_source_id?: unknown; source_event_uid?: unknown }>) {
+    if (typeof row.schedule_source_id !== "string" || typeof row.source_event_uid !== "string") continue;
+    groups.set(row.schedule_source_id, [...(groups.get(row.schedule_source_id) ?? []), row.source_event_uid]);
+  }
+  for (const [sourceId, sourceEventUids] of groups) {
+    await matchPersistedCorralioEvents(admin, {
+      householdId: input.householdId,
+      sourceId,
+      sourceEventUids,
+    });
+  }
 }

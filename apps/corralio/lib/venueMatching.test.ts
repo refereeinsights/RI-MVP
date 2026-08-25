@@ -39,6 +39,9 @@ function dependencies(input: { candidates?: VenueCandidate[]; currentVenueIds?: 
         currentQueries += 1;
         return new Set(input.currentVenueIds ?? []);
       },
+      async currentProvisionalVenueIds() {
+        return new Set<string>();
+      },
     },
     queries: () => queries,
     currentQueries: () => currentQueries,
@@ -49,6 +52,7 @@ function existing(input: Partial<ExistingVenueMatch> = {}): ExistingVenueMatch {
   return {
     eventId: "event-1",
     venueId: null,
+    provisionalVenueId: null,
     matchStatus: "unmatched",
     locationFingerprint: venueLocationFingerprint(HOUSEHOLD_ID, normalizeVenueComparable("123 Main St, Spokane, WA")),
     matcherVersion: CORRALIO_VENUE_MATCHER_VERSION,
@@ -165,7 +169,39 @@ test("candidate retrieval failure is retryable and produces no authoritative res
     evaluateVenueMatches({ householdId: HOUSEHOLD_ID, originAddress: null, events: [event("event-1", "123 Main St, Spokane, WA")], existing: [], now: NOW }, {
       async listCandidates() { throw new Error("synthetic incomplete scope"); },
       async currentVenueIds() { return new Set(); },
+      async currentProvisionalVenueIds() { return new Set(); },
     }),
     /synthetic incomplete scope/,
   );
+});
+
+test("a current provisional association is reused until canonical recheck, then canonical wins", async () => {
+  const prior = existing({
+    provisionalVenueId: "provisional-1",
+    matchStatus: "provisional",
+    locationFingerprint: venueLocationFingerprint(HOUSEHOLD_ID, normalizeVenueComparable("Avery Sports Complex, Spokane, WA")),
+    recheckAfter: "2026-09-24T19:00:00.000Z",
+  });
+  const value = dependencies({ currentVenueIds: ["venue-1"] }).value;
+  value.currentProvisionalVenueIds = async () => new Set(["provisional-1"]);
+  const reused = await evaluateVenueMatches({
+    householdId: HOUSEHOLD_ID,
+    originAddress: null,
+    events: [event("event-1", "Avery Sports Complex, Spokane, WA")],
+    existing: [prior],
+    now: NOW,
+  }, value);
+  assert.equal(reused.results.length, 0);
+
+  const reconciled = await evaluateVenueMatches({
+    householdId: HOUSEHOLD_ID,
+    originAddress: null,
+    events: [event("event-1", "Avery Sports Complex, Spokane, WA")],
+    existing: [prior],
+    now: NOW,
+    forceRematch: true,
+  }, value);
+  assert.equal(reconciled.results[0]?.matchStatus, "matched");
+  assert.equal(reconciled.results[0]?.venueId, "venue-1");
+  assert.equal(reconciled.results[0]?.provisionalVenueId, null);
 });
