@@ -101,5 +101,32 @@ select pg_temp.corralio_slice44_assert(
 
 rollback;
 
--- Expected final command: ROLLBACK. Fixed IDs plus the transaction ensure no
--- pre-existing household, event, venue, identity, or match row is altered.
+do $cleanup$
+begin
+  if exists (
+    select 1 from public.corralio_households
+    where id in (
+      'c4400000-0000-4000-8000-000000000011',
+      'c4400000-0000-4000-8000-000000000012'
+    )
+  ) or exists (
+    select 1 from public.corralio_events
+    where id between
+      'c4400000-0000-4000-8000-000000000021'
+      and 'c4400000-0000-4000-8000-000000000025'
+  ) or exists (
+    select 1 from public.corralio_event_venue_matches
+    where event_id between
+      'c4400000-0000-4000-8000-000000000021'
+      and 'c4400000-0000-4000-8000-000000000025'
+  ) then
+    raise exception 'Corralio Slice 4.4 verification failed: rollback cleanup was not zero';
+  end if;
+end;
+$cleanup$;
+
+select 'SLICE 4.4 BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO' as corralio_slice44_behavioral_verification;
+
+-- Expected transactional terminator: ROLLBACK, followed only by zero-cleanup
+-- assertions. Fixed IDs ensure no pre-existing household, event, venue,
+-- identity, or match row is altered.
