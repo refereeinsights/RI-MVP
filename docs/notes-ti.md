@@ -13,6 +13,10 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-08-25
+
+- HotelPlanner Custom8 app-source marker added locally. `buildHotelPlannerBookingAttribution` and `buildHotelPlannerGroupRequestAttribution` now default `custom8` to `app:tournamentinsights` when no value is passed in. RI already passes `custom8=app:refereeinsights` explicitly so RI attribution is unaffected. Corralio will pass `custom8=app:corralio` when Slice 4.5 hotel integration ships. In HP's booking report, blank Custom8 now reliably identifies organic white-label traffic (direct HP domain visits, AI Overview, HP marketing emails) rather than TI-driven clicks. Investigation context: bookings with blank Keyword/JobCode/Custom fields after 2026-08-21 are unattributed organic HP white-label revenue, not a code regression — TI's outbound click data confirmed Custom1–4 are sent correctly on every `/go/hotels` redirect. No schema, env var, or route changes.
+
 ## 2026-08-18
 
 - Shared Supabase auth-email callback compatibility hardened locally without changing TI production authentication behavior. TI signup, resend, claim, and Magic Link callers already provide safe `next` query parameters and remain unchanged. The manual auth-email smoke utility now guarantees only its Magic Link `RedirectTo` is query-bearing so the shared template can append `&token_hash=...&type=email`; its recovery and email-change callbacks retain their prior contract. Shared documentation now requires `.ConfirmationURL` fallback for template invocations without RedirectTo and records that branding/sentinel parameters are non-authoritative. No TI handler, cookie, session, authorization, remote Supabase setting, live email, push, or deployment was changed.

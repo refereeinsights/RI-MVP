@@ -235,7 +235,7 @@ export function buildHotelPlannerBookingAttribution(input: BookingAttributionInp
     custom7:
       sanitizeText(input.custom7, 128) ||
       (isUuidLike(input.ctaInteractionId) ? `cta:${String(input.ctaInteractionId).trim().toLowerCase()}` : null),
-    custom8: sanitizeText(input.custom8, 128),
+    custom8: sanitizeText(input.custom8, 128) || "app:tournamentinsights",
   };
 }
 
@@ -259,6 +259,6 @@ export function buildHotelPlannerGroupRequestAttribution(
       sanitizeText(input.custom6, 128) ||
       (isUuidLike(input.plannerSessionId) ? `plan:${String(input.plannerSessionId).trim().toLowerCase()}` : null),
     custom7: sanitizeText(input.custom7, 128),
-    custom8: sanitizeText(input.custom8, 128),
+    custom8: sanitizeText(input.custom8, 128) || "app:tournamentinsights",
   };
 }
