@@ -10,6 +10,7 @@ import {
   renameChild,
   removeChild,
   removeTeam,
+  updateHouseholdOrigin,
   updateTeam,
   type FormState,
 } from "@/app/actions";
@@ -35,6 +36,28 @@ export type FamilyTeam = {
 
 function FormNotice({ state }: { state: FormState }) {
   return state.message ? <p className={`formNotice ${state.status}`} role="status">{state.message}</p> : null;
+}
+
+function HomeOriginForm({ originAddress }: { originAddress: string }) {
+  const [state, action] = useFormState(updateHouseholdOrigin, INITIAL_FORM_STATE);
+  return (
+    <form className="homeOriginForm" action={action}>
+      <div>
+        <label htmlFor="household-origin-address">Home address <span>(optional)</span></label>
+        <input
+          id="household-origin-address"
+          name="originAddress"
+          defaultValue={originAddress}
+          maxLength={100}
+          autoComplete="street-address"
+          placeholder="Street address, city, state ZIP"
+        />
+      </div>
+      <p className="fieldHelp">Used privately to estimate when your household should leave. Clear the field and save to remove it.</p>
+      <FormSubmitButton idle="Save home address" pending="Locating…" variant="secondary" />
+      <FormNotice state={state} />
+    </form>
+  );
 }
 
 function AddChildForm() {
@@ -167,7 +190,15 @@ function TeamEditor({ team }: { team: FamilyTeam }) {
   );
 }
 
-export function FamilySection({ familyChildren, teams }: { familyChildren: FamilyChild[]; teams: FamilyTeam[] }) {
+export function FamilySection({
+  familyChildren,
+  teams,
+  originAddress,
+}: {
+  familyChildren: FamilyChild[];
+  teams: FamilyTeam[];
+  originAddress: string;
+}) {
   const teamsByChild = new Map<string, FamilyTeam[]>();
   for (const team of teams) {
     const childTeams = teamsByChild.get(team.childId) ?? [];
@@ -180,6 +211,15 @@ export function FamilySection({ familyChildren, teams }: { familyChildren: Famil
       <p className="eyebrow">Every kid. Every team.</p>
       <h2 id="family-heading">Your family</h2>
       <p className="sectionIntro">Add the children and teams you plan for, then assign each connected schedule to the right person or team.</p>
+
+      <section className="homeOrigin" aria-labelledby="home-origin-heading">
+        <div>
+          <p className="eyebrow">Estimated leave-by</p>
+          <h3 id="home-origin-heading">Where your family starts</h3>
+          <p>Your address stays private to your household and is never used as venue evidence.</p>
+        </div>
+        <HomeOriginForm originAddress={originAddress} />
+      </section>
 
       {familyChildren.length ? (
         <div className="familyList">

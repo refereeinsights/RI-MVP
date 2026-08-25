@@ -20,6 +20,8 @@ function event(id: string, startsAt: string): WeekendPlanEvent {
     identityLabel: "Schedule",
     childColor: null,
     resolvedChildId: null,
+    estimatedDriveMinutes: null,
+    leaveByAt: null,
   };
 }
 

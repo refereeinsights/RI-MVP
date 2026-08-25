@@ -12,6 +12,11 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-08-25
+
+- **Corralio Slice 4.3 estimated leave-by Stage 1 is ready.** Added one optional private household origin, Geocodio geocoding, an isolated OpenRouteService/HeiGIT non-traffic routing adapter, persisted event geocodes and route estimates, visibly estimated leave-by copy using a provisional 30-minute arrival buffer, household-history reuse/dedup, freshness invalidation/render gating, deterministic claims, and an atomic 50-call-per-household UTC-day ceiling. Private origins can never become venue evidence. Mapbox geocoding/routing and RI's API-call ledger remain out of scope; Corralio owns service-role-only audit/quota tables. Per real planner mount, the separate maximums are 10 event geocodes and 10 routes; an origin settings save can add one origin geocode. Stage 1 made zero real provider calls.
+- Prepared but did not apply `20260825_corralio_slice43_leave_by.sql`, the usage report, read-only catalog verification, and rollback-only network-free behavioral verification. Offline validation passed 133 Corralio/shared tests, Corralio TypeScript/lint, diff and React/Next.js reviews, and all four production builds. Stage 2 remains gated on human migration application, two server-only provider variables, SQL verification, and the capped disposable-fixture provider/browser UAT. No database mutation, provider call, cron, push, or deployment occurred. Verdict: **SLICE 4.3 READY AFTER LISTED FIXES**.
+
 ## 2026-08-24 (b)
 
 - **`loadHotelBookingLifetimeSummary()` added to `apps/referee/lib/hotelPlannerBookingSync.ts` (`9c4cd141`).** Unbounded query over `ti_hotel_bookings` with no date filter — returns confirmed/cancelled/pending counts, total booking value, expected + paid commission, earliest/latest purchase dates, top 10 tournament slugs (from `custom2`), and top 10 hotels by count. Not wired into the daily email by default; call separately or use for a cumulative reporting view. Requires a manual backfill (`syncHotelPlannerBookings` with large `lookbackDays`) to populate data predating the rolling 7-day sync.

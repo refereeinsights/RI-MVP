@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { resolveCorralioViewer } from "@/app/_lib/productData";
 import { CORRALIO_ACQUISITION_COOKIE, resolveAcquisitionProvenanceCookie } from "@/lib/acquisition";
 import { nextChildColor, normalizeFamilyName, parseTeamSport } from "@/lib/family";
+import { computeWeekendLeaveBy, saveHouseholdOrigin } from "@/lib/leaveBy.server";
 import { isValidUuid, parseScheduleAssignmentInput } from "@/lib/schedules/assignment";
 import { ingestCorralioSchedule, replaceCorralioSchedule } from "@/lib/schedules/ingest";
 import { CORRALIO_SPORTS, parseCorralioSport } from "@/lib/schedules/sport";
@@ -55,6 +56,42 @@ export async function recordWeeklyEngagementAction(payload: EngagementPayload): 
     },
     payload,
   );
+}
+
+export async function updateHouseholdOrigin(
+  _state: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    const supabase = createCorralioSupabaseServerClient();
+    const result = await saveHouseholdOrigin({
+      authenticatedClient: supabase,
+      submittedAddress: String(formData.get("originAddress") ?? ""),
+    });
+    revalidatePlanner();
+    return { status: result.ok ? "success" : "error", message: result.message };
+  } catch {
+    return { status: "error", message: "We couldn’t update your home address right now." };
+  }
+}
+
+export async function computeWeekendLeaveByAction(eventIds: string[]): Promise<{ changed: boolean }> {
+  try {
+    const viewer = await resolveCorralioViewer();
+    if (!viewer?.householdId) return { changed: false };
+    const sanitizedIds = Array.from(new Set(eventIds))
+      .filter(isValidUuid)
+      .slice(0, 200);
+    const result = await computeWeekendLeaveBy({
+      householdId: viewer.householdId,
+      eventIds: sanitizedIds,
+    });
+    if (result.changed) revalidatePath("/");
+    return result;
+  } catch {
+    console.warn("corralio: leave-by computation failed");
+    return { changed: false };
+  }
 }
 
 export async function connectSchedule(_state: FormState, formData: FormData): Promise<FormState> {

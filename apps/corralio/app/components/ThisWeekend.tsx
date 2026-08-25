@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
-import { recordWeeklyEngagementAction } from "@/app/actions";
+import { computeWeekendLeaveByAction, recordWeeklyEngagementAction } from "@/app/actions";
 import { buildNavigationLinks } from "@/lib/navigation";
 import { corralioSportIcon, corralioSportLabel } from "@/lib/schedules/sport";
 import { getThisWeekendRangeLocal } from "@/lib/weekend";
@@ -30,6 +31,7 @@ function EventCard({ event, conflicts, onNavigate }: { event: WeekendPlanEvent; 
   const timeZone = validTimeZone(event.timezone);
   const colorClass = event.childColor ? ` eventColor-${event.childColor}` : "";
   const location = event.location;
+  const leaveBy = event.leaveByAt ? new Date(event.leaveByAt) : null;
 
   return (
     <li className={`eventCard eventCard-${event.identityKind}${colorClass}`}>
@@ -56,6 +58,15 @@ function EventCard({ event, conflicts, onNavigate }: { event: WeekendPlanEvent; 
         </time>
         <div className="eventBody">
           <h4>{event.title}</h4>
+          {leaveBy && event.estimatedDriveMinutes ? (
+            <p className="eventLeaveBy">
+              Leave by {leaveBy.toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+                timeZone,
+              })} (est.) · ~{event.estimatedDriveMinutes} min estimated drive
+            </p>
+          ) : null}
           {location ? (
             <button className="eventLocation" type="button" aria-haspopup="dialog" onClick={() => onNavigate(location)}>
               {location}{event.fieldLabel ? ` · ${event.fieldLabel}` : ""}
@@ -68,11 +79,13 @@ function EventCard({ event, conflicts, onNavigate }: { event: WeekendPlanEvent; 
 }
 
 export function ThisWeekend({ events, candidateLimitReached = false }: { events: WeekendPlanEvent[]; candidateLimitReached?: boolean }) {
+  const router = useRouter();
   const [now, setNow] = useState<Date | null>(null);
   const [navigationLocation, setNavigationLocation] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const navigationDialogRef = useRef<HTMLDialogElement>(null);
   const engagementRecordedRef = useRef(false);
+  const leaveByTriggeredRef = useRef(false);
 
   useEffect(() => setNow(new Date()), []);
   useEffect(() => {
@@ -104,6 +117,13 @@ export function ThisWeekend({ events, candidateLimitReached = false }: { events:
           },
     );
   }, [plan]);
+  useEffect(() => {
+    if (!plan || leaveByTriggeredRef.current || plan.events.length === 0) return;
+    leaveByTriggeredRef.current = true;
+    void computeWeekendLeaveByAction(plan.events.map((event) => event.id)).then((result) => {
+      if (result.changed) router.refresh();
+    });
+  }, [plan, router]);
 
   const conflictPresentation = useMemo(() => {
     const eventById = new Map((plan?.events ?? []).map((event) => [event.id, event]));

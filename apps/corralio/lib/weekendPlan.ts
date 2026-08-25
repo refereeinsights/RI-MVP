@@ -18,6 +18,8 @@ export type WeekendPlanEvent = {
   identityLabel: string;
   childColor: CorralioChildColor | null;
   resolvedChildId: string | null;
+  estimatedDriveMinutes: number | null;
+  leaveByAt: string | null;
 };
 
 export type WeekendConflict = {
