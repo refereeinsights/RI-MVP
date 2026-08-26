@@ -1,10 +1,10 @@
-# Corralio Slice 4.5 — Stage 1 Audit and Implementation Report
+# Corralio Slice 4.5 — Audit, Implementation, and Stage 2 Completion Report
 
 Date: 2026-08-25
 
 ## Verdict
 
-`SLICE 4.5 STAGE 1 COMPLETE LOCALLY; STAGE 2 REQUIRED`
+`SLICE 4.5 COMPLETE LOCALLY`
 
 The canonical prompt was patched with the 11 authoritative corrections before implementation. The repository and current upstream contract expose no material specification blocker.
 
@@ -98,4 +98,16 @@ The user applied the base migration and activation-completeness repair. The corr
 
 `SLICE 4.5 BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO`
 
-SQL verification is complete. The bounded real-data dry-run/UAT, final threshold decision, aggregate quality and usage reports, and independent cleanup-zero check remain before the final Slice 4.5 verdict.
+SQL verification was complete at that checkpoint. The bounded real-data dry-run/UAT, final threshold decision, aggregate quality and usage reports, and independent cleanup-zero check were subsequently completed as recorded below.
+
+## Stage 2 completion — 2026-08-26
+
+- Slice 4.5A's reviewed activation supplied the bounded real-data completion path for the shared 4.5 foundation. It used only three confirmed public canonical UAT venues—UWM Sports Complex, Evolution Sportsplex, and Oakland University Recreation Outdoor Complex—and no household origin/private routing location, canonical fixture/write, or provisional promotion. The retained `2026-08-19.0` extract covered 3 boxes, 16,764,451 bytes, 819 examined candidates, about 13 seconds, and concurrency 1. Dry-run preceded the authorized atomic apply.
+- Final V2 thresholds are the tunable 3-mile pre-filter, 15 stored candidates per venue/category, the generalized `candidate-quality-v2` acceptance rules (including the 0.80 floor for otherwise unconfirmed identities), and `dedupe-v2`. The active replacement contains 87 candidates: 45 Food and 42 Coffee. The former 51 legacy candidates are inactive; no partial pool became active.
+- The aggregate quality report was corrected to derive venue-level denominators from the latest successfully activated refresh scopes rather than only event-associated identities. This preserves zero-result scopes, avoids superseded-pool double counting, and keeps event-weighted coverage separate. Canonical event weighting now reads the actual `venue_id` relationship. Pure regression tests cover canonical/provisional identity keys, empty pools, and ignored failed/staging/superseded scopes.
+- The corrected live report returned 3 enriched venues, 100% venue-level Food fill, 100% Coffee fill, 100% quick-option fill, Food distribution `0 zero / 0 partial / 3 full`, Coffee distribution `0 / 1 / 2`, zero active duplicate rate, and 87 active candidates. Event-weighted Food coverage is correctly 0% with an explicit associated-event denominator of zero; it is not presented as a failed venue enrichment. Historical refresh outcomes are 2 successful active refresh records and 1 intentionally failed empty diagnostic record, or 66.67%/33.33%; the failed record contains no scope, candidate, provenance, or tag data.
+- The strengthened read-only catalog verifier passed and now proves the evidence observation uniqueness plus atomic `ON CONFLICT` writer contract used for concurrent idempotency. The strengthened rollback-only behavioral verifier passed with `SLICE 4.5 BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO`; it covers repeat-writer idempotency/provenance, active self-resolution, one-hop merged resolution, reconciled canonical resolution through an existing read-only canonical venue, suppression as no redirect, V2-classified pool activation, failed-refresh preservation, and Foursquare rejection. Two pre-pass runs exposed fixture-only ordering/schema-drift defects (an intentional merge duplicate created too early, then omitted mandatory 4.5A classification fields); both failed transactionally and independently retained zero fixtures before correction.
+- Independent post-pass reads returned zero exact provisional fixtures, zero provisional venues, zero provisional evidence, zero staging refreshes, zero `fixture-food` candidates, and zero `fixture-release` refreshes. The active 87-row pool and quality metrics were unchanged after verification.
+- Usage for final Stage 2 verification was zero Overture downloads/hosted queries, Geocodio, OpenRouteService, Mapbox, canonical/provisional retained writes, promotions, cron runs, pushes, or deployments. Database mutations occurred only inside the rollback-only verifier transaction. Final validation passed 155 Corralio tests, Corralio and report TypeScript, zero-warning Corralio lint, `git diff --check`, and all four production builds; RI/TI emitted only their existing warnings.
+
+Final verdict: **SLICE 4.5 COMPLETE LOCALLY**.

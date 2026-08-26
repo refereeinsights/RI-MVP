@@ -42,6 +42,17 @@ begin
       and pg_get_constraintdef(oid) like '%overture_place_match%'
   ) then raise exception 'Slice 4.5 catalog verification failed: evidence type'; end if;
 
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.corralio_provisional_venue_evidence'::regclass
+      and contype = 'u'
+      and pg_get_constraintdef(oid) like '%provisional_venue_id%observation_fingerprint%'
+  ) or position(
+    'on conflict (provisional_venue_id, observation_fingerprint)'
+    in lower(pg_get_functiondef(v_writer))
+  ) = 0
+  then raise exception 'Slice 4.5 catalog verification failed: concurrent evidence idempotency'; end if;
+
   if exists (
     select 1
     from information_schema.role_table_grants

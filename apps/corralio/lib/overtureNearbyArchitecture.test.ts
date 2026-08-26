@@ -6,6 +6,10 @@ const migration = readFileSync(
   new URL("../../../supabase/migrations/20260825_corralio_slice45_overture_nearby_foundation.sql", import.meta.url),
   "utf8",
 );
+const lifecycleMigration = readFileSync(
+  new URL("../../../supabase/migrations/20260825_corralio_slice44c_provisional_lifecycle_evidence.sql", import.meta.url),
+  "utf8",
+);
 const activationRepair = readFileSync(
   new URL("../../../supabase/migrations/20260825_corralio_slice45_activation_completeness_fix.sql", import.meta.url),
   "utf8",
@@ -107,6 +111,12 @@ test("normalizes provenance and excludes unapproved Foursquare", () => {
   assert.match(runtime, /normalizeOvertureProvenance/);
 });
 
+test("evidence concurrency is guarded by a database identity and atomic upsert", () => {
+  assert.match(migration, /on conflict \(provisional_venue_id, observation_fingerprint\)/);
+  assert.match(lifecycleMigration, /corralio_provisional_evidence_observation_unique/);
+  assert.match(behavioralVerifier, /evidence writer is not idempotent/);
+});
+
 test("refresh is staged, bounded, atomic, and failure preserving", () => {
   assert.match(migration, /status in \('staging', 'active', 'failed'\)/);
   assert.match(migration, /create table public\.corralio_overture_refresh_scopes/);
@@ -131,5 +141,9 @@ test("behavioral verification sequences activation before observing state", () =
   const stateCheck = behavioralVerifier.indexOf("atomic activation state was not visible");
   assert.ok(activation >= 0 && stateCheck > activation);
   assert.doesNotMatch(behavioralVerifier, /if not public\.corralio_activate_overture_refresh_v1/);
+  assert.match(behavioralVerifier, /active lifecycle resolution failed/);
+  assert.match(behavioralVerifier, /merged lifecycle resolution failed/);
+  assert.match(behavioralVerifier, /suppressed lifecycle resolution redirected/);
+  assert.match(behavioralVerifier, /reconciled lifecycle resolution failed/);
   assert.match(behavioralVerifier, /rollback;/);
 });

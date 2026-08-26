@@ -5,6 +5,10 @@ import {
   CORRALIO_ELIGIBILITY_RULE_VERSION,
   evaluateProvisionalPromotionEligibilityV1,
 } from "../../apps/corralio/lib/provisionalVenueEvidence";
+import {
+  currentOvertureEnrichmentIdentities,
+  overtureVenueIdentityKey,
+} from "../../apps/corralio/lib/overtureQualityMetrics";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -69,14 +73,27 @@ function distribution(values: number[]) {
 }
 
 async function main() {
-  const [events, matches, provisional, evidence, overtureCandidates, overtureFoodTags, overtureRefreshes] = await Promise.all([
+  const [
+    events,
+    matches,
+    provisional,
+    evidence,
+    overtureCandidates,
+    overtureFoodTags,
+    overtureRefreshes,
+    overtureRefreshScopes,
+  ] = await Promise.all([
     allRows("corralio_events", "id,origin_type,source_location_text,display_location_text,location_lat,location_lng,location_geocoded_at"),
-    allRows("corralio_event_venue_matches", "event_id,match_status,provisional_venue_id"),
+    allRows("corralio_event_venue_matches", "event_id,match_status,venue_id,provisional_venue_id"),
     allRows("corralio_provisional_venues", "id,normalized_place_name,city,state,lifecycle_status"),
     allRows("corralio_provisional_venue_evidence", "provisional_venue_id,evidence_type,source_scope_fingerprint"),
     optionalOvertureCandidateRows(),
     optionalRows("corralio_overture_candidate_food_tags", "candidate_id,food_tag,tag_rule_version,evidence_field"),
-    optionalRows("corralio_overture_refreshes", "status,overture_release,venues_considered,candidates_examined"),
+    optionalRows("corralio_overture_refreshes", "id,status,overture_release,venues_considered,candidates_examined,completed_at"),
+    optionalRows(
+      "corralio_overture_refresh_scopes",
+      "refresh_id,canonical_venue_id,provisional_venue_id,category",
+    ),
   ]);
 
   const matchByEvent = new Map(matches.flatMap((row) =>
@@ -175,12 +192,12 @@ async function main() {
   ).length;
   const potentialDuplicateRows = duplicateIds.size;
   const percent = (value: number, denominator: number) => denominator ? Number((value * 100 / denominator).toFixed(2)) : 0;
-  const identityKey = (row: Record<string, unknown>) =>
-    typeof row.canonical_venue_id === "string" ? `canonical:${row.canonical_venue_id}`
-      : typeof row.provisional_venue_id === "string" ? `provisional:${row.provisional_venue_id}` : null;
   const associatedIdentityEventCounts = new Map<string, number>();
   for (const row of matches) {
-    const key = identityKey(row);
+    const key = overtureVenueIdentityKey({
+      canonical_venue_id: row.venue_id,
+      provisional_venue_id: row.provisional_venue_id,
+    });
     if (key) associatedIdentityEventCounts.set(key, (associatedIdentityEventCounts.get(key) ?? 0) + 1);
   }
   const activeCandidates = overtureCandidates.filter((row) => row.active === true);
@@ -191,7 +208,7 @@ async function main() {
   const nearDuplicateKeys = new Set<string>();
   let duplicateCandidateRows = 0;
   for (const row of activeCandidates) {
-    const key = identityKey(row);
+    const key = overtureVenueIdentityKey(row);
     if (!key || (row.category !== "food" && row.category !== "coffee")) continue;
     const bucket = `${key}:${row.category}`;
     countByIdentityCategory.set(bucket, (countByIdentityCategory.get(bucket) ?? 0) + 1);
@@ -210,7 +227,7 @@ async function main() {
     if (nearDuplicateKeys.has(duplicateKey)) duplicateCandidateRows += 1;
     nearDuplicateKeys.add(duplicateKey);
   }
-  const identities = [...associatedIdentityEventCounts.keys()];
+  const identities = currentOvertureEnrichmentIdentities(overtureRefreshes, overtureRefreshScopes);
   const poolDistribution = (category: "food" | "coffee") => {
     const values = identities.map((key) => countByIdentityCategory.get(`${key}:${category}`) ?? 0);
     return {
@@ -222,7 +239,7 @@ async function main() {
   const foodFilled = identities.filter((key) => (countByIdentityCategory.get(`${key}:food`) ?? 0) > 0);
   const coffeeFilled = identities.filter((key) => (countByIdentityCategory.get(`${key}:coffee`) ?? 0) > 0);
   const quickFilledIdentityKeys = new Set(activeCandidates.flatMap((row) => {
-    const key = identityKey(row);
+    const key = overtureVenueIdentityKey(row);
     return key && ["quick_service", "pizza", "sandwiches"].includes(String(row.intent_category)) ? [key] : [];
   }));
   const activeFoodCandidateIds = new Set(activeCandidates.flatMap((row) =>
@@ -264,6 +281,8 @@ async function main() {
       venueLevelFoodFillRatePercent: percent(foodFilled.length, identities.length),
       eventWeightedFoodCandidateCoveragePercent: percent(weightedFoodEvents, weightedEvents),
       venueLevelCoffeeFillRatePercent: percent(coffeeFilled.length, identities.length),
+      enrichedVenueCount: identities.length,
+      associatedEventCount: weightedEvents,
       quickOptionFillRatePercent: percent(
         identities.filter((key) => quickFilledIdentityKeys.has(key)).length,
         identities.length,
