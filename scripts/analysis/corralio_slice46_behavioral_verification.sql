@@ -31,12 +31,11 @@ values (
   'Fixture Team', 45
 );
 insert into public.corralio_schedule_sources (
-  id, household_id, source_type, display_name, source_url, sync_status, child_id, team_id
+  id, household_id, source_type, display_name, source_url, sync_status, team_id
 ) values (
   'c4600000-0000-4000-8000-000000000041',
   'c4600000-0000-4000-8000-000000000011', 'ics', 'Fixture Schedule',
   'https://example.invalid/private-fixture.ics', 'success',
-  'c4600000-0000-4000-8000-000000000021',
   'c4600000-0000-4000-8000-000000000031'
 );
 
