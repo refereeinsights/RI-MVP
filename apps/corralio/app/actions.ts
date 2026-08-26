@@ -16,6 +16,8 @@ import {
   createCorralioSupabaseServerClient,
 } from "@/lib/supabase/server";
 import { recordWeeklyEngagement, type EngagementPayload } from "@/lib/weeklyEngagement";
+import { computeWhatFits, type WhatFitsServerResult } from "@/lib/whatFits.server";
+import { sanitizeWhatFitsAnalytics, type WhatFitsAnalyticsPayload, type WhatFitsMode } from "@/lib/whatFits";
 
 export type FormState = { status: "idle" | "success" | "error"; message: string };
 
@@ -91,6 +93,49 @@ export async function computeWeekendLeaveByAction(eventIds: string[]): Promise<{
   } catch {
     console.warn("corralio: leave-by computation failed");
     return { changed: false };
+  }
+}
+
+export async function computeWhatFitsAction(input: {
+  eventIds: string[];
+  mode: WhatFitsMode;
+  candidateLimitReached: boolean;
+}): Promise<WhatFitsServerResult> {
+  try {
+    const viewer = await resolveCorralioViewer();
+    if (!viewer?.householdId) return { kind: "suppressed", reason: "household_conflict" };
+    const eventIds = Array.from(new Set(input.eventIds)).filter(isValidUuid).slice(0, 200);
+    if (eventIds.length < 2 || (input.mode !== "food" && input.mode !== "coffee")) {
+      return { kind: "suppressed", reason: "below_minimum_gap" };
+    }
+    return await computeWhatFits({
+      householdId: viewer.householdId,
+      eventIds,
+      mode: input.mode,
+      candidateLimitReached: input.candidateLimitReached === true,
+    });
+  } catch {
+    console.warn("corralio: what-fits computation failed");
+    return { kind: "suppressed", reason: "routing_unavailable" };
+  }
+}
+
+export async function recordWhatFitsAnalyticsAction(payload: WhatFitsAnalyticsPayload): Promise<void> {
+  const sanitized = sanitizeWhatFitsAnalytics(payload);
+  if (!sanitized) return;
+  try {
+    const viewer = await resolveCorralioViewer();
+    if (!viewer?.householdId) return;
+    await viewer.supabase.rpc("corralio_record_what_fits_event_v1", {
+      p_event_name: sanitized.event,
+      p_mode: sanitized.mode ?? null,
+      p_reason: sanitized.reason ?? null,
+      p_arrival_source: sanitized.arrivalSource ?? null,
+      p_result_count: sanitized.resultCount ?? null,
+      p_candidate_position: sanitized.candidatePosition ?? null,
+    });
+  } catch {
+    // Analytics can never affect the planner and this signal contains no payload data.
   }
 }
 
@@ -361,15 +406,21 @@ export async function updateTeam(_state: FormState, formData: FormData): Promise
   const teamId = String(formData.get("teamId") ?? "").trim();
   const displayName = normalizeFamilyName(formData.get("displayName"), 100);
   const sport = parseTeamSport(formData.get("sport"));
+  const submittedArrival = String(formData.get("arrivalBufferMinutes") ?? "").trim();
+  const arrivalBufferMinutes = submittedArrival === "" ? null : Number(submittedArrival);
   if (!isValidUuid(teamId)) return { status: "error", message: "That team could not be updated." };
   if (!displayName) return { status: "error", message: "Enter a team name between 1 and 100 characters." };
   if (sport === undefined) return { status: "error", message: "Choose a valid sport or leave it unselected." };
+  if (
+    arrivalBufferMinutes !== null
+    && (!Number.isInteger(arrivalBufferMinutes) || arrivalBufferMinutes < 0 || arrivalBufferMinutes > 120 || arrivalBufferMinutes % 5 !== 0)
+  ) return { status: "error", message: "Choose an arrival setting from 0 to 120 minutes." };
 
   try {
     const { supabase, householdId } = await getOwnerContext();
     const { data, error } = await supabase
       .from("corralio_teams")
-      .update({ display_name: displayName, sport })
+      .update({ display_name: displayName, sport, arrival_buffer_minutes: arrivalBufferMinutes })
       .eq("id", teamId)
       .eq("household_id", householdId)
       .is("archived_at", null)
@@ -377,6 +428,7 @@ export async function updateTeam(_state: FormState, formData: FormData): Promise
       .maybeSingle();
     if (error || !data) throw new Error("team update failed");
     revalidatePlanner();
+    await recordWhatFitsAnalyticsAction({ event: "arrival_setting_changed" });
     return { status: "success", message: "Team updated." };
   } catch {
     return { status: "error", message: "We couldn’t update that team right now." };

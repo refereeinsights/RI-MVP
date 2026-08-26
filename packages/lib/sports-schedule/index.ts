@@ -15,6 +15,7 @@ export type NormalizedScheduleEvent = {
   endsAt: string | null;
   timezone: string | null;
   notes: string | null;
+  scheduleArrivalAt: string | null;
   rawLocation: string | null;
   location: string | null;
   fieldLabel: string | null;
@@ -42,6 +43,7 @@ type NormalizeIcsScheduleInput = {
 type ParsedStructuredDescription = {
   cleanedNotes: string | null;
   locationText: string | null;
+  arrivalInstruction: string | null;
 };
 
 type RecurrenceOptions = {
@@ -79,11 +81,11 @@ function formatStructuredArrival(value: string) {
 
 function parseStructuredDescription(description: string): ParsedStructuredDescription {
   const cleaned = collapseWhitespace(stripHtml(description));
-  if (!cleaned) return { cleanedNotes: null, locationText: null };
+  if (!cleaned) return { cleanedNotes: null, locationText: null, arrivalInstruction: null };
 
-  const labelPattern = /\b(Game|Practice|Location|Duration|Arrival|Uniform|Link):/gi;
+  const labelPattern = /\b(Game|Practice|Location|Duration|Arrival Time|Arrival|Uniform|Link):/gi;
   const matches = Array.from(cleaned.matchAll(labelPattern));
-  if (!matches.length) return { cleanedNotes: cleaned, locationText: null };
+  if (!matches.length) return { cleanedNotes: cleaned, locationText: null, arrivalInstruction: null };
 
   const fields = new Map<string, string>();
   for (let index = 0; index < matches.length; index += 1) {
@@ -97,7 +99,7 @@ function parseStructuredDescription(description: string): ParsedStructuredDescri
   }
 
   const noteParts: string[] = [];
-  const arrival = fields.get("arrival");
+  const arrival = fields.get("arrival time") ?? fields.get("arrival");
   if (arrival) {
     const formattedArrival = formatStructuredArrival(arrival);
     if (formattedArrival) noteParts.push(formattedArrival);
@@ -105,7 +107,7 @@ function parseStructuredDescription(description: string): ParsedStructuredDescri
   const uniform = fields.get("uniform");
   if (uniform) noteParts.push(`Uniform: ${uniform}`);
 
-  const ignoredLabels = new Set(["game", "practice", "location", "duration", "arrival", "uniform", "link"]);
+  const ignoredLabels = new Set(["game", "practice", "location", "duration", "arrival time", "arrival", "uniform", "link"]);
   for (const [key, value] of fields.entries()) {
     if (!ignoredLabels.has(key)) noteParts.push(`${normalizeStructuredNoteLabel(key)}: ${value}`);
   }
@@ -113,6 +115,7 @@ function parseStructuredDescription(description: string): ParsedStructuredDescri
   return {
     cleanedNotes: noteParts.length ? noteParts.join(" · ") : null,
     locationText: fields.get("location") ?? null,
+    arrivalInstruction: arrival ?? null,
   };
 }
 
@@ -212,6 +215,42 @@ function recurrenceWallTimeToUtc(date: Date, timezone: string | null) {
     result = new Date(wallTimeUtc - offsetMinutes * 60_000);
   }
   return result;
+}
+
+function resolveExplicitArrivalAt(instruction: string | null, start: Date, timezone: string | null) {
+  const match = String(instruction ?? "").trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? "0");
+  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
+  if (hour === 12) hour = 0;
+  if (match[3]?.toUpperCase() === "PM") hour += 12;
+
+  let year: number;
+  let month: number;
+  let day: number;
+  if (timezone) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    }).formatToParts(start);
+    year = Number(parts.find((part) => part.type === "year")?.value);
+    month = Number(parts.find((part) => part.type === "month")?.value);
+    day = Number(parts.find((part) => part.type === "day")?.value);
+  } else {
+    year = start.getUTCFullYear();
+    month = start.getUTCMonth() + 1;
+    day = start.getUTCDate();
+  }
+  if (![year, month, day].every(Number.isFinite)) return null;
+  const wallTime = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const arrival = recurrenceWallTimeToUtc(wallTime, timezone);
+  const minutesBeforeStart = (start.getTime() - arrival.getTime()) / 60_000;
+  return Number.isInteger(minutesBeforeStart) && minutesBeforeStart >= 0 && minutesBeforeStart <= 180
+    ? arrival.toISOString()
+    : null;
 }
 
 function parseDateOnlyToUtcMidnight(dateOnly: string, timezone: string | null) {
@@ -317,6 +356,7 @@ export function normalizeIcsSchedule(input: NormalizeIcsScheduleInput): Normaliz
     const extractedLocation = extractScheduleFieldLabel(rawLocationText);
     const title = clamp(collapseWhitespace(stripHtml(summary)), 140) || "Imported calendar event";
     const notes = clamp(sanitizeScheduleNotes(parsedDescription.cleanedNotes), 2000);
+    const scheduleArrivalAt = resolveExplicitArrivalAt(parsedDescription.arrivalInstruction, start, timezone);
     const rawLocation = clamp(rawLocationText, 400);
     const location = clamp(extractedLocation.cleanedLocation, 200);
     const fieldLabel = clamp(extractedLocation.fieldLabel, 80);
@@ -348,6 +388,7 @@ export function normalizeIcsSchedule(input: NormalizeIcsScheduleInput): Normaliz
       endsAt: end?.toISOString() ?? null,
       timezone,
       notes,
+      scheduleArrivalAt,
       rawLocation,
       location,
       fieldLabel,

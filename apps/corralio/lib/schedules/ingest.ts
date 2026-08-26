@@ -19,6 +19,7 @@ export type PersistedScheduleEvent = {
   display_location_text: string | null;
   field_label: string | null;
   notes: string | null;
+  schedule_arrival_at: string | null;
 };
 
 export type CorralioScheduleStore = {
@@ -111,6 +112,7 @@ export function toPersistedScheduleEvent(event: NormalizedScheduleEvent): Persis
     display_location_text: event.location,
     field_label: event.fieldLabel,
     notes: event.notes,
+    schedule_arrival_at: event.scheduleArrivalAt,
   };
 }
 

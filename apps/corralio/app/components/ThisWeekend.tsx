@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { computeWeekendLeaveByAction, recordWeeklyEngagementAction } from "@/app/actions";
+import { computeWeekendLeaveByAction, computeWhatFitsAction, recordWhatFitsAnalyticsAction, recordWeeklyEngagementAction } from "@/app/actions";
+import type { WhatFitsServerResult } from "@/lib/whatFits.server";
 import { buildNavigationLinks } from "@/lib/navigation";
+import { WhatFitsPanel } from "./WhatFitsPanel";
 import { corralioSportIcon, corralioSportLabel } from "@/lib/schedules/sport";
 import { getThisWeekendRangeLocal } from "@/lib/weekend";
 import { buildWeekendPlan, type WeekendConflict, type WeekendPlanEvent } from "@/lib/weekendPlan";
@@ -86,6 +88,9 @@ export function ThisWeekend({ events, candidateLimitReached = false }: { events:
   const navigationDialogRef = useRef<HTMLDialogElement>(null);
   const engagementRecordedRef = useRef(false);
   const leaveByTriggeredRef = useRef(false);
+  const [foodResult, setFoodResult] = useState<WhatFitsServerResult | null>(null);
+  const [coffeeResult, setCoffeeResult] = useState<WhatFitsServerResult | null>(null);
+  const [coffeeLoading, setCoffeeLoading] = useState(false);
 
   useEffect(() => setNow(new Date()), []);
   useEffect(() => {
@@ -120,8 +125,14 @@ export function ThisWeekend({ events, candidateLimitReached = false }: { events:
   useEffect(() => {
     if (!plan || leaveByTriggeredRef.current || plan.events.length === 0) return;
     leaveByTriggeredRef.current = true;
-    void computeWeekendLeaveByAction(plan.events.map((event) => event.id)).then((result) => {
+    const eventIds = plan.events.map((event) => event.id);
+    void computeWeekendLeaveByAction(eventIds).then(async (result) => {
       if (result.changed) router.refresh();
+      const whatFits = await computeWhatFitsAction({ eventIds, mode: "food", candidateLimitReached: plan.conflictStatus === "candidate-limit-reached" });
+      setFoodResult(whatFits);
+      if (whatFits.kind === "suppressed") {
+        void recordWhatFitsAnalyticsAction({ event: "what_fits_suppressed", mode: "food", reason: whatFits.reason });
+      }
     });
   }, [plan, router]);
 
@@ -203,15 +214,41 @@ export function ThisWeekend({ events, candidateLimitReached = false }: { events:
                 </div>
                 <ol className="eventList">
                   {group.events.map((event) => (
-                    <EventCard
-                      event={event}
-                      conflicts={conflictPresentation.conflictsByEventId.get(event.id) ?? []}
-                      key={event.id}
-                      onNavigate={(location) => {
-                        setCopied(false);
-                        setNavigationLocation(location);
-                      }}
-                    />
+                    <Fragment key={event.id}>
+                      <EventCard
+                        event={event}
+                        conflicts={conflictPresentation.conflictsByEventId.get(event.id) ?? []}
+                        onNavigate={(location) => {
+                          setCopied(false);
+                          setNavigationLocation(location);
+                        }}
+                      />
+                      {foodResult?.kind === "ready" && foodResult.currentEventId === event.id ? (
+                        <WhatFitsPanel
+                          food={foodResult}
+                          coffee={coffeeResult}
+                          coffeeLoading={coffeeLoading}
+                          onLoadCoffee={() => {
+                            if (!plan || coffeeLoading || coffeeResult) return;
+                            setCoffeeLoading(true);
+                            void computeWhatFitsAction({
+                              eventIds: plan.events.map((candidate) => candidate.id),
+                              mode: "coffee",
+                              candidateLimitReached: plan.conflictStatus === "candidate-limit-reached",
+                            }).then((result) => {
+                              setCoffeeResult(result);
+                              if (result.kind === "suppressed") {
+                                void recordWhatFitsAnalyticsAction({ event: "what_fits_suppressed", mode: "coffee", reason: result.reason });
+                              }
+                            }).finally(() => setCoffeeLoading(false));
+                          }}
+                          onNavigate={(location) => {
+                            setCopied(false);
+                            setNavigationLocation(location);
+                          }}
+                        />
+                      ) : null}
+                    </Fragment>
                   ))}
                 </ol>
               </section>

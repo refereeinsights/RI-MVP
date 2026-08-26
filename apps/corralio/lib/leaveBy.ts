@@ -10,7 +10,7 @@ export const GEOCODIO_ALLOWED_ACCURACY_TYPES = [
 ] as const;
 
 export type ExternalApiName = "geocodio" | "openrouteservice";
-export type ExternalOperation = "geocode_origin" | "geocode_event" | "route_event";
+export type ExternalOperation = "geocode_origin" | "geocode_event" | "route_event" | "route_what_fits";
 export type ExternalErrorCode =
   | "no_results"
   | "low_accuracy"

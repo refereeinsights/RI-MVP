@@ -58,6 +58,7 @@ const normalizedEvent = {
   endsAt: null,
   timezone: null,
   notes: null,
+  scheduleArrivalAt: null,
   rawLocation: "Sports Park",
   location: "Sports Park",
   fieldLabel: null,

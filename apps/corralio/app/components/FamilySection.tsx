@@ -32,6 +32,7 @@ export type FamilyTeam = {
   childId: string;
   displayName: string;
   sport: CorralioSport | null;
+  arrivalBufferMinutes: number | null;
 };
 
 function FormNotice({ state }: { state: FormState }) {
@@ -151,6 +152,20 @@ function TeamEditor({ team }: { team: FamilyTeam }) {
           <div>
             <label htmlFor={`team-sport-${team.id}`}>Sport <span>(optional)</span></label>
             <SportSelect id={`team-sport-${team.id}`} defaultValue={team.sport ?? ""} />
+          </div>
+          <div>
+            <label htmlFor={`team-arrival-${team.id}`}>Arrive before every event <span>(optional)</span></label>
+            <select
+              id={`team-arrival-${team.id}`}
+              name="arrivalBufferMinutes"
+              defaultValue={team.arrivalBufferMinutes === null ? "" : String(team.arrivalBufferMinutes)}
+            >
+              <option value="">Use Corralio’s 30-minute default</option>
+              {Array.from({ length: 25 }, (_, index) => index * 5).map((minutes) => (
+                <option value={minutes} key={minutes}>{minutes} {minutes === 1 ? "minute" : "minutes"} before</option>
+              ))}
+            </select>
+            <p className="fieldHelp">Applies to every event for this team unless the connected schedule supplies an exact arrival time.</p>
           </div>
           <FormSubmitButton idle="Save team" pending="Saving…" variant="secondary" />
           <FormNotice state={state} />

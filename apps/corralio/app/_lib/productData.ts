@@ -11,7 +11,7 @@ import { resolveWeekendEventIdentity, type WeekendPlanEvent } from "@/lib/weeken
 
 type SourceRow = { id: string; display_name: string; sport: string | null; sync_status: string; last_synced_at: string | null; refresh_paused_at: string | null; child_id: string | null; team_id: string | null };
 type ChildRow = { id: string; display_name: string; color_token: string; sort_order: number };
-type TeamRow = { id: string; child_id: string; display_name: string; sport: string | null; sort_order: number };
+type TeamRow = { id: string; child_id: string; display_name: string; sport: string | null; sort_order: number; arrival_buffer_minutes: number | null };
 type EventRow = { id: string; title: string; starts_at: string; ends_at: string | null; timezone: string | null; source_location_text: string | null; display_location_text: string | null; field_label: string | null; schedule_source_id: string | null; child_id: string | null; team_id: string | null; estimated_drive_minutes: number | null; leave_by_computed_at: string | null; location_geocoded_at: string | null };
 
 const WEEKEND_CANDIDATE_LIMIT = 200;
@@ -40,7 +40,7 @@ async function loadActiveFamilyRows(viewer: CorralioViewer) {
   if (!viewer.householdId) return { children: [] as ChildRow[], teams: [] as TeamRow[] };
   const [childResult, teamResult] = await Promise.all([
     viewer.supabase.from("corralio_children").select("id,display_name,color_token,sort_order").eq("household_id", viewer.householdId).is("archived_at", null).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-    viewer.supabase.from("corralio_teams").select("id,child_id,display_name,sport,sort_order").eq("household_id", viewer.householdId).is("archived_at", null).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+    viewer.supabase.from("corralio_teams").select("id,child_id,display_name,sport,sort_order,arrival_buffer_minutes").eq("household_id", viewer.householdId).is("archived_at", null).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
   ]);
   return { children: (childResult.data ?? []) as ChildRow[], teams: (teamResult.data ?? []) as TeamRow[] };
 }
@@ -55,7 +55,7 @@ async function loadFamilyRows(viewer: CorralioViewer) {
 
 function mapFamily(children: ChildRow[], teams: TeamRow[]) {
   const familyChildren: FamilyChild[] = children.map((child) => ({ id: child.id, displayName: child.display_name, colorToken: parseChildColor(child.color_token) }));
-  const familyTeams: FamilyTeam[] = teams.map((team) => ({ id: team.id, childId: team.child_id, displayName: team.display_name, sport: parseCorralioSport(team.sport) }));
+  const familyTeams: FamilyTeam[] = teams.map((team) => ({ id: team.id, childId: team.child_id, displayName: team.display_name, sport: parseCorralioSport(team.sport), arrivalBufferMinutes: team.arrival_buffer_minutes }));
   return { familyChildren, familyTeams };
 }
 

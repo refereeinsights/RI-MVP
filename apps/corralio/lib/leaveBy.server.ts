@@ -46,7 +46,7 @@ type AuditRow = ReturnType<typeof providerAuditRow>;
 
 const EVENT_SELECT = "id,source_location_text,display_location_text,location_lat,location_lng,location_normalized,location_geocoded_at,location_geocode_failed_at,estimated_drive_minutes,route_distance_meters,route_provider,route_failed_at,leave_by_computed_at" as const;
 
-function requiredServerEnvironment(name: string): string {
+export function requiredServerEnvironment(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required server configuration: ${name}`);
   return value;
@@ -65,7 +65,7 @@ function asNormalizedRow(row: EventLocationRow): NormalizedEventRow {
   return { ...row, locationNormalized: normalizeLocationText(rawLocation) };
 }
 
-async function logRows(admin: AdminClient, rows: AuditRow[]) {
+export async function logCorralioExternalRows(admin: AdminClient, rows: AuditRow[]) {
   if (!rows.length) return;
   try {
     await admin.from("corralio_external_api_calls").insert(rows);
@@ -83,7 +83,7 @@ async function logSkip(
     "household_result_reused" | "batch_duplicate_skipped" | "concurrent_claim_skipped" | "daily_cap_reached">,
   count = 1,
 ) {
-  await logRows(admin, Array.from({ length: count }, () => skippedAuditRow({
+  await logCorralioExternalRows(admin, Array.from({ length: count }, () => skippedAuditRow({
     householdId,
     api,
     operation,
@@ -91,7 +91,7 @@ async function logSkip(
   })));
 }
 
-async function reserveVendorCall(admin: AdminClient, householdId: string) {
+export async function reserveVendorCall(admin: AdminClient, householdId: string) {
   const { data, error } = await admin.rpc("corralio_reserve_external_call_v1", {
     p_household_id: householdId,
     p_cap: CORRALIO_DAILY_EXTERNAL_CALL_CAP_PER_HOUSEHOLD,
@@ -99,7 +99,7 @@ async function reserveVendorCall(admin: AdminClient, householdId: string) {
   return !error && data === true;
 }
 
-async function logProviderResult(
+export async function logCorralioProviderResult(
   admin: AdminClient,
   input: {
     householdId: string;
@@ -108,7 +108,7 @@ async function logProviderResult(
     result: { kind: string; errorCode?: ExternalErrorCode; latencyMs: number };
   },
 ) {
-  await logRows(admin, [providerAuditRow(input)]);
+  await logCorralioExternalRows(admin, [providerAuditRow(input)]);
 }
 
 async function clearOriginClaim(admin: AdminClient, householdId: string, claimTimestamp: string) {
@@ -222,7 +222,7 @@ export async function saveHouseholdOrigin(input: {
   } else {
     await clearOriginClaim(admin, householdId, claimTimestamp);
   }
-  await logProviderResult(admin, {
+  await logCorralioProviderResult(admin, {
     householdId,
     api: "geocodio",
     operation: "geocode_origin",
@@ -409,7 +409,7 @@ async function geocodeEventGroups(
     } else {
       await clearEventClaim(admin, householdId, representativeId, "location_geocode_claimed_at");
     }
-    await logProviderResult(admin, {
+    await logCorralioProviderResult(admin, {
       householdId,
       api: "geocodio",
       operation: "geocode_event",
@@ -622,7 +622,7 @@ async function routeEventGroups(
     } else {
       await clearEventClaim(admin, input.householdId, claimRepresentative.id, "route_claimed_at");
     }
-    await logProviderResult(admin, {
+    await logCorralioProviderResult(admin, {
       householdId: input.householdId,
       api: "openrouteservice",
       operation: "route_event",

@@ -37,6 +37,7 @@ test("normalizes a single event while preserving raw location and optional-field
     endsAt: "2026-08-22T17:00:00.000Z",
     timezone: null,
     notes: null,
+    scheduleArrivalAt: null,
     rawLocation: "Regional Sports Park, 100 Main St, Spokane, WA #6",
     location: "Regional Sports Park, 100 Main St, Spokane, WA",
     fieldLabel: "Field 6",
@@ -153,4 +154,44 @@ test("sanitizes HTML, URLs, UUIDs, and structured schedule notes", () => {
   });
   assert.equal(result.events[0]?.notes, "Arrival note:");
   assert.equal(sanitizeScheduleNotes("Token abcdef0123456789abcdef0123456789."), "Token.");
+});
+
+test("extracts only a bounded exact structured Arrival Time clock", () => {
+  const result = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/arrival.ics",
+    icsText: calendar([
+      "BEGIN:VEVENT",
+      "UID:arrival-1",
+      "DTSTART;TZID=America/Los_Angeles:20260824T143000",
+      "DTEND;TZID=America/Los_Angeles:20260824T160000",
+      "SUMMARY:Game",
+      "DESCRIPTION:Game: Owls vs Bears Arrival Time: 2:00 PM Location: Eagles Ice Arena",
+      "END:VEVENT",
+    ]),
+  });
+  assert.equal(result.events[0]?.scheduleArrivalAt, "2026-08-24T21:00:00.000Z");
+  assert.equal(result.events[0]?.notes, "Arrive 2:00 PM");
+});
+
+test("rejects ambiguous and out-of-window arrival prose", () => {
+  const result = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/arrival.ics",
+    icsText: calendar([
+      "BEGIN:VEVENT",
+      "UID:arrival-ambiguous",
+      "DTSTART:20260824T180000Z",
+      "SUMMARY:Game",
+      "DESCRIPTION:Arrival Time: early please",
+      "END:VEVENT",
+      "BEGIN:VEVENT",
+      "UID:arrival-too-early",
+      "DTSTART:20260824T180000Z",
+      "SUMMARY:Game",
+      "DESCRIPTION:Arrival: 1:00 PM",
+      "END:VEVENT",
+    ]),
+  });
+  assert.deepEqual(result.events.map((event) => event.scheduleArrivalAt), [null, null]);
 });
