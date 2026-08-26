@@ -1,5 +1,15 @@
 # Corralio Notes
 
+## 2026-08-26 — Slice 4.4D incomplete ICS venue resolution complete locally
+
+- A human applied `20260826_corralio_slice44d_incomplete_ics_venue_resolution.sql`; the catalog verifier returned `SLICE 4.4D CATALOG VERIFICATION PASSED`, and the rollback-only behavioral verifier returned `SLICE 4.4D BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO`.
+- The bounded no-write prediction examined 200 ICS events and 24 normalized locations, predicting 159 canonical matches, 39 unmatched locations, and 2 insufficient locations with zero retained match, alias, or external-call changes. After explicit approval, the same 200-event bound was applied through the production matcher. A final exact 32-event bounded pass completed the later Plantes Ferry regression occurrences that fell beyond the chronological first batch.
+- Final retained reads prove every required production-representative occurrence resolves with `corralio-v2`: all 50 Upriver/Plantes Ferry events reference the existing Plantes Ferry Sports Complex canonical venue, and all 32 Eagles Ice Arena events reference the existing Eagles Ice Arena canonical venue. There are zero absent/older target associations, 12 validated shared aliases, and zero provisional venues; no canonical venue was created or modified.
+- Isolated signed-in browser UAT covered This Weekend, Family, and Upcoming without entering credentials. Four schedules, the existing conflict, raw Upriver and Eagles location text/directions controls, household-origin privacy copy, family/schedule connections, and the Upcoming placeholder rendered correctly. The browser reported no application error or exception; the temporary browser, auth runner, screenshots, and dev server were cleaned up.
+- Stage 2 and UAT made four billable Geocodio `geocode_event` attempts after event geocoding was deliberately decoupled from household-origin routing: one succeeded, two returned `invalid_result`, and one returned `low_accuracy`. There were zero OpenRouteService and Overture calls, zero provisional/canonical writes, and no source-feed fetch, cron, background processing, push, or deployment.
+- Final validation passed 163 current Corralio library tests, Corralio TypeScript, zero-warning Corralio lint, `git diff --check`, and all four production builds (`corp-app`, `corralio-app`, `referee-app`, and `ti-web`); RI/TI emitted only their existing warnings.
+- Verdict: **SLICE 4.4D COMPLETE LOCALLY**. Resume the existing Slice 4.6 Stage 1 audit and stop at its CPO decision packet before any What Fits Stage 2 implementation.
+
 ## 2026-08-26 — Slice 4.4D incomplete ICS venue resolution Stage 1 ready
 
 - The 4.6 audit confirmed a production-representative resolution gap rather than missing canonical data: both Plantes Ferry Sports Complex and Eagles Ice Arena already exist in the TI/RI canonical venue base, while the retained ICS strings are respectively address-only and name-only with `(home ice)`. Existing matching rejected the latter and compared the former too literally; all 82 retained occurrences remain untouched in the applied database.

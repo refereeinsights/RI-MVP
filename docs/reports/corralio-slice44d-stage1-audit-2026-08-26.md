@@ -56,3 +56,20 @@ These files are unapplied. Stage 2 order is human migration apply, catalog verif
 ## Usage and privacy
 
 Stage 1 made zero database writes and zero Geocodio, OpenRouteService, or Overture requests. It added no global search, canonical creation, venue-directory behavior, background processing, push, or deployment. Household origins remain excluded from shared venue aliases and evidence.
+
+## Stage 2 completion
+
+The human-applied migration and both database verifiers passed, including rollback cleanup zero. A 200-event dry-run predicted 159 canonical matches, 39 unmatched locations, and 2 insufficient locations without retaining any write. After explicit approval, the same bounded set was applied. A second exact 32-ID bounded call completed the required later Plantes Ferry events that fell outside the first chronological batch.
+
+Final retained regression results are:
+
+| Input family | Retained events | `corralio-v2` canonical matches | Canonical target |
+| --- | ---: | ---: | --- |
+| Upriver / Plantes Ferry | 50 | 50 | Plantes Ferry Sports Complex |
+| Eagles Ice Arena | 32 | 32 | Eagles Ice Arena |
+
+The apply produced 12 validated aliases, no provisional venue, and no canonical write. Signed-in browser UAT passed This Weekend, Family, and Upcoming with four current schedules, one existing conflict, both required raw locations, directions controls, household-origin privacy copy, and no application console error. Final verification passed 163 current Corralio library tests, TypeScript, zero-warning Corralio lint, diff validation, and all four production builds; RI/TI retained only existing warnings.
+
+Browser UAT caused four billable Geocodio event-geocode attempts through the newly decoupled path: one success, two `invalid_result`, and one `low_accuracy`. No OpenRouteService or Overture call occurred. No source-feed fetch, cron, background work, push, or deployment occurred.
+
+Final verdict: `SLICE 4.4D COMPLETE LOCALLY`.
