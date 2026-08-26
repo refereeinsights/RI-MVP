@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { parseProvisionalPlaceIdentity } from "./provisionalVenues";
 import { buildIcsEvidenceFingerprints } from "./provisionalVenueEvidence";
-import { eventLocationText, type VenueMatchEvent } from "./venueMatching";
+import { eventLocationText, venueAliasLookupForLocation, type VenueMatchEvent } from "./venueMatching";
 
 const EVENT_LIMIT = 200;
 
@@ -109,6 +109,29 @@ export async function createOrReuseProvisionalVenues(admin: SupabaseClient, inpu
     if (outcome === "created") stats.created += 1;
     else if (outcome === "reused" || outcome === "redirected_provisional") stats.reused += 1;
     else stats.blocked += 1;
+
+    const provisionalVenueId = typeof data[0]?.provisional_venue_id === "string"
+      ? data[0].provisional_venue_id
+      : null;
+    const alias = provisionalVenueId
+      ? venueAliasLookupForLocation(eventLocationText(event))
+      : null;
+    if (alias) {
+      const { error: aliasError } = await admin.from("corralio_venue_aliases").upsert({
+        alias_kind: alias.kind,
+        normalized_alias: alias.normalizedAlias,
+        normalized_city: alias.normalizedCity,
+        state: alias.state,
+        canonical_venue_id: null,
+        provisional_venue_id: provisionalVenueId,
+        evidence_source: "validated_provisional_creation",
+        normalizer_version: "corralio-venue-alias-v1",
+      }, {
+        onConflict: "alias_kind,normalized_alias,normalized_city,state",
+        ignoreDuplicates: true,
+      });
+      if (aliasError) databaseFailure();
+    }
   }
   return stats;
 }

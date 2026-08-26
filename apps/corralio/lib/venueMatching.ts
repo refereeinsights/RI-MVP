@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const CORRALIO_VENUE_MATCHER_VERSION = "corralio-v1";
+export const CORRALIO_VENUE_MATCHER_VERSION = "corralio-v2";
 export const CORRALIO_UNMATCHED_RECHECK_DAYS = 30;
 
 export type VenueMatchStatus = "matched" | "provisional" | "unmatched" | "private_skipped" | "insufficient_location";
@@ -49,19 +49,29 @@ export type VenueMatchStats = {
 };
 
 type LocationContext = {
+  kind: "localized" | "name_only";
   normalizedInput: string;
   normalizedBase: string;
   normalizedName: string;
   normalizedCity: string;
-  state: string;
+  state: string | null;
   rawCity: string;
   hasStreetAddress: boolean;
+};
+
+export type VenueAliasLookup = {
+  kind: "name" | "address" | "full_location";
+  normalizedAlias: string;
+  normalizedCity: string | null;
+  state: string | null;
 };
 
 type MatchDependencies = {
   listCandidates(city: string, state: string): Promise<{ candidates: VenueCandidate[]; queryCount: number }>;
   currentVenueIds(venueIds: readonly string[]): Promise<Set<string>>;
   currentProvisionalVenueIds(provisionalVenueIds: readonly string[]): Promise<Set<string>>;
+  findUniqueCanonicalName?(normalizedName: string): Promise<VenueCandidate | null>;
+  findAlias?(input: VenueAliasLookup): Promise<string | null>;
 };
 
 const STATE_ALIASES = new Map<string, string>([
@@ -94,7 +104,9 @@ const TOKEN_ALIASES = new Map<string, string>([
 ]);
 
 const SUB_LOCATION_SUFFIX = /(?:\s*[,|/–-]\s*|\s+)(?:apartment|apt|suite|ste|unit|field|fld|court|gym|diamond|rink|room|mat|pool|track|pitch|#)\s*[a-z0-9-]+\s*$/i;
+const ORPHAN_SUBLOCATION = /^(?:field|fld|court|gym|diamond|rink|room|mat|pool|track|pitch|#)\s*[a-z0-9-]+$/i;
 const COUNTRY_SUFFIX = /(?:,?\s*)(?:united states|usa|u\.?s\.?a?\.?)\s*$/i;
+const APPROVED_TRAILING_ANNOTATION = /\s*\((?:home\s+(?:ice|field|rink|court|gym)|main\s+(?:field|rink|court|gym))\)\s*$/i;
 
 function collapseWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
@@ -122,9 +134,18 @@ function removeCountryAndZip(value: string) {
 }
 
 function removeSubLocation(value: string) {
-  let current = collapseWhitespace(value);
+  let current = collapseWhitespace(value.replace(APPROVED_TRAILING_ANNOTATION, ""));
   while (SUB_LOCATION_SUFFIX.test(current)) current = collapseWhitespace(current.replace(SUB_LOCATION_SUFFIX, ""));
   return current;
+}
+
+function streetIdentity(value: string | null | undefined) {
+  const withoutZip = removeCountryAndZip(collapseWhitespace(String(value ?? "")));
+  const firstComma = withoutZip.split(",")[0] ?? withoutZip;
+  const prefix = firstComma.match(
+    /^\s*(\d{1,6}\s+.*?\b(?:street|st|road|rd|avenue|ave|boulevard|blvd|drive|dr|lane|ln|court|ct|circle|cir|highway|hwy|parkway|pkwy|place|pl|terrace|ter)\b)/i,
+  )?.[1] ?? firstComma;
+  return normalizeVenueComparable(prefix);
 }
 
 export function normalizePrivacyAddress(value: string | null | undefined) {
@@ -150,8 +171,10 @@ export function venueLocationFingerprint(householdId: string, normalizedInput: s
 
 function parseLocation(value: string): LocationContext | null {
   const withoutSubLocation = removeCountryAndZip(removeSubLocation(value));
-  const combinedCityState = withoutSubLocation.match(/^(.*)\s+([a-z][a-z .'-]+),\s*([a-z]{2})$/i);
   const commaParts = withoutSubLocation.split(",").map(collapseWhitespace).filter(Boolean);
+  const combinedCityState = commaParts.length < 3
+    ? withoutSubLocation.match(/^(.*)\s+([a-z][a-z .'-]+),\s*([a-z]{2})$/i)
+    : null;
   let state: string | null = null;
   let rawCity = "";
   let base = "";
@@ -183,9 +206,25 @@ function parseLocation(value: string): LocationContext | null {
   const normalizedBase = normalizeVenueComparable(base);
   const normalizedCity = normalizeVenueComparable(rawCity);
   const hasStreetAddress = /\b\d{1,6}\s+[a-z0-9]/i.test(base);
-  if (!normalizedInput || !state || !normalizedCity || !normalizedBase) return null;
+  if (!normalizedInput) return null;
+
+  if (!state || !normalizedCity || !normalizedBase) {
+    const nameOnly = normalizeVenueComparable(withoutSubLocation);
+    if (!nameOnly || ORPHAN_SUBLOCATION.test(withoutSubLocation) || /^\d{1,6}\s/.test(nameOnly) || nameOnly.length < 3) return null;
+    return {
+      kind: "name_only",
+      normalizedInput,
+      normalizedBase: nameOnly,
+      normalizedName: nameOnly,
+      normalizedCity: "",
+      state: null,
+      rawCity: "",
+      hasStreetAddress: false,
+    };
+  }
 
   return {
+    kind: "localized",
     normalizedInput,
     normalizedBase,
     normalizedName: normalizedBase,
@@ -207,8 +246,12 @@ function normalizeCandidate(candidate: VenueCandidate) {
 }
 
 function safeAddressMatch(eventAddress: string, candidateAddress: string) {
-  const strong = /\b\d{1,6}\s+[a-z0-9]/.test(candidateAddress) && candidateAddress.split(" ").length >= 3 && candidateAddress.length >= 10;
-  return strong && (candidateAddress === eventAddress || eventAddress.includes(candidateAddress));
+  const eventStreet = streetIdentity(eventAddress);
+  const candidateStreet = streetIdentity(candidateAddress);
+  const strong = /\b\d{1,6}\s+[a-z0-9]/.test(candidateStreet)
+    && candidateStreet.split(" ").length >= 3
+    && candidateStreet.length >= 10;
+  return strong && candidateStreet === eventStreet;
 }
 
 function matchOne(context: LocationContext, candidates: readonly VenueCandidate[]) {
@@ -223,6 +266,24 @@ function matchOne(context: LocationContext, candidates: readonly VenueCandidate[
 
   const nameMatches = normalized.filter((candidate) => candidate.normalizedName === context.normalizedName);
   return nameMatches.length === 1 ? nameMatches[0]!.id : null;
+}
+
+export function venueAliasLookup(context: LocationContext): VenueAliasLookup {
+  if (context.kind === "name_only") {
+    return { kind: "name", normalizedAlias: context.normalizedName, normalizedCity: null, state: null };
+  }
+  return {
+    kind: context.hasStreetAddress ? "address" : "full_location",
+    normalizedAlias: context.hasStreetAddress ? streetIdentity(context.normalizedBase) : context.normalizedName,
+    normalizedCity: context.normalizedCity,
+    state: context.state,
+  };
+}
+
+export function venueAliasLookupForLocation(value: string | null | undefined) {
+  const location = collapseWhitespace(String(value ?? ""));
+  const context = location ? parseLocation(location) : null;
+  return context ? venueAliasLookup(context) : null;
 }
 
 type LocationClassification =
@@ -293,31 +354,64 @@ export async function evaluateVenueMatches(input: {
     publicRows.push({ ...row, context: row.classification.context });
   }
 
-  const groups = new Map<string, typeof publicRows>();
-  for (const row of publicRows) {
+  const localizedRows = publicRows.filter((row) => row.context.kind === "localized");
+  const nameOnlyRows = publicRows.filter((row) => row.context.kind === "name_only");
+  const groups = new Map<string, typeof localizedRows>();
+  for (const row of localizedRows) {
     const key = `${row.context.state}|${row.context.normalizedCity}`;
     groups.set(key, [...(groups.get(key) ?? []), row]);
   }
   let venueCandidateQueries = 0;
+  const appendResult = (row: typeof publicRows[number], venueId: string | null) => {
+    const matched = Boolean(venueId);
+    results.push({
+      eventId: row.event.id,
+      venueId,
+      provisionalVenueId: null,
+      matchStatus: matched ? "matched" : "unmatched",
+      locationFingerprint: row.fingerprint,
+      matcherVersion: CORRALIO_VENUE_MATCHER_VERSION,
+      evaluatedAt,
+      matchedAt: matched ? evaluatedAt : null,
+      recheckAfter: matched ? null : new Date(now.getTime() + CORRALIO_UNMATCHED_RECHECK_DAYS * 86_400_000).toISOString(),
+    });
+  };
+  const aliasPromises = new Map<string, Promise<string | null>>();
+  const resolveAlias = (context: LocationContext) => {
+    if (!dependencies.findAlias) return Promise.resolve(null);
+    const lookup = venueAliasLookup(context);
+    const key = `${lookup.kind}|${lookup.normalizedAlias}|${lookup.normalizedCity ?? ""}|${lookup.state ?? ""}`;
+    const existing = aliasPromises.get(key);
+    if (existing) return existing;
+    const pendingAlias = dependencies.findAlias(lookup);
+    aliasPromises.set(key, pendingAlias);
+    return pendingAlias;
+  };
   for (const rows of groups.values()) {
     const first = rows[0]!;
-    const candidateScope = await dependencies.listCandidates(first.context.rawCity, first.context.state);
+    const candidateScope = await dependencies.listCandidates(first.context.rawCity, first.context.state as string);
     venueCandidateQueries += candidateScope.queryCount;
     for (const row of rows) {
-      const venueId = matchOne(row.context, candidateScope.candidates);
-      const matched = Boolean(venueId);
-      results.push({
-        eventId: row.event.id,
-        venueId,
-        provisionalVenueId: null,
-        matchStatus: matched ? "matched" : "unmatched",
-        locationFingerprint: row.fingerprint,
-        matcherVersion: CORRALIO_VENUE_MATCHER_VERSION,
-        evaluatedAt,
-        matchedAt: matched ? evaluatedAt : null,
-        recheckAfter: matched ? null : new Date(now.getTime() + CORRALIO_UNMATCHED_RECHECK_DAYS * 86_400_000).toISOString(),
-      });
+      const venueId = matchOne(row.context, candidateScope.candidates) ?? await resolveAlias(row.context);
+      appendResult(row, venueId);
     }
+  }
+
+  const uniqueNamePromises = new Map<string, Promise<VenueCandidate | null>>();
+  for (const row of nameOnlyRows) {
+    let venueId: string | null = null;
+    if (dependencies.findUniqueCanonicalName) {
+      const key = row.context.normalizedName;
+      let pendingName = uniqueNamePromises.get(key);
+      if (!pendingName) {
+        pendingName = dependencies.findUniqueCanonicalName(key);
+        uniqueNamePromises.set(key, pendingName);
+      }
+      venueId = (await pendingName)?.id ?? null;
+      venueCandidateQueries += 1;
+    }
+    venueId ??= await resolveAlias(row.context);
+    appendResult(row, venueId);
   }
 
   return {
@@ -326,7 +420,7 @@ export async function evaluateVenueMatches(input: {
       eventsProcessed: input.events.length,
       uniqueNormalizedLocations: new Set(prepared.map((row) => row.normalizedInput).filter(Boolean)).size,
       venueCandidateQueries,
-      reusedCandidateGroups: Math.max(0, publicRows.length - groups.size),
+      reusedCandidateGroups: Math.max(0, publicRows.length - groups.size - uniqueNamePromises.size),
     },
   };
 }

@@ -638,7 +638,6 @@ export async function computeWeekendLeaveBy(input: {
 }): Promise<{ changed: boolean }> {
   if (!input.eventIds.length) return { changed: false };
   requiredServerEnvironment("GEOCODIO_API_KEY");
-  requiredServerEnvironment("OPENROUTESERVICE_API_KEY");
   const admin = createCorralioSupabaseAdminClient();
   const [{ data: household }, { data: sources }] = await Promise.all([
     admin.from("corralio_households")
@@ -650,12 +649,6 @@ export async function computeWeekendLeaveBy(input: {
       .eq("household_id", input.householdId)
       .neq("sync_status", "disconnected"),
   ]);
-  if (
-    typeof household?.origin_lat !== "number"
-    || typeof household.origin_lng !== "number"
-    || typeof household.origin_geocoded_at !== "string"
-  ) return { changed: false };
-
   const window = getWeekendCandidateWindow(new Date());
   const sourceFilter = buildActivePlanningEventSourceFilter(
     (sources ?? []).flatMap((source) => typeof source.id === "string" ? [source.id] : []),
@@ -681,13 +674,6 @@ export async function computeWeekendLeaveBy(input: {
       .order("id", { ascending: true });
     rows = ((refreshed ?? []) as EventLocationRow[]).map(asNormalizedRow);
   }
-  const routeChanged = await routeEventGroups(admin, {
-    householdId: input.householdId,
-    originLat: household.origin_lat,
-    originLng: household.origin_lng,
-    originGeocodedAt: household.origin_geocoded_at,
-    rows,
-  });
   try {
     await matchPersistedCorralioEventIds(admin, {
       householdId: input.householdId,
@@ -698,5 +684,19 @@ export async function computeWeekendLeaveBy(input: {
     // best-effort and emit no location, candidate, household, or provider data.
     console.warn("[corralio][provisional-venues] post-geocode evaluation failed");
   }
+  if (
+    typeof household?.origin_lat !== "number"
+    || typeof household.origin_lng !== "number"
+    || typeof household.origin_geocoded_at !== "string"
+  ) return { changed: geocodeChanged };
+
+  requiredServerEnvironment("OPENROUTESERVICE_API_KEY");
+  const routeChanged = await routeEventGroups(admin, {
+    householdId: input.householdId,
+    originLat: household.origin_lat,
+    originLng: household.origin_lng,
+    originGeocodedAt: household.origin_geocoded_at,
+    rows,
+  });
   return { changed: geocodeChanged || routeChanged };
 }

@@ -68,6 +68,17 @@ test("server orchestration scopes client event IDs to the authenticated househol
   assert.match(server, /\.eq\("location_normalized", group\.normalized\)[\s\S]*?\.in\("id", routeTargetIds\)/);
 });
 
+test("event geocoding and venue matching do not require a configured household origin", () => {
+  const geocode = server.indexOf("const geocodeChanged = await geocodeEventGroups");
+  const matching = server.indexOf("await matchPersistedCorralioEventIds");
+  const originGate = server.indexOf('typeof household?.origin_lat !== "number"', geocode);
+  const routingKey = server.indexOf('requiredServerEnvironment("OPENROUTESERVICE_API_KEY")', geocode);
+  assert.ok(geocode > 0);
+  assert.ok(matching > geocode);
+  assert.ok(originGate > matching);
+  assert.ok(routingKey > originGate);
+});
+
 test("origin results are claim-bound so stale concurrent saves cannot overwrite", () => {
   assert.match(server, /claimOrigin\(admin, householdId, address\)/);
   assert.match(server, /attempt\("unclaimed"\)[\s\S]*?attempt\("stale"\)/);

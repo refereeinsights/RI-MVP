@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   evaluateVenueMatches,
+  eventLocationText,
+  venueAliasLookupForLocation,
   type ExistingVenueMatch,
   type VenueCandidate,
   type VenueMatchEvent,
@@ -70,6 +72,33 @@ function asCandidate(value: unknown): VenueCandidate | null {
     city: typeof row.city === "string" ? row.city : null,
     state: typeof row.state === "string" ? row.state : null,
   };
+}
+
+async function findUniqueCanonicalName(admin: SupabaseClient, normalizedName: string) {
+  const { data, error } = await admin.rpc("corralio_find_unique_canonical_venue_by_name_v1", {
+    p_normalized_name: normalizedName,
+  }).maybeSingle();
+  if (error) databaseFailure();
+  return asCandidate(data);
+}
+
+async function findVenueAlias(admin: SupabaseClient, input: {
+  kind: "name" | "address" | "full_location";
+  normalizedAlias: string;
+  normalizedCity: string | null;
+  state: string | null;
+}) {
+  let query = admin.from("corralio_venue_aliases")
+    .select("canonical_venue_id")
+    .eq("alias_kind", input.kind)
+    .eq("normalized_alias", input.normalizedAlias);
+  query = input.normalizedCity === null
+    ? query.is("normalized_city", null)
+    : query.eq("normalized_city", input.normalizedCity);
+  query = input.state === null ? query.is("state", null) : query.eq("state", input.state);
+  const { data, error } = await query.maybeSingle();
+  if (error) databaseFailure();
+  return typeof data?.canonical_venue_id === "string" ? data.canonical_venue_id : null;
 }
 
 async function listCompleteCandidateScope(admin: SupabaseClient, state: string) {
@@ -155,6 +184,8 @@ export async function matchPersistedCorralioEvents(admin: SupabaseClient, input:
       if (results.some((result) => result.error || !Array.isArray(result.data))) databaseFailure();
       return new Set(results.flatMap((result) => result.data as Array<{ id?: unknown }>).flatMap((row) => typeof row.id === "string" ? [row.id] : []));
     },
+    findUniqueCanonicalName: (normalizedName) => findUniqueCanonicalName(admin, normalizedName),
+    findAlias: (lookup) => findVenueAlias(admin, lookup),
   });
 
   if (evaluated.results.length) {
@@ -174,6 +205,31 @@ export async function matchPersistedCorralioEvents(admin: SupabaseClient, input:
       { onConflict: "event_id" },
     );
     if (error) databaseFailure();
+
+    const eventById = new Map((events as VenueMatchEvent[]).map((event) => [event.id, event]));
+    const aliases = evaluated.results.flatMap((row) => {
+      if (row.matchStatus !== "matched" || !row.venueId) return [];
+      const event = eventById.get(row.eventId);
+      const lookup = event ? venueAliasLookupForLocation(eventLocationText(event)) : null;
+      return lookup ? [{
+        alias_kind: lookup.kind,
+        normalized_alias: lookup.normalizedAlias,
+        normalized_city: lookup.normalizedCity,
+        state: lookup.state,
+        canonical_venue_id: row.venueId,
+        provisional_venue_id: null,
+        evidence_source: "deterministic_canonical_match",
+        normalizer_version: "corralio-venue-alias-v1",
+      }] : [];
+    });
+    if (aliases.length) {
+      const { error: aliasError } = await admin.from("corralio_venue_aliases")
+        .upsert(aliases, {
+          onConflict: "alias_kind,normalized_alias,normalized_city,state",
+          ignoreDuplicates: true,
+        });
+      if (aliasError) databaseFailure();
+    }
   }
 
   const provisionalStats = await createOrReuseProvisionalVenues(admin, {
@@ -214,4 +270,56 @@ export async function matchPersistedCorralioEventIds(admin: SupabaseClient, inpu
       sourceEventUids,
     });
   }
+}
+
+export async function reprocessCorralioVenueMatches(admin: SupabaseClient, input: {
+  householdId: string;
+  dryRun: boolean;
+  maxEvents?: number;
+}) {
+  const maxEvents = Math.max(1, Math.min(input.maxEvents ?? 200, 200));
+  const { data, error } = await admin.from("corralio_events")
+    .select("id,schedule_source_id,source_event_uid,source_location_text,display_location_text")
+    .eq("household_id", input.householdId)
+    .eq("origin_type", "ics")
+    .order("starts_at", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(maxEvents);
+  if (error || !Array.isArray(data)) databaseFailure();
+  const rows = data as Array<{
+    id?: unknown;
+    schedule_source_id?: unknown;
+    source_event_uid?: unknown;
+    source_location_text?: unknown;
+    display_location_text?: unknown;
+  }>;
+  const uniqueLocations = new Set(rows.flatMap((row) => {
+    const value = typeof row.source_location_text === "string"
+      ? row.source_location_text
+      : typeof row.display_location_text === "string" ? row.display_location_text : null;
+    return value ? [value.trim().toLowerCase()] : [];
+  }));
+  if (input.dryRun) {
+    return { dryRun: true, eventsConsidered: rows.length, uniqueLocations: uniqueLocations.size, eventsReprocessed: 0 };
+  }
+
+  const groups = new Map<string, string[]>();
+  for (const row of rows) {
+    if (typeof row.schedule_source_id !== "string" || typeof row.source_event_uid !== "string") continue;
+    groups.set(row.schedule_source_id, [...(groups.get(row.schedule_source_id) ?? []), row.source_event_uid]);
+  }
+  for (const [sourceId, sourceEventUids] of groups) {
+    await matchPersistedCorralioEvents(admin, {
+      householdId: input.householdId,
+      sourceId,
+      sourceEventUids,
+      forceRematch: true,
+    });
+  }
+  return {
+    dryRun: false,
+    eventsConsidered: rows.length,
+    uniqueLocations: uniqueLocations.size,
+    eventsReprocessed: rows.length,
+  };
 }

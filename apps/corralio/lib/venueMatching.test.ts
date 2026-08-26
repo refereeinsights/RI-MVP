@@ -26,7 +26,12 @@ function event(id: string, location: string | null): VenueMatchEvent {
   return { id, sourceLocationText: location, displayLocationText: null };
 }
 
-function dependencies(input: { candidates?: VenueCandidate[]; currentVenueIds?: string[] } = {}) {
+function dependencies(input: {
+  candidates?: VenueCandidate[];
+  currentVenueIds?: string[];
+  uniqueName?: VenueCandidate | null;
+  aliasVenueId?: string | null;
+} = {}) {
   let queries = 0;
   let currentQueries = 0;
   return {
@@ -41,6 +46,12 @@ function dependencies(input: { candidates?: VenueCandidate[]; currentVenueIds?: 
       },
       async currentProvisionalVenueIds() {
         return new Set<string>();
+      },
+      async findUniqueCanonicalName() {
+        return input.uniqueName ?? null;
+      },
+      async findAlias() {
+        return input.aliasVenueId ?? null;
       },
     },
     queries: () => queries,
@@ -119,6 +130,68 @@ test("one complete city/state candidate group supports conservative address and 
   ]);
   assert.equal(deps.queries(), 1);
   assert.equal(result.stats.reusedCandidateGroups, 2);
+});
+
+test("production-representative incomplete locations resolve without loose identity guesses", async () => {
+  const plantes = {
+    id: "plantes",
+    name: "Plantes Ferry Sports Complex",
+    address: "12320 E Upriver Dr Spokane WA 99216",
+    city: "Spokane Valley",
+    state: "WA",
+  };
+  const eagles = {
+    id: "eagles",
+    name: "Eagles Ice Arena",
+    address: "6321 N Addison St, Spokane, WA",
+    city: "Spokane",
+    state: "WA",
+  };
+  const deps = dependencies({ candidates: [plantes], uniqueName: eagles });
+  const result = await evaluateVenueMatches({
+    householdId: HOUSEHOLD_ID,
+    originAddress: null,
+    events: [
+      event("plantes", "12320 E Upriver Drive, Spokane Valley, WA 99206"),
+      event("eagles", "Eagles Ice Arena (home ice)"),
+    ],
+    existing: [],
+    now: NOW,
+  }, deps.value);
+  assert.deepEqual(result.results.map((row) => [row.eventId, row.matchStatus, row.venueId]), [
+    ["plantes", "matched", "plantes"],
+    ["eagles", "matched", "eagles"],
+  ]);
+});
+
+test("different street numbers and ambiguous name-only locations never match", async () => {
+  const deps = dependencies({
+    candidates: [{ id: "plantes", name: "Plantes Ferry", address: "12308 E Upriver Dr", city: "Spokane Valley", state: "WA" }],
+    uniqueName: null,
+  });
+  const result = await evaluateVenueMatches({
+    householdId: HOUSEHOLD_ID,
+    originAddress: null,
+    events: [
+      event("address", "12320 E Upriver Drive, Spokane Valley, WA 99206"),
+      event("name", "Common Sports Park (home field)"),
+    ],
+    existing: [],
+    now: NOW,
+  }, deps.value);
+  assert.deepEqual(result.results.map((row) => row.matchStatus), ["unmatched", "unmatched"]);
+});
+
+test("validated aliases are fallback-only and remain exact", async () => {
+  const deps = dependencies({ candidates: [], aliasVenueId: "venue-alias" });
+  const result = await evaluateVenueMatches({
+    householdId: HOUSEHOLD_ID,
+    originAddress: null,
+    events: [event("alias", "12320 E Upriver Drive, Spokane Valley, WA 99206")],
+    existing: [],
+    now: NOW,
+  }, deps.value);
+  assert.equal(result.results[0]?.venueId, "venue-alias");
 });
 
 test("ambiguous exact candidates remain unmatched with a bounded recheck", async () => {
