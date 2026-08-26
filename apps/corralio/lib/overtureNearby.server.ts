@@ -24,8 +24,8 @@ export type OvertureVenueTarget =
   | { canonicalVenueId: string; provisionalVenueId?: never; venue: SharedVenue; places: readonly OverturePlace[] }
   | { canonicalVenueId?: never; provisionalVenueId: string; venue: SharedVenue; places: readonly OverturePlace[] };
 
-function databaseFailure(): never {
-  throw new Error("Overture persistence operation failed");
+function databaseFailure(phase: string): never {
+  throw new Error(`Corralio Overture refresh failed: ${phase}`);
 }
 
 async function trustedTargets(admin: SupabaseClient, targets: readonly OvertureVenueTarget[]) {
@@ -36,11 +36,17 @@ async function trustedTargets(admin: SupabaseClient, targets: readonly OvertureV
         p_canonical_venue_id: target.canonicalVenueId,
       }).single();
       const coordinate = data as { latitude?: unknown; longitude?: unknown } | null;
+      if (error) {
+        if (error.message.includes("fetch failed")) databaseFailure("canonical_coordinate_transport");
+        if (error.code === "PGRST116") databaseFailure("canonical_coordinate_row_count");
+        if (error.code === "42501") databaseFailure("canonical_coordinate_permission");
+        databaseFailure("canonical_coordinate_rpc");
+      }
       if (
-        error || !coordinate
+        !coordinate
         || typeof coordinate.latitude !== "number"
         || typeof coordinate.longitude !== "number"
-      ) databaseFailure();
+      ) databaseFailure("canonical_coordinate_shape");
       resolved.push({
         ...target,
         venue: { ...target.venue, latitude: coordinate.latitude, longitude: coordinate.longitude },
@@ -48,7 +54,7 @@ async function trustedTargets(admin: SupabaseClient, targets: readonly OvertureV
       continue;
     }
     const provisionalVenueId = target.provisionalVenueId;
-    if (typeof provisionalVenueId !== "string") databaseFailure();
+    if (typeof provisionalVenueId !== "string") databaseFailure("provisional_resolution");
     const { data, error } = await admin.from("corralio_provisional_venues")
       .select("id,place_name,normalized_address,city,latitude,longitude,lifecycle_status")
       .eq("id", provisionalVenueId)
@@ -60,7 +66,7 @@ async function trustedTargets(admin: SupabaseClient, targets: readonly OvertureV
       || typeof data.city !== "string"
       || typeof data.latitude !== "number"
       || typeof data.longitude !== "number"
-    ) databaseFailure();
+    ) databaseFailure("provisional_coordinate_read");
     resolved.push({
       provisionalVenueId,
       venue: {
@@ -165,7 +171,7 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
     downloaded_bytes: input.downloadedBytes,
     candidates_examined: candidatesExamined,
   }).select("id").single();
-  if (refreshError || typeof refresh?.id !== "string") databaseFailure();
+  if (refreshError || typeof refresh?.id !== "string") databaseFailure("refresh_insert");
   const refreshId = refresh.id;
 
   try {
@@ -176,7 +182,7 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
       category,
     })));
     const { error: scopeError } = await admin.from("corralio_overture_refresh_scopes").insert(scopes);
-    if (scopeError) databaseFailure();
+    if (scopeError) databaseFailure("scope_insert");
     for (const row of selected) {
       const place = row.candidate.place;
       const { data: inserted, error } = await admin.from("corralio_overture_candidates").insert({
@@ -199,7 +205,7 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
         overture_existence_confidence: place.existenceConfidence,
         distance_meters: row.candidate.distanceMeters,
       }).select("id").single();
-      if (error || typeof inserted?.id !== "string") databaseFailure();
+      if (error || typeof inserted?.id !== "string") databaseFailure("candidate_insert");
       const { data: insertedSources, error: sourceError } = await admin.from("corralio_overture_provenance").insert(
         row.provenance.map((source) => ({
           candidate_id: inserted.id,
@@ -210,7 +216,7 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
           source_update_time: source.sourceUpdateTime,
         })),
       ).select("id,property_name,dataset,license_id,source_record_id,source_update_time");
-      if (sourceError || !Array.isArray(insertedSources)) databaseFailure();
+      if (sourceError || !Array.isArray(insertedSources)) databaseFailure("provenance_insert");
 
       const foodTagRows = row.foodTags.map((tag) => {
         const sameTimestamp = (left: unknown, right: string | null) => left === right || (
@@ -225,7 +231,7 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
           && candidate.license_id === tag.provenance.licenseId
           && candidate.source_record_id === tag.provenance.sourceRecordId
           && sameTimestamp(candidate.source_update_time, tag.provenance.sourceUpdateTime));
-        if (!source || typeof source.id !== "string") databaseFailure();
+        if (!source || typeof source.id !== "string") databaseFailure("food_tag_provenance_resolution");
         return {
           candidate_id: inserted.id,
           food_tag: tag.foodTag,
@@ -236,19 +242,22 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
       });
       if (foodTagRows.length) {
         const { error: foodTagError } = await admin.from("corralio_overture_candidate_food_tags").insert(foodTagRows);
-        if (foodTagError) databaseFailure();
+        if (foodTagError) databaseFailure("food_tag_insert");
       }
     }
     const { data: activated, error } = await admin.rpc("corralio_activate_overture_refresh_v1", {
       p_refresh_id: refreshId,
     });
-    if (error || activated !== true) databaseFailure();
-  } catch {
+    if (error || activated !== true) databaseFailure("activation");
+  } catch (error: unknown) {
     await admin.rpc("corralio_fail_overture_refresh_v1", {
       p_refresh_id: refreshId,
       p_failure_code: "bounded_refresh_failed",
     });
-    databaseFailure();
+    if (error instanceof Error && /^Corralio Overture refresh failed: [a-z_]+$/.test(error.message)) {
+      throw error;
+    }
+    databaseFailure("staging_write");
   }
   return aggregate;
 }
@@ -270,7 +279,7 @@ export async function recordOvertureVenueCorroboration(admin: SupabaseClient, in
     || typeof provisional.city !== "string"
     || typeof provisional.latitude !== "number"
     || typeof provisional.longitude !== "number"
-  ) databaseFailure();
+  ) databaseFailure("provisional_evidence_write");
   const match = evaluateOvertureVenueMatch({
     name: provisional.place_name,
     normalizedAddress: typeof provisional.normalized_address === "string" ? provisional.normalized_address : null,
@@ -307,6 +316,6 @@ export async function recordOvertureVenueCorroboration(admin: SupabaseClient, in
     p_source_record_ids: provenance.map((source) => source.sourceRecordId),
     p_source_update_times: provenance.map((source) => source.sourceUpdateTime),
   });
-  if (error || typeof data !== "string") databaseFailure();
+  if (error || typeof data !== "string") databaseFailure("lifecycle_resolution");
   return { outcome: "matched" as const, evidenceId: data };
 }

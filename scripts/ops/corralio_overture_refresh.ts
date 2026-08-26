@@ -99,7 +99,10 @@ async function main() {
   console.log(JSON.stringify(report, null, 2));
 }
 
-main().catch(() => {
-  console.error("Corralio Overture refresh failed");
+main().catch((error: unknown) => {
+  const message = error instanceof Error && /^Corralio Overture refresh failed: [a-z0-9_]+$/.test(error.message)
+    ? error.message
+    : "Corralio Overture refresh failed";
+  console.error(message);
   process.exitCode = 1;
 });
