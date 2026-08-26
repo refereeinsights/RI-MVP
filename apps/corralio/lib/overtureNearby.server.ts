@@ -15,7 +15,7 @@ import {
   evaluateOvertureCandidate,
   deriveAcceptedOvertureFoodTags,
   normalizeOvertureProvenance,
-  selectOvertureCandidates,
+  selectOvertureCandidatesWithAudit,
   type OverturePlace,
   type SharedVenue,
 } from "./overtureNearby";
@@ -95,14 +95,25 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
   });
 
   const targets = input.dryRun ? input.targets : await trustedTargets(admin, input.targets);
-  const selected = targets.flatMap((target) =>
-    selectOvertureCandidates(target.venue, target.places).map((candidate) => ({
+  const selectionAudits = targets.map((target) => ({
+    target,
+    audit: selectOvertureCandidatesWithAudit(target.venue, target.places),
+  }));
+  const selected = selectionAudits.flatMap(({ target, audit }) =>
+    audit.selected.map((candidate) => ({
       target,
       candidate,
       provenance: normalizeOvertureProvenance(candidate.place.sources)!,
       foodTags: deriveAcceptedOvertureFoodTags(candidate.place),
     })),
   );
+  const physicalIdentityCollisions = selectionAudits.flatMap(({ target, audit }) => audit.collisions.map((collision) => ({
+    canonicalVenueId: target.canonicalVenueId ?? null,
+    provisionalVenueId: target.provisionalVenueId ?? null,
+    ...collision,
+  })));
+  const eligibleBeforeCollision = selectionAudits.reduce((sum, row) => sum + row.audit.eligibleBeforeCollision, 0);
+  const excludedByCollision = selectionAudits.reduce((sum, row) => sum + row.audit.excludedByCollision, 0);
   const candidateDecisions = targets.flatMap((target) => target.places.map((place) => evaluateOvertureCandidate(place)));
   const countBy = (values: readonly string[]) => Object.fromEntries(
     [...new Set(values)].sort().map((value) => [value, values.filter((candidate) => candidate === value).length]),
@@ -121,6 +132,11 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
     poolCap: CORRALIO_OVERTURE_PROVISIONAL_POOL_CAP,
     qualityRuleVersion: CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION,
     dedupeRuleVersion: CORRALIO_OVERTURE_DEDUPE_RULE_VERSION,
+    physicalIdentityCollisionGroups: physicalIdentityCollisions.length,
+    physicalIdentityCollisionRate: eligibleBeforeCollision === 0 ? 0 : excludedByCollision / eligibleBeforeCollision,
+    candidatesExcludedByCollision: excludedByCollision,
+    unresolvedPhysicalIdentities: physicalIdentityCollisions.filter((collision) => collision.outcome === "unresolved_excluded").length,
+    physicalIdentityCollisions,
     intentCategoryDistribution: countBy(selected.map((row) => row.candidate.intentCategory)),
     operatingStatusDistribution: countBy(selected.map((row) => row.candidate.operatingStatus)),
     foodTagRuleVersion: CORRALIO_OVERTURE_FOOD_TAG_RULE_VERSION,

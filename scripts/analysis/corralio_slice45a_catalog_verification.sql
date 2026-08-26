@@ -167,8 +167,8 @@ begin
 
   if v_activate is null
      or position('confirmed_closed' in pg_get_functiondef(v_activate)) = 0
-     or position('corralio-overture-candidate-quality-v1' in pg_get_functiondef(v_activate)) = 0
-     or position('corralio-overture-dedupe-v1' in pg_get_functiondef(v_activate)) = 0
+     or position('corralio-overture-candidate-quality-v2' in pg_get_functiondef(v_activate)) = 0
+     or position('corralio-overture-dedupe-v2' in pg_get_functiondef(v_activate)) = 0
      or position('max_candidates_per_category' in pg_get_functiondef(v_activate)) = 0
      or position('corralio_overture_provenance' in pg_get_functiondef(v_activate)) = 0
      or position('corralio_overture_refresh_scopes' in pg_get_functiondef(v_activate)) = 0
@@ -204,12 +204,12 @@ begin
       and table_name = 'corralio_overture_candidates'
       and (
         (column_name = 'quality_rule_version'
-          and column_default not like '%corralio-overture-candidate-quality-v1%')
+          and column_default not like '%corralio-overture-candidate-quality-v2%')
         or (column_name = 'dedupe_rule_version'
-          and column_default not like '%corralio-overture-dedupe-v1%')
+          and column_default not like '%corralio-overture-dedupe-v2%')
       )
   ) then
-    raise exception 'Slice 4.5A catalog verification failed: V1 insert defaults';
+    raise exception 'Slice 4.5A catalog verification failed: V2 insert defaults';
   end if;
 end
 $verify$;

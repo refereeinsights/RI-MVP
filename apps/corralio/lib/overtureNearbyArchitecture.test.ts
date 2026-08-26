@@ -14,6 +14,10 @@ const qualityMigration = readFileSync(
   new URL("../../../supabase/migrations/20260825_corralio_slice45a_candidate_quality_hardening.sql", import.meta.url),
   "utf8",
 );
+const physicalIdentityMigration = readFileSync(
+  new URL("../../../supabase/migrations/20260826_corralio_slice45a_physical_identity_hardening.sql", import.meta.url),
+  "utf8",
+);
 const qualityCatalogVerifier = readFileSync(
   new URL("../../../scripts/analysis/corralio_slice45a_catalog_verification.sql", import.meta.url),
   "utf8",
@@ -55,6 +59,22 @@ test("4.5A preserves broad pools and adds constrained intent and operating statu
   assert.match(qualityMigration, /corralio-overture-dedupe-v1/);
   assert.match(qualityMigration, /corralio_overture_refresh_scopes scope/);
   assert.doesNotMatch(qualityMigration, /update public\.venues|insert into public\.venues/);
+});
+
+test("4.5A V2 versions physical identity rules without weakening atomic activation", () => {
+  assert.match(physicalIdentityMigration, /corralio-overture-candidate-quality-v2/);
+  assert.match(physicalIdentityMigration, /corralio-overture-dedupe-v2/);
+  assert.match(physicalIdentityMigration, /Apply 20260825_corralio_slice45a_candidate_quality_hardening\.sql/);
+  assert.match(physicalIdentityMigration, /pg_get_constraintdef[\s\S]*quality_rule_version[\s\S]*dedupe_rule_version/);
+  assert.match(physicalIdentityMigration, /drop constraint %I/);
+  assert.match(physicalIdentityMigration, /where id = p_refresh_id for update/);
+  assert.match(physicalIdentityMigration, /update public\.corralio_overture_candidates old[\s\S]*set active = false/);
+  assert.match(physicalIdentityMigration, /update public\.corralio_overture_candidates[\s\S]*set active = true/);
+  assert.doesNotMatch(physicalIdentityMigration, /update public\.venues|insert into public\.venues/);
+  assert.match(qualityCatalogVerifier, /corralio-overture-candidate-quality-v2/);
+  assert.match(qualityCatalogVerifier, /corralio-overture-dedupe-v2/);
+  assert.match(qualityBehavioralVerifier, /corralio-overture-candidate-quality-v2/);
+  assert.match(qualityBehavioralVerifier, /corralio-overture-dedupe-v2/);
 });
 
 test("4.5A food tags are constrained, provenance-linked, service-only metadata", () => {

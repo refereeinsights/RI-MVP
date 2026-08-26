@@ -3,8 +3,8 @@ import { createHmac } from "node:crypto";
 import { normalizeVenueComparable } from "./venueMatching";
 
 export const CORRALIO_OVERTURE_MATCH_RULE_VERSION = "corralio-overture-match-v1";
-export const CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION = "corralio-overture-candidate-quality-v1";
-export const CORRALIO_OVERTURE_DEDUPE_RULE_VERSION = "corralio-overture-dedupe-v1";
+export const CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION = "corralio-overture-candidate-quality-v2";
+export const CORRALIO_OVERTURE_DEDUPE_RULE_VERSION = "corralio-overture-dedupe-v2";
 export const CORRALIO_OVERTURE_FOOD_TAG_RULE_VERSION = "corralio-overture-food-tags-v1";
 export const CORRALIO_OVERTURE_FOOD_TAGS = Object.freeze([
   "mexican", "chinese", "italian", "japanese", "sushi", "american", "burgers", "bbq",
@@ -166,7 +166,8 @@ export type OvertureCandidateDecision = {
   operatingStatus: CorralioCandidateOperatingStatus;
   reason: "accepted" | "not_food_or_coffee" | "excluded_provenance" | "missing_confidence"
     | "confidence_below_floor" | "confirmed_closed" | "excluded_structured_category"
-    | "contradictory_identity" | "insufficient_identity" | "brewery_existence_uncertain";
+    | "contradictory_identity" | "insufficient_identity" | "unconfirmed_low_confidence_identity"
+    | "brewery_existence_uncertain";
   ruleVersion: typeof CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION;
 };
 
@@ -204,6 +205,9 @@ export function evaluateOvertureCandidate(
   }
   if (intent === "brewery" && operatingStatus === "status_unknown" && place.existenceConfidence < 0.8) {
     return reject("brewery_existence_uncertain", intent);
+  }
+  if (operatingStatus === "status_unknown" && place.existenceConfidence < 0.8) {
+    return reject("unconfirmed_low_confidence_identity", intent);
   }
   return {
     accepted: true,
@@ -311,6 +315,45 @@ function aliasComparableName(value: string) {
   return normalizeVenueComparable(value).split(" ").filter((token) => !removable.has(token)).join(" ");
 }
 
+const PHYSICAL_PLACE_COLLISION_METERS = 150;
+const OPTIONAL_STREET_DIRECTION_TOKENS = new Set([
+  "north", "south", "east", "west", "northeast", "northwest", "southeast", "southwest",
+]);
+const IDENTITY_SOURCE_AUTHORITY: Readonly<Record<string, number>> = Object.freeze({
+  meta: 50,
+  pinmeto: 45,
+  alltheplaces: 40,
+  microsoft: 30,
+  dac: 25,
+  krick: 25,
+  renderseo: 25,
+  brightquery: 20,
+  overture: 10,
+  "overture-signals": 10,
+});
+
+function physicalAddressComparable(value: string) {
+  const tokens = normalizeVenueComparable(value).split(" ").filter(Boolean);
+  if (!tokens.length) return "";
+  return [tokens[0], ...tokens.slice(1).filter((token) => !OPTIONAL_STREET_DIRECTION_TOKENS.has(token))].join(" ");
+}
+
+function compatibleIdentityName(a: OverturePlace, b: OverturePlace) {
+  return normalizeVenueComparable(a.name) === normalizeVenueComparable(b.name)
+    || aliasComparableName(a.name) === aliasComparableName(b.name);
+}
+
+function sourceAuthority(place: OverturePlace) {
+  return Math.max(0, ...place.sources.map((source) => IDENTITY_SOURCE_AUTHORITY[source.dataset.trim().toLowerCase()] ?? 0));
+}
+
+function latestSourceTime(place: OverturePlace) {
+  return Math.max(0, ...place.sources.map((source) => {
+    const parsed = source.updateTime ? Date.parse(source.updateTime) : Number.NaN;
+    return Number.isFinite(parsed) ? parsed : 0;
+  }));
+}
+
 function provenanceStrength(place: OverturePlace) {
   const sources = normalizeOvertureProvenance(place.sources) ?? [];
   return new Set(sources.filter((source) => source.dataset !== "overture" && source.dataset !== "overture-signals")
@@ -322,11 +365,15 @@ function identityCompleteness(place: OverturePlace) {
 }
 
 function preferredDuplicate(a: OverturePlace, b: OverturePlace) {
-  const provenance = provenanceStrength(b) - provenanceStrength(a);
-  if (provenance) return provenance;
   const status = Number(normalizeCandidateOperatingStatus(b.operatingStatus) === "confirmed_open")
     - Number(normalizeCandidateOperatingStatus(a.operatingStatus) === "confirmed_open");
   if (status) return status;
+  const authority = sourceAuthority(b) - sourceAuthority(a);
+  if (authority) return authority;
+  const provenance = provenanceStrength(b) - provenanceStrength(a);
+  if (provenance) return provenance;
+  const recency = latestSourceTime(b) - latestSourceTime(a);
+  if (recency) return recency;
   const confidence = (b.existenceConfidence ?? 0) - (a.existenceConfidence ?? 0);
   if (confidence) return confidence;
   const completeness = identityCompleteness(b) - identityCompleteness(a);
@@ -334,12 +381,110 @@ function preferredDuplicate(a: OverturePlace, b: OverturePlace) {
   return a.featureId.localeCompare(b.featureId);
 }
 
-function duplicateIdentity(a: OverturePlace, b: OverturePlace) {
+function physicalPlaceCollision(a: OverturePlace, b: OverturePlace) {
   if (a.featureId === b.featureId) return true;
   if (!a.address?.trim() || !b.address?.trim()) return false;
-  return normalizeVenueComparable(a.address) === normalizeVenueComparable(b.address)
-    && aliasComparableName(a.name) === aliasComparableName(b.name)
-    && distanceMeters(a, b) <= 150;
+  if (physicalAddressComparable(a.address) !== physicalAddressComparable(b.address)
+    || distanceMeters(a, b) > PHYSICAL_PLACE_COLLISION_METERS) return false;
+  if (compatibleIdentityName(a, b)) return true;
+  const broad = new Set(["food_and_drink", "restaurant", "casual_eatery", "cafe"]);
+  const specificCategories = (place: OverturePlace) => new Set([
+    place.taxonomyPrimary,
+    place.categoryPrimary,
+    place.basicCategory,
+  ].filter((value): value is string => typeof value === "string" && !broad.has(value.trim().toLowerCase()))
+    .map((value) => value.trim().toLowerCase()));
+  const left = specificCategories(a);
+  return [...specificCategories(b)].some((category) => left.has(category));
+}
+
+function confidentlyCurrentIdentity(candidate: OverturePlace, alternative: OverturePlace) {
+  const candidateStatus = normalizeCandidateOperatingStatus(candidate.operatingStatus);
+  const alternativeStatus = normalizeCandidateOperatingStatus(alternative.operatingStatus);
+  if (candidateStatus === "confirmed_open" && alternativeStatus === "status_unknown") return true;
+  return sourceAuthority(candidate) >= sourceAuthority(alternative) + 10;
+}
+
+export type OverturePhysicalIdentityCollision = {
+  category: OverturePoolCategory;
+  outcome: "same_identity_resolved" | "historical_identity_resolved" | "unresolved_excluded";
+  keptFeatureId: string | null;
+  keptName: string | null;
+  excludedFeatureIds: string[];
+  excludedNames: string[];
+};
+
+type OvertureCandidateSelectionRow = {
+  category: OverturePoolCategory;
+  place: OverturePlace;
+  distanceMeters: number;
+  intentCategory: OvertureIntentCategory;
+  operatingStatus: CorralioCandidateOperatingStatus;
+};
+
+function resolvePhysicalIdentityCollisions(
+  category: OverturePoolCategory,
+  rows: readonly Omit<OvertureCandidateSelectionRow, "category">[],
+) {
+  const remaining: Array<Omit<OvertureCandidateSelectionRow, "category">> = [];
+  const collisions: OverturePhysicalIdentityCollision[] = [];
+  const visited = new Set<number>();
+
+  for (let start = 0; start < rows.length; start += 1) {
+    if (visited.has(start)) continue;
+    const componentIndexes: number[] = [];
+    const pending = [start];
+    visited.add(start);
+    while (pending.length) {
+      const current = pending.pop()!;
+      componentIndexes.push(current);
+      for (let candidate = 0; candidate < rows.length; candidate += 1) {
+        if (visited.has(candidate) || !physicalPlaceCollision(rows[current].place, rows[candidate].place)) continue;
+        visited.add(candidate);
+        pending.push(candidate);
+      }
+    }
+    const component = componentIndexes.map((index) => rows[index]);
+    if (component.length === 1) {
+      remaining.push(component[0]);
+      continue;
+    }
+
+    const identityGroups: typeof component[] = [];
+    for (const row of component) {
+      const group = identityGroups.find((candidate) => candidate.some((member) => compatibleIdentityName(member.place, row.place)));
+      if (group) group.push(row);
+      else identityGroups.push([row]);
+    }
+    const representatives = identityGroups.map((group) => group.reduce((preferred, candidate) =>
+      preferredDuplicate(preferred.place, candidate.place) > 0 ? candidate : preferred));
+    let kept: (typeof component)[number] | null = null;
+    let outcome: OverturePhysicalIdentityCollision["outcome"];
+    if (representatives.length === 1) {
+      kept = representatives[0];
+      outcome = "same_identity_resolved";
+    } else {
+      const credible = representatives.filter((candidate) => representatives.every((alternative) =>
+        alternative === candidate || confidentlyCurrentIdentity(candidate.place, alternative.place)));
+      if (credible.length === 1) {
+        kept = credible[0];
+        outcome = "historical_identity_resolved";
+      } else {
+        outcome = "unresolved_excluded";
+      }
+    }
+    if (kept) remaining.push(kept);
+    const excluded = component.filter((row) => row !== kept);
+    collisions.push({
+      category,
+      outcome,
+      keptFeatureId: kept?.place.featureId ?? null,
+      keptName: kept?.place.name ?? null,
+      excludedFeatureIds: excluded.map((row) => row.place.featureId).sort(),
+      excludedNames: excluded.map((row) => row.place.name).sort(),
+    });
+  }
+  return { rows: remaining, collisions };
 }
 
 export function distanceMeters(
@@ -372,7 +517,7 @@ export function evaluateOvertureVenueMatch(venue: SharedVenue, places: readonly 
   };
 }
 
-export function selectOvertureCandidates(
+export function selectOvertureCandidatesWithAudit(
   venue: Pick<SharedVenue, "latitude" | "longitude">,
   places: readonly OverturePlace[],
   options: { confidenceFloor?: number; cap?: number; radiusMeters?: number } = {},
@@ -405,20 +550,13 @@ export function selectOvertureCandidates(
       operatingStatus: decision.operatingStatus,
     });
   }
-  const output: Array<{
-    category: OverturePoolCategory;
-    place: OverturePlace;
-    distanceMeters: number;
-    intentCategory: OvertureIntentCategory;
-    operatingStatus: CorralioCandidateOperatingStatus;
-  }> = [];
+  const eligibleBeforeCollision = [...byCategory.values()].reduce((sum, rows) => sum + rows.length, 0);
+  const output: OvertureCandidateSelectionRow[] = [];
+  const collisions: OverturePhysicalIdentityCollision[] = [];
   for (const [category, rows] of byCategory) {
-    const deduped: typeof rows = [];
-    for (const row of rows) {
-      const duplicateIndex = deduped.findIndex((current) => duplicateIdentity(current.place, row.place));
-      if (duplicateIndex < 0) deduped.push(row);
-      else if (preferredDuplicate(deduped[duplicateIndex].place, row.place) > 0) deduped[duplicateIndex] = row;
-    }
+    const resolved = resolvePhysicalIdentityCollisions(category, rows);
+    collisions.push(...resolved.collisions);
+    const deduped = resolved.rows;
     const sorted = deduped.sort((a, b) => a.distanceMeters - b.distanceMeters
       || (b.place.existenceConfidence ?? 0) - (a.place.existenceConfidence ?? 0)
       || a.place.featureId.localeCompare(b.place.featureId));
@@ -450,7 +588,21 @@ export function selectOvertureCandidates(
       .forEach(add);
     output.push(...selected.map((row) => ({ category, ...row })));
   }
-  return output;
+  return {
+    selected: output,
+    collisions,
+    eligibleBeforeCollision,
+    excludedByCollision: collisions.reduce((sum, collision) => sum + collision.excludedFeatureIds.length, 0),
+    unresolvedIdentityCount: collisions.filter((collision) => collision.outcome === "unresolved_excluded").length,
+  };
+}
+
+export function selectOvertureCandidates(
+  venue: Pick<SharedVenue, "latitude" | "longitude">,
+  places: readonly OverturePlace[],
+  options: { confidenceFloor?: number; cap?: number; radiusMeters?: number } = {},
+) {
+  return selectOvertureCandidatesWithAudit(venue, places, options).selected;
 }
 
 export function buildOvertureEvidenceFingerprints(input: {

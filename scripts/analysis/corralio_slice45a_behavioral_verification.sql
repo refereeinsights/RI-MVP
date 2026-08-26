@@ -60,8 +60,8 @@ begin
     overture_existence_confidence, distance_meters
   ) values (
     v_refresh, 'c45a0000-0000-4000-8000-000000000001', 'food', 'quick_service',
-    'status_unknown', 'corralio-overture-candidate-quality-v1',
-    'corralio-overture-dedupe-v1', 'fixture-food', 'fixture-release', 1,
+    'status_unknown', 'corralio-overture-candidate-quality-v2',
+    'corralio-overture-dedupe-v2', 'fixture-food', 'fixture-release', 1,
     'Fixture Local Food', 47.5001, -122.2001, 0.9, 14
   ) returning id into v_active_candidate;
 
@@ -96,8 +96,8 @@ begin
     overture_existence_confidence, distance_meters
   ) values (
     v_refresh, 'c45a0000-0000-4000-8000-000000000001', 'coffee', 'coffee',
-    'confirmed_open', 'corralio-overture-candidate-quality-v1',
-    'corralio-overture-dedupe-v1', 'fixture-coffee', 'fixture-release', 1,
+    'confirmed_open', 'corralio-overture-candidate-quality-v2',
+    'corralio-overture-dedupe-v2', 'fixture-coffee', 'fixture-release', 1,
     'Fixture Coffee Without Tag', 47.5002, -122.2002, 0.9, 20
   ) returning id into v_untagged_candidate;
   insert into public.corralio_overture_provenance (

@@ -13,6 +13,7 @@ import {
   normalizeCandidateOperatingStatus,
   normalizeOvertureProvenance,
   selectOvertureCandidates,
+  selectOvertureCandidatesWithAudit,
   type OverturePlace,
 } from "./overtureNearby";
 
@@ -232,6 +233,149 @@ test("deduplicates alias-equivalent same-address places but preserves separate b
     place({ featureId: "coffee-c", name: "Northstar Coffee", basicCategory: "cafe", taxonomyPrimary: "coffee_shop", address: "20 Main St", existenceConfidence: 0.99 }),
   ]);
   assert.deepEqual(rows.map((row) => row.place.featureId).sort(), ["coffee-b", "coffee-c"]);
+});
+
+test("Dwight Merkel regression resolves physical identities without deduplicating brand alone", () => {
+  const dwightMerkel = { latitude: 47.7102701, longitude: -117.4782941 };
+  const coffee = (overrides: Partial<OverturePlace>): OverturePlace => place({
+    basicCategory: "cafe",
+    taxonomyPrimary: "coffee_shop",
+    taxonomyHierarchy: ["food_and_drink", "cafe", "coffee_shop"],
+    locality: "Spokane",
+    ...overrides,
+  });
+  const meta = (recordId: string) => [{
+    property: "",
+    dataset: "meta",
+    license: "CDLA-Permissive-2.0",
+    recordId,
+    updateTime: "2026-08-10T00:00:00.000Z",
+  }];
+  const overtureSignal = {
+    property: "/properties/operating_status",
+    dataset: "Overture-signals",
+    license: "CDLA-Permissive-2.0",
+    recordId: "open-signal",
+    updateTime: "2026-08-10T22:54:24Z",
+  };
+  const fixtures = [
+    place({
+      featureId: "eaffb9bc-f543-4eee-9479-9830c6d5ac3b",
+      name: "Fast Freddies!",
+      address: "6811 N Belt St",
+      locality: "Spokane",
+      latitude: 47.71985684,
+      longitude: -117.44347873,
+      taxonomyPrimary: "fast_food_restaurant",
+      existenceConfidence: 0.7932705879211426,
+      operatingStatus: null,
+      sources: meta("159758480776526"),
+    }),
+    coffee({
+      featureId: "e638d357-66c9-4f3a-8ef4-a94fc0434f5f",
+      name: "Spokane, WA (Mofro)",
+      address: "1010 W. Francis Ave.",
+      latitude: 47.715483,
+      longitude: -117.425811,
+      existenceConfidence: 0.8,
+      operatingStatus: null,
+      sources: [{ property: "", dataset: "AllThePlaces", license: "CC0-1.0", recordId: "mofro", updateTime: "2026-08-05T15:33:36.000Z" }],
+    }),
+    coffee({
+      featureId: "aaf014ed-ebdb-4f36-b254-ad2abc8e6d28",
+      name: "Dutch Bros. Coffee",
+      address: "1010 W. Francis Ave.",
+      latitude: 47.71545527,
+      longitude: -117.42554026,
+      existenceConfidence: 0.9199122190475464,
+      operatingStatus: "open",
+      sources: [...meta("562257764147040"), overtureSignal],
+    }),
+    coffee({
+      featureId: "c8a093e3-11ab-4b44-96d6-b09b498e6ed0",
+      name: "Jitterz Java",
+      address: "2135 W Northwest Blvd",
+      latitude: 47.682711,
+      longitude: -117.444403,
+      existenceConfidence: 0.9199122190475464,
+      operatingStatus: "open",
+      sources: [{ property: "", dataset: "BrightQuery", license: "CDLA-Permissive-2.0", recordId: "101759886", updateTime: "2026-08-13T13:23:42.875Z" }, overtureSignal],
+    }),
+    coffee({
+      featureId: "4a3f576a-ec5b-46bf-ac9a-6641cabcd0f3",
+      name: "White Dog Coffee",
+      address: "2135 W Northwest Blvd",
+      latitude: 47.682804969392436,
+      longitude: -117.44425538925962,
+      existenceConfidence: 0.9199122190475464,
+      operatingStatus: "open",
+      sources: [...meta("1985893671500888"), overtureSignal],
+    }),
+    coffee({
+      featureId: "f3258e32-599a-45b4-b95b-55c55b72a6df",
+      name: "Starbucks",
+      address: "2507 Wellesley Ave",
+      latitude: 47.7006,
+      longitude: -117.4476,
+      existenceConfidence: 0.97,
+      operatingStatus: "open",
+      sources: [{ property: "", dataset: "Microsoft", license: "CDLA-Permissive-2.0", recordId: "wellesley-old", updateTime: "2025-09-11T20:10:10.630Z" }, overtureSignal],
+    }),
+    coffee({
+      featureId: "a2f98b40-6e3f-4e9e-9816-800815fb5d5f",
+      name: "Starbucks",
+      address: "2507 W Wellesley Ave",
+      latitude: 47.69945725,
+      longitude: -117.44723671,
+      existenceConfidence: 0.9902192950248718,
+      operatingStatus: "open",
+      sources: [...meta("149551575069535"), overtureSignal],
+    }),
+    coffee({
+      featureId: "0a3c9ded-939f-43a5-8d7e-628bd6cbd09b",
+      name: "Starbucks",
+      address: "9001 N Indian Trails Rd",
+      latitude: 47.73967,
+      longitude: -117.48822,
+      existenceConfidence: 0.8,
+      operatingStatus: "open",
+      sources: [{ property: "", dataset: "AllThePlaces", license: "CC0-1.0", recordId: "indian-9001", updateTime: "2026-08-05T15:33:36.000Z" }, overtureSignal],
+    }),
+    coffee({
+      featureId: "8738a665-70bb-4243-9059-bb8347c47340",
+      name: "Starbucks",
+      address: "9031 N Indian Trail Rd Sundance Plaza",
+      latitude: 47.74052983,
+      longitude: -117.48870125,
+      existenceConfidence: 0.9199122190475464,
+      operatingStatus: "open",
+      sources: [...meta("149320061759546"), overtureSignal],
+    }),
+  ];
+
+  assert.equal(evaluateOvertureCandidate(fixtures[0]).reason, "unconfirmed_low_confidence_identity");
+  const audit = selectOvertureCandidatesWithAudit(dwightMerkel, fixtures);
+  assert.deepEqual(audit.selected.map((row) => row.place.featureId).sort(), [
+    "0a3c9ded-939f-43a5-8d7e-628bd6cbd09b",
+    "4a3f576a-ec5b-46bf-ac9a-6641cabcd0f3",
+    "8738a665-70bb-4243-9059-bb8347c47340",
+    "a2f98b40-6e3f-4e9e-9816-800815fb5d5f",
+    "aaf014ed-ebdb-4f36-b254-ad2abc8e6d28",
+  ].sort());
+  assert.equal(audit.collisions.filter((collision) => collision.outcome === "same_identity_resolved").length, 1);
+  assert.equal(audit.collisions.filter((collision) => collision.outcome === "historical_identity_resolved").length, 2);
+  assert.equal(audit.excludedByCollision, 3);
+  assert.equal(audit.unresolvedIdentityCount, 0);
+});
+
+test("excludes unresolved same-place material identity collisions", () => {
+  const audit = selectOvertureCandidatesWithAudit(venue, [
+    place({ featureId: "uncertain-a", name: "Current Cafe A", basicCategory: "cafe", taxonomyPrimary: "coffee_shop", address: "40 Main St", operatingStatus: "open" }),
+    place({ featureId: "uncertain-b", name: "Current Cafe B", basicCategory: "cafe", taxonomyPrimary: "coffee_shop", address: "40 Main Street", operatingStatus: "open" }),
+  ]);
+  assert.equal(audit.selected.length, 0);
+  assert.equal(audit.unresolvedIdentityCount, 1);
+  assert.equal(audit.collisions[0].outcome, "unresolved_excluded");
 });
 
 test("quick-option priority is deterministic and total broad-category cap is unchanged", () => {
