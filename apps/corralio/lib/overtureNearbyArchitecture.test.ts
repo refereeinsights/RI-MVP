@@ -57,11 +57,28 @@ test("4.5A preserves broad pools and adds constrained intent and operating statu
   assert.doesNotMatch(qualityMigration, /update public\.venues|insert into public\.venues/);
 });
 
+test("4.5A food tags are constrained, provenance-linked, service-only metadata", () => {
+  assert.match(qualityMigration, /create table public\.corralio_overture_candidate_food_tags/);
+  assert.match(qualityMigration, /primary key \(candidate_id, food_tag\)/);
+  assert.match(qualityMigration, /foreign key \(provenance_id, candidate_id\)/);
+  assert.match(qualityMigration, /references public\.corralio_overture_provenance\(id, candidate_id\)[\s\S]*on delete cascade/);
+  assert.match(qualityMigration, /'mexican', 'chinese', 'italian', 'japanese',[\s\S]*'sushi', 'american', 'burgers', 'bbq'/);
+  assert.match(qualityMigration, /corralio-overture-food-tags-v1/);
+  assert.match(qualityMigration, /force row level security/);
+  assert.match(qualityMigration, /revoke all on table public\.corralio_overture_candidate_food_tags[\s\S]*from public, anon, authenticated, service_role/);
+  assert.match(qualityMigration, /grant select, insert on table public\.corralio_overture_candidate_food_tags[\s\S]*to service_role/);
+  assert.doesNotMatch(qualityMigration, /grant (?:select|insert|update|delete)[\s\S]*corralio_overture_candidate_food_tags[\s\S]*to authenticated/);
+  assert.match(runtime, /deriveAcceptedOvertureFoodTags/);
+  assert.match(runtime, /corralio_overture_candidate_food_tags/);
+});
+
 test("4.5A verifiers split catalog/database behavior from pure TypeScript classification", () => {
   assert.match(qualityCatalogVerifier, /SLICE 4\.5A CATALOG VERIFICATION PASSED/);
   assert.match(qualityBehavioralVerifier, /SLICE 4\.5A BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO/);
   assert.match(qualityBehavioralVerifier, /invalid pool\/intent coherence unexpectedly accepted/);
-  assert.match(qualityBehavioralVerifier, /failed refresh did not preserve prior typed pool/);
+  assert.match(qualityBehavioralVerifier, /unsupported food tag unexpectedly accepted/);
+  assert.match(qualityBehavioralVerifier, /pool\/tag incoherence unexpectedly accepted/);
+  assert.match(qualityBehavioralVerifier, /failed refresh did not preserve prior typed pool and food tags/);
 });
 
 test("normalizes provenance and excludes unapproved Foursquare", () => {

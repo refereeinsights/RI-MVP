@@ -118,6 +118,30 @@ Use a documented deterministic Food diversity rule so brewery/other Food cannot 
 
 Slice 4.6 owns its eventual approximately-three recommendations and route/schedule ranking.
 
+## 8A. Food-tag metadata patch
+
+Apply this section before migration application and Stage 2. It is authoritative where it conflicts with earlier category wording and does not otherwise expand 4.5A.
+
+For retained accepted candidates, preserve inexpensive structured food metadata so downstream features do not need to reconstruct it later. Use a separate constrained `food_tags` dimension; do not change the broad `food | coffee` pool or the exact intent vocabulary. Food tags intentionally cover both cuisines and useful food subtypes.
+
+The initial allowed values, only where supported by audited structured Overture evidence, are:
+
+`mexican | chinese | italian | japanese | sushi | american | burgers | bbq`
+
+Food tags may derive only from audited taxonomy primary/hierarchy/alternates and category primary/alternates carried by the bounded extraction model. Do not derive them from business name alone, free text, brand assumptions, arbitrary keyword search, or raw payload retention. Normalize tags to the allowed vocabulary in sorted, unique order under a versioned deterministic mapping rule.
+
+Tag derivation happens only after candidate-quality acceptance. Food tags must not affect acceptance, rejection, deduplication, pool priority, diversity, ranking, cap selection, or winner selection. An unsupported structured category produces no tag and does not reject an otherwise accepted candidate. Attempts to persist a value outside the allowed vocabulary must fail the database constraint. Tags cannot rescue an invalid candidate.
+
+Prefer the repository's bounded normalized convention: candidate FK with cascade cleanup, exact allowed-value and mapping-version constraints, unique `(candidate_id, food_tag)`, and a bounded evidence-field plus provenance relationship. A tag provenance reference must identify permitted normalized candidate provenance covering the supporting structured category/taxonomy evidence. Record-level provenance with an empty/null property may qualify only when the audit confirms it covers those fields; never fabricate a property path. Where several permitted sources support the same tag, use documented deterministic source priority or a normalized evidence relationship while retaining one logical candidate/tag row. Store no arbitrary JSONB, free-text tag, raw payload, source URL, or household/private content.
+
+The tag storage belongs to the service-controlled Overture layer: PostgreSQL/trusted ownership, enabled and forced RLS consistent with surrounding tables, no public/anon/authenticated privileges, and narrow service-role/trusted-server access. Catalog verification must assert the boundary.
+
+Do not infer or ad hoc backfill tags onto existing active candidates. Legacy candidates remain valid with no tag rows. The next successful complete atomic refresh populates deterministic tags for retained candidates; failure preserves the prior complete active candidate pool and its tags. Tag metadata does not change the 15 Food / 15 Coffee caps and does not preserve taxonomy for discarded places.
+
+Tests must cover all eight allowed tags, multiple tags, alternate-category evidence, primary/alternate deduplication, unsupported structured categories producing no tag, name-only non-inference, rejected candidates receiving no tags, unchanged candidate selection/caps, tag rule versioning, atomic replacement/failure preservation, and a valid legacy candidate with no tags. Catalog verification owns table/column/FK/cascade/uniqueness/value/grant/RLS/ownership checks. Rollback-only SQL verification owns tag coherence, activation behavior, failure preservation, and cleanup.
+
+Stage 2 reporting must show each allowed tag and a report-only `no stored tag` bucket by venue. Report `burgers` separately from `american` and `sushi` separately from `japanese`; a multi-tag candidate contributes to each applicable bucket. Missing tags are not candidate failure. No client-facing tag read, UI, filtering, search, or 4.6 recommendation behavior is authorized.
+
 ## 9. Atomic installation and migration safety
 
 Add only the narrow candidate-layer migration/read-model changes required for intent, operating status, and rule versions. Existing rows must receive coherent deploy-safe values before NOT NULL/coherence enforcement.

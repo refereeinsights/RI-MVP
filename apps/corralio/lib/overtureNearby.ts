@@ -5,6 +5,10 @@ import { normalizeVenueComparable } from "./venueMatching";
 export const CORRALIO_OVERTURE_MATCH_RULE_VERSION = "corralio-overture-match-v1";
 export const CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION = "corralio-overture-candidate-quality-v1";
 export const CORRALIO_OVERTURE_DEDUPE_RULE_VERSION = "corralio-overture-dedupe-v1";
+export const CORRALIO_OVERTURE_FOOD_TAG_RULE_VERSION = "corralio-overture-food-tags-v1";
+export const CORRALIO_OVERTURE_FOOD_TAGS = Object.freeze([
+  "mexican", "chinese", "italian", "japanese", "sushi", "american", "burgers", "bbq",
+] as const);
 export const CORRALIO_OVERTURE_RADIUS_METERS = 4_828;
 export const CORRALIO_OVERTURE_PROVISIONAL_CONFIDENCE_FLOOR = 0.7;
 export const CORRALIO_OVERTURE_PROVISIONAL_POOL_CAP = 15;
@@ -27,6 +31,13 @@ export const CORRALIO_OVERTURE_STAGE1_BOUNDS = Object.freeze({
 export type OverturePoolCategory = "food" | "coffee";
 export type OvertureIntentCategory = "quick_service" | "pizza" | "sandwiches" | "coffee" | "brewery" | "other_food";
 export type CorralioCandidateOperatingStatus = "confirmed_open" | "confirmed_closed" | "status_unknown";
+export type OvertureFoodTag = (typeof CORRALIO_OVERTURE_FOOD_TAGS)[number];
+export type OvertureFoodTagEvidenceField =
+  | "taxonomy_primary"
+  | "taxonomy_hierarchy"
+  | "taxonomy_alternates"
+  | "category_primary"
+  | "category_alternates";
 export type OvertureSource = {
   property: string | null;
   dataset: string;
@@ -42,6 +53,9 @@ export type OverturePlace = {
   basicCategory: string | null;
   taxonomyPrimary: string | null;
   taxonomyHierarchy: readonly string[];
+  taxonomyAlternates?: readonly string[];
+  categoryPrimary?: string | null;
+  categoryAlternates?: readonly string[];
   existenceConfidence: number | null;
   latitude: number;
   longitude: number;
@@ -94,6 +108,16 @@ const CONTRADICTORY_NAME_PATTERNS = [
   /\b(?:liquor|lotto|gas\s+and\s+more)\b/,
   /\b(?:llc|incorporated|corporation)\b/,
 ];
+const FOOD_TAG_BY_STRUCTURED_CATEGORY: Readonly<Record<string, OvertureFoodTag>> = Object.freeze({
+  mexican_restaurant: "mexican",
+  chinese_restaurant: "chinese",
+  italian_restaurant: "italian",
+  japanese_restaurant: "japanese",
+  sushi_restaurant: "sushi",
+  american_restaurant: "american",
+  burger_restaurant: "burgers",
+  barbecue_restaurant: "bbq",
+});
 
 function finiteCoordinate(value: number, min: number, max: number) {
   return Number.isFinite(value) && value >= min && value <= max;
@@ -191,7 +215,15 @@ export function evaluateOvertureCandidate(
   };
 }
 
-export function normalizeOvertureProvenance(sources: readonly OvertureSource[]) {
+export type NormalizedOvertureProvenance = {
+  propertyName: string | null;
+  dataset: string;
+  licenseId: "CDLA-Permissive-2.0" | "CC0-1.0";
+  sourceRecordId: string | null;
+  sourceUpdateTime: string | null;
+};
+
+export function normalizeOvertureProvenance(sources: readonly OvertureSource[]): NormalizedOvertureProvenance[] | null {
   const normalized = sources.map((source) => {
     const dataset = source.dataset.trim().toLowerCase();
     if (!dataset || dataset === "foursquare") return null;
@@ -212,7 +244,66 @@ export function normalizeOvertureProvenance(sources: readonly OvertureSource[]) 
     };
   });
   if (!normalized.length || normalized.some((source) => source === null)) return null;
-  return normalized as Array<NonNullable<(typeof normalized)[number]>>;
+  return normalized as NormalizedOvertureProvenance[];
+}
+
+function foodTagEvidenceSources(place: OverturePlace) {
+  return [
+    { field: "taxonomy_primary" as const, values: [place.taxonomyPrimary] },
+    { field: "taxonomy_hierarchy" as const, values: place.taxonomyHierarchy },
+    { field: "taxonomy_alternates" as const, values: place.taxonomyAlternates ?? [] },
+    { field: "category_primary" as const, values: [place.categoryPrimary ?? null] },
+    { field: "category_alternates" as const, values: place.categoryAlternates ?? [] },
+  ];
+}
+
+function provenancePropertyForEvidence(field: OvertureFoodTagEvidenceField) {
+  return field.startsWith("taxonomy_") ? "/properties/taxonomy" : "/properties/categories";
+}
+
+function selectFoodTagProvenance(
+  provenance: readonly NormalizedOvertureProvenance[],
+  field: OvertureFoodTagEvidenceField,
+) {
+  const exactProperty = provenancePropertyForEvidence(field);
+  return provenance
+    .filter((source) => source.propertyName === exactProperty || source.propertyName === null)
+    .sort((a, b) => Number(b.propertyName === exactProperty) - Number(a.propertyName === exactProperty)
+      || a.dataset.localeCompare(b.dataset)
+      || (a.sourceRecordId ?? "").localeCompare(b.sourceRecordId ?? "")
+      || (a.sourceUpdateTime ?? "").localeCompare(b.sourceUpdateTime ?? ""))[0] ?? null;
+}
+
+export type OvertureFoodTagEvidence = {
+  foodTag: OvertureFoodTag;
+  evidenceField: OvertureFoodTagEvidenceField;
+  ruleVersion: typeof CORRALIO_OVERTURE_FOOD_TAG_RULE_VERSION;
+  provenance: NormalizedOvertureProvenance;
+};
+
+export function deriveAcceptedOvertureFoodTags(place: OverturePlace): OvertureFoodTagEvidence[] {
+  const decision = evaluateOvertureCandidate(place);
+  if (!decision.accepted || decision.poolCategory !== "food") return [];
+  const provenance = normalizeOvertureProvenance(place.sources);
+  if (!provenance) return [];
+
+  const byTag = new Map<OvertureFoodTag, OvertureFoodTagEvidence>();
+  for (const evidence of foodTagEvidenceSources(place)) {
+    const supportingProvenance = selectFoodTagProvenance(provenance, evidence.field);
+    if (!supportingProvenance) continue;
+    for (const rawCategory of evidence.values) {
+      if (typeof rawCategory !== "string") continue;
+      const foodTag = FOOD_TAG_BY_STRUCTURED_CATEGORY[rawCategory.trim().toLowerCase()];
+      if (!foodTag || byTag.has(foodTag)) continue;
+      byTag.set(foodTag, {
+        foodTag,
+        evidenceField: evidence.field,
+        ruleVersion: CORRALIO_OVERTURE_FOOD_TAG_RULE_VERSION,
+        provenance: supportingProvenance,
+      });
+    }
+  }
+  return [...byTag.values()].sort((a, b) => a.foodTag.localeCompare(b.foodTag));
 }
 
 function aliasComparableName(value: string) {

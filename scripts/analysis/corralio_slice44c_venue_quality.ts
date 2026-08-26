@@ -36,7 +36,7 @@ async function optionalRows(table: string, columns: string) {
 
 async function optionalOvertureCandidateRows(): Promise<Array<Record<string, unknown>>> {
   const typedColumns =
-    "canonical_venue_id,provisional_venue_id,category,intent_category,operating_status,overture_feature_id,name,latitude,longitude,active";
+    "id,canonical_venue_id,provisional_venue_id,category,intent_category,operating_status,overture_feature_id,name,latitude,longitude,active";
   const { data, error } = await supabase
     .from("corralio_overture_candidates")
     .select(typedColumns)
@@ -53,7 +53,7 @@ async function optionalOvertureCandidateRows(): Promise<Array<Record<string, unk
   // Keep the read-only report usable during the human-controlled migration gate.
   const legacyRows = await optionalRows(
     "corralio_overture_candidates",
-    "canonical_venue_id,provisional_venue_id,category,overture_feature_id,name,latitude,longitude,active",
+    "id,canonical_venue_id,provisional_venue_id,category,overture_feature_id,name,latitude,longitude,active",
   );
   return legacyRows.map((row): Record<string, unknown> => ({
     ...row,
@@ -69,12 +69,13 @@ function distribution(values: number[]) {
 }
 
 async function main() {
-  const [events, matches, provisional, evidence, overtureCandidates, overtureRefreshes] = await Promise.all([
+  const [events, matches, provisional, evidence, overtureCandidates, overtureFoodTags, overtureRefreshes] = await Promise.all([
     allRows("corralio_events", "id,origin_type,source_location_text,display_location_text,location_lat,location_lng,location_geocoded_at"),
     allRows("corralio_event_venue_matches", "event_id,match_status,provisional_venue_id"),
     allRows("corralio_provisional_venues", "id,normalized_place_name,city,state,lifecycle_status"),
     allRows("corralio_provisional_venue_evidence", "provisional_venue_id,evidence_type,source_scope_fingerprint"),
     optionalOvertureCandidateRows(),
+    optionalRows("corralio_overture_candidate_food_tags", "candidate_id,food_tag,tag_rule_version,evidence_field"),
     optionalRows("corralio_overture_refreshes", "status,overture_release,venues_considered,candidates_examined"),
   ]);
 
@@ -186,6 +187,7 @@ async function main() {
   const countByIdentityCategory = new Map<string, number>();
   const intentCategoryCounts = new Map<string, number>();
   const operatingStatusCounts = new Map<string, number>();
+  const foodTagCounts = new Map<string, number>();
   const nearDuplicateKeys = new Set<string>();
   let duplicateCandidateRows = 0;
   for (const row of activeCandidates) {
@@ -223,6 +225,16 @@ async function main() {
     const key = identityKey(row);
     return key && ["quick_service", "pizza", "sandwiches"].includes(String(row.intent_category)) ? [key] : [];
   }));
+  const activeFoodCandidateIds = new Set(activeCandidates.flatMap((row) =>
+    row.category === "food" && typeof row.id === "string" ? [row.id] : [],
+  ));
+  const taggedFoodCandidateIds = new Set<string>();
+  for (const row of overtureFoodTags) {
+    if (typeof row.candidate_id !== "string" || !activeFoodCandidateIds.has(row.candidate_id)) continue;
+    if (typeof row.food_tag !== "string") continue;
+    taggedFoodCandidateIds.add(row.candidate_id);
+    foodTagCounts.set(row.food_tag, (foodTagCounts.get(row.food_tag) ?? 0) + 1);
+  }
   const weightedEvents = [...associatedIdentityEventCounts.values()].reduce((sum, value) => sum + value, 0);
   const weightedFoodEvents = foodFilled.reduce((sum, key) => sum + (associatedIdentityEventCounts.get(key) ?? 0), 0);
   const activeRefreshes = overtureRefreshes.filter((row) => row.status === "active").length;
@@ -258,6 +270,8 @@ async function main() {
       ),
       intentCategoryDistribution: Object.fromEntries([...intentCategoryCounts].sort(([a], [b]) => a.localeCompare(b))),
       operatingStatusDistribution: Object.fromEntries([...operatingStatusCounts].sort(([a], [b]) => a.localeCompare(b))),
+      foodTagDistribution: Object.fromEntries([...foodTagCounts].sort(([a], [b]) => a.localeCompare(b))),
+      foodCandidatesWithoutStoredTag: activeFoodCandidateIds.size - taggedFoodCandidateIds.size,
       poolDistribution: {
         food: poolDistribution("food"),
         coffee: poolDistribution("coffee"),

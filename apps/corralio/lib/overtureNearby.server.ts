@@ -4,6 +4,8 @@ import {
   CORRALIO_OVERTURE_MATCH_RULE_VERSION,
   CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION,
   CORRALIO_OVERTURE_DEDUPE_RULE_VERSION,
+  CORRALIO_OVERTURE_FOOD_TAG_RULE_VERSION,
+  CORRALIO_OVERTURE_FOOD_TAGS,
   CORRALIO_OVERTURE_PROVISIONAL_CONFIDENCE_FLOOR,
   CORRALIO_OVERTURE_PROVISIONAL_POOL_CAP,
   CORRALIO_OVERTURE_STAGE1_BOUNDS,
@@ -11,6 +13,7 @@ import {
   buildOvertureEvidenceFingerprints,
   evaluateOvertureVenueMatch,
   evaluateOvertureCandidate,
+  deriveAcceptedOvertureFoodTags,
   normalizeOvertureProvenance,
   selectOvertureCandidates,
   type OverturePlace,
@@ -97,6 +100,7 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
       target,
       candidate,
       provenance: normalizeOvertureProvenance(candidate.place.sources)!,
+      foodTags: deriveAcceptedOvertureFoodTags(candidate.place),
     })),
   );
   const candidateDecisions = targets.flatMap((target) => target.places.map((place) => evaluateOvertureCandidate(place)));
@@ -119,6 +123,13 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
     dedupeRuleVersion: CORRALIO_OVERTURE_DEDUPE_RULE_VERSION,
     intentCategoryDistribution: countBy(selected.map((row) => row.candidate.intentCategory)),
     operatingStatusDistribution: countBy(selected.map((row) => row.candidate.operatingStatus)),
+    foodTagRuleVersion: CORRALIO_OVERTURE_FOOD_TAG_RULE_VERSION,
+    foodTagDistribution: Object.fromEntries(CORRALIO_OVERTURE_FOOD_TAGS.map((foodTag) => [
+      foodTag,
+      selected.flatMap((row) => row.foodTags).filter((tag) => tag.foodTag === foodTag).length,
+    ])),
+    candidatesWithoutFoodTags: selected.filter((row) =>
+      row.candidate.category === "food" && row.foodTags.length === 0).length,
     rejectionReasonDistribution: countBy(candidateDecisions.filter((row) => !row.accepted).map((row) => row.reason)),
   };
   if (input.dryRun) return aggregate;
@@ -173,7 +184,7 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
         distance_meters: row.candidate.distanceMeters,
       }).select("id").single();
       if (error || typeof inserted?.id !== "string") databaseFailure();
-      const { error: sourceError } = await admin.from("corralio_overture_provenance").insert(
+      const { data: insertedSources, error: sourceError } = await admin.from("corralio_overture_provenance").insert(
         row.provenance.map((source) => ({
           candidate_id: inserted.id,
           property_name: source.propertyName,
@@ -182,8 +193,35 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
           source_record_id: source.sourceRecordId,
           source_update_time: source.sourceUpdateTime,
         })),
-      );
-      if (sourceError) databaseFailure();
+      ).select("id,property_name,dataset,license_id,source_record_id,source_update_time");
+      if (sourceError || !Array.isArray(insertedSources)) databaseFailure();
+
+      const foodTagRows = row.foodTags.map((tag) => {
+        const sameTimestamp = (left: unknown, right: string | null) => left === right || (
+          typeof left === "string"
+          && right !== null
+          && Number.isFinite(Date.parse(left))
+          && Date.parse(left) === Date.parse(right)
+        );
+        const source = insertedSources.find((candidate) =>
+          candidate.property_name === tag.provenance.propertyName
+          && candidate.dataset === tag.provenance.dataset
+          && candidate.license_id === tag.provenance.licenseId
+          && candidate.source_record_id === tag.provenance.sourceRecordId
+          && sameTimestamp(candidate.source_update_time, tag.provenance.sourceUpdateTime));
+        if (!source || typeof source.id !== "string") databaseFailure();
+        return {
+          candidate_id: inserted.id,
+          food_tag: tag.foodTag,
+          tag_rule_version: tag.ruleVersion,
+          evidence_field: tag.evidenceField,
+          provenance_id: source.id,
+        };
+      });
+      if (foodTagRows.length) {
+        const { error: foodTagError } = await admin.from("corralio_overture_candidate_food_tags").insert(foodTagRows);
+        if (foodTagError) databaseFailure();
+      }
     }
     const { data: activated, error } = await admin.rpc("corralio_activate_overture_refresh_v1", {
       p_refresh_id: refreshId,

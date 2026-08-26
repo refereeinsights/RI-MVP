@@ -69,6 +69,21 @@ Intent distribution: 20 quick service, 5 pizza, 8 sandwiches, 3 brewery, 9 other
 
 Operating-status distribution: 78 confirmed open and 9 status unknown. No confirmed-closed row is selected.
 
+### Pre-Stage-2 food-tag metadata patch — 2026-08-26
+
+The same retained input was replayed after adding structured food-tag capture. Candidate acceptance, rejection, ordering, deduplication, intent diversity, status distribution, and the 15-row caps were unchanged: 87 selected rows, including 45 Food and 42 Coffee. Tags are derived only after acceptance from audited taxonomy/category primary, hierarchy, and alternate fields. Names and brand assumptions are never tag evidence.
+
+The exact versioned vocabulary is `mexican | chinese | italian | japanese | sushi | american | burgers | bbq`. The raw retained extraction contains structured evidence for every value; the capped retained pool contains 31 tag occurrences across 22 Food candidates. Twenty-three accepted Food candidates correctly have no stored tag. Multiple tags remain separate—for example Japanese and Sushi—and missing tags are not candidate failure.
+
+| Venue | Mexican | Chinese | Italian | Japanese | Sushi | American | Burgers | BBQ | No stored tag |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| UWM Sports Complex | 1 | 1 | 1 | 0 | 0 | 2 | 2 | 0 | 10 |
+| Evolution Sportsplex | 2 | 0 | 1 | 0 | 0 | 5 | 4 | 0 | 7 |
+| Oakland University Recreation Outdoor Complex | 0 | 0 | 3 | 1 | 1 | 4 | 3 | 0 | 6 |
+| **Aggregate** | **3** | **1** | **5** | **1** | **1** | **11** | **9** | **0** | **23** |
+
+The normalized child-table design retains one logical candidate/tag row, the exact evidence field, the V1 mapping rule, and a composite-FK-validated permitted provenance row belonging to the same candidate. Exact category/taxonomy property provenance wins deterministically; an actual record-level null-property source may support a tag only as a fallback. No property path is fabricated. Existing active candidates receive no inferred/ad hoc backfill; the next complete atomic refresh supplies tag rows, and active state remains defined through the parent candidate so failed staging cannot alter the prior active pool or its tags.
+
 Three selected café/coffee identities remain appropriate for manual consumer-suitability review because their names are not self-explanatory (`Fresh Vibes Nutrition`, `Make Good Choices`, and `Antonio's Place`). They have permitted provenance, structured café/coffee evidence, public addresses, confirmed-open status, and qualifying confidence; they are reported as review-needed rather than declared invalid.
 
 ### Exclusion impact
@@ -93,6 +108,7 @@ Accepting strictly validated `overture-signals` materially improved Coffee cover
 - Canonical 4.5A prompt with the audit stop gate and exact scope.
 - Pure versioned acceptance, intent, status, provenance, deduplication, and diversity logic.
 - Service adapter persistence of intent/status/rule versions.
+- Metadata-only extraction/persistence of exact food tags with category/taxonomy alternates and provenance linkage.
 - Deploy-safe unapplied migration and hardened activation contract.
 - Read-only catalog verifier and rollback-only database behavioral verifier.
 - Updated aggregate quality report fields.
@@ -100,23 +116,24 @@ Accepting strictly validated `overture-signals` materially improved Coffee cover
 
 ## Local verification
 
-- 144 Corralio library and schedule tests passed.
-- The focused 4.5/4.5A suite passed 22 tests, including classification, provenance, operating-status, intent, deduplication, diversity, semantic replay idempotency, privacy-boundary, schema, and atomic-refresh architecture checks.
+- 148 Corralio library and schedule tests passed.
+- The focused 4.5/4.5A suite passed 26 tests, including classification, provenance, operating-status, intent, food-tag derivation/non-interference, deduplication, diversity, semantic replay idempotency, privacy-boundary, schema, and atomic-refresh architecture checks.
 - `npx tsc --noEmit -p apps/corralio/tsconfig.json` passed.
+- Standalone TypeScript checks passed for the quality report, bounded refresh operation, and retained-data preparation harness.
 - `npm run lint --workspace corralio-app` passed with zero warnings or errors.
 - `git diff --check` passed.
 - Production builds passed for `corp-app`, `corralio-app`, `referee-app`, and `ti-web`. Referee and TI retained pre-existing warnings but produced successful builds; no scoped Corralio warning was introduced.
 - The catalog and rollback-only behavioral SQL verifiers are prepared but intentionally not executed because the migration remains behind the required human-application gate.
 
-Usage for this implementation was zero new Overture downloads, provider calls, routing/geocoding calls, database mutations, backfills, cron executions, pushes, or deployments. The quality comparison replayed the already-retained bounded Overture payload locally.
+Usage for this implementation and metadata patch was zero new Overture downloads, provider calls, routing/geocoding calls, database mutations, backfills, cron executions, pushes, or deployments. The quality and food-tag comparisons replayed the already-retained bounded Overture payload locally.
 
 ## Stage 2 gate
 
 1. A human applies `supabase/migrations/20260825_corralio_slice45a_candidate_quality_hardening.sql`.
 2. Run `scripts/analysis/corralio_slice45a_catalog_verification.sql`.
-3. Run `scripts/analysis/corralio_slice45a_behavioral_verification.sql`; it rolls back.
+3. Run `scripts/analysis/corralio_slice45a_behavioral_verification.sql`; it verifies food-tag coherence and failure preservation and then rolls back.
 4. Replay the bounded dry-run against the applied schema.
 5. Only after review, run the confirmed atomic refresh to replace the current 51-row active pool.
-6. Verify the previous pool was replaced completely, all candidates have provenance, no canonical/provisional/evidence rows changed, and the failed-refresh path preserves the new complete pool.
+6. Verify the previous pool was replaced completely, all candidates and tags have permitted provenance, no canonical/provisional/evidence rows changed, and the failed-refresh path preserves the new complete pool and tag state.
 
 No migration apply, production candidate replacement, push, deployment, cron, canonical/provisional mutation, promotion, routing call, or geocoding call is authorized by Stage 1.

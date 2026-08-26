@@ -4,8 +4,10 @@ import test from "node:test";
 import {
   CORRALIO_OVERTURE_MATCH_RULE_VERSION,
   CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION,
+  CORRALIO_OVERTURE_FOOD_TAG_RULE_VERSION,
   assertWithinOperationalBounds,
   classifyOvertureCategory,
+  deriveAcceptedOvertureFoodTags,
   evaluateOvertureCandidate,
   evaluateOvertureVenueMatch,
   normalizeCandidateOperatingStatus,
@@ -103,6 +105,82 @@ test("maps exact intent categories while preserving Food and Coffee pools", () =
     assert.equal(decision.intentCategory, expectedIntent);
     assert.equal(decision.ruleVersion, CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION);
   }
+});
+
+test("maps the exact food-tag vocabulary from approved structured taxonomy", () => {
+  const cases = [
+    ["mexican_restaurant", "mexican"],
+    ["chinese_restaurant", "chinese"],
+    ["italian_restaurant", "italian"],
+    ["japanese_restaurant", "japanese"],
+    ["sushi_restaurant", "sushi"],
+    ["american_restaurant", "american"],
+    ["burger_restaurant", "burgers"],
+    ["barbecue_restaurant", "bbq"],
+  ] as const;
+  for (const [structuredCategory, expectedTag] of cases) {
+    const tags = deriveAcceptedOvertureFoodTags(place({
+      name: `Local ${expectedTag} fixture`,
+      taxonomyPrimary: structuredCategory,
+      taxonomyHierarchy: ["food_and_drink", "restaurant", structuredCategory],
+      sources: [{
+        property: "/properties/taxonomy",
+        dataset: "meta",
+        recordId: `record-${expectedTag}`,
+        updateTime: null,
+      }],
+    }));
+    assert.deepEqual(tags.map((tag) => tag.foodTag), [expectedTag]);
+    assert.equal(tags[0].ruleVersion, CORRALIO_OVERTURE_FOOD_TAG_RULE_VERSION);
+    assert.equal(tags[0].evidenceField, "taxonomy_primary");
+  }
+});
+
+test("food tags use alternates, remain sorted/unique, and retain real provenance", () => {
+  const tags = deriveAcceptedOvertureFoodTags(place({
+    name: "Local Quick Service Fixture",
+    taxonomyPrimary: "fast_food_restaurant",
+    taxonomyHierarchy: ["food_and_drink", "casual_eatery", "fast_food_restaurant"],
+    taxonomyAlternates: ["mexican_restaurant"],
+    categoryPrimary: "fast_food_restaurant",
+    categoryAlternates: ["mexican_restaurant", "american_restaurant", "burger_restaurant"],
+    sources: [
+      { property: null, dataset: "meta", recordId: "record-level", updateTime: null },
+      { property: "/properties/categories", dataset: "meta", recordId: "categories", updateTime: null },
+    ],
+  }));
+  assert.deepEqual(tags.map((tag) => tag.foodTag), ["american", "burgers", "mexican"]);
+  assert.equal(tags.find((tag) => tag.foodTag === "mexican")?.evidenceField, "taxonomy_alternates");
+  assert.equal(tags.find((tag) => tag.foodTag === "american")?.provenance.propertyName, "/properties/categories");
+});
+
+test("food tags neither invent unsupported values nor rescue or reorder candidates", () => {
+  assert.deepEqual(deriveAcceptedOvertureFoodTags(place({
+    name: "Mexican Sushi Burger Words Only",
+    categoryPrimary: "unsupported_food_style",
+    sources: [{ property: null, dataset: "meta", recordId: "record-level", updateTime: null }],
+  })), []);
+  assert.deepEqual(deriveAcceptedOvertureFoodTags(place({
+    name: "Neighborhood Medical Clinic",
+    categoryPrimary: "mexican_restaurant",
+    sources: [{ property: null, dataset: "meta", recordId: "record-level", updateTime: null }],
+  })), []);
+  assert.deepEqual(deriveAcceptedOvertureFoodTags(place({
+    categoryPrimary: "mexican_restaurant",
+    sources: [{ property: "/properties/names", dataset: "meta", recordId: "names-only", updateTime: null }],
+  })), []);
+
+  const candidates = [
+    place({ featureId: "tag-order-a", name: "Local A", latitude: 47.4692 }),
+    place({ featureId: "tag-order-b", name: "Local B", latitude: 47.4693 }),
+  ];
+  const tagged = candidates.map((candidate, index) => ({
+    ...candidate,
+    categoryAlternates: index === 0 ? ["mexican_restaurant"] : ["chinese_restaurant"],
+  }));
+  const logicalPool = (values: OverturePlace[]) => selectOvertureCandidates(venue, values)
+    .map((row) => row.place.featureId);
+  assert.deepEqual(logicalPool(tagged), logicalPool(candidates));
 });
 
 test("rejects weak addressless identity and uncertain low-confidence brewery generically", () => {
