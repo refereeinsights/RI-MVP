@@ -10,6 +10,18 @@ const activationRepair = readFileSync(
   new URL("../../../supabase/migrations/20260825_corralio_slice45_activation_completeness_fix.sql", import.meta.url),
   "utf8",
 );
+const qualityMigration = readFileSync(
+  new URL("../../../supabase/migrations/20260825_corralio_slice45a_candidate_quality_hardening.sql", import.meta.url),
+  "utf8",
+);
+const qualityCatalogVerifier = readFileSync(
+  new URL("../../../scripts/analysis/corralio_slice45a_catalog_verification.sql", import.meta.url),
+  "utf8",
+);
+const qualityBehavioralVerifier = readFileSync(
+  new URL("../../../scripts/analysis/corralio_slice45a_behavioral_verification.sql", import.meta.url),
+  "utf8",
+);
 const behavioralVerifier = readFileSync(
   new URL("../../../scripts/analysis/corralio_slice45_behavioral_verification.sql", import.meta.url),
   "utf8",
@@ -30,6 +42,26 @@ test("storage separates feature identity, release, version, and existence confid
   assert.match(migration, /overture_feature_version bigint not null/);
   assert.match(migration, /overture_existence_confidence double precision not null/);
   assert.doesNotMatch(migration, /match_confidence/);
+});
+
+test("4.5A preserves broad pools and adds constrained intent and operating status", () => {
+  assert.match(qualityMigration, /add column intent_category text null/);
+  assert.match(qualityMigration, /'quick_service', 'pizza', 'sandwiches', 'coffee', 'brewery', 'other_food'/);
+  assert.match(qualityMigration, /category = 'coffee' and intent_category = 'coffee'/);
+  assert.match(qualityMigration, /confirmed_open', 'confirmed_closed', 'status_unknown/);
+  assert.match(qualityMigration, /candidate-quality-legacy-v0/);
+  assert.match(qualityMigration, /dedupe-legacy-v0/);
+  assert.match(qualityMigration, /corralio-overture-candidate-quality-v1/);
+  assert.match(qualityMigration, /corralio-overture-dedupe-v1/);
+  assert.match(qualityMigration, /corralio_overture_refresh_scopes scope/);
+  assert.doesNotMatch(qualityMigration, /update public\.venues|insert into public\.venues/);
+});
+
+test("4.5A verifiers split catalog/database behavior from pure TypeScript classification", () => {
+  assert.match(qualityCatalogVerifier, /SLICE 4\.5A CATALOG VERIFICATION PASSED/);
+  assert.match(qualityBehavioralVerifier, /SLICE 4\.5A BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO/);
+  assert.match(qualityBehavioralVerifier, /invalid pool\/intent coherence unexpectedly accepted/);
+  assert.match(qualityBehavioralVerifier, /failed refresh did not preserve prior typed pool/);
 });
 
 test("normalizes provenance and excludes unapproved Foursquare", () => {

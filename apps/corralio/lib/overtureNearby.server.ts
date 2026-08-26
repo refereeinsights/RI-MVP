@@ -2,12 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   CORRALIO_OVERTURE_MATCH_RULE_VERSION,
+  CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION,
+  CORRALIO_OVERTURE_DEDUPE_RULE_VERSION,
   CORRALIO_OVERTURE_PROVISIONAL_CONFIDENCE_FLOOR,
   CORRALIO_OVERTURE_PROVISIONAL_POOL_CAP,
   CORRALIO_OVERTURE_STAGE1_BOUNDS,
   assertWithinOperationalBounds,
   buildOvertureEvidenceFingerprints,
   evaluateOvertureVenueMatch,
+  evaluateOvertureCandidate,
   normalizeOvertureProvenance,
   selectOvertureCandidates,
   type OverturePlace,
@@ -96,6 +99,10 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
       provenance: normalizeOvertureProvenance(candidate.place.sources)!,
     })),
   );
+  const candidateDecisions = targets.flatMap((target) => target.places.map((place) => evaluateOvertureCandidate(place)));
+  const countBy = (values: readonly string[]) => Object.fromEntries(
+    [...new Set(values)].sort().map((value) => [value, values.filter((candidate) => candidate === value).length]),
+  );
   const aggregate = {
     dryRun: input.dryRun,
     release: input.release,
@@ -108,6 +115,11 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
     coffeeSelected: selected.filter((row) => row.candidate.category === "coffee").length,
     confidenceFloor: CORRALIO_OVERTURE_PROVISIONAL_CONFIDENCE_FLOOR,
     poolCap: CORRALIO_OVERTURE_PROVISIONAL_POOL_CAP,
+    qualityRuleVersion: CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION,
+    dedupeRuleVersion: CORRALIO_OVERTURE_DEDUPE_RULE_VERSION,
+    intentCategoryDistribution: countBy(selected.map((row) => row.candidate.intentCategory)),
+    operatingStatusDistribution: countBy(selected.map((row) => row.candidate.operatingStatus)),
+    rejectionReasonDistribution: countBy(candidateDecisions.filter((row) => !row.accepted).map((row) => row.reason)),
   };
   if (input.dryRun) return aggregate;
 
@@ -145,6 +157,10 @@ export async function refreshOvertureCandidatePools(admin: SupabaseClient, input
         canonical_venue_id: row.target.canonicalVenueId ?? null,
         provisional_venue_id: row.target.provisionalVenueId ?? null,
         category: row.candidate.category,
+        intent_category: row.candidate.intentCategory,
+        operating_status: row.candidate.operatingStatus,
+        quality_rule_version: CORRALIO_OVERTURE_CANDIDATE_QUALITY_RULE_VERSION,
+        dedupe_rule_version: CORRALIO_OVERTURE_DEDUPE_RULE_VERSION,
         overture_feature_id: place.featureId,
         overture_gers_confirmed: place.gersConfirmed === true,
         overture_gers_id: place.gersConfirmed ? place.featureId : null,
