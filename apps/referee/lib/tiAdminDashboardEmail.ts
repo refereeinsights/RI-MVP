@@ -1,6 +1,6 @@
 import { sendEmailAlert } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { loadHotelBookingSummary } from "@/lib/hotelPlannerBookingSync";
+import { loadHotelBookingSummary, type HotelBookingSummary } from "@/lib/hotelPlannerBookingSync";
 
 // ---------------------------------------------------------------------------
 // Recipients / base URL
@@ -53,20 +53,58 @@ async function loadTiles(): Promise<TileData> {
   }
 }
 
-async function loadHotelOutboundSummary(windowDays: number) {
-  const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
-  const prevCutoff = new Date(Date.now() - 2 * windowDays * 24 * 60 * 60 * 1000).toISOString();
+// Distinct hotel handoff count — COUNT(DISTINCT outbound_attribution_id) for the window.
+// Fetches IDs and deduplicates in JS; acceptable at current volumes.
+async function loadHotelHandoffs(windowDays: number): Promise<{ current: number; prev: number }> {
+  const now = Date.now();
+  const cutoff = new Date(now - windowDays * 24 * 60 * 60 * 1000).toISOString();
+  const prevCutoff = new Date(now - 2 * windowDays * 24 * 60 * 60 * 1000).toISOString();
 
   const [currentResult, prevResult] = await Promise.all([
     (supabaseAdmin as any)
       .from("ti_outbound_clicks")
-      .select("id", { count: "exact", head: true })
+      .select("outbound_attribution_id")
       .eq("destination_type", "hotels")
+      .not("outbound_attribution_id", "is", null)
       .gte("created_at", cutoff),
     (supabaseAdmin as any)
       .from("ti_outbound_clicks")
-      .select("id", { count: "exact", head: true })
+      .select("outbound_attribution_id")
       .eq("destination_type", "hotels")
+      .not("outbound_attribution_id", "is", null)
+      .gte("created_at", prevCutoff)
+      .lt("created_at", cutoff),
+  ]);
+
+  const distinct = (rows: Array<{ outbound_attribution_id: string }> | null) =>
+    new Set((rows ?? []).map((r) => r.outbound_attribution_id)).size;
+
+  return {
+    current: distinct(currentResult.data),
+    prev: distinct(prevResult.data),
+  };
+}
+
+// Tournament page views as the primary traffic signal.
+// Event: tournament_detail_page_viewed tracked via ti_map_events.
+async function loadTrafficSummary(windowDays: number): Promise<{
+  current: number;
+  prev: number;
+}> {
+  const now = Date.now();
+  const cutoff = new Date(now - windowDays * 24 * 60 * 60 * 1000).toISOString();
+  const prevCutoff = new Date(now - 2 * windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const [currentResult, prevResult] = await Promise.all([
+    (supabaseAdmin as any)
+      .from("ti_map_events")
+      .select("id", { count: "exact", head: true })
+      .eq("event_name", "tournament_detail_page_viewed")
+      .gte("created_at", cutoff),
+    (supabaseAdmin as any)
+      .from("ti_map_events")
+      .select("id", { count: "exact", head: true })
+      .eq("event_name", "tournament_detail_page_viewed")
       .gte("created_at", prevCutoff)
       .lt("created_at", cutoff),
   ]);
@@ -128,16 +166,18 @@ export type TiAdminDashboardSummary = {
   windowDays: number;
   generatedAt: string;
   tiles: TileData;
-  hotelOutbound: { current: number; prev: number };
-  bookings: Awaited<ReturnType<typeof loadHotelBookingSummary>>;
+  hotelHandoffs: { current: number; prev: number };
+  traffic: { current: number; prev: number };
+  bookings: HotelBookingSummary;
   plannerActivations: number;
   pending: Awaited<ReturnType<typeof loadPendingCounts>>;
 };
 
 export async function loadTiAdminDashboardSummary(windowDays = 7): Promise<TiAdminDashboardSummary> {
-  const [tiles, hotelOutbound, bookings, plannerData, pending] = await Promise.all([
+  const [tiles, hotelHandoffs, traffic, bookings, plannerData, pending] = await Promise.all([
     loadTiles(),
-    loadHotelOutboundSummary(windowDays),
+    loadHotelHandoffs(windowDays),
+    loadTrafficSummary(windowDays),
     loadHotelBookingSummary(windowDays),
     loadPlannerActivations(windowDays),
     loadPendingCounts(),
@@ -147,7 +187,8 @@ export async function loadTiAdminDashboardSummary(windowDays = 7): Promise<TiAdm
     windowDays,
     generatedAt: new Date().toISOString(),
     tiles,
-    hotelOutbound,
+    hotelHandoffs,
+    traffic,
     bookings,
     plannerActivations: plannerData.activations,
     pending,
@@ -166,6 +207,18 @@ function formatUsd(v: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
 }
 
+function formatTimestamp(iso: string | null, timeZone = "America/Los_Angeles"): string {
+  if (!iso) return "never";
+  return new Date(iso).toLocaleString("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 function escapeHtml(v: string) {
   return v
     .replace(/&/g, "&amp;")
@@ -175,13 +228,13 @@ function escapeHtml(v: string) {
     .replace(/'/g, "&#39;");
 }
 
-function trendLabel(current: number, prev: number): string {
+function trendLabel(current: number, prev: number, windowDays: number): string {
   if (prev === 0) return current > 0 ? "▲ new" : "—";
   const delta = current - prev;
   const pct = Math.round((delta / prev) * 100);
-  if (delta > 0) return `▲ ${pct}% vs prev ${7}d`;
-  if (delta < 0) return `▼ ${Math.abs(pct)}% vs prev ${7}d`;
-  return "= flat vs prev 7d";
+  if (delta > 0) return `▲ ${pct}% vs prior ${windowDays}d`;
+  if (delta < 0) return `▼ ${Math.abs(pct)}% vs prior ${windowDays}d`;
+  return `= flat vs prior ${windowDays}d`;
 }
 
 const SECTION_STYLE = "background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;margin-bottom:14px;";
@@ -189,10 +242,12 @@ const HEADING_STYLE = "margin:0 0 10px;font-size:15px;font-weight:700;color:#111
 const ROW_STYLE = "display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #f9fafb;font-size:13px;";
 const LABEL_STYLE = "color:#374151;";
 const VALUE_STYLE = "font-weight:700;color:#111827;";
+const NOTE_STYLE = "color:#9ca3af;font-size:11px;";
+const MUTED_STYLE = "color:#6b7280;font-size:12px;margin-top:6px;";
 
 function row(label: string, value: string | number, note?: string) {
   const valStr = typeof value === "number" ? formatInt(value) : escapeHtml(String(value));
-  const noteStr = note ? ` <span style="color:#9ca3af;font-size:11px;">(${escapeHtml(note)})</span>` : "";
+  const noteStr = note ? ` <span style="${NOTE_STYLE}">(${escapeHtml(note)})</span>` : "";
   return `<div style="${ROW_STYLE}"><span style="${LABEL_STYLE}">${escapeHtml(label)}</span><span style="${VALUE_STYLE}">${valStr}${noteStr}</span></div>`;
 }
 
@@ -209,7 +264,8 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
 
   const t = summary.tiles;
   const b = summary.bookings;
-  const ho = summary.hotelOutbound;
+  const hh = summary.hotelHandoffs;
+  const tr = summary.traffic;
   const w = summary.windowDays;
 
   // 1. Business Snapshot
@@ -220,23 +276,35 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
     row("Weekend Pro users", t.users?.weekend_total ?? 0, `+${t.users?.weekend_new_yesterday_pt ?? 0} yesterday`),
   ].join("");
 
-  // 2. Traffic — hotel outbound handoffs as traffic proxy
-  const trendNote = trendLabel(ho.current, ho.prev);
+  // 2. Traffic — tournament detail page views
+  const trafficTrend = trendLabel(tr.current, tr.prev, w);
   const trafficContent = [
-    row(`Hotel handoffs (${w}d)`, ho.current, trendNote),
-    row(`Hotel handoffs (prior ${w}d)`, ho.prev),
+    row(`Tournament page views (${w}d)`, tr.current, trafficTrend),
+    row(`Prior ${w}d`, tr.prev),
   ].join("");
 
   // 3. Hotels
+  const syncLine = `<div style="${MUTED_STYLE}">Hotel booking data last synced: ${escapeHtml(formatTimestamp(b.lastSyncedAt, pt))}</div>`;
+  const conversionRate = hh.current > 0 && b.trackedCount > 0
+    ? `${Math.round((b.trackedCount / hh.current) * 100)}%`
+    : "—";
+
   const hotelsContent = [
-    row("Confirmed bookings (purchased window)", b.confirmedCount),
+    row(`Hotel handoffs (${w}d, distinct)`, hh.current, trendLabel(hh.current, hh.prev, w)),
+    row("Confirmed bookings", b.confirmedCount),
+    b.confirmedCount > 0 ? [
+      row("  · Tracked TI", b.trackedCount, "Custom3 → outbound attribution join"),
+      row("  · Direct / organic / shared", b.directOrganicCount, "no Custom3 — legitimate HP traffic"),
+      b.anomalyCount > 0 ? row("  · Attribution anomaly", b.anomalyCount, "Custom3 present but unresolvable — check Alerts") : "",
+    ].join("") : "",
     row("Cancelled bookings", b.cancelledCount),
-    row("Pending / other", b.pendingCount),
-    row("Total booking value (USD)", formatUsd(b.totalBookingValueUsd)),
-    row("Expected commission (USD)", formatUsd(b.expectedCommissionUsd)),
+    row("Tracked handoff → booking conversion", conversionRate),
+    b.expectedCommissionUsd > 0 ? row("Expected commission", formatUsd(b.expectedCommissionUsd)) : "",
+    b.totalBookingValueUsd > 0 ? row("Total booking value", formatUsd(b.totalBookingValueUsd)) : "",
     b.topTournamentSlugs.length > 0
-      ? `<div style="margin-top:8px;font-size:12px;color:#6b7280;">Top tournaments: ${b.topTournamentSlugs.map((s) => `${escapeHtml(s.slug)} (${s.count})`).join(", ")}</div>`
+      ? `<div style="${MUTED_STYLE}">Top tournaments: ${b.topTournamentSlugs.map((s) => `${escapeHtml(s.slug)} (${s.count})`).join(", ")}</div>`
       : "",
+    syncLine,
   ].join("");
 
   // 4. Planning
@@ -252,12 +320,29 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
 
   // 6. Alerts
   const alerts: string[] = [];
+
+  // Stale sync alert — fires when lastSyncedAt is >36h ago or never ran
+  const syncAgeHours = b.lastSyncedAt
+    ? (Date.now() - new Date(b.lastSyncedAt).getTime()) / 3_600_000
+    : Infinity;
+  if (syncAgeHours > 36) {
+    alerts.push(
+      b.lastSyncedAt
+        ? `Hotel booking sync is stale — last synced ${formatTimestamp(b.lastSyncedAt, pt)} (${Math.round(syncAgeHours)}h ago). Verify the cron is running.`
+        : "Hotel booking sync has never completed. Verify the cron route and HP credentials."
+    );
+  }
+
   if (summary.pending.pendingVerifications > 0) {
     alerts.push(`${summary.pending.pendingVerifications} pending referee verification request(s)`);
   }
-  if (b.confirmedCount === 0 && ho.current > 0) {
-    alerts.push("Hotel handoffs recorded but no confirmed bookings in sync window — verify HotelPlanner attribution or sync coverage.");
+  if (b.confirmedCount === 0 && hh.current > 0 && syncAgeHours <= 36) {
+    alerts.push("Hotel handoffs recorded but no confirmed bookings in sync window. HP reporting may lag 24-48h.");
   }
+  if (b.anomalyCount > 0) {
+    alerts.push(`${b.anomalyCount} booking(s) have a Custom3 value that could not be resolved to a TI outbound record.`);
+  }
+
   const alertsContent = alerts.length > 0
     ? alerts.map((a) => `<div style="font-size:13px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;margin-bottom:6px;">${escapeHtml(a)}</div>`).join("")
     : `<div style="font-size:13px;color:#6b7280;">No alerts.</div>`;
@@ -292,13 +377,17 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
     `  Weekend Pro: ${t.users?.weekend_total ?? 0}`,
     "",
     "2. Traffic",
-    `  Hotel handoffs (${w}d): ${ho.current} ${trendNote}`,
+    `  Tournament page views (${w}d): ${tr.current} ${trafficTrend}`,
     "",
     "3. Hotels",
+    `  Hotel handoffs (${w}d, distinct): ${hh.current} ${trendLabel(hh.current, hh.prev, w)}`,
     `  Confirmed bookings: ${b.confirmedCount}`,
-    `  Cancelled: ${b.cancelledCount}`,
-    `  Total booking value: ${formatUsd(b.totalBookingValueUsd)}`,
-    `  Expected commission: ${formatUsd(b.expectedCommissionUsd)}`,
+    b.confirmedCount > 0 ? `    · Tracked TI: ${b.trackedCount}` : "",
+    b.confirmedCount > 0 ? `    · Direct/organic/shared: ${b.directOrganicCount}` : "",
+    b.anomalyCount > 0 ? `    · Attribution anomaly: ${b.anomalyCount}` : "",
+    `  Tracked conversion: ${conversionRate}`,
+    b.expectedCommissionUsd > 0 ? `  Expected commission: ${formatUsd(b.expectedCommissionUsd)}` : "",
+    `  Hotel booking data last synced: ${formatTimestamp(b.lastSyncedAt, pt)}`,
     "",
     "4. Planning",
     `  Planner activations (${w}d): ${summary.plannerActivations}`,
@@ -309,7 +398,7 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
     "",
     "6. Alerts",
     alerts.length > 0 ? alerts.join("\n  ") : "No alerts.",
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 
   return { subject, html, text };
 }

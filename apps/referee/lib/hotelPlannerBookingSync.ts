@@ -465,52 +465,92 @@ export async function syncHotelPlannerBookings(lookbackDays = 7): Promise<Bookin
   };
 }
 
-export async function loadHotelBookingSummary(windowDays = 7): Promise<{
+export type HotelBookingSummary = {
   confirmedCount: number;
   cancelledCount: number;
   pendingCount: number;
+  // Attribution breakdown for confirmed bookings
+  trackedCount: number;           // Custom3 → valid outbound_attribution_id join
+  directOrganicCount: number;     // Source=tournamentinsights, no Custom3 — direct/organic/shared/untracked
+  anomalyCount: number;           // Custom3 present but unparseable; investigate individually
   totalBookingValueUsd: number;
   expectedCommissionUsd: number;
   topTournamentSlugs: Array<{ slug: string; count: number }>;
-}> {
+  // Sync freshness — null when ti_hotel_bookings has no rows yet
+  lastSyncedAt: string | null;
+};
+
+export async function loadHotelBookingSummary(windowDays = 7): Promise<HotelBookingSummary> {
   const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data, error } = await (supabaseAdmin as any)
-    .from("ti_hotel_bookings")
-    .select("status,total_usd,expected_commission_usd,custom2")
-    .gte("purchased_at", cutoff);
+  const empty: HotelBookingSummary = {
+    confirmedCount: 0,
+    cancelledCount: 0,
+    pendingCount: 0,
+    trackedCount: 0,
+    directOrganicCount: 0,
+    anomalyCount: 0,
+    totalBookingValueUsd: 0,
+    expectedCommissionUsd: 0,
+    topTournamentSlugs: [],
+    lastSyncedAt: null,
+  };
 
-  if (error) {
-    console.error("[hotel-booking-sync] summary load error", error.message);
-    return {
-      confirmedCount: 0,
-      cancelledCount: 0,
-      pendingCount: 0,
-      totalBookingValueUsd: 0,
-      expectedCommissionUsd: 0,
-      topTournamentSlugs: [],
-    };
+  const [windowResult, syncResult] = await Promise.all([
+    (supabaseAdmin as any)
+      .from("ti_hotel_bookings")
+      .select("status,total_usd,expected_commission_usd,custom2,custom3,outbound_attribution_id")
+      .gte("purchased_at", cutoff),
+    (supabaseAdmin as any)
+      .from("ti_hotel_bookings")
+      .select("synced_at")
+      .order("synced_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (windowResult.error) {
+    console.error("[hotel-booking-sync] summary load error", windowResult.error.message);
+    return empty;
   }
 
-  const rows = (data ?? []) as Array<{
+  const rows = (windowResult.data ?? []) as Array<{
     status: string | null;
     total_usd: number | null;
     expected_commission_usd: number | null;
     custom2: string | null;
+    custom3: string | null;
+    outbound_attribution_id: string | null;
   }>;
 
   let confirmedCount = 0;
   let cancelledCount = 0;
   let pendingCount = 0;
+  let trackedCount = 0;
+  let directOrganicCount = 0;
+  let anomalyCount = 0;
   let totalBookingValueUsd = 0;
   let expectedCommissionUsd = 0;
   const slugCounts = new Map<string, number>();
 
   for (const row of rows) {
     const status = (row.status ?? "").toLowerCase();
-    if (status === "confirmed") confirmedCount += 1;
+    const isConfirmed = status === "confirmed";
+    if (isConfirmed) confirmedCount += 1;
     else if (status.includes("cancel")) cancelledCount += 1;
     else pendingCount += 1;
+
+    if (isConfirmed) {
+      if (row.outbound_attribution_id) {
+        trackedCount += 1;
+      } else if (!row.custom3) {
+        // No Custom3 at all — direct/organic/shared/untracked white-label
+        directOrganicCount += 1;
+      } else {
+        // Custom3 present but not a valid attr: token — investigate
+        anomalyCount += 1;
+      }
+    }
 
     totalBookingValueUsd += Number(row.total_usd ?? 0);
     expectedCommissionUsd += Number(row.expected_commission_usd ?? 0);
@@ -524,13 +564,19 @@ export async function loadHotelBookingSummary(windowDays = 7): Promise<{
     .slice(0, 5)
     .map(([slug, count]) => ({ slug, count }));
 
+  const lastSyncedAt = (syncResult.data as { synced_at: string } | null)?.synced_at ?? null;
+
   return {
     confirmedCount,
     cancelledCount,
     pendingCount,
+    trackedCount,
+    directOrganicCount,
+    anomalyCount,
     totalBookingValueUsd,
     expectedCommissionUsd,
     topTournamentSlugs,
+    lastSyncedAt,
   };
 }
 
