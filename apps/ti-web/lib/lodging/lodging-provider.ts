@@ -47,7 +47,8 @@ export type FallbackReason =
   | "timeout"
   | "low_inventory"
   | "no_dates"
-  | "no_venue_coordinates";
+  | "no_venue_coordinates"
+  | "unsupported_date_horizon";
 
 export type TrackingFieldKey = `customField${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
 

@@ -10,6 +10,12 @@ import {
 import { formatDateToMmDdYyyy } from "@/lib/lodging/lodging-dates";
 import { HotelPlannerApiError } from "@/lib/lodging/hotelPlannerProvider";
 import { classifyHotelSearchFailure } from "@/lib/lodging/hotelReliability";
+import {
+  evaluateHotelSearchDateHorizon,
+  HOTEL_DATE_HORIZON_BODY,
+  HOTEL_DATE_HORIZON_HEADING,
+  HOTEL_DATE_HORIZON_REASON,
+} from "@/lib/lodging/hotelDateHorizon";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sanitizePageUrl, sanitizeText } from "@/lib/venueHotelFunnel";
 
@@ -664,6 +670,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Venue not found" }, { status: 400 });
   }
 
+  const resolvedWindow = resolveSearchWindow(
+    body,
+    tournament ? { startDate: tournament.startDate, endDate: tournament.endDate } : null
+  );
+  if (resolvedWindow.window) {
+    const horizon = evaluateHotelSearchDateHorizon({
+      checkIn: resolvedWindow.window.checkIn,
+      checkOut: resolvedWindow.window.checkOut,
+    });
+    if (horizon.status === "unsupported") {
+      return NextResponse.json(
+        {
+          hotels: [],
+          fallback: {
+            showHotelFallback: false,
+            showVrboFallback: false,
+            reason: HOTEL_DATE_HORIZON_REASON,
+          },
+          code: HOTEL_DATE_HORIZON_REASON,
+          error: HOTEL_DATE_HORIZON_HEADING,
+          message: HOTEL_DATE_HORIZON_BODY,
+          resolvedCheckIn: resolvedWindow.window.checkIn,
+          resolvedCheckOut: resolvedWindow.window.checkOut,
+          maxSupportedDate: horizon.maxDateIso,
+          venueId,
+          tournamentId,
+        },
+        { status: 422 }
+      );
+    }
+  }
+
   if (
     isGenericSearch &&
     genericDestination.destination &&
@@ -719,7 +757,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const resolvedWindow = resolveSearchWindow(body, tournament ? { startDate: tournament.startDate, endDate: tournament.endDate } : null);
   if (!resolvedWindow.window) {
     if (isGenericSearch) {
       const fallbackWindow = genericFallbackWindow();

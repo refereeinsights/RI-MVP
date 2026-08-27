@@ -13,6 +13,11 @@ import {
   readOrRememberHotelDistributionSource,
   resolveHotelTrafficSource,
 } from "@/lib/hotelMeasurement";
+import {
+  evaluateHotelSearchDateHorizon,
+  HOTEL_DATE_HORIZON_BODY,
+  HOTEL_DATE_HORIZON_HEADING,
+} from "@/lib/lodging/hotelDateHorizon";
 import type { PlannerActivationAssignment } from "@/lib/planner/plannerActivationExperiment";
 import { markPlannerSessionEventSeen, type PlannerSessionContext, wasPlannerSessionEventSeen } from "@/lib/planner/plannerSession";
 import styles from "./WeekendPlanner.module.css";
@@ -56,7 +61,7 @@ type BookTravelHotelResult = {
 type BookTravelHotelFallback = {
   showHotelFallback: boolean;
   showVrboFallback: boolean;
-  reason?: "provider_error" | "low_inventory" | "no_dates" | "no_venue_coordinates";
+  reason?: "provider_error" | "timeout" | "low_inventory" | "no_dates" | "no_venue_coordinates" | "unsupported_date_horizon";
 };
 
 type BookTravelHotelSearchResponse = {
@@ -69,6 +74,7 @@ type BookTravelHotelSearchResponse = {
   resolvedLatitude?: number | null;
   resolvedLongitude?: number | null;
   error?: string;
+  message?: string;
   code?: string;
 };
 
@@ -514,6 +520,28 @@ export default function WeekendPlannerClient(props: {
     const trimmedDestination = destination.trim();
     if (!trimmedDestination || hotelResultsLoading) return;
 
+    const requestedCheckin = isoFromUserDate(checkinText);
+    const requestedCheckout = isoFromUserDate(checkoutText);
+    if (
+      requestedCheckin &&
+      requestedCheckout &&
+      evaluateHotelSearchDateHorizon({ checkIn: requestedCheckin, checkOut: requestedCheckout }).status === "unsupported"
+    ) {
+      setHotelResultsLoading(false);
+      setHotelResultsError(null);
+      setHotelResults([]);
+      setHotelResultsFallback({
+        showHotelFallback: false,
+        showVrboFallback: false,
+        reason: "unsupported_date_horizon",
+      });
+      setHotelResolvedCheckIn(null);
+      setHotelResolvedCheckOut(null);
+      setHotelResolvedLatitude(null);
+      setHotelResolvedLongitude(null);
+      return;
+    }
+
     setHotelResultsLoading(true);
     setHotelResultsError(null);
     setHotelResults([]);
@@ -533,8 +561,8 @@ export default function WeekendPlannerClient(props: {
         body: JSON.stringify({
           destination: trimmedDestination,
           source: sourcePageRef.current,
-          checkin: isoFromUserDate(checkinText),
-          checkout: isoFromUserDate(checkoutText),
+          checkin: requestedCheckin,
+          checkout: requestedCheckout,
           sc: "tournamentinsights",
           kw: "Tournament weekend stay",
           jobCode: "TI-BOOK-TRAVEL",
@@ -561,7 +589,8 @@ export default function WeekendPlannerClient(props: {
       const payload = (await response.json().catch(() => null)) as BookTravelHotelSearchResponse | null;
       const data = payload ?? {};
       if (!response.ok) {
-        setHotelResultsError(data.error ? String(data.error) : "Unable to load hotels right now.");
+        const isUnsupportedHorizon = data.code === "unsupported_date_horizon" || data.fallback?.reason === "unsupported_date_horizon";
+        setHotelResultsError(isUnsupportedHorizon ? null : data.error ? String(data.error) : "Unable to load hotels right now.");
         setHotelResultsFallback(data.fallback ?? { showHotelFallback: true, showVrboFallback: true, reason: "provider_error" });
         setHotelResolvedCheckIn(data.resolvedCheckIn ?? null);
         setHotelResolvedCheckOut(data.resolvedCheckOut ?? null);
@@ -577,7 +606,7 @@ export default function WeekendPlannerClient(props: {
       setHotelResolvedCheckOut(data.resolvedCheckOut ?? null);
       setHotelResolvedLatitude(typeof data.resolvedLatitude === "number" ? data.resolvedLatitude : null);
       setHotelResolvedLongitude(typeof data.resolvedLongitude === "number" ? data.resolvedLongitude : null);
-      if (!normalizedHotels.length) {
+      if (!normalizedHotels.length && data.fallback?.reason !== "unsupported_date_horizon") {
         setHotelResultsError("No hotel results returned for this search yet.");
       }
     } catch {
@@ -592,7 +621,9 @@ export default function WeekendPlannerClient(props: {
 
   const hotelResultsPreview = hotelResults.slice(0, 8);
   const showViewAllHotelsCta = hotelResults.length > 8 && Boolean(destination.trim());
-  const showFallbackHotelSearchCta = hotelResults.length === 0 && hotelResultsFallback?.showHotelFallback;
+  const dateHorizonUnsupported = hotelResultsFallback?.reason === "unsupported_date_horizon";
+  const showFallbackHotelSearchCta =
+    hotelResults.length === 0 && hotelResultsFallback?.showHotelFallback && !dateHorizonUnsupported;
 
   function track(event: string, properties: Record<string, unknown> = {}) {
     const pagePath = (() => {
@@ -770,6 +801,14 @@ export default function WeekendPlannerClient(props: {
                 </button>
               </div>
               {hotelResultsError ? <div className={styles.hotelResultsError}>{hotelResultsError}</div> : null}
+              {dateHorizonUnsupported ? (
+                <div className={styles.hotelFallbackBox} role="status">
+                  <div className={styles.hotelFallbackCopy}>
+                    <strong>{HOTEL_DATE_HORIZON_HEADING}</strong>
+                    <div>{HOTEL_DATE_HORIZON_BODY}</div>
+                  </div>
+                </div>
+              ) : null}
               {hotelResolvedCheckIn || hotelResolvedCheckOut ? (
                 <div className={styles.hotelResultsMeta}>
                   Searching stay window: {hotelResolvedCheckIn || "—"}{hotelResolvedCheckOut ? ` → ${hotelResolvedCheckOut}` : ""}

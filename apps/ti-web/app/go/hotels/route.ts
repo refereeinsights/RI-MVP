@@ -18,6 +18,11 @@ import {
   resolveHotelProgramSnapshotSafely,
   selectHotelHandoffMode,
 } from "@/lib/lodging/tournamentHotelProgram";
+import {
+  evaluateHotelSearchDateHorizon,
+  HOTEL_DATE_HORIZON_BODY,
+  HOTEL_DATE_HORIZON_HEADING,
+} from "@/lib/lodging/hotelDateHorizon";
 import { verifyTournamentHotelContext } from "@/lib/lodging/tournamentHotelContext";
 import {
   parseVenueHotelUuid,
@@ -275,6 +280,19 @@ function computeFallbackDates() {
   return { checkin, checkout };
 }
 
+function unsupportedHotelDateHorizonResponse() {
+  return new NextResponse(
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hotel dates not available yet</title></head><body><main><h1>${HOTEL_DATE_HORIZON_HEADING}</h1><p>${HOTEL_DATE_HORIZON_BODY}</p><p><a href="/book-travel">Return to Book Travel</a></p></main></body></html>`,
+    {
+      status: 422,
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+        "Content-Type": "text/html; charset=utf-8",
+      },
+    }
+  );
+}
+
 export async function GET(request: Request) {
   const reqUrl = new URL(request.url);
   const venueId = String(reqUrl.searchParams.get("venueId") ?? "").trim();
@@ -519,6 +537,14 @@ export async function GET(request: Request) {
 
     return { ...computeFallbackDates(), source: "fallback" as const, rejected: null as null | { source: "explicit" | "tournament"; reason: string } };
   })();
+
+  const dateHorizon = evaluateHotelSearchDateHorizon({
+    checkIn: dates.checkin,
+    checkOut: dates.checkout,
+  });
+  if (dateHorizon.status === "unsupported") {
+    return unsupportedHotelDateHorizonResponse();
+  }
 
   const hotelPlannerWhiteLabelUrl = process.env.HOTELPLANNER_WHITE_LABEL_BASE_URL || "";
   const hotelPlannerCheckin = toMmDdYyyy(dates.checkin);

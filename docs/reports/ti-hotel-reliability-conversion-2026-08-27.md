@@ -1,7 +1,7 @@
-# TI Hotel Reliability & Conversion — Stage 1 Report
+# TI Hotel Reliability & Conversion — Stage 1–2 Report
 
 Date: 2026-08-27
-Verdict: **TI HOTEL RELIABILITY & CONVERSION REQUIRES APPROVED PROVIDER UAT**
+Verdict: **TI HOTEL RELIABILITY & CONVERSION PROVIDER UAT COMPLETE**
 
 ## Stage 1 reliability audit
 
@@ -113,13 +113,44 @@ changed.
   no Pro gate appeared.
 - Browser request inspection recorded zero HotelPlanner/provider requests.
 
-## Remaining provider UAT
+## Stage 2 provider UAT
 
-The seven aggregate `200` semantic failures cannot be diagnosed safely from the
-approved fields. If the user approves Stage 2, use at most three HotelPlanner
-search calls: one known tournament/venue/date case, one generic `/book-travel`
-city case, and one controlled date/context variant. Inspect only response shape,
-status classification, result counts, and bounded diagnostics; complete no
-booking and retain no provider payload. Until then, the implementation and
-positive fallback are locally verified, but the provider-specific root cause
-remains open.
+The user authorized at most three bounded HotelPlanner search calls. Exactly
+three were made and no booking was started or completed. The two valid 2026
+cases—one known tournament/venue search and one generic Spokane search—returned
+HTTP 200, valid JSON, recognized hotel/availability containers, and 183 and 57
+normalized results respectively. A controlled Starfire 2028 case approximately
+739 days ahead returned HTTP 200 and valid JSON but none of the recognized
+success/code, hotel, availability, or group-request shapes. The unchanged
+adapter correctly classified it as `UPSTREAM_REQUEST_FAILURE`; the public safe
+code was `upstream_rejected_response`.
+
+Only status, recognized shape presence, normalized result counts, and bounded
+adapter classification were inspected. No raw provider payload, hotel list,
+credential, secret-bearing URL, or customer data was printed or retained.
+
+This identifies one reproduced cause of `upstream_rejected_response`:
+unsupported far-future date context. Historical failures may include this
+cause, but existing diagnostics cannot prove that all prior cases had the same
+trigger.
+
+## Date-horizon follow-up
+
+No HotelPlanner booking-search maximum was documented in repository integration
+materials. A separate reporting endpoint's one-year result range is not a
+booking contract. TI therefore uses a deliberately labeled application safety
+boundary: check-in and checkout may be no later than 730 days from the current
+UTC date, inclusive. This boundary sits below the reproduced 739-day failure
+without claiming a provider contractual limit.
+
+The lodging API rejects later dates before destination geocoding, provider
+construction, diagnostics persistence, or a HotelPlanner call with the distinct
+bounded classification `unsupported_date_horizon`. The direct `/go/hotels`
+handoff also stops before target construction or outbound persistence.
+Tournament pages keep their public tournament, venue, and dates visible; their
+date inputs use the same maximum and show calm booking-too-early copy. Generic
+Book Travel preserves the entered destination, validates locally, and suppresses
+the fallback handoff that would recreate the rejected request. The provider
+adapter, semantic-response criteria, attribution, Hotel Program routing, fees,
+beneficiaries, and zero-inventory/provider-failure classifications are
+unchanged.

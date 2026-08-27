@@ -25,6 +25,12 @@ import {
   type TournamentHotelsVenue,
 } from "@/lib/lodging/tournamentHotels";
 import { tournamentHotelRecoveryCopy } from "@/lib/lodging/hotelRecovery";
+import {
+  evaluateHotelSearchDateHorizon,
+  HOTEL_DATE_HORIZON_BODY,
+  HOTEL_DATE_HORIZON_HEADING,
+  hotelSearchMaxDateIso,
+} from "@/lib/lodging/hotelDateHorizon";
 import styles from "./TournamentHotels.module.css";
 
 type Tournament = {
@@ -151,7 +157,12 @@ export default function TournamentHotelsClient({
     [searchableVenues, selectedVenueId]
   );
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const datesValid = Boolean(checkin && checkout && checkin >= today && checkout > checkin);
+  const maxHotelSearchDate = useMemo(() => hotelSearchMaxDateIso(), []);
+  const datesStructurallyValid = Boolean(checkin && checkout && checkin >= today && checkout > checkin);
+  const dateHorizonUnsupported =
+    datesStructurallyValid &&
+    evaluateHotelSearchDateHorizon({ checkIn: checkin, checkOut: checkout }).status === "unsupported";
+  const datesValid = datesStructurallyValid && !dateHorizonUnsupported;
   const tournamentIsPast = Boolean((tournament.endDate ?? tournament.startDate) && (tournament.endDate ?? tournament.startDate)! < today);
   const destination = destinationForVenue(selectedVenue, tournament);
   const hasContextualHandoff = Boolean((selectedVenue || destination) && datesValid);
@@ -410,11 +421,11 @@ export default function TournamentHotelsClient({
         <div className={styles.dateGrid}>
           <label className={styles.field}>
             <span>Check-in</span>
-            <input type="date" min={today} value={checkin} onChange={(event) => { setCheckin(event.target.value); setDateSource("user_adjusted"); }} />
+            <input type="date" min={today} max={maxHotelSearchDate} value={checkin} onChange={(event) => { setCheckin(event.target.value); setDateSource("user_adjusted"); }} />
           </label>
           <label className={styles.field}>
             <span>Check-out</span>
-            <input type="date" min={checkin || today} value={checkout} onChange={(event) => { setCheckout(event.target.value); setDateSource("user_adjusted"); }} />
+            <input type="date" min={checkin || today} max={maxHotelSearchDate} value={checkout} onChange={(event) => { setCheckout(event.target.value); setDateSource("user_adjusted"); }} />
           </label>
         </div>
         <p className={styles.helper}>
@@ -422,7 +433,13 @@ export default function TournamentHotelsClient({
             ? "This tournament has ended, so we selected future lodging dates. Adjust them as needed."
             : "Showing hotels for your tournament weekend — adjust dates if needed."}
         </p>
-        {!datesValid ? <p className={styles.error} role="alert">Choose a future check-in date and a check-out date after check-in.</p> : null}
+        {!datesStructurallyValid ? <p className={styles.error} role="alert">Choose a future check-in date and a check-out date after check-in.</p> : null}
+        {dateHorizonUnsupported ? (
+          <div className={styles.fallbackBox} role="status">
+            <h2>{HOTEL_DATE_HORIZON_HEADING}</h2>
+            <p>{HOTEL_DATE_HORIZON_BODY}</p>
+          </div>
+        ) : null}
 
         {venues.length > searchableVenues.length ? (
           <details className={styles.venueContext}>
@@ -500,7 +517,7 @@ export default function TournamentHotelsClient({
         </div>
       ) : null}
 
-      {(selectedVenue || destination) && datesValid ? (
+      {dateHorizonUnsupported ? null : (selectedVenue || destination) && datesValid ? (
         <div className={styles.actions}>
           <button type="button" className={styles.primaryAction} onClick={openViewAll}>{recoveryCopy.cta}</button>
           {fallback ? <span>Search live availability with our hotel partner.</span> : null}
