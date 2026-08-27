@@ -1671,39 +1671,6 @@ function buildEmailHtml(params: {
         })()
       : "";
 
-  const heatmapHtml =
-    includeTiles && tiles
-      ? (() => {
-          const tilesUrl = `${baseUrl}/api/admin-dashboard-email/heatmap?scope=public_directory&v=${encodeURIComponent(
-            generatedAtIso.slice(0, 10),
-          )}`;
-          const mapUrl = `${baseUrl}/api/admin-dashboard-email/heatmap-us?scope=public_directory&v=${encodeURIComponent(
-            generatedAtIso.slice(0, 10),
-          )}`;
-          const interactiveUrl = `${baseUrl}/heatmap?sport=all`;
-          return `<div style="margin-top:16px;border:1px solid #e2e8f0;border-radius:12px;padding:12px;background:#ffffff;">
-            <div style="font-size:12px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">
-              Tournament heatmap (US)
-            </div>
-            <img
-              src="${tilesUrl}"
-              alt="US Tournament Map (tiles)"
-              width="640"
-              style="display:block;width:100%;max-width:640px;height:auto;border-radius:12px;border:1px solid #e2e8f0;"
-            />
-            <div style="height:10px;"></div>
-            <img
-              src="${mapUrl}"
-              alt="US Tournament Map (map)"
-              width="640"
-              style="display:block;width:100%;max-width:640px;height:auto;border-radius:12px;border:1px solid #e2e8f0;"
-            />
-            <div style="margin-top:10px;font-size:12px;">
-              <a href="${interactiveUrl}" style="color:#1d4ed8;text-decoration:underline;">Open interactive heatmap</a>
-            </div>
-          </div>`;
-        })()
-      : "";
 
   const firstGameActivationHtml = renderFirstGameActivationHtml(firstGameActivationSummary ?? null);
   const weekendPlannerHtml = renderWeekendPlannerSummaryHtml({
@@ -1742,8 +1709,7 @@ function buildEmailHtml(params: {
         ${firstGameActivationHtml}
         ${weekendPlannerHtml}
         ${campspotExperimentHtml}
-        ${sportTilesHtml}
-        ${heatmapHtml}`
+        ${sportTilesHtml}`
       : `${
           includeTiles
             ? renderSectionCard(
