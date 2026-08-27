@@ -5,7 +5,13 @@ const EXAMPLE_DAYS = [
   {
     day: "Saturday",
     events: [
-      { identity: "Jordan · Harbor Baseball", time: "8:00 AM", title: "Game", location: "Tacoma" },
+      {
+        identity: "Jordan · Harbor Baseball",
+        time: "8:00 AM",
+        title: "Game",
+        location: "Tacoma",
+        leaveBy: "Leave by 6:55 AM (est.) · ~52 min estimated drive",
+      },
       { identity: "Riley · City Soccer", time: "10:30 AM", title: "Match", location: "Bellevue" },
       { identity: "Jordan · Northside Lacrosse", time: "3:00 PM", title: "Practice", location: "Seattle" },
     ],
@@ -25,7 +31,7 @@ export function SignedOutLanding() {
         <BrandLogo />
         <div className="landingHeroGrid">
           <section className="landingMessage" aria-labelledby="corralio-title">
-            <p className="eyebrow">Corralio</p>
+            <p className="eyebrow corralioTrademark">Corralio<sup aria-hidden="true">™</sup></p>
             <h1 id="corralio-title">The planner built for sports families.</h1>
             <p className="landingPromise">Every kid. Every team. One plan.</p>
             <p className="landingDescription">
@@ -56,6 +62,7 @@ export function SignedOutLanding() {
                       <li className={`previewEvent previewEvent-${(dayIndex + eventIndex) % 3}`} key={`${event.identity}-${event.time}`}>
                         <p>{event.identity}</p>
                         <div><strong>{event.time}</strong><span>{event.title} · {event.location}</span></div>
+                        {"leaveBy" in event ? <p className="previewLeaveBy">{event.leaveBy}</p> : null}
                       </li>
                     ))}
                   </ul>
@@ -65,6 +72,12 @@ export function SignedOutLanding() {
             <p className="previewOutcome">We’ve got the weekend figured out.</p>
           </section>
         </div>
+
+        <section className="landingPayoff" aria-labelledby="landing-payoff-title">
+          <h2 id="landing-payoff-title">Corral your sports chaos.</h2>
+          <p>Every schedule, every kid, every team — brought together so you can see how the weekend actually works.</p>
+          <p className="landingValueBridge">Bring your schedules together. Spot conflicts. Know what the weekend looks like.</p>
+        </section>
 
         <section className="signInPanel" id="account-access" aria-labelledby="account-access-title">
           <div className="signInIntro">

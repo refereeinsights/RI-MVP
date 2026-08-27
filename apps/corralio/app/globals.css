@@ -87,6 +87,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 .landingHeroGrid { display: grid; gap: clamp(34px, 6vw, 72px); margin-top: clamp(40px, 7vw, 72px); }
 .landingMessage { min-width: 0; }
+.corralioTrademark sup { margin-left: .08em; color: var(--accent); font-size: .62em; line-height: 0; vertical-align: super; }
 .landingMessage h1 { max-width: 650px; margin: 0; font-size: clamp(2.35rem, 7vw, 4.25rem); font-weight: 800; letter-spacing: -.055em; line-height: 1; text-wrap: balance; }
 .landingPromise { margin: 20px 0 0; color: var(--accent); font-size: clamp(1.15rem, 3vw, 1.45rem); font-weight: 800; line-height: 1.35; }
 .landingDescription { max-width: 620px; margin: 18px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.65; }
@@ -112,7 +113,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .previewEvent p { margin: 0 0 5px; font-size: .78rem; font-weight: 800; overflow-wrap: anywhere; }
 .previewEvent div { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--muted); font-size: .75rem; line-height: 1.35; }
 .previewEvent strong { color: var(--accent); }
+.previewEvent .previewLeaveBy { margin: 8px 0 0; padding-top: 7px; border-top: 1px solid var(--border); color: var(--accent); font-size: .72rem; line-height: 1.4; }
 .previewOutcome { margin: 20px 0 0; color: var(--accent); font-size: .9rem; font-weight: 800; text-align: center; }
+
+.landingPayoff { max-width: 760px; margin: clamp(38px, 6vw, 58px) auto 0; padding: clamp(22px, 4vw, 30px); border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border)); border-radius: 20px; background: var(--accent-soft); text-align: center; }
+.landingPayoff h2 { margin: 0; color: var(--accent); font-size: clamp(1.65rem, 5vw, 2.35rem); letter-spacing: -.04em; line-height: 1.08; text-wrap: balance; }
+.landingPayoff p { max-width: 650px; margin: 12px auto 0; color: var(--foreground); line-height: 1.55; }
+.landingPayoff .landingValueBridge { color: var(--accent); font-weight: 800; }
+.landingPayoff + .signInPanel { margin-top: clamp(30px, 5vw, 46px); }
 
 .signInPanel { display: grid; gap: 26px; margin-top: clamp(42px, 7vw, 72px); padding-top: clamp(28px, 5vw, 42px); border-top: 1px solid var(--border); scroll-margin-top: 24px; }
 .signInPanel h2, .contentCard h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.025em; }

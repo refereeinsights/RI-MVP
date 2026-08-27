@@ -12,6 +12,8 @@ test("signed-out landing leads with the family problem, outcome, and account hie
   assert.match(landing, /The planner built for sports families\./);
   assert.match(landing, /Every kid\. Every team\. One plan\./);
   assert.match(landing, /Team apps organize the team\. Corralio plans across the family\./);
+  assert.match(landing, /Corral your sports chaos\./);
+  assert.match(landing, /className="eyebrow corralioTrademark">Corralio<sup aria-hidden="true">™<\/sup>/);
   assert.match(landing, /href="#get-started-email">Get Started/);
   assert.match(landing, /href="#returning-sign-in">Sign in/);
   assert.ok(landing.indexOf("Get Started") < landing.indexOf("Sign in"));
@@ -23,7 +25,9 @@ test("the example weekend is static and separated from private product data", ()
   assert.match(landing, /Saturday/);
   assert.match(landing, /Sunday/);
   assert.match(landing, /We’ve got the weekend figured out\./);
-  assert.doesNotMatch(landing, /productData|supabase|sourceUrl|\.ics|fetch\(|use server|use client/i);
+  assert.match(landing, /Leave by 6:55 AM \(est\.\) · ~52 min estimated drive/);
+  assert.equal(landing.match(/Leave by 6:55 AM \(est\.\) · ~52 min estimated drive/g)?.length, 1);
+  assert.doesNotMatch(landing, /productData|supabase|database|sourceUrl|\.ics|fetch\(|routing|geocod|provider|openrouteservice|computeLeaveBy|leaveBy\.server|use server|use client/i);
 });
 
 test("Get Started reuses the established Magic Link account path", () => {

@@ -1,12 +1,12 @@
 # Corralio Homepage Messaging & Trademark Refresh (Non-Slice / Marketing Polish)
 
-**Status: CPO-approved and queued 2026-08-26. Not a numbered product slice — does not enter the 4.3→4.4→4.4B→4.4C→4.4D→4.5→4.5A→4.5B→4.6→4.7→4.8 sequence and must not be treated as gating or gated by it.**
+**Status: CPO-approved and queued 2026-08-26. Not a numbered product slice and must not be treated as gating or gated by the numbered roadmap. Completed Slice 4.3–4.6 architecture and product behavior must not be reopened or modified by this work. Slice 4.5B remains deferred/non-blocking.**
 
 You are working in the existing TournamentInsights / RefereeInsights / Corralio monorepo.
 
 This is a small marketing/conversion task for the public Corralio homepage.
 
-It is not a new product slice and must not expand product scope or interfere with the existing Corralio roadmap/Slice 4.3 sequencing.
+It is not a new product slice and must not expand product scope or alter completed Corralio architecture or product behavior.
 
 The objectives are:
 
@@ -14,7 +14,7 @@ The objectives are:
 2. Improve the transition from product explanation into signup.
 3. Add restrained `Corralio™` trademark treatment.
 4. Preserve the clarity of the existing Corralio positioning.
-5. Optionally surface estimated leave-by in the synthetic homepage example only if that capability genuinely exists in the branch being edited.
+5. Surface exactly one static synthetic estimated leave-by example using the existing production presentation convention.
 
 ## 1. Audit first
 
@@ -32,7 +32,7 @@ Before editing anything:
 3. Determine whether homepage copy is hardcoded or sourced from shared components/config.
 4. Identify existing brand color tokens/styles used for the Corralio wordmark and primary brand text.
 5. Identify existing analytics instrumentation on homepage CTAs and signup actions.
-6. Confirm whether Slice 4.3 estimated leave-by functionality exists in the current branch before making any claim about leave-by.
+6. Confirm the completed Slice 4.3 estimated leave-by presentation convention without importing its authenticated computation into the signed-out preview.
 7. Preserve existing responsive/mobile behavior.
 
 Do not rely on this prompt's description if the repository has materially changed.
@@ -125,7 +125,7 @@ Do not introduce a second competing primary CTA.
 
 Preserve the existing authentication/signup behavior and analytics.
 
-## 5. Estimated leave-by readiness
+## 5. Static synthetic estimated leave-by
 
 Estimated leave-by is a strong example of Corralio's differentiation because it moves the product from:
 
@@ -135,24 +135,15 @@ toward:
 
 > Here is what your family needs to do.
 
-However, do not advertise functionality that does not exist.
+Slice 4.3 estimated leave-by is complete in the current repository. Add exactly one realistic, static synthetic leave-by example to the existing signed-out preview fixture using the production convention exactly:
 
-Before modifying the synthetic/example weekend, verify whether Slice 4.3 estimated leave-by functionality is actually available in the current branch.
+> Leave by 6:55 AM (est.) · ~52 min estimated drive
 
-If it is available and the homepage example uses reusable Corralio presentation components/data structures, add one realistic leave-by example such as:
+Do not shorten this to `~52 min drive` or introduce a competing format.
 
-> Leave by 6:55 AM (est.) · ~52 min drive
+This is presentation-only fixture data. Rendering or interacting with the signed-out preview must make **zero Supabase, database, routing, geocoding, provider, product-data, or external fetch calls**. Do not import authenticated leave-by computation merely to render the preview.
 
-Use the actual product's formatting and estimate-label convention rather than hardcoding a competing format.
-
-If Slice 4.3 is not available:
-
-* do not add leave-by;
-* do not fake it;
-* do not make a marketing claim implying it exists;
-* report that the homepage example remains ready for this enhancement after Slice 4.3.
-
-This homepage task must not implement Slice 4.3 functionality itself.
+This homepage task must not reimplement, alter, or invoke Slice 4.3 functionality.
 
 ## 6. Trademark treatment
 
@@ -160,11 +151,11 @@ Begin using `Corralio™` selectively on the public homepage.
 
 The goal is restrained brand treatment, not putting ™ after every occurrence of Corralio.
 
-### First prominent textual brand occurrence
+### Textual eyebrow target
 
-Find the first natural prominent textual occurrence of the Corralio brand on the homepage.
+Apply the restrained trademark treatment specifically to the textual `Corralio` eyebrow that follows the existing logo in `SignedOutLanding.tsx`:
 
-Where appropriate, render:
+Render:
 
 > Corralio™
 
@@ -187,7 +178,7 @@ Do not edit the Corralio SVG/PNG/logo asset merely to bake the ™ symbol into t
 
 Keep the master Corralio wordmark clean.
 
-If the ™ is visually associated with a rendered wordmark, add it through appropriate markup/CSS around the existing logo/component rather than modifying the underlying brand asset.
+Do not wrap, alter, replace, or otherwise modify the logo component to add the mark. The trademark belongs on the separate textual eyebrow specified above.
 
 Do not distort, resize, recolor, or otherwise redesign the Corralio logo as part of this task.
 
@@ -213,19 +204,7 @@ This task makes no representation that CORRALIO is federally registered.
 
 ## 7. Footer trademark treatment
 
-Inspect the existing footer/legal content.
-
-If the repository already establishes the legal entity that owns Corralio, add a restrained trademark statement such as:
-
-> Corralio™ is a trademark of [existing legal entity].
-
-Do not invent or infer the legal entity.
-
-If the ownership entity is not clearly established in existing repository/site legal content:
-
-* do not create the ownership statement;
-* leave the existing legal footer intact;
-* report that the legal entity needs founder confirmation.
+The repository audit found no authoritative legal-entity owner in the inspected Corralio surface. Do not add a footer ownership or legal-entity statement. Leave the existing footer/legal treatment intact and report that ownership wording remains deferred pending founder confirmation.
 
 Do not make broader Terms, Privacy Policy, copyright, trademark-registration, or legal-policy changes as part of this task.
 
@@ -322,7 +301,7 @@ Do not:
 * add hotel/travel claims;
 * add venue-intelligence claims that are not currently supported;
 * add maps;
-* implement leave-by if Slice 4.3 is not already available;
+* invoke, duplicate, or modify authenticated leave-by computation;
 * modify TournamentInsights;
 * modify RefereeInsights;
 * change the product roadmap;
@@ -343,6 +322,8 @@ After implementation:
 3. Run the production build.
 4. Run `git diff --check`.
 5. Run any existing relevant homepage/UI tests.
+   * Explicitly update `apps/corralio/lib/landing.test.ts` to verify that the existing hero positioning remains unchanged, the approved tagline appears, the restrained trademark appears on the textual Corralio eyebrow, and the leave-by example is static synthetic content using the exact approved production wording.
+   * The test must also verify that the signed-out preview introduces no Supabase, product-data, fetch, routing, geocoding, or provider dependency.
 6. Verify the homepage in a real browser if existing project tooling allows it.
 7. Verify at minimum:
    * desktop
@@ -364,14 +345,15 @@ Report:
 5. where `Corralio™` is rendered;
 6. how the ™ is styled and which existing brand token/color it uses;
 7. whether any logo asset was changed — expected answer should be no unless repository evidence required otherwise;
-8. whether the footer trademark statement was added or deferred pending legal-entity confirmation;
-9. whether leave-by was added to the example;
-10. if leave-by was not added, why;
-11. analytics preserved;
-12. mobile/browser verification performed;
-13. automated checks run;
-14. any blockers or deviations.
+8. confirmation that no footer ownership/legal-entity statement was added because authoritative ownership remains unestablished in the inspected Corralio surface;
+9. confirmation that exactly one static synthetic leave-by example was added with the approved production wording and zero live dependencies or calls;
+10. analytics preserved;
+11. mobile/browser verification performed;
+12. automated checks run;
+13. any blockers or deviations.
 
 Do not push or deploy unless separately instructed.
 
 This is homepage conversion/brand polish, not a product-scope expansion.
+
+These specification boundaries do not authorize broader redesign or architecture changes.
