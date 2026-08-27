@@ -4,6 +4,7 @@ import { buildActivePlanningEventSourceFilter } from "@/lib/activePlanning";
 import { parseChildColor } from "@/lib/family";
 import { estimatedLeaveByIso, isRouteFresh } from "@/lib/leaveBy";
 import { resolveAssignmentPresentation } from "@/lib/schedules/assignment";
+import { aggregateScheduleFreshness } from "@/lib/schedules/freshness";
 import { parseCorralioSport } from "@/lib/schedules/sport";
 import { createCorralioSupabaseServerClient } from "@/lib/supabase/server";
 import { getWeekendCandidateWindow } from "@/lib/weekend";
@@ -92,6 +93,13 @@ export async function loadWeekendData(viewer: CorralioViewer) {
   const { familyChildren, familyTeams } = mapFamily(familyRows.children, familyRows.teams);
   const sourceLabels = new Map(sources.map((source) => [source.id, source.display_name]));
   const sourceSports = new Map(sources.map((source) => [source.id, parseCorralioSport(source.sport)]));
+  const scheduleFreshness = aggregateScheduleFreshness(
+    sources.flatMap((source) => {
+      if (source.sync_status !== "pending" && source.sync_status !== "success" && source.sync_status !== "error") return [];
+      return [{ syncStatus: source.sync_status, lastSyncedAt: source.last_synced_at }];
+    }),
+    Date.now(),
+  );
   const weekendEvents: WeekendPlanEvent[] = events.map((event) => {
     const identity = resolveWeekendEventIdentity(
       { childId: event.child_id, teamId: event.team_id },
@@ -109,7 +117,7 @@ export async function loadWeekendData(viewer: CorralioViewer) {
       : null;
     return { id: event.id, title: event.title, startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone, location: event.source_location_text ?? event.display_location_text, fieldLabel: event.source_location_text ? null : event.field_label, sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null, identityKind: identity.kind, identityLabel: identity.label, childColor: identity.childColor, resolvedChildId: identity.resolvedChildId, estimatedDriveMinutes: routeFresh ? event.estimated_drive_minutes : null, leaveByAt };
   });
-  return { sourceCount: sources.length, weekendEvents, candidateLimitReached: events.length === WEEKEND_CANDIDATE_LIMIT };
+  return { sourceCount: sources.length, weekendEvents, candidateLimitReached: events.length === WEEKEND_CANDIDATE_LIMIT, scheduleFreshness };
 }
 
 export async function loadFamilyData(viewer: CorralioViewer) {
@@ -123,13 +131,14 @@ export async function loadFamilyData(viewer: CorralioViewer) {
   const connectedSources: ConnectedSchedule[] = rows.sources.flatMap((source) => {
     if (source.sync_status !== "pending" && source.sync_status !== "success" && source.sync_status !== "error") return [];
     const assignment = resolveAssignmentPresentation({ childId: source.child_id, teamId: source.team_id }, familyChildren, familyTeams);
-    return [{ id: source.id, displayName: source.display_name, sport: parseCorralioSport(source.sport), syncStatus: source.sync_status, refreshPausedAt: source.refresh_paused_at, childId: source.child_id, teamId: source.team_id, assignmentLabel: assignment.label ?? "Not assigned", assignmentUnavailable: assignment.kind === "unavailable" }];
+    return [{ id: source.id, displayName: source.display_name, sport: parseCorralioSport(source.sport), syncStatus: source.sync_status, lastSyncedAt: source.last_synced_at, refreshPausedAt: source.refresh_paused_at, childId: source.child_id, teamId: source.team_id, assignmentLabel: assignment.label ?? "Not assigned", assignmentUnavailable: assignment.kind === "unavailable" }];
   });
   return {
     familyChildren,
     familyTeams,
     connectedSources,
     sourceCount: rows.sources.length,
+    freshnessNow: new Date().toISOString(),
     originAddress: typeof householdResult.data?.origin_address === "string"
       ? householdResult.data.origin_address
       : "",

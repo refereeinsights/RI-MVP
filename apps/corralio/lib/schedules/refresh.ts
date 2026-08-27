@@ -7,9 +7,11 @@ import {
 import { toPersistedScheduleEvent, type PersistedScheduleEvent } from "./ingest";
 
 export const CORRALIO_REFRESH_BATCH_LIMIT = 10;
-export const CORRALIO_REFRESH_FRESHNESS_HOURS = 23;
+export const CORRALIO_REFRESH_FRESHNESS_HOURS = 3;
 export const CORRALIO_REFRESH_CLAIM_TIMEOUT_MINUTES = 10;
 export const CORRALIO_REFRESH_FAILURE_THRESHOLD = 3;
+export const CORRALIO_REFRESH_FAILURE_MINIMUM_HOURS = 24;
+export const CORRALIO_MANUAL_REFRESH_COOLDOWN_MINUTES = 5;
 
 export type CorralioRefreshFailureCode = ScheduleFetchError | "event_limit" | "persistence";
 
@@ -57,10 +59,71 @@ type RefreshDependencies = {
   nowMs?: () => number;
 };
 
+export type CorralioSingleRefreshResult =
+  | { status: "success"; eventCount: number }
+  | { status: "failed"; finalized: boolean | null };
+
 function normalizationFailure(events: NormalizedScheduleEvent[], errors: string[]) {
   if (errors.length) return "not_ics" as const;
   if (events.length > 500) return "event_limit" as const;
   return null;
+}
+
+export async function refreshCorralioClaim(
+  store: CorralioRefreshStore,
+  claim: CorralioRefreshClaim,
+  dependencies: RefreshDependencies = {},
+): Promise<CorralioSingleRefreshResult> {
+  const fetchSchedule = dependencies.fetchSchedule ?? fetchIcsSchedule;
+  const normalizeSchedule = dependencies.normalizeSchedule ?? normalizeIcsSchedule;
+  let failureCode: CorralioRefreshFailureCode | null = null;
+  try {
+    const fetched = await fetchSchedule(claim.sourceUrl);
+    if (!fetched.ok) {
+      failureCode = fetched.error;
+    } else {
+      const normalized = normalizeSchedule({
+        icsText: fetched.text,
+        sourceUrl: fetched.finalUrl,
+      });
+      failureCode = normalizationFailure(normalized.events, normalized.errors);
+      if (!failureCode) {
+        await store.persistClaimed({
+          sourceId: claim.sourceId,
+          claimToken: claim.claimToken,
+          events: normalized.events.map(toPersistedScheduleEvent),
+          canceledSourceEventUids: normalized.canceledSourceEventUids,
+        });
+        try {
+          await store.matchPersistedEvents({
+            householdId: claim.householdId,
+            sourceId: claim.sourceId,
+            sourceEventUids: normalized.events.map((event) => event.sourceEventUid),
+          });
+        } catch {
+          // Persistence has succeeded and finalized the refresh claim. Venue
+          // intelligence is best-effort and must not alter refresh health.
+          console.warn("[corralio][venue-matching] post-persistence evaluation failed");
+        }
+        return { status: "success", eventCount: normalized.events.length };
+      }
+    }
+  } catch {
+    failureCode = "persistence";
+  }
+
+  try {
+    const finalized = await store.failClaimed({
+      sourceId: claim.sourceId,
+      claimToken: claim.claimToken,
+      failureCode: failureCode ?? "persistence",
+    });
+    return { status: "failed", finalized };
+  } catch {
+    // The source attempt failed operationally, but no persisted failure count
+    // is assumed when finalization itself cannot be confirmed.
+    return { status: "failed", finalized: null };
+  }
 }
 
 export async function runCorralioScheduledRefresh(
@@ -68,8 +131,6 @@ export async function runCorralioScheduledRefresh(
   dependencies: RefreshDependencies = {},
 ): Promise<CorralioRefreshResult> {
   const startedAt = (dependencies.nowMs ?? Date.now)();
-  const fetchSchedule = dependencies.fetchSchedule ?? fetchIcsSchedule;
-  const normalizeSchedule = dependencies.normalizeSchedule ?? normalizeIcsSchedule;
   const claims = await store.claimBatch(CORRALIO_REFRESH_BATCH_LIMIT);
   let refreshed = 0;
   let validEmpty = 0;
@@ -77,57 +138,14 @@ export async function runCorralioScheduledRefresh(
   let skipped = 0;
 
   for (const claim of claims) {
-    let failureCode: CorralioRefreshFailureCode | null = null;
-    try {
-      const fetched = await fetchSchedule(claim.sourceUrl);
-      if (!fetched.ok) {
-        failureCode = fetched.error;
-      } else {
-        const normalized = normalizeSchedule({
-          icsText: fetched.text,
-          sourceUrl: fetched.finalUrl,
-        });
-        failureCode = normalizationFailure(normalized.events, normalized.errors);
-        if (!failureCode) {
-          await store.persistClaimed({
-            sourceId: claim.sourceId,
-            claimToken: claim.claimToken,
-            events: normalized.events.map(toPersistedScheduleEvent),
-            canceledSourceEventUids: normalized.canceledSourceEventUids,
-          });
-          try {
-            await store.matchPersistedEvents({
-              householdId: claim.householdId,
-              sourceId: claim.sourceId,
-              sourceEventUids: normalized.events.map((event) => event.sourceEventUid),
-            });
-          } catch {
-            // Persistence has succeeded and finalized the refresh claim. Venue
-            // intelligence is best-effort and must not alter refresh health.
-            console.warn("[corralio][venue-matching] post-persistence evaluation failed");
-          }
-          if (normalized.events.length === 0) validEmpty += 1;
-          else refreshed += 1;
-        }
-      }
-    } catch {
-      failureCode = "persistence";
-    }
-
-    if (failureCode) {
-      try {
-        const finalized = await store.failClaimed({
-          sourceId: claim.sourceId,
-          claimToken: claim.claimToken,
-          failureCode,
-        });
-        if (finalized) failed += 1;
-        else skipped += 1;
-      } catch {
-        // The source attempt failed operationally, but no persisted failure
-        // count is assumed when finalization itself cannot be confirmed.
-        failed += 1;
-      }
+    const result = await refreshCorralioClaim(store, claim, dependencies);
+    if (result.status === "success") {
+      if (result.eventCount === 0) validEmpty += 1;
+      else refreshed += 1;
+    } else if (result.finalized !== false) {
+      failed += 1;
+    } else {
+      skipped += 1;
     }
   }
 

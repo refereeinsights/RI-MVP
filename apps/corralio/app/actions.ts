@@ -14,7 +14,9 @@ import {
   type ScheduleConnectionInteraction,
 } from "@/lib/schedules/connectionAnalytics";
 import { ingestCorralioSchedule, replaceCorralioSchedule } from "@/lib/schedules/ingest";
+import { refreshCorralioScheduleNow } from "@/lib/schedules/manualRefresh.server";
 import { parseSchedulePlatform } from "@/lib/schedules/platforms";
+import { CORRALIO_MANUAL_REFRESH_COOLDOWN_MINUTES } from "@/lib/schedules/refresh";
 import { CORRALIO_SPORTS, parseCorralioSport } from "@/lib/schedules/sport";
 import { createSupabaseScheduleStore } from "@/lib/schedules/supabaseStore";
 import {
@@ -30,6 +32,7 @@ export type FormState = {
   message: string;
   errorKind?: ScheduleConnectionFailureReason;
   imported?: number;
+  retryAt?: string;
 };
 
 function revalidatePlanner() {
@@ -521,4 +524,43 @@ export async function signOut() {
   const supabase = createCorralioSupabaseServerClient();
   await supabase.auth.signOut();
   revalidatePath("/");
+}
+
+export async function refreshScheduleNow(_state: FormState, formData: FormData): Promise<FormState> {
+  const sourceId = String(formData.get("sourceId") ?? "").trim();
+  if (!isValidUuid(sourceId)) return { status: "error", message: "That schedule is unavailable." };
+
+  try {
+    const viewer = await resolveCorralioViewer();
+    if (!viewer?.householdId) return { status: "error", message: "That schedule is unavailable." };
+    const result = await refreshCorralioScheduleNow(
+      createCorralioSupabaseAdminClient(),
+      { householdId: viewer.householdId, sourceId },
+    );
+    revalidatePlanner();
+    if (result.outcome === "success") {
+      return {
+        status: "success",
+        message: `Schedule checked — ${result.eventCount} upcoming ${result.eventCount === 1 ? "event" : "events"} found`,
+        imported: result.eventCount,
+        retryAt: new Date(Date.now() + CORRALIO_MANUAL_REFRESH_COOLDOWN_MINUTES * 60_000).toISOString(),
+      };
+    }
+    if (result.outcome === "cooldown") {
+      return { status: "error", message: "This schedule was checked recently. Try again in a few minutes." };
+    }
+    if (result.outcome === "busy") {
+      return { status: "error", message: "This schedule is already being checked. Try again shortly." };
+    }
+    if (result.outcome === "paused") {
+      return { status: "error", message: "This schedule needs attention. Replace the calendar link to reconnect updates." };
+    }
+    if (result.outcome === "failed") {
+      return { status: "error", message: "Couldn’t refresh — try again shortly.", retryAt: new Date(Date.now() + CORRALIO_MANUAL_REFRESH_COOLDOWN_MINUTES * 60_000).toISOString() };
+    }
+    return { status: "error", message: "That schedule is unavailable." };
+  } catch {
+    console.warn("[corralio][manual-refresh] refresh failed");
+    return { status: "error", message: "Couldn’t refresh — try again shortly." };
+  }
 }

@@ -6,10 +6,12 @@ export function FormSubmitButton({
   idle,
   pending,
   variant = "primary",
+  disabled = false,
 }: {
   idle: string;
   pending: string;
   variant?: "primary" | "secondary" | "destructive";
+  disabled?: boolean;
 }) {
   const status = useFormStatus();
   const className = variant === "primary"
@@ -18,7 +20,7 @@ export function FormSubmitButton({
       ? "destructiveButton"
       : "secondaryButton";
   return (
-    <button className={className} type="submit" disabled={status.pending}>
+    <button className={className} type="submit" disabled={status.pending || disabled}>
       {status.pending ? pending : idle}
     </button>
   );

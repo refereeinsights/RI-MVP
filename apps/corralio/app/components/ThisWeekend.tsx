@@ -84,7 +84,15 @@ function EventCard({ event, conflicts, onNavigate }: { event: WeekendPlanEvent; 
   );
 }
 
-export function ThisWeekend({ events, candidateLimitReached = false }: { events: WeekendPlanEvent[]; candidateLimitReached?: boolean }) {
+export function ThisWeekend({
+  events,
+  candidateLimitReached = false,
+  scheduleFreshness = null,
+}: {
+  events: WeekendPlanEvent[];
+  candidateLimitReached?: boolean;
+  scheduleFreshness?: string | null;
+}) {
   const router = useRouter();
   const [now, setNow] = useState<Date | null>(null);
   const [navigationLocation, setNavigationLocation] = useState<string | null>(null);
@@ -178,6 +186,7 @@ export function ThisWeekend({ events, candidateLimitReached = false }: { events:
 
   return (
     <div className="weekendPlan">
+      {scheduleFreshness ? <p className="scheduleFreshness">{scheduleFreshness}</p> : null}
       <p className="sectionKicker">{rangeLabel}</p>
       {plan?.conflictStatus === "candidate-limit-reached" ? (
         <div className="conflictCoverageNotice" role="status">

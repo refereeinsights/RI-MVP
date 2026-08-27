@@ -5,11 +5,13 @@ import { useFormState } from "react-dom";
 
 import {
   disconnectSchedule,
+  refreshScheduleNow,
   replaceScheduleLink,
   updateScheduleAssignment,
   updateScheduleSport,
   type FormState,
 } from "@/app/actions";
+import { sourceFreshnessLabel } from "@/lib/schedules/freshness";
 import {
   CORRALIO_SPORTS,
   corralioSportIcon,
@@ -27,6 +29,7 @@ export type ConnectedSchedule = {
   displayName: string;
   sport: CorralioSport | null;
   syncStatus: "pending" | "success" | "error";
+  lastSyncedAt: string | null;
   refreshPausedAt: string | null;
   childId: string | null;
   teamId: string | null;
@@ -45,10 +48,12 @@ function ConnectedScheduleCard({
   source,
   familyChildren,
   teams,
+  freshnessNow,
 }: {
   source: ConnectedSchedule;
   familyChildren: FamilyChild[];
   teams: FamilyTeam[];
+  freshnessNow: string;
 }) {
   const [editingSport, setEditingSport] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState(false);
@@ -66,6 +71,8 @@ function ConnectedScheduleCard({
   const [sportState, sportAction] = useFormState(updateScheduleSport, INITIAL_FORM_STATE);
   const [assignmentState, assignmentAction] = useFormState(updateScheduleAssignment, INITIAL_FORM_STATE);
   const [replaceState, replaceAction] = useFormState(replaceScheduleLink, INITIAL_FORM_STATE);
+  const [refreshState, refreshAction] = useFormState(refreshScheduleNow, INITIAL_FORM_STATE);
+  const [cooldownActive, setCooldownActive] = useState(false);
   const replaceFormRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -88,6 +95,17 @@ function ConnectedScheduleCard({
     }
   }, [replaceState]);
 
+  useEffect(() => {
+    const retryAt = refreshState.retryAt ? Date.parse(refreshState.retryAt) : Number.NaN;
+    if (!Number.isFinite(retryAt) || retryAt <= Date.now()) {
+      setCooldownActive(false);
+      return;
+    }
+    setCooldownActive(true);
+    const timeout = window.setTimeout(() => setCooldownActive(false), retryAt - Date.now());
+    return () => window.clearTimeout(timeout);
+  }, [refreshState.retryAt]);
+
   const refreshPaused = source.syncStatus === "error" && Boolean(source.refreshPausedAt);
   const refreshDelayed = source.syncStatus === "error" && !source.refreshPausedAt;
   const statusTone = refreshPaused ? "attention" : source.syncStatus;
@@ -109,10 +127,18 @@ function ConnectedScheduleCard({
         <span className={`status ${statusTone}`}><span aria-hidden="true">{source.syncStatus === "success" ? "✓" : "•"}</span> {statusLabel(source)}</span>
       </div>
 
+      <p className={`sourceFreshness${source.syncStatus === "error" ? " attention" : ""}`}>
+        {sourceFreshnessLabel(source, Date.parse(freshnessNow))}
+      </p>
+
       {refreshDelayed ? <p className="sourceStatusHelp">We’ll try this schedule again automatically. Your existing events are still available.</p> : null}
       {refreshPaused ? <p className="sourceStatusHelp attention">Corralio couldn’t refresh this schedule. Your existing events are still available. Replace the calendar link to reconnect updates.</p> : null}
 
       <div className="sourceActions">
+        <form className="sourceActionForm" action={refreshAction}>
+          <input type="hidden" name="sourceId" value={source.id} />
+          <FormSubmitButton idle={cooldownActive ? "Refresh available shortly" : "Refresh now"} pending="Checking…" variant="secondary" disabled={cooldownActive || refreshPaused} />
+        </form>
         <button className="secondaryButton" type="button" onClick={() => setEditingSport((open) => !open)} aria-expanded={editingSport}>
           Edit sport
         </button>
@@ -139,6 +165,7 @@ function ConnectedScheduleCard({
           pendingLabel="Disconnecting…"
         />
       </div>
+      {refreshState.message ? <p className={`formNotice ${refreshState.status}`} role="status">{refreshState.message}</p> : null}
 
       {editingSport ? (
         <form className="inlineSourceForm" action={sportAction}>
@@ -212,15 +239,17 @@ export function ConnectedScheduleList({
   sources,
   familyChildren,
   teams,
+  freshnessNow,
 }: {
   sources: ConnectedSchedule[];
   familyChildren: FamilyChild[];
   teams: FamilyTeam[];
+  freshnessNow: string;
 }) {
   return (
     <ul className="sourceList" aria-label="Connected schedules">
       {sources.map((source) => (
-        <ConnectedScheduleCard source={source} familyChildren={familyChildren} teams={teams} key={source.id} />
+        <ConnectedScheduleCard source={source} familyChildren={familyChildren} teams={teams} freshnessNow={freshnessNow} key={source.id} />
       ))}
     </ul>
   );

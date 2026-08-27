@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CorralioRefreshClaim, CorralioRefreshStore } from "./refresh";
 import { matchPersistedCorralioEvents } from "../venueMatching.server";
 
-function databaseFailure(stage: string, error: { code?: string } | null) {
+function databaseFailure(stage: string, error: { code?: string } | null): never {
   console.warn("[corralio][scheduled-refresh] database operation failed", {
     stage,
     code: error?.code ?? null,
@@ -28,6 +28,31 @@ function asClaim(value: unknown): CorralioRefreshClaim | null {
     sourceUrl: row.source_url,
     claimToken: row.claim_token,
   };
+}
+
+export type CorralioManualClaimResult =
+  | { outcome: "claimed"; claim: CorralioRefreshClaim }
+  | { outcome: "cooldown" | "busy" | "paused" | "unavailable" };
+
+export async function claimCorralioRefreshSource(
+  adminClient: SupabaseClient,
+  input: { householdId: string; sourceId: string },
+): Promise<CorralioManualClaimResult> {
+  const { data, error } = await adminClient.rpc("corralio_claim_ics_refresh_source_v1", {
+    p_household_id: input.householdId,
+    p_source_id: input.sourceId,
+  });
+  if (error || !Array.isArray(data) || data.length !== 1) databaseFailure("claim_source", error);
+  const row = data[0] as Record<string, unknown>;
+  if (row.outcome === "claimed") {
+    const claim = asClaim(row);
+    if (!claim) databaseFailure("claim_source_shape", null);
+    return { outcome: "claimed", claim };
+  }
+  if (row.outcome === "cooldown" || row.outcome === "busy" || row.outcome === "paused" || row.outcome === "unavailable") {
+    return { outcome: row.outcome };
+  }
+  databaseFailure("claim_source_outcome", null);
 }
 
 export function createCorralioRefreshSupabaseStore(adminClient: SupabaseClient): CorralioRefreshStore {

@@ -3,7 +3,10 @@ import test from "node:test";
 
 import {
   CORRALIO_REFRESH_BATCH_LIMIT,
+  CORRALIO_MANUAL_REFRESH_COOLDOWN_MINUTES,
+  CORRALIO_REFRESH_FAILURE_MINIMUM_HOURS,
   CORRALIO_REFRESH_FAILURE_THRESHOLD,
+  CORRALIO_REFRESH_FRESHNESS_HOURS,
   runCorralioScheduledRefresh,
   type CorralioRefreshClaim,
   type CorralioRefreshFailureCode,
@@ -118,6 +121,9 @@ test("a stale claim finalization is skipped instead of counted as a persisted fa
 
 test("persistent failure threshold remains fixed at three", () => {
   assert.equal(CORRALIO_REFRESH_FAILURE_THRESHOLD, 3);
+  assert.equal(CORRALIO_REFRESH_FAILURE_MINIMUM_HOURS, 24);
+  assert.equal(CORRALIO_REFRESH_FRESHNESS_HOURS, 3);
+  assert.equal(CORRALIO_MANUAL_REFRESH_COOLDOWN_MINUTES, 5);
 });
 
 test("a valid empty feed delegates safely to canonical persistence", async () => {

@@ -19,6 +19,19 @@ test("migration fixes freshness, claim recovery, ordering, and service-role-only
   assert.doesNotMatch(sql, /create index/i);
 });
 
+test("Slice 3.5.5 supersedes the applied freshness gate without editing history", () => {
+  const sql = source("../../../../supabase/migrations/20260827_corralio_slice355_schedule_freshness.sql");
+  assert.match(sql, /interval '3 hours'/);
+  assert.match(sql, /interval '5 minutes'/);
+  assert.match(sql, /interval '24 hours'/);
+  assert.match(sql, /least\(greatest\(coalesce\(p_limit, 10\), 1\), 10\)/);
+  assert.match(sql, /for update skip locked/);
+  assert.match(sql, /corralio_claim_ics_refresh_source_v1/);
+  assert.match(sql, /source\.household_id = p_household_id/);
+  assert.match(sql, /from public, anon, authenticated/);
+  assert.match(sql, /to service_role/);
+});
+
 test("claimed persistence delegates to the canonical ingestion function", () => {
   const sql = source("../../../../supabase/migrations/20260819_corralio_slice32_scheduled_ics_refresh.sql");
   const claimedPersistence = sql.slice(
@@ -37,7 +50,7 @@ test("cron route uses only the admin client and returns no-store responses", () 
   assert.match(route, /isCorralioCronAuthorized/);
 });
 
-test("one daily Vercel cron targets the protected API route", () => {
+test("one four-hour Vercel cron targets the protected API route", () => {
   const vercel = JSON.parse(source("../../vercel.json")) as { crons?: Array<{ path: string; schedule: string }> };
-  assert.deepEqual(vercel.crons, [{ path: "/api/cron/schedule-refresh", schedule: "17 11 * * *" }]);
+  assert.deepEqual(vercel.crons, [{ path: "/api/cron/schedule-refresh", schedule: "17 */4 * * *" }]);
 });

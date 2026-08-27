@@ -13,8 +13,10 @@ test("ordinary connected-source payloads contain safe metadata but never source_
   assert.ok(sourceSelect, "expected an explicit schedule-source select");
   assert.match(sourceSelect, /\bsport\b/);
   assert.match(sourceSelect, /\brefresh_paused_at\b/);
+  assert.match(sourceSelect, /\blast_synced_at\b/);
   assert.doesNotMatch(sourceSelect, /source_url/i);
   assert.doesNotMatch(sourceSelect, /consecutive_refresh_failures/i);
+  assert.doesNotMatch(sourceSelect, /refresh_failure_started_at/i);
   assert.doesNotMatch(connectedSourceUi, /sourceUrl:\s*string/);
   assert.match(connectedSourceUi, /defaultValue=\{source\.sport \?\? ""\}/);
   assert.doesNotMatch(connectedSourceUi, /defaultValue=\{source\.(?:source)?url/i);
