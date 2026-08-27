@@ -38,4 +38,7 @@ test("parent-facing expansion and no-fit semantics match the approved packet", (
   assert.match(panel, /No \$\{mode === "food" \? "Food" : "Coffee"\} options comfortably fit this window\./);
   assert.match(server, /corralio_overture_refresh_scopes/);
   assert.match(server, /\.eq\("status", "active"\)/);
+  assert.match(server, /nextEventTimezone: gapResult\.gap\.nextEvent\.timezone/);
+  assert.match(panel, /formatTime\(food\.requiredArrivalAt, food\.nextEventTimezone\)/);
+  assert.match(panel, /formatTime\(recommendation\.leaveCandidateAt, result\?\.nextEventTimezone \?\? food\.nextEventTimezone\)/);
 });

@@ -65,6 +65,7 @@ export type WhatFitsServerResult =
       gapStartsAt: string;
       requiredArrivalAt: string;
       rawGapMinutes: number;
+      nextEventTimezone: string | null;
       arrivalSource: "ics_explicit" | "team_preference" | "corralio_default";
       arrivalMinutes: number;
       recommendations: WhatFitsClientRecommendation[];
@@ -239,6 +240,7 @@ export async function computeWhatFits(input: {
       gapStartsAt: gapResult.gap.gapStartsAt,
       requiredArrivalAt: gapResult.gap.requiredArrivalAt,
       rawGapMinutes: gapResult.gap.rawGapMinutes,
+      nextEventTimezone: gapResult.gap.nextEvent.timezone,
       arrivalSource: gapResult.gap.arrivalSource,
       arrivalMinutes: gapResult.gap.arrivalMinutes,
       recommendations: [],
@@ -280,6 +282,7 @@ export async function computeWhatFits(input: {
     gapStartsAt: gapResult.gap.gapStartsAt,
     requiredArrivalAt: gapResult.gap.requiredArrivalAt,
     rawGapMinutes: gapResult.gap.rawGapMinutes,
+    nextEventTimezone: gapResult.gap.nextEvent.timezone,
     arrivalSource: gapResult.gap.arrivalSource,
     arrivalMinutes: gapResult.gap.arrivalMinutes,
     recommendations: recommendations.map((recommendation) => ({

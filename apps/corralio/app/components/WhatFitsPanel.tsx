@@ -16,8 +16,16 @@ function formatDuration(minutes: number) {
   return `${hours} hr ${remainder} min`;
 }
 
-function formatTime(value: string) {
-  return new Date(value).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+function formatTime(value: string, timeZone: string | null) {
+  try {
+    return new Date(value).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      ...(timeZone ? { timeZone } : {}),
+    });
+  } catch {
+    return new Date(value).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
 }
 
 function titleCase(value: string) {
@@ -126,7 +134,7 @@ export function WhatFitsPanel({
             <h3 id={`what-fits-${food.currentEventId}`}>{formatDuration(food.rawGapMinutes)} between events</h3>
           </div>
           <div className="whatFitsArrival">
-            <strong>Arrive by {formatTime(food.requiredArrivalAt)}</strong>
+            <strong>Arrive by {formatTime(food.requiredArrivalAt, food.nextEventTimezone)}</strong>
             <span>{arrivalLabel(food)}</span>
           </div>
         </div>
@@ -157,7 +165,7 @@ export function WhatFitsPanel({
                   <p className="whatFitsRoute">{recommendation.outboundMinutes} min from here · {recommendation.inboundMinutes} min to next event</p>
                   <div className="whatFitsActionRow">
                     <div>
-                      <strong>Leave by {formatTime(recommendation.leaveCandidateAt)}</strong>
+                      <strong>Leave by {formatTime(recommendation.leaveCandidateAt, result?.nextEventTimezone ?? food.nextEventTimezone)}</strong>
                       <span>Estimated drive times · No live traffic</span>
                       {recommendation.operatingStatus === "status_unknown" ? <span>Hours not verified</span> : null}
                     </div>
