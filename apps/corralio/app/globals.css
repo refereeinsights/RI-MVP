@@ -113,6 +113,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .previewEvent p { margin: 0 0 5px; font-size: .78rem; font-weight: 800; overflow-wrap: anywhere; }
 .previewEvent div { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--muted); font-size: .75rem; line-height: 1.35; }
 .previewEvent strong { color: var(--accent); }
+.previewEvent .previewSource { margin: 5px 0 0; color: var(--muted); font-size: .68rem; font-weight: 650; }
 .previewEvent .previewLeaveBy { margin: 8px 0 0; padding-top: 7px; border-top: 1px solid var(--border); color: var(--accent); font-size: .72rem; line-height: 1.4; }
 .previewOutcome { margin: 20px 0 0; color: var(--accent); font-size: .9rem; font-weight: 800; text-align: center; }
 
@@ -309,6 +310,21 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .emptyState p, .upcomingPlaceholder .sectionIntro { max-width: 520px; margin: 8px auto 0; color: var(--muted); font-size: .9rem; line-height: 1.55; }
 .weekendLoading { padding: 28px; color: var(--muted); text-align: center; }
 .connectCard { margin-top: 18px; }
+.scheduleConnectionFlow { display: grid; gap: 18px; }
+.schedulePlatformPicker { min-width: 0; margin: 0; padding: 0; border: 0; }
+.schedulePlatformPicker legend { margin-bottom: 12px; font-size: 1rem; font-weight: 800; }
+.schedulePlatformOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.schedulePlatformOption { min-height: 64px; display: grid; align-content: center; gap: 3px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); color: var(--foreground); text-align: left; }
+.schedulePlatformOption:hover, .schedulePlatformOption.selected { border-color: var(--accent); background: var(--accent-soft); }
+.schedulePlatformOption strong { font-size: .88rem; }
+.schedulePlatformOption span { color: var(--muted); font-size: .72rem; }
+.schedulePlatformInstructions { margin-bottom: 4px; padding: 14px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-subtle); }
+.schedulePlatformInstructions ol { display: grid; gap: 6px; margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.schedulePlatformInstructions .fieldHelp { margin-top: 10px; }
+.connectionRecovery > p:last-child { margin: 7px 2px 0; color: var(--muted); font-size: .8rem; line-height: 1.45; }
+.scheduleConnectionSuccess { display: grid; gap: 10px; }
+.scheduleConnectionSuccessActions { display: flex; flex-wrap: wrap; gap: 9px; }
+.scheduleConnectionSuccessActions .primaryLinkButton { margin: 0; }
 
 .familyCard > .sectionIntro { margin-bottom: 22px; }
 .homeOrigin { display: grid; gap: 16px; margin: 0 0 24px; padding: 16px; border: 1px solid var(--border); border-radius: 15px; background: var(--surface-subtle); }
@@ -435,6 +451,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .whatFitsCandidateHeading > span { width: fit-content; }
   .whatFitsActionRow button { align-self: start; }
   .sourceActions { display: grid; grid-template-columns: 1fr; }
+  .schedulePlatformOptions { grid-template-columns: 1fr; }
   .familyTeamDetails > .familyTeamSummary { grid-template-columns: minmax(0, 1fr) auto 18px; gap: 8px; }
   .familyAddForm { grid-template-columns: 1fr; }
   .navigationDialog { margin-bottom: 8px; }

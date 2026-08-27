@@ -10,9 +10,10 @@ const EXAMPLE_DAYS = [
         time: "8:00 AM",
         title: "Game",
         location: "Tacoma",
+        source: "via GameChanger",
         leaveBy: "Leave by 6:55 AM (est.) · ~52 min estimated drive",
       },
-      { identity: "Riley · City Soccer", time: "10:30 AM", title: "Match", location: "Bellevue" },
+      { identity: "Riley · City Soccer", time: "10:30 AM", title: "Match", location: "Bellevue", source: "via TeamSnap" },
       { identity: "Jordan · Northside Lacrosse", time: "3:00 PM", title: "Practice", location: "Seattle" },
     ],
   },
@@ -62,6 +63,7 @@ export function SignedOutLanding() {
                       <li className={`previewEvent previewEvent-${(dayIndex + eventIndex) % 3}`} key={`${event.identity}-${event.time}`}>
                         <p>{event.identity}</p>
                         <div><strong>{event.time}</strong><span>{event.title} · {event.location}</span></div>
+                        {"source" in event ? <p className="previewSource">{event.source}</p> : null}
                         {"leaveBy" in event ? <p className="previewLeaveBy">{event.leaveBy}</p> : null}
                       </li>
                     ))}

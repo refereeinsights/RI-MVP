@@ -8,7 +8,13 @@ import { CORRALIO_ACQUISITION_COOKIE, resolveAcquisitionProvenanceCookie } from 
 import { nextChildColor, normalizeFamilyName, parseTeamSport } from "@/lib/family";
 import { computeWeekendLeaveBy, saveHouseholdOrigin } from "@/lib/leaveBy.server";
 import { isValidUuid, parseScheduleAssignmentInput } from "@/lib/schedules/assignment";
+import {
+  recordScheduleConnectionInteraction,
+  type ScheduleConnectionFailureReason,
+  type ScheduleConnectionInteraction,
+} from "@/lib/schedules/connectionAnalytics";
 import { ingestCorralioSchedule, replaceCorralioSchedule } from "@/lib/schedules/ingest";
+import { parseSchedulePlatform } from "@/lib/schedules/platforms";
 import { CORRALIO_SPORTS, parseCorralioSport } from "@/lib/schedules/sport";
 import { createSupabaseScheduleStore } from "@/lib/schedules/supabaseStore";
 import {
@@ -19,7 +25,12 @@ import { recordWeeklyEngagement, type EngagementPayload } from "@/lib/weeklyEnga
 import { computeWhatFits, type WhatFitsServerResult } from "@/lib/whatFits.server";
 import { sanitizeWhatFitsAnalytics, type WhatFitsAnalyticsPayload, type WhatFitsMode } from "@/lib/whatFits";
 
-export type FormState = { status: "idle" | "success" | "error"; message: string };
+export type FormState = {
+  status: "idle" | "success" | "error";
+  message: string;
+  errorKind?: ScheduleConnectionFailureReason;
+  imported?: number;
+};
 
 function revalidatePlanner() {
   revalidatePath("/");
@@ -139,13 +150,41 @@ export async function recordWhatFitsAnalyticsAction(payload: WhatFitsAnalyticsPa
   }
 }
 
+export async function recordScheduleConnectionInteractionAction(input: unknown): Promise<void> {
+  await recordScheduleConnectionInteraction(
+    {
+      callRpc: async (payload) => {
+        const { supabase } = await getOwnerContext();
+        const { error } = await supabase.rpc("corralio_record_schedule_connection_event_v1", {
+          p_event_name: payload.event,
+          p_platform: payload.platform,
+          p_reason: payload.reason ?? null,
+        });
+        return { error };
+      },
+      log: (message) => console.warn(message),
+    },
+    input,
+  );
+}
+
+async function recordConnectionFailure(input: ScheduleConnectionInteraction) {
+  await recordScheduleConnectionInteractionAction(input);
+}
+
 export async function connectSchedule(_state: FormState, formData: FormData): Promise<FormState> {
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
   const displayName = String(formData.get("displayName") ?? "").trim();
   const submittedSport = String(formData.get("sport") ?? "").trim().toLowerCase();
-  if (!sourceUrl) return { status: "error", message: "Paste your calendar link." };
+  const platform = parseSchedulePlatform(formData.get("platform"));
+  if (!platform) return { status: "error", message: "Choose where this schedule lives." };
+  if (!sourceUrl) {
+    await recordConnectionFailure({ event: "link_submission_failed", platform, reason: "missing_url" });
+    return { status: "error", message: "Paste your calendar link.", errorKind: "missing_url" };
+  }
   if (submittedSport && !CORRALIO_SPORTS.includes(submittedSport as (typeof CORRALIO_SPORTS)[number])) {
-    return { status: "error", message: "Choose a valid sport or leave it unselected." };
+    await recordConnectionFailure({ event: "link_submission_failed", platform, reason: "invalid_sport" });
+    return { status: "error", message: "Choose a valid sport or leave it unselected.", errorKind: "invalid_sport" };
   }
 
   try {
@@ -155,14 +194,23 @@ export async function connectSchedule(_state: FormState, formData: FormData): Pr
       createSupabaseScheduleStore(authenticatedClient, adminClient),
       { sourceUrl, displayName, sport: parseCorralioSport(submittedSport) },
     );
-    if (!result.ok) return { status: "error", message: result.error };
+    if (!result.ok) {
+      await recordConnectionFailure({ event: "feed_validation_failed", platform, reason: result.errorKind });
+      return { status: "error", message: result.error, errorKind: result.errorKind };
+    }
     revalidatePlanner();
     return {
       status: "success",
-      message: `Schedule connected. ${result.imported} upcoming ${result.imported === 1 ? "event" : "events"} imported.`,
+      message: `Schedule connected — we found ${result.imported} upcoming ${result.imported === 1 ? "event" : "events"}`,
+      imported: result.imported,
     };
   } catch {
-    return { status: "error", message: "We couldn’t connect that schedule right now. Please try again." };
+    await recordConnectionFailure({ event: "feed_validation_failed", platform, reason: "temporary_failure" });
+    return {
+      status: "error",
+      message: "We couldn’t connect that schedule right now. Please try again.",
+      errorKind: "temporary_failure",
+    };
   }
 }
 

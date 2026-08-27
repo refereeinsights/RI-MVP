@@ -27,6 +27,8 @@ test("the example weekend is static and separated from private product data", ()
   assert.match(landing, /We’ve got the weekend figured out\./);
   assert.match(landing, /Leave by 6:55 AM \(est\.\) · ~52 min estimated drive/);
   assert.equal(landing.match(/Leave by 6:55 AM \(est\.\) · ~52 min estimated drive/g)?.length, 1);
+  assert.equal(landing.match(/via GameChanger/g)?.length, 1);
+  assert.equal(landing.match(/via TeamSnap/g)?.length, 1);
   assert.doesNotMatch(landing, /productData|supabase|database|sourceUrl|\.ics|fetch\(|routing|geocod|provider|openrouteservice|computeLeaveBy|leaveBy\.server|use server|use client/i);
 });
 
@@ -45,8 +47,10 @@ test("Get Started reuses the established Magic Link account path", () => {
 
 test("schedule setup leads with parent language and preserves precise lifecycle terms", () => {
   assert.match(familyPage, /Connect a schedule/);
-  assert.match(connectForm, />Calendar link<\/label>/);
-  assert.match(connectForm, /iCal or ICS subscription link/);
+  assert.match(connectForm, /Where does this schedule live\?/);
+  assert.match(connectForm, />Calendar subscription link<\/label>/);
+  assert.match(connectForm, /Connect another schedule/);
+  assert.match(connectForm, /See This Weekend/);
   assert.match(connectForm, /Connect schedule/);
   assert.match(connectedSchedules, /Change assignment/);
   assert.match(connectedSchedules, /Replace calendar link/);

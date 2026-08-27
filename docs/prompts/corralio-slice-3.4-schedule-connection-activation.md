@@ -6,6 +6,21 @@ You are working in the existing TournamentInsights / RefereeInsights / Corralio 
 
 This is a focused pre-launch activation-hardening slice for Corralio's existing schedule-connection flow (Slice 3). It is derived from founder product direction on schedule-connection support and platform knowledge, scoped down to what pre-launch activation actually needs — **do not treat any broader knowledge-base ambition as required implementation scope.**
 
+## Authoritative Stage 2 execution clarification — 2026-08-27
+
+This section incorporates the resolved CPO decisions and is authoritative where later sections retain stale or ambiguous wording.
+
+- The launch picker is exactly **GameChanger, TeamSnap, Stack Team App, and Other calendar**. Use “also called Sports Connect” only as supporting recognition copy for Stack Team App. Never show Blue Sombrero parent-facing. Do not retain organization, team, household, event, or location identifiers in this prompt.
+- The filed Stage 1 CPO decision packet is the required decision packet. Complete and file the missing bounded Stage 1 audit/design report before editing runtime behavior. If it finds no material blocker, proceed directly to Stage 2; no second decision packet is required.
+- The Stage 1 household inspection is aggregate and read-only. Never print or refetch subscription URLs, raw feeds, event text, notes, private location values, account identifiers, or credentials.
+- Use one typed code module as the platform-knowledge source of truth. The selected platform is an activation/UI classification only and must not become Slice 4.4B trusted-source evidence or change fetch/parser security.
+- Reconcile analytics with Slice 4.2A: log only non-derivable interaction signals such as platform selection, instructions viewed, and failed submission/validation attempts. Derive successful imports, active-schedule count, second schedule connected, activation, and This Weekend use from existing persisted state. Analytics failure must never affect connection behavior.
+- A bounded platform enum (`gamechanger`, `teamsnap`, `stack_team_app`, `other`) is permitted in interaction measurement. Platform account identifiers, source URLs, feed data, and arbitrary platform strings remain prohibited.
+- Add a closed, privacy-safe error kind to the connection result/action contract so contextual help does not infer semantics from message text. This does not authorize redesign of ingestion.
+- After success show **“Schedule connected — we found [N] upcoming events”**, **“Connect another schedule”**, and **“See This Weekend.”** Do not force a redirect after the first schedule.
+- Add static “via GameChanger” and “via TeamSnap” labels to exactly two signed-out example events. They are presentation-only and imply no partnership.
+- Do not add TomTom, mobile hardening, notifications, or more platforms. Those belong downstream.
+
 ---
 
 ## 0. Numbering — read this before doing anything else

@@ -171,6 +171,7 @@ test("a team connection never silently reassigns an already-connected calendar",
   assert.deepEqual(result, {
     ok: false,
     error: "This calendar is already connected. Use Change assignment on the connected schedule to move it to this team.",
+    errorKind: "already_connected",
   });
   assert.deepEqual(state.sourceAssignments.get("source-1"), { childId: null, teamId: null });
   assert.equal(state.calls.length, 1);
@@ -186,6 +187,7 @@ test("a paused source can recover only through the validated replacement path", 
   assert.deepEqual(result, {
     ok: false,
     error: "This schedule needs attention. Use Replace calendar link on the connected schedule to reconnect updates.",
+    errorKind: "needs_replacement",
   });
   assert.equal(state.calls.length, 1);
 });
@@ -201,7 +203,7 @@ test("unauthenticated ingestion stops before fetching", async () => {
     },
   });
   assert.equal(fetched, false);
-  assert.deepEqual(result, { ok: false, error: "Sign in to connect a schedule." });
+  assert.deepEqual(result, { ok: false, error: "Sign in to connect a schedule.", errorKind: "unauthorized" });
 });
 
 test("upstream failures return sanitized output without the credential-bearing URL", async () => {
@@ -262,6 +264,6 @@ test("replacement intentionally rejects an empty feed without changing the worki
       finalUrl: "https://calendar.example/empty.ics",
     }),
   });
-  assert.deepEqual(result, { ok: false, error: "No upcoming events were found in that calendar." });
+  assert.deepEqual(result, { ok: false, error: "No upcoming events were found in that calendar.", errorKind: "no_events" });
   assert.equal(state.sourceUrls.get("source-1"), "https://calendar.example/old.ics");
 });

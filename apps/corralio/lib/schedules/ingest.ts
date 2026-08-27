@@ -65,7 +65,15 @@ type IngestionDependencies = {
 
 export type CorralioScheduleIngestionResult =
   | { ok: true; sourceId: string; imported: number }
-  | { ok: false; error: string };
+  | { ok: false; error: string; errorKind: ScheduleConnectionErrorKind };
+
+export type ScheduleConnectionErrorKind =
+  | ScheduleFetchError
+  | "already_connected"
+  | "no_events"
+  | "unauthorized"
+  | "persistence"
+  | "needs_replacement";
 
 async function runBestEffortVenueMatching(store: CorralioScheduleStore, input: {
   householdId: string;
@@ -81,18 +89,19 @@ async function runBestEffortVenueMatching(store: CorralioScheduleStore, input: {
   }
 }
 
-function userSafeError(error: ScheduleFetchError | "already_connected" | "no_events" | "unauthorized" | "persistence" | "needs_replacement") {
-  if (error === "invalid_url") return "Enter a valid iCal/ICS calendar URL.";
-  if (error === "unsupported_protocol") return "Calendar links must start with http:// or https://.";
-  if (error === "private_url") return "That calendar link cannot point to a private or local address.";
-  if (error === "fetch_failed") return "That calendar link could not be reached. Check the link and try again.";
-  if (error === "not_ics") return "That link does not appear to be an iCal/ICS calendar.";
-  if (error === "too_large") return "That calendar is too large to import right now.";
-  if (error === "no_events") return "No upcoming events were found in that calendar.";
-  if (error === "unauthorized") return "Sign in to connect a schedule.";
-  if (error === "needs_replacement") return "This schedule needs attention. Use Replace calendar link on the connected schedule to reconnect updates.";
-  if (error === "already_connected") return "This calendar is already connected. Use Change assignment on the connected schedule to move it to this team.";
-  return "We couldn’t save that schedule right now. Please try again.";
+function userSafeError(errorKind: ScheduleConnectionErrorKind): Extract<CorralioScheduleIngestionResult, { ok: false }> {
+  let error = "We couldn’t save that schedule right now. Please try again.";
+  if (errorKind === "invalid_url") error = "Enter a valid iCal/ICS calendar URL.";
+  if (errorKind === "unsupported_protocol") error = "Calendar links must start with http:// or https://.";
+  if (errorKind === "private_url") error = "This looks like a private or local address, not a public calendar link.";
+  if (errorKind === "fetch_failed") error = "That calendar link could not be reached. Check the link and try again.";
+  if (errorKind === "not_ics") error = "This link doesn’t appear to be an iCal/ICS calendar.";
+  if (errorKind === "too_large") error = "That calendar is too large to import right now.";
+  if (errorKind === "no_events") error = "No upcoming events were found in that calendar.";
+  if (errorKind === "unauthorized") error = "Sign in to connect a schedule.";
+  if (errorKind === "needs_replacement") error = "This schedule needs attention. Use Replace calendar link on the connected schedule to reconnect updates.";
+  if (errorKind === "already_connected") error = "This calendar is already connected. Use Change assignment on the connected schedule to move it to this team.";
+  return { ok: false, error, errorKind };
 }
 
 export function normalizeSubmittedScheduleUrl(rawUrl: string) {
@@ -127,27 +136,27 @@ export async function ingestCorralioSchedule(
   dependencies: IngestionDependencies = {},
 ): Promise<CorralioScheduleIngestionResult> {
   const owner = await store.resolveOwnerContext();
-  if (!owner) return { ok: false, error: userSafeError("unauthorized") };
+  if (!owner) return userSafeError("unauthorized");
 
   const sourceUrl = normalizeSubmittedScheduleUrl(input.sourceUrl);
   const fetchSchedule = dependencies.fetchSchedule ?? fetchIcsSchedule;
   const fetched = await fetchSchedule(sourceUrl);
-  if (!fetched.ok) return { ok: false, error: userSafeError(fetched.error) };
+  if (!fetched.ok) return userSafeError(fetched.error);
 
   const normalizeSchedule = dependencies.normalizeSchedule ?? normalizeIcsSchedule;
   const normalized = normalizeSchedule({ icsText: fetched.text, sourceUrl: fetched.finalUrl });
-  if (normalized.errors.length) return { ok: false, error: userSafeError("not_ics") };
-  if (!normalized.events.length) return { ok: false, error: userSafeError("no_events") };
+  if (normalized.errors.length) return userSafeError("not_ics");
+  if (!normalized.events.length) return userSafeError("no_events");
 
   const displayName = String(input.displayName ?? "").trim().slice(0, 100) || "Sports schedule";
   let sourceId: string | null = null;
   try {
     const existingSource = await store.findSourceByUrl(owner.householdId, sourceUrl);
     if (existingSource?.refreshPaused) {
-      return { ok: false, error: userSafeError("needs_replacement") };
+      return userSafeError("needs_replacement");
     }
     if (existingSource && input.assignment) {
-      return { ok: false, error: userSafeError("already_connected") };
+      return userSafeError("already_connected");
     }
     sourceId = existingSource?.sourceId ?? null;
     if (!sourceId) {
@@ -176,7 +185,7 @@ export async function ingestCorralioSchedule(
     return { ok: true, sourceId, imported: normalized.events.length };
   } catch {
     if (sourceId) await store.markSourceError(sourceId, owner.householdId).catch(() => undefined);
-    return { ok: false, error: userSafeError("persistence") };
+    return userSafeError("persistence");
   }
 }
 
@@ -186,19 +195,19 @@ export async function replaceCorralioSchedule(
   dependencies: IngestionDependencies = {},
 ): Promise<CorralioScheduleIngestionResult> {
   const owner = await store.resolveOwnerContext();
-  if (!owner) return { ok: false, error: userSafeError("unauthorized") };
+  if (!owner) return userSafeError("unauthorized");
 
   const sourceUrl = normalizeSubmittedScheduleUrl(input.sourceUrl);
   const fetchSchedule = dependencies.fetchSchedule ?? fetchIcsSchedule;
   const fetched = await fetchSchedule(sourceUrl);
-  if (!fetched.ok) return { ok: false, error: userSafeError(fetched.error) };
+  if (!fetched.ok) return userSafeError(fetched.error);
 
   const normalizeSchedule = dependencies.normalizeSchedule ?? normalizeIcsSchedule;
   const normalized = normalizeSchedule({ icsText: fetched.text, sourceUrl: fetched.finalUrl });
-  if (normalized.errors.length) return { ok: false, error: userSafeError("not_ics") };
+  if (normalized.errors.length) return userSafeError("not_ics");
   // Intentional pilot constraint: do not replace a working connection unless
   // the submitted feed currently proves it contains usable events.
-  if (!normalized.events.length) return { ok: false, error: userSafeError("no_events") };
+  if (!normalized.events.length) return userSafeError("no_events");
 
   try {
     await store.replaceSourceAndPersist({
@@ -215,6 +224,6 @@ export async function replaceCorralioSchedule(
     });
     return { ok: true, sourceId: input.sourceId, imported: normalized.events.length };
   } catch {
-    return { ok: false, error: userSafeError("persistence") };
+    return userSafeError("persistence");
   }
 }
