@@ -296,6 +296,19 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
         </div>
       </section>
 
+      <section className="ti-home-section ti-home-travel" aria-labelledby="ti-home-travel">
+        <div>
+          <p className="ti-home-travelEyebrow">Sports travel</p>
+          <h2 id="ti-home-travel">Traveling for sports?</h2>
+          <p>
+            Find hotels for tournaments, games, and team travel — even if your event isn&apos;t listed on TournamentInsights.
+          </p>
+        </div>
+        <Link className="ti-home-ctaPrimary" href="/book-travel">
+          Find Hotels
+        </Link>
+      </section>
+
       <section className="ti-home-section" aria-labelledby="ti-home-owl">
         <div style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center" }}>
           <img

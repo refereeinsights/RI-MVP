@@ -206,6 +206,37 @@
   line-height: 1.55;
 }
 
+.ti-home-travel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: linear-gradient(135deg, rgba(6, 25, 147, 0.06), rgba(15, 107, 74, 0.08));
+}
+
+.ti-home-travel > div {
+  display: grid;
+  gap: 6px;
+}
+
+.ti-home-travel h2,
+.ti-home-travel p {
+  margin: 0;
+}
+
+.ti-home-travel p:not(.ti-home-travelEyebrow) {
+  color: #475569;
+  line-height: 1.55;
+}
+
+.ti-home-travelEyebrow {
+  color: #0f6b4a;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .ti-home-seoLinks {
   display: flex;
   flex-wrap: wrap;
@@ -239,5 +270,9 @@
   }
   .ti-home-cards {
     grid-template-columns: 1fr;
+  }
+  .ti-home-travel {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

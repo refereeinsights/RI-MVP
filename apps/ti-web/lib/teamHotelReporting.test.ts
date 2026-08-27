@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { isQualifiedTeamHotelAcceptedRequest } from "./teamHotelReporting";
 
+const TEST_TODAY = new Date(Date.UTC(2026, 7, 10));
+
 test("qualified accepted request requires succeeded lifecycle and stable ids", () => {
   assert.equal(
     isQualifiedTeamHotelAcceptedRequest({
@@ -14,7 +16,7 @@ test("qualified accepted request requires succeeded lifecycle and stable ids", (
         checkOut: "08/22/2026",
         rooms: 10,
       },
-    }),
+    }, TEST_TODAY),
     true,
   );
 });
@@ -46,7 +48,7 @@ test("qualified accepted request rejects past or undersized requests", () => {
         checkOut: "08/22/2026",
         rooms: 4,
       },
-    }),
+    }, TEST_TODAY),
     false,
   );
 });

@@ -24,6 +24,7 @@ import {
   type TournamentHotelsDateSource,
   type TournamentHotelsVenue,
 } from "@/lib/lodging/tournamentHotels";
+import { tournamentHotelRecoveryCopy } from "@/lib/lodging/hotelRecovery";
 import styles from "./TournamentHotels.module.css";
 
 type Tournament = {
@@ -137,7 +138,6 @@ export default function TournamentHotelsClient({
   const [dateSource, setDateSource] = useState<TournamentHotelsDateSource>(initialDates.source);
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [fallback, setFallback] = useState(false);
   const [searchSessionId, setSearchSessionId] = useState<string | null>(null);
   const requestRef = useRef<AbortController | null>(null);
@@ -154,6 +154,8 @@ export default function TournamentHotelsClient({
   const datesValid = Boolean(checkin && checkout && checkin >= today && checkout > checkin);
   const tournamentIsPast = Boolean((tournament.endDate ?? tournament.startDate) && (tournament.endDate ?? tournament.startDate)! < today);
   const destination = destinationForVenue(selectedVenue, tournament);
+  const hasContextualHandoff = Boolean((selectedVenue || destination) && datesValid);
+  const recoveryCopy = tournamentHotelRecoveryCopy(hasContextualHandoff);
 
   useEffect(() => {
     sessionIdRef.current = readOrCreateLodgingSessionId();
@@ -179,6 +181,7 @@ export default function TournamentHotelsClient({
       requestRef.current?.abort();
       setLoading(false);
       setHotels([]);
+      setFallback(false);
       return;
     }
 
@@ -188,7 +191,6 @@ export default function TournamentHotelsClient({
       const controller = new AbortController();
       requestRef.current = controller;
       setLoading(true);
-      setError(null);
       setFallback(false);
 
       const attribution = buildHotelPlannerBookingAttribution({
@@ -244,20 +246,17 @@ export default function TournamentHotelsClient({
         if (!response.ok) {
           setHotels([]);
           setFallback(true);
-          setError(response.status === 429 ? "Hotel search is busy. Please try again shortly." : "Live hotel results are temporarily unavailable.");
           return;
         }
 
         const nextHotels = uniqueHotels(Array.isArray(payload.hotels) ? payload.hotels : []);
         setHotels(nextHotels);
         setFallback(Boolean(payload.fallback?.showHotelFallback) || nextHotels.length === 0);
-        if (nextHotels.length === 0) setError("No live hotel results were returned for this venue and these dates.");
       } catch (caught) {
         if (caught instanceof DOMException && caught.name === "AbortError") return;
         if (generation !== requestGenerationRef.current) return;
         setHotels([]);
         setFallback(true);
-        setError("Live hotel results are temporarily unavailable.");
       } finally {
         if (generation === requestGenerationRef.current && !controller.signal.aborted) setLoading(false);
       }
@@ -447,7 +446,12 @@ export default function TournamentHotelsClient({
       ) : null}
 
       {loading ? <p className={styles.status} role="status" aria-live="polite">Loading live hotel options…</p> : null}
-      {error ? <p className={styles.error} role="alert">{error}</p> : null}
+      {fallback && hotels.length === 0 && !loading ? (
+        <div className={styles.fallbackBox} role="status">
+          <h2>{recoveryCopy.heading}</h2>
+          <p>{recoveryCopy.body}</p>
+        </div>
+      ) : null}
 
       {hotels.length > 0 ? (
         <div className={styles.results} aria-live="polite">
@@ -498,11 +502,11 @@ export default function TournamentHotelsClient({
 
       {(selectedVenue || destination) && datesValid ? (
         <div className={styles.actions}>
-          <button type="button" className={styles.primaryAction} onClick={openViewAll}>View all hotels</button>
-          {fallback ? <span>See additional availability on HotelPlanner.</span> : null}
+          <button type="button" className={styles.primaryAction} onClick={openViewAll}>{recoveryCopy.cta}</button>
+          {fallback ? <span>Search live availability with our hotel partner.</span> : null}
         </div>
       ) : (
-        <a className={styles.primaryAction} href="/book-travel">Search tournament travel</a>
+        <a className={styles.primaryAction} href="/book-travel">Find Hotels</a>
       )}
 
       <a
@@ -532,7 +536,7 @@ export default function TournamentHotelsClient({
           });
         }}
       >
-        Need 5+ rooms? Request a team hotel block
+        Need 5+ rooms? Request Team Hotel Options
       </a>
 
       <p className={styles.disclosure}>Hotel links are affiliate links. TournamentInsights may earn a commission at no additional cost to you.</p>

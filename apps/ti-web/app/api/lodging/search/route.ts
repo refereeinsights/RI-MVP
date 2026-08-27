@@ -9,6 +9,7 @@ import {
 } from "@/lib/lodging/lodging-provider";
 import { formatDateToMmDdYyyy } from "@/lib/lodging/lodging-dates";
 import { HotelPlannerApiError } from "@/lib/lodging/hotelPlannerProvider";
+import { classifyHotelSearchFailure } from "@/lib/lodging/hotelReliability";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sanitizePageUrl, sanitizeText } from "@/lib/venueHotelFunnel";
 
@@ -604,41 +605,8 @@ function buildSearchInput(params: {
   };
 }
 
-function classifyProviderFailure(error: unknown) {
-  if (error instanceof HotelPlannerApiError) {
-    return {
-      statusCode: 502,
-      errorCode: String(error.code ?? "provider_error"),
-      errorMessage: error.message,
-    };
-  }
-
-  if (error instanceof Error) {
-    if (error.message === "Fallback provider not implemented.") {
-      return {
-        statusCode: 502,
-        errorCode: "provider_not_configured",
-        errorMessage: error.message,
-      };
-    }
-    if (error.message.startsWith("Missing ")) {
-      return {
-        statusCode: 500,
-        errorCode: "server_configuration_error",
-        errorMessage: error.message,
-      };
-    }
-  }
-
-  return {
-    statusCode: 500,
-    errorCode: "server_error",
-    errorMessage: error instanceof Error ? error.message : "Unknown error",
-  };
-}
-
 export async function POST(request: Request) {
-  let body = (await request.json().catch(() => null)) as SearchRequestBody | null;
+  const body = (await request.json().catch(() => null)) as SearchRequestBody | null;
   if (!body || typeof body !== "object") {
     return asRequestError("Invalid JSON body");
   }
@@ -846,9 +814,8 @@ export async function POST(request: Request) {
           }),
         });
       } catch (error: unknown) {
-        const { statusCode, errorCode, errorMessage } = classifyProviderFailure(error);
+        const { statusCode, errorCode, publicMessage } = classifyHotelSearchFailure(error);
         const latencyMs = Date.now() - startedAt;
-        const providerError = errorMessage;
         const fallback = fallbackPayload("provider_error");
         await updateSessionLifecycle({
           sessionId,
@@ -857,10 +824,6 @@ export async function POST(request: Request) {
           latencyMs,
           fallbackReason: "provider_error",
           errorCode,
-          responseSnapshot:
-            errorCode || statusCode === 502
-              ? { message: providerError, type: (error instanceof Error ? error.name : "Error") }
-              : null,
         });
 
         if (statusCode === 502) {
@@ -891,7 +854,7 @@ export async function POST(request: Request) {
           {
             sessionId,
             provider: providerName,
-            error: providerError,
+            error: publicMessage,
             resolvedCheckIn: fallbackWindow.checkIn,
             resolvedCheckOut: fallbackWindow.checkOut,
             ...resolvedCoordinatesPayload({
@@ -1017,9 +980,8 @@ export async function POST(request: Request) {
       }),
     });
   } catch (error: unknown) {
-    const { statusCode, errorCode, errorMessage } = classifyProviderFailure(error);
+    const { statusCode, errorCode, publicMessage } = classifyHotelSearchFailure(error);
     const latencyMs = Date.now() - startedAt;
-    const providerError = errorMessage;
     const fallback = fallbackPayload("provider_error");
     await updateSessionLifecycle({
       sessionId,
@@ -1028,10 +990,6 @@ export async function POST(request: Request) {
       latencyMs,
       fallbackReason: "provider_error",
       errorCode,
-      responseSnapshot:
-        errorCode || statusCode === 502
-          ? { message: providerError, type: (error instanceof Error ? error.name : "Error") }
-          : null,
     });
 
     if (statusCode === 502) {
@@ -1062,7 +1020,7 @@ export async function POST(request: Request) {
       {
         sessionId,
         provider: providerName,
-        error: providerError,
+        error: publicMessage,
         resolvedCheckIn: resolvedWindow.window.checkIn,
         resolvedCheckOut: resolvedWindow.window.checkOut,
         ...resolvedCoordinatesPayload({

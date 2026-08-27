@@ -49,12 +49,15 @@ export default async function BookTravelPage() {
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
         <div className="headerBlock">
-          <h1 className="title">Book travel for youth sports tournaments</h1>
+          <h1 className="title">Find hotels and rentals for youth sports travel</h1>
           <p className="subtitle">
             Find hotels and vacation rentals near any venue, city, or tournament location — even if the event is not listed on TournamentInsights.
           </p>
           <p className={`subtitle ${styles.heroHelper}`}>
             Enter a city, venue, or event location to search nearby stays. Your event does not need to be listed on TournamentInsights.
+          </p>
+          <p className={`subtitle ${styles.smallHelper}`}>
+            Booking 1–4 rooms? Search below. Planning 5+ rooms for a team? Request team hotel options instead.
           </p>
         </div>
 
