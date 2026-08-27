@@ -21,10 +21,14 @@ function validTimeZone(timezone: string | null) {
   }
 }
 
-function formatOverlapTime(conflict: WeekendConflict) {
+function formatOverlapTime(conflict: WeekendConflict, timezone: string | null) {
   const starts = new Date(conflict.overlapStartsAt);
   const ends = new Date(conflict.overlapEndsAt);
-  const options: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+  const options: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: validTimeZone(timezone),
+  };
   return `${starts.toLocaleTimeString("en-US", options)}–${ends.toLocaleTimeString("en-US", options)} local time`;
 }
 
@@ -41,7 +45,7 @@ function EventCard({ event, conflicts, onNavigate }: { event: WeekendPlanEvent; 
         <span className="eventIdentityMarker" aria-hidden="true" />
         <p>{event.identityLabel}</p>
         {event.sport ? (
-          <span className="sportIcon" aria-label={corralioSportLabel(event.sport)} title={corralioSportLabel(event.sport)}>
+          <span className="sportIcon" role="img" aria-label={corralioSportLabel(event.sport)} title={corralioSportLabel(event.sport)}>
             {corralioSportIcon(event.sport)}
           </span>
         ) : null}
@@ -195,7 +199,7 @@ export function ThisWeekend({ events, candidateLimitReached = false }: { events:
                 <li key={conflict.key}>
                   <span>{conflict.kind === "same-child" ? "Same child conflict" : "Schedule conflict"}</span>
                   <p><strong>{first.identityLabel} · {first.title}</strong> overlaps <strong>{second.identityLabel} · {second.title}</strong>.</p>
-                  <p className="conflictOverlap">Overlap: {formatOverlapTime(conflict)}</p>
+                  <p className="conflictOverlap">Overlap: {formatOverlapTime(conflict, first.timezone)}</p>
                 </li>
               );
             })}

@@ -11,6 +11,9 @@ test("This Weekend derives conflicts from the shared exact-weekend plan", () => 
   assert.match(component, /Same child conflict/);
   assert.match(component, /Schedule conflict/);
   assert.match(component, /Overlap:/);
+  assert.match(component, /formatOverlapTime\(conflict, first\.timezone\)/);
+  assert.match(component, /timeZone: validTimeZone\(timezone\)/);
+  assert.match(component, /className="sportIcon" role="img" aria-label=/);
 });
 
 test("the candidate cap disables definitive conflict claims without hiding events", () => {

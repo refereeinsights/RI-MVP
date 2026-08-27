@@ -30,8 +30,10 @@ export function ConnectScheduleForm() {
   const [state, action] = useFormState(connectSchedule, INITIAL_FORM_STATE);
   const [platform, setPlatform] = useState<SchedulePlatformKey | null>(null);
   const [successDismissed, setSuccessDismissed] = useState(false);
+  const [errorDismissed, setErrorDismissed] = useState(false);
   const [, startMeasurementTransition] = useTransition();
   const viewedInstructions = useRef(new Set<SchedulePlatformKey>());
+  const platformPickerRef = useRef<HTMLFieldSetElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const sourceUrlRef = useRef<HTMLInputElement>(null);
   const selectedPlatform = SCHEDULE_PLATFORMS.find((candidate) => candidate.key === platform) ?? null;
@@ -41,6 +43,7 @@ export function ConnectScheduleForm() {
       formRef.current?.reset();
       setSuccessDismissed(false);
     }
+    if (state.status === "error") setErrorDismissed(false);
   }, [state]);
 
   useEffect(() => {
@@ -54,6 +57,7 @@ export function ConnectScheduleForm() {
   function choosePlatform(nextPlatform: SchedulePlatformKey) {
     setPlatform(nextPlatform);
     setSuccessDismissed(true);
+    setErrorDismissed(true);
     startMeasurementTransition(() => {
       void recordScheduleConnectionInteractionAction({ event: "platform_selected", platform: nextPlatform });
     });
@@ -65,9 +69,17 @@ export function ConnectScheduleForm() {
     sourceUrlRef.current?.focus();
   }
 
+  function chooseAnotherScheduleSource() {
+    setPlatform(null);
+    setSuccessDismissed(true);
+    setErrorDismissed(true);
+    platformPickerRef.current?.scrollIntoView({ block: "start" });
+    platformPickerRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+  }
+
   return (
     <div className="scheduleConnectionFlow">
-      <fieldset className="schedulePlatformPicker">
+      <fieldset className="schedulePlatformPicker" ref={platformPickerRef}>
         <legend>Where does this schedule live?</legend>
         <div className="schedulePlatformOptions">
           {SCHEDULE_PLATFORMS.map((candidate) => (
@@ -115,10 +127,15 @@ export function ConnectScheduleForm() {
           />
           <p className="fieldHelp">Your private calendar link stays on the server and is never shown after it connects.</p>
           <FormSubmitButton idle="Connect schedule" pending="Connecting…" />
-          {state.status === "error" && state.message ? (
-            <div className="connectionRecovery" role="alert">
-              <p className="formNotice error">{state.message}</p>
-              {state.errorKind && RECOVERY_COPY[state.errorKind] ? <p>{RECOVERY_COPY[state.errorKind]}</p> : null}
+          {state.status === "error" && state.message && !errorDismissed ? (
+            <div className="connectionRecovery">
+              <div role="alert">
+                <p className="formNotice error">{state.message}</p>
+                {state.errorKind && RECOVERY_COPY[state.errorKind] ? <p>{RECOVERY_COPY[state.errorKind]}</p> : null}
+              </div>
+              <button className="secondaryButton" type="button" onClick={chooseAnotherScheduleSource}>
+                Choose another schedule source
+              </button>
             </div>
           ) : null}
         </form>

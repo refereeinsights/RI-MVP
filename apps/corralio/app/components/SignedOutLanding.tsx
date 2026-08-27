@@ -39,10 +39,10 @@ export function SignedOutLanding() {
               Bring the games, practices, and commitments scattered across your family’s team apps into one clear weekend plan.
             </p>
             <p className="landingDifference">Team apps organize the team. Corralio plans across the family.</p>
-            <div className="landingActions" aria-label="Account access">
+            <nav className="landingActions" aria-label="Account access">
               <a className="primaryLinkButton" href="#get-started-email">Get Started</a>
               <a className="landingSignInLink" href="#returning-sign-in">Sign in</a>
-            </div>
+            </nav>
             <p className="landingPrivacy"><span aria-hidden="true">●</span> Your family’s plan is private by default.</p>
           </section>
 

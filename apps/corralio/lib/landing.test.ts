@@ -16,6 +16,7 @@ test("signed-out landing leads with the family problem, outcome, and account hie
   assert.match(landing, /className="eyebrow corralioTrademark">Corralio<sup aria-hidden="true">™<\/sup>/);
   assert.match(landing, /href="#get-started-email">Get Started/);
   assert.match(landing, /href="#returning-sign-in">Sign in/);
+  assert.match(landing, /<nav className="landingActions" aria-label="Account access">/);
   assert.ok(landing.indexOf("Get Started") < landing.indexOf("Sign in"));
   assert.doesNotMatch(landing, /Private pilot|Potential conflict/i);
 });
@@ -50,6 +51,7 @@ test("schedule setup leads with parent language and preserves precise lifecycle 
   assert.match(connectForm, /Where does this schedule live\?/);
   assert.match(connectForm, />Calendar subscription link<\/label>/);
   assert.match(connectForm, /Connect another schedule/);
+  assert.match(connectForm, /Choose another schedule source/);
   assert.match(connectForm, /See This Weekend/);
   assert.match(connectForm, /Connect schedule/);
   assert.match(connectedSchedules, /Change assignment/);

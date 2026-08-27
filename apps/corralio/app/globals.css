@@ -186,9 +186,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .passwordLabelRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
 .passwordLabelRow label { margin: 0; }
 .passwordLabelRow a, .authTextLink { color: var(--link); font-size: .82rem; font-weight: 700; text-underline-offset: 3px; }
+.passwordLabelRow a { display: inline-flex; min-height: 44px; align-items: center; }
 .passwordInputRow { position: relative; }
 .passwordInputRow input { padding-right: 68px; }
-.passwordInputRow button { position: absolute; top: 50%; right: 8px; min-height: 36px; padding: 6px 9px; transform: translateY(-50%); border: 0; border-radius: 8px; background: transparent; color: var(--link); font-size: .78rem; font-weight: 800; }
+.passwordInputRow button { position: absolute; top: 50%; right: 8px; min-height: 44px; padding: 6px 9px; transform: translateY(-50%); border: 0; border-radius: 8px; background: transparent; color: var(--link); font-size: .78rem; font-weight: 800; }
 .passwordInputRow button:hover { background: var(--accent-soft); }
 .authDivider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .76rem; text-transform: uppercase; }
 .authDivider::before, .authDivider::after { content: ""; height: 1px; flex: 1; background: var(--border); }
@@ -289,7 +290,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .whatFitsArrival strong { color: var(--primary); font-size: .9rem; }
 .whatFitsArrival span { max-width: 220px; color: var(--muted); font-size: .7rem; line-height: 1.35; }
 .whatFitsModes { display: inline-flex; width: fit-content; padding: 3px; border-radius: 12px; background: var(--surface-subtle); }
-.whatFitsModes button { min-height: 38px; padding: 7px 17px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: inherit; font-size: .82rem; font-weight: 800; cursor: pointer; }
+.whatFitsModes button { min-height: 44px; padding: 7px 17px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: inherit; font-size: .82rem; font-weight: 800; cursor: pointer; }
 .whatFitsModes button.active { background: var(--surface); color: var(--primary); box-shadow: 0 3px 10px var(--shadow); }
 .whatFitsResults { list-style: none; display: grid; gap: 10px; margin: 0; padding: 0; }
 .whatFitsCandidate { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
@@ -302,7 +303,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .whatFitsActionRow > div { display: grid; gap: 2px; }
 .whatFitsActionRow strong { color: var(--accent); font-size: .84rem; }
 .whatFitsActionRow span { color: var(--muted); font-size: .68rem; line-height: 1.35; }
-.whatFitsActionRow button, .whatFitsSeeMore { min-height: 40px; border: 1px solid var(--primary); border-radius: 10px; background: var(--primary); color: var(--primary-foreground); font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; }
+.whatFitsActionRow button, .whatFitsSeeMore { min-height: 44px; border: 1px solid var(--primary); border-radius: 10px; background: var(--primary); color: var(--primary-foreground); font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; }
 .whatFitsActionRow button { padding: 8px 13px; }
 .whatFitsSeeMore { justify-self: start; padding: 8px 14px; background: var(--surface); color: var(--primary); }
 .whatFitsLoading, .whatFitsNoResult { margin: 0; padding: 14px; border-radius: 12px; background: var(--surface); color: var(--muted); font-size: .84rem; line-height: 1.45; }
@@ -321,7 +322,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .schedulePlatformInstructions { margin-bottom: 4px; padding: 14px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-subtle); }
 .schedulePlatformInstructions ol { display: grid; gap: 6px; margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: .82rem; line-height: 1.45; }
 .schedulePlatformInstructions .fieldHelp { margin-top: 10px; }
-.connectionRecovery > p:last-child { margin: 7px 2px 0; color: var(--muted); font-size: .8rem; line-height: 1.45; }
+.connectionRecovery [role="alert"] > p:last-of-type { margin: 7px 2px 0; color: var(--muted); font-size: .8rem; line-height: 1.45; }
+.connectionRecovery .secondaryButton { width: 100%; margin-top: 10px; }
 .scheduleConnectionSuccess { display: grid; gap: 10px; }
 .scheduleConnectionSuccessActions { display: flex; flex-wrap: wrap; gap: 9px; }
 .scheduleConnectionSuccessActions .primaryLinkButton { margin: 0; }
@@ -368,7 +370,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .sourceSummary > div { min-width: 0; display: grid; gap: 5px; }
 .sourceSummary strong { overflow-wrap: anywhere; }
 .sourceSport { color: var(--muted); font-size: .8rem; }
-.sourceAssignment { color: var(--primary); font-size: .8rem; font-weight: 750; }
+.sourceAssignment { color: var(--accent); font-size: .8rem; font-weight: 750; }
 .sourceAssignment.unavailable, .status { color: var(--muted); }
 .sourceActions { display: flex; flex-wrap: wrap; gap: 8px; }
 .inlineSourceForm { display: grid; gap: 9px; padding-top: 13px; border-top: 1px solid var(--border); }
@@ -428,6 +430,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   }
   .brandLogoLight { display: none; }
   .brandLogoDark { display: block; }
+  .whatFitsModes button.active { color: var(--link); }
+  .whatFitsSeeMore { border-color: var(--link); color: var(--link); }
 }
 
 @media (min-width: 760px) {

@@ -51,6 +51,9 @@ test("success and contextual recovery use closed safe state without a forced red
   assert.match(ingest, /This looks like a private or local address, not a public calendar link\./);
   assert.match(ingest, /This link doesn’t appear to be an iCal\/ICS calendar\./);
   assert.match(connectForm, /RECOVERY_COPY/);
+  assert.match(connectForm, /Choose another schedule source/);
+  assert.match(connectForm, /scrollIntoView\(\{ block: "start" \}\)/);
+  assert.match(connectForm, /state\.status === "error" && state\.message && !errorDismissed/);
 });
 
 test("interaction sanitization accepts only the closed event, platform, and reason vocabulary", () => {
