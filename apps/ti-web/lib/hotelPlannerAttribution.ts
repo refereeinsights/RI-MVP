@@ -13,6 +13,10 @@ export const HOTEL_PLANNER_SOURCE_PAGE_TYPES = [
 
 export type HotelPlannerSourcePageType = (typeof HOTEL_PLANNER_SOURCE_PAGE_TYPES)[number];
 
+export function isHotelPlannerSourcePageType(value: string | null | undefined): value is HotelPlannerSourcePageType {
+  return HOTEL_PLANNER_SOURCE_PAGE_TYPES.includes(value as HotelPlannerSourcePageType);
+}
+
 export const HOTEL_PLANNER_BOOKING_PLACEMENTS = {
   venueMapPropertyCard: "venue_map_property_card",
   venueMapViewAllHotels: "venue_map_view_all_hotels",
@@ -22,6 +26,7 @@ export const HOTEL_PLANNER_BOOKING_PLACEMENTS = {
   weekendPlannerViewAllHotels: "weekend_planner_view_all_hotels",
   tournamentHotelsProperty: "tournament_hotels_property",
   tournamentHotelsViewAll: "tournament_hotels_view_all",
+  weekendShareHotels: "weekend_share_hotels",
 } as const;
 
 export const HOTEL_PLANNER_GROUP_REQUEST_PLACEMENTS = {

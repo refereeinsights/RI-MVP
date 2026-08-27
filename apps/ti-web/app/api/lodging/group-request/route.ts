@@ -13,6 +13,7 @@ import {
   buildHotelPlannerGroupRequestAttribution,
   createOutboundAttributionId,
   deriveHotelPlannerSourcePageType,
+  isHotelPlannerSourcePageType,
   isValidOutboundAttributionId,
   type HotelPlannerSourcePageType,
 } from "@/lib/hotelPlannerAttribution";
@@ -646,7 +647,7 @@ export async function POST(request: Request) {
   const phone = toText(body.phone);
   const sourcePageType = (() => {
     const direct = sanitizeText(toText(body.source_page_type), 32);
-    if (direct) return direct as HotelPlannerSourcePageType;
+    if (isHotelPlannerSourcePageType(direct)) return direct;
     return deriveHotelPlannerSourcePageType({
       source: toText(body.source),
       pageType: toText(body.current_page_type) ?? toText(body.entry_page_type),

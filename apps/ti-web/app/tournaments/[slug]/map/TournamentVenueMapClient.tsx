@@ -1192,15 +1192,6 @@ export default function TournamentVenueMapClient({
       btn.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        const currentDates = getCurrentPropertyHandoffDates(pin);
-        void trackTiEvent("hotel_pin_click" as Parameters<typeof trackTiEvent>[0], {
-          page_type: "venue_map",
-          tournament_id: tournament.id,
-          venue_id: venue.id,
-          property_id: pin.propertyId,
-          checkin: currentDates?.checkIn ?? null,
-          checkout: currentDates?.checkOut ?? null,
-        } as never);
         setSelectedHotelId(pin.propertyId);
         setIsHotelResultsCollapsed(false);
         openHotelPropertyHandoff(pin, venue.id, "hotel_pin_click");
@@ -1302,6 +1293,8 @@ export default function TournamentVenueMapClient({
       url: url.toString(),
       checkIn: dateRange.checkIn,
       checkOut: dateRange.checkOut,
+      outboundRequestId,
+      outboundAttributionId,
     };
   };
 
@@ -1317,15 +1310,27 @@ export default function TournamentVenueMapClient({
       return;
     }
 
-    trackLodgingEvent("hotel_checkout_handoff", {
+    const measurement = {
       page_type: "venue_map",
       tournament_id: tournament.id,
+      tournament_slug: tournament.slug,
       venue_id: venueId,
       property_id: pin.propertyId,
+      source_page_type: "venue_map" as const,
+      cta_placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapPropertyCard,
       source: sourceEvent,
       checkin: handoff.checkIn,
       checkout: handoff.checkOut,
-    });
+      outbound_request_id: handoff.outboundRequestId,
+      outbound_attribution_id: handoff.outboundAttributionId,
+    };
+
+    if (sourceEvent === "hotel_pin_click") {
+      trackLodgingEvent("hotel_pin_click", measurement);
+    } else {
+      trackLodgingEvent("hotel_card_click", measurement);
+    }
+    trackLodgingEvent("hotel_checkout_handoff", measurement);
 
     window.open(handoff.url, "_blank", "noopener,noreferrer");
   };
@@ -2528,13 +2533,15 @@ export default function TournamentVenueMapClient({
                           rel="noopener noreferrer sponsored"
                           onClick={(e) => {
                             e.stopPropagation();
-                            void trackTiEvent("hotels_click", {
+                            trackLodgingEvent("hotels_click", {
                               page_type: "venue_map",
                               tournament_id: tournament.id,
                               tournament_slug: tournament.slug,
                               venue_id: v.id,
                               venue_name: v.name ?? null,
                               source: "venue_card",
+                              source_page_type: "venue_map",
+                              cta_placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapViewAllHotels,
                             });
                           }}
                         >
@@ -2863,13 +2870,13 @@ export default function TournamentVenueMapClient({
                         rel="noopener noreferrer sponsored"
                         onClick={(e) => {
                           e.preventDefault();
-                          void trackTiEvent("venue_map_hotels_clicked", {
+                          trackLodgingEvent("venue_map_hotels_clicked", {
                             page_type: "venue_map",
                             tournament_id: tournament.id,
                             tournament_slug: tournament.slug,
                             venue_id: hotelVenueId,
-                            session_id: readOrCreateLodgingSessionId(),
-                            distribution_source: readOrRememberHotelDistributionSource(),
+                            source_page_type: "venue_map",
+                            cta_placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapViewAllHotels,
                           });
                           const baseHref = buildVenueHotelsHref({
                             venue: hotelVenueForRedirect,
@@ -3145,11 +3152,13 @@ export default function TournamentVenueMapClient({
                                   target="_blank"
                                   rel="noopener noreferrer sponsored"
                                   onClick={() => {
-                                    void trackTiEvent("venue_map_hotels_clicked", {
+                                    trackLodgingEvent("venue_map_hotels_clicked", {
                                       page_type: "venue_map",
                                       tournament_id: tournament.id,
                                       tournament_slug: tournament.slug,
                                       venue_id: hotelVenueId,
+                                      source_page_type: "venue_map",
+                                      cta_placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapViewAllHotels,
                                     });
                                   }}
                                 >
@@ -3186,11 +3195,13 @@ export default function TournamentVenueMapClient({
                                   target="_blank"
                                   rel="noopener noreferrer sponsored"
                                   onClick={() => {
-                                    void trackTiEvent("venue_map_hotels_clicked", {
+                                    trackLodgingEvent("venue_map_hotels_clicked", {
                                       page_type: "venue_map",
                                       tournament_id: tournament.id,
                                       tournament_slug: tournament.slug,
                                       venue_id: hotelVenueId,
+                                      source_page_type: "venue_map",
+                                      cta_placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapViewAllHotels,
                                     });
                                   }}
                                 >
@@ -3236,15 +3247,6 @@ export default function TournamentVenueMapClient({
                                     onClick={() => {
                                       setSelectedHotelId(pin.propertyId);
                                       setIsHotelResultsCollapsed(false);
-                                      const currentDates = getCurrentPropertyHandoffDates(pin);
-                                      trackLodgingEvent("hotel_card_click", {
-                                        page_type: "venue_map",
-                                        tournament_id: tournament.id,
-                                        venue_id: selectedVenue?.id ?? null,
-                                        property_id: pin.propertyId,
-                                        checkin: currentDates?.checkIn ?? null,
-                                        checkout: currentDates?.checkOut ?? null,
-                                      });
                                       openHotelPropertyHandoff(pin, selectedVenue?.id ?? null, "hotel_card_click");
                                     }}
                                   >
@@ -3505,6 +3507,16 @@ export default function TournamentVenueMapClient({
                                               href={href}
                                               target="_blank"
                                               rel="noopener noreferrer sponsored"
+                                              onClick={() => {
+                                                trackLodgingEvent("venue_map_hotels_clicked", {
+                                                  page_type: "venue_map",
+                                                  tournament_id: tournament.id,
+                                                  tournament_slug: tournament.slug,
+                                                  venue_id: selectedVenue.id,
+                                                  source_page_type: "venue_map",
+                                                  cta_placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapViewAllHotels,
+                                                });
+                                              }}
                                             >
                                               Check rates
                                             </a>

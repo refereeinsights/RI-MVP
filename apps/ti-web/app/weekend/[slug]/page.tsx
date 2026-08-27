@@ -18,6 +18,7 @@ import WeekendNearestAirportClient from "./WeekendNearestAirportClient";
 import SaveWeekendPlanClient from "./SaveWeekendPlanClient";
 import { getWeekendPlanForTournament } from "@/lib/weekendPlans";
 import { buildPlannerHref, normalizePlannerSessionId, withPlannerAuthFlag } from "@/lib/planner/plannerSession";
+import { HOTEL_PLANNER_BOOKING_PLACEMENTS } from "@/lib/hotelPlannerAttribution";
 
 export const runtime = "nodejs";
 // Tier-aware page: avoid caching Weekend Pro content across users.
@@ -689,7 +690,11 @@ export default async function WeekendPage({
               tournamentSlug={tournament.slug}
               venueMapHref={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}
               bookTravelHref={bookTravelHref}
-              hotelsHref={hotelsHref ? `${hotelsHref}&source=weekend_share` : null}
+              hotelsHref={
+                hotelsHref
+                  ? `${hotelsHref}&source=weekend_share&cta_placement=${HOTEL_PLANNER_BOOKING_PLACEMENTS.weekendShareHotels}`
+                  : null
+              }
               hotelsLabel={hotelsLabel}
               rentalsHref={vrboHrefBase}
               plannerHubHref={plannerHubHref}

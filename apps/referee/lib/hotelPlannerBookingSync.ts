@@ -1,5 +1,11 @@
 import { createHmac } from "node:crypto";
 import { supabaseAdmin } from "./supabaseAdmin";
+import {
+  collectConfirmedBookingAttributionIds,
+  parseHotelPlannerAttributionId,
+  reconcileConfirmedBookingAttribution,
+  summarizeHotelBookingRows,
+} from "./hotelBookingReconciliation";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -308,13 +314,6 @@ function mapDataRow(row: Record<number, string>, headerIndex: Map<string, number
   };
 }
 
-// Custom3 format: "attr:{outbound_attribution_id}"
-function parseAttributionId(custom3: string | null): string | null {
-  if (!custom3) return null;
-  const match = custom3.match(/^attr:([a-f0-9]{32})$/i);
-  return match ? match[1] : null;
-}
-
 async function downloadAndParseXlsx(downloadUrl: string): Promise<BookingRow[]> {
   const resp = await fetch(downloadUrl);
   if (!resp.ok) {
@@ -368,7 +367,7 @@ function toUpsertRecord(row: BookingRow, syncedAt: string): UpsertRecord {
     itinerary_number:         row.itinerary_number,
     confirmation_number:      row.confirmation_number,
     status:                   row.status,
-    outbound_attribution_id:  parseAttributionId(row.custom3),
+    outbound_attribution_id:  parseHotelPlannerAttributionId(row.custom3),
     purchased_at:             excelSerialToDate(row.purchased_serial)?.toISOString() ?? null,
     checkin_date:             excelSerialToIsoDate(row.checkin_serial),
     checkout_date:            excelSerialToIsoDate(row.checkout_serial),
@@ -469,10 +468,12 @@ export type HotelBookingSummary = {
   confirmedCount: number;
   cancelledCount: number;
   pendingCount: number;
-  // Attribution breakdown for confirmed bookings
-  trackedCount: number;           // Custom3 → valid outbound_attribution_id join
-  directOrganicCount: number;     // Source=tournamentinsights, no Custom3 — direct/organic/shared/untracked
-  anomalyCount: number;           // Custom3 present but unparseable; investigate individually
+  reconciliationStatus: "available" | "unavailable";
+  // Attribution breakdown for confirmed bookings. Matched/orphaned are null when lookup fails.
+  matchedCount: number | null;
+  orphanedValidTokenCount: number | null;
+  missingTokenCount: number;
+  invalidTokenCount: number;
   totalBookingValueUsd: number;
   expectedCommissionUsd: number;
   topTournamentSlugs: Array<{ slug: string; count: number }>;
@@ -487,9 +488,11 @@ export async function loadHotelBookingSummary(windowDays = 7): Promise<HotelBook
     confirmedCount: 0,
     cancelledCount: 0,
     pendingCount: 0,
-    trackedCount: 0,
-    directOrganicCount: 0,
-    anomalyCount: 0,
+    reconciliationStatus: "available",
+    matchedCount: 0,
+    orphanedValidTokenCount: 0,
+    missingTokenCount: 0,
+    invalidTokenCount: 0,
     totalBookingValueUsd: 0,
     expectedCommissionUsd: 0,
     topTournamentSlugs: [],
@@ -523,59 +526,45 @@ export async function loadHotelBookingSummary(windowDays = 7): Promise<HotelBook
     outbound_attribution_id: string | null;
   }>;
 
-  let confirmedCount = 0;
-  let cancelledCount = 0;
-  let pendingCount = 0;
-  let trackedCount = 0;
-  let directOrganicCount = 0;
-  let anomalyCount = 0;
-  let totalBookingValueUsd = 0;
-  let expectedCommissionUsd = 0;
-  const slugCounts = new Map<string, number>();
-
-  for (const row of rows) {
-    const status = (row.status ?? "").toLowerCase();
-    const isConfirmed = status === "confirmed";
-    if (isConfirmed) confirmedCount += 1;
-    else if (status.includes("cancel")) cancelledCount += 1;
-    else pendingCount += 1;
-
-    if (isConfirmed) {
-      if (row.outbound_attribution_id) {
-        trackedCount += 1;
-      } else if (!row.custom3) {
-        // No Custom3 at all — direct/organic/shared/untracked white-label
-        directOrganicCount += 1;
-      } else {
-        // Custom3 present but not a valid attr: token — investigate
-        anomalyCount += 1;
-      }
-    }
-
-    totalBookingValueUsd += Number(row.total_usd ?? 0);
-    expectedCommissionUsd += Number(row.expected_commission_usd ?? 0);
-
-    const slug = (row.custom2 ?? "").trim();
-    if (slug) slugCounts.set(slug, (slugCounts.get(slug) ?? 0) + 1);
-  }
-
-  const topTournamentSlugs = Array.from(slugCounts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([slug, count]) => ({ slug, count }));
+  const totals = summarizeHotelBookingRows(rows);
 
   const lastSyncedAt = (syncResult.data as { synced_at: string } | null)?.synced_at ?? null;
+  const attributionIds = collectConfirmedBookingAttributionIds(rows);
+  let matchedOutboundAttributionIds: Set<string> | null = new Set();
+  const batchSize = 200;
+
+  for (let offset = 0; offset < attributionIds.length; offset += batchSize) {
+    const batch = attributionIds.slice(offset, offset + batchSize);
+    const result = await (supabaseAdmin as any)
+      .from("ti_outbound_clicks")
+      .select("outbound_attribution_id")
+      .in("outbound_attribution_id", batch);
+
+    if (result.error) {
+      console.error("[hotel-booking-sync] outbound reconciliation error", result.error.message);
+      matchedOutboundAttributionIds = null;
+      break;
+    }
+
+    for (const row of (result.data ?? []) as Array<{ outbound_attribution_id: string | null }>) {
+      if (row.outbound_attribution_id) matchedOutboundAttributionIds.add(row.outbound_attribution_id.toLowerCase());
+    }
+  }
+
+  const reconciliation = reconcileConfirmedBookingAttribution(rows, matchedOutboundAttributionIds);
 
   return {
-    confirmedCount,
-    cancelledCount,
-    pendingCount,
-    trackedCount,
-    directOrganicCount,
-    anomalyCount,
-    totalBookingValueUsd,
-    expectedCommissionUsd,
-    topTournamentSlugs,
+    confirmedCount: totals.confirmedCount,
+    cancelledCount: totals.cancelledCount,
+    pendingCount: totals.pendingCount,
+    reconciliationStatus: reconciliation.status,
+    matchedCount: reconciliation.matchedCount,
+    orphanedValidTokenCount: reconciliation.orphanedValidTokenCount,
+    missingTokenCount: reconciliation.missingTokenCount,
+    invalidTokenCount: reconciliation.invalidTokenCount,
+    totalBookingValueUsd: totals.totalBookingValueUsd,
+    expectedCommissionUsd: totals.expectedCommissionUsd,
+    topTournamentSlugs: totals.topTournamentSlugs,
     lastSyncedAt,
   };
 }

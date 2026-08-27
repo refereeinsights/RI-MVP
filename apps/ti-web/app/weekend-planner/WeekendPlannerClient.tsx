@@ -245,6 +245,7 @@ export default function WeekendPlannerClient(props: {
   const [hotelResultsLoading, setHotelResultsLoading] = useState(false);
   const [hotelResultsError, setHotelResultsError] = useState<string | null>(null);
   const [hotelResults, setHotelResults] = useState<BookTravelHotelResult[]>([]);
+  const [hotelSearchSessionId, setHotelSearchSessionId] = useState<string | null>(null);
   const [hotelResultsFallback, setHotelResultsFallback] = useState<BookTravelHotelFallback | null>(null);
   const [hotelResolvedCheckIn, setHotelResolvedCheckIn] = useState<string | null>(null);
   const [hotelResolvedCheckOut, setHotelResolvedCheckOut] = useState<string | null>(null);
@@ -432,6 +433,7 @@ export default function WeekendPlannerClient(props: {
     if (hotelResolvedLongitude !== null) qp.set("lng", String(hotelResolvedLongitude));
     if (handoff.outboundRequestId) qp.set("outbound_request_id", handoff.outboundRequestId);
     qp.set("outbound_attribution_id", handoff.outboundAttributionId);
+    if (hotelSearchSessionId) qp.set("lodging_search_id", hotelSearchSessionId);
     qp.set("page_type", sourcePageType);
     qp.set("cta_placement", placement);
     if (props.plannerSessionContext?.planner_session_id) qp.set("planner_session_id", props.plannerSessionContext.planner_session_id);
@@ -495,6 +497,7 @@ export default function WeekendPlannerClient(props: {
     directUrl.searchParams.set("cta_placement", placement);
     directUrl.searchParams.set("outbound_attribution_id", handoff.outboundAttributionId);
     if (handoff.outboundRequestId) directUrl.searchParams.set("outbound_request_id", handoff.outboundRequestId);
+    if (hotelSearchSessionId) directUrl.searchParams.set("lodging_search_id", hotelSearchSessionId);
     if (props.plannerSessionContext?.planner_session_id) directUrl.searchParams.set("planner_session_id", props.plannerSessionContext.planner_session_id);
     directUrl.searchParams.set("sc", attribution.sc);
     if (attribution.keyword) directUrl.searchParams.set("kw", attribution.keyword);
@@ -530,6 +533,7 @@ export default function WeekendPlannerClient(props: {
       setHotelResultsLoading(false);
       setHotelResultsError(null);
       setHotelResults([]);
+      setHotelSearchSessionId(null);
       setHotelResultsFallback({
         showHotelFallback: false,
         showVrboFallback: false,
@@ -545,6 +549,7 @@ export default function WeekendPlannerClient(props: {
     setHotelResultsLoading(true);
     setHotelResultsError(null);
     setHotelResults([]);
+    setHotelSearchSessionId(null);
     setHotelResultsFallback(null);
     setHotelResolvedCheckIn(null);
     setHotelResolvedCheckOut(null);
@@ -588,6 +593,7 @@ export default function WeekendPlannerClient(props: {
 
       const payload = (await response.json().catch(() => null)) as BookTravelHotelSearchResponse | null;
       const data = payload ?? {};
+      setHotelSearchSessionId(data.sessionId ?? null);
       if (!response.ok) {
         const isUnsupportedHorizon = data.code === "unsupported_date_horizon" || data.fallback?.reason === "unsupported_date_horizon";
         setHotelResultsError(isUnsupportedHorizon ? null : data.error ? String(data.error) : "Unable to load hotels right now.");

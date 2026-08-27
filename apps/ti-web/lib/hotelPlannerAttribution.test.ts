@@ -9,6 +9,7 @@ import {
   createOutboundAttributionId,
   deriveHotelPlannerSourcePageType,
   formatOutboundAttributionToken,
+  isHotelPlannerSourcePageType,
   isValidOutboundAttributionId,
   sanitizeHotelPlannerSpreadsheetContext,
 } from "./hotelPlannerAttribution";
@@ -44,6 +45,17 @@ test("derives canonical source page types without collapsing book travel", () =>
     "tournament_hotels"
   );
   assert.equal(deriveHotelPlannerSourcePageType({ sourcePath: "/weekend/abc", hasVenueId: true }), "weekend");
+});
+
+test("accepts only canonical HotelPlanner source page types", () => {
+  assert.equal(isHotelPlannerSourcePageType("book_travel"), true);
+  assert.equal(isHotelPlannerSourcePageType("referee"), true);
+  assert.equal(isHotelPlannerSourcePageType("invented_source"), false);
+  assert.equal(isHotelPlannerSourcePageType(null), false);
+});
+
+test("keeps Weekend hotel placement in the canonical placement set", () => {
+  assert.equal(HOTEL_PLANNER_BOOKING_PLACEMENTS.weekendShareHotels, "weekend_share_hotels");
 });
 
 test("adds tournament hotels attribution without changing protected source baselines", () => {

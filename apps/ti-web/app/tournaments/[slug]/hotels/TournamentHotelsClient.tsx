@@ -330,10 +330,13 @@ export default function TournamentHotelsClient({
       const value = attribution[`custom${index}`];
       if (value) url.searchParams.set(`custom${index}`, value);
     }
-    return { href: url.toString(), outboundRequestId };
+    return { href: url.toString(), outboundRequestId, outboundAttributionId };
   }
 
-  function trackPropertyClick(hotel: Hotel) {
+  function trackPropertyClick(
+    hotel: Hotel,
+    handoff: { outboundRequestId: string; outboundAttributionId: string }
+  ) {
     void trackTiEvent("hotel_card_click", {
       page_type: "tournament_hotels",
       tournament_id: tournament.id,
@@ -342,8 +345,12 @@ export default function TournamentHotelsClient({
       property_id: hotel.propertyId,
       date_source: dateSource,
       source_page_type: "tournament_hotels",
+      cta_placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.tournamentHotelsProperty,
       session_id: sessionIdRef.current,
       distribution_source: distributionSourceRef.current,
+      lodging_search_id: searchSessionId,
+      outbound_request_id: handoff.outboundRequestId,
+      outbound_attribution_id: handoff.outboundAttributionId,
     });
   }
 
@@ -370,6 +377,7 @@ export default function TournamentHotelsClient({
       date_source: dateSource,
       referrer: document.referrer || null,
       outbound_request_id: handoff.outboundRequestId,
+      outbound_attribution_id: handoff.outboundAttributionId,
     });
     window.open(handoff.href, "_blank", "noopener,noreferrer");
   }
@@ -504,7 +512,7 @@ export default function TournamentHotelsClient({
                         href={propertyHandoff.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={() => trackPropertyClick(hotel)}
+                        onClick={() => trackPropertyClick(hotel, propertyHandoff)}
                       >
                         View hotel
                       </a>

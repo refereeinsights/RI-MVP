@@ -4,6 +4,8 @@ export type TiAnalyticsEventName =
   | "hotel_cta_impression"
   | "hotel_cta_clicked"
   | "hotel_card_click"
+  | "hotel_pin_click"
+  | "hotel_checkout_handoff"
   | "tournament_hotels_page_viewed"
   | "camping_cta_impression"
   | "map_viewed"
@@ -403,6 +405,7 @@ export type TiAnalyticsEventPropertiesByName = {
     date_source?: "tournament" | "booking_safe_fallback" | "unavailable" | "user_adjusted";
     referrer: string | null;
     outbound_request_id: string;
+    outbound_attribution_id?: string;
     distribution_source?: HotelMeasurementContext["distribution_source"];
   };
   hotel_card_click: HotelMeasurementContext & {
@@ -413,6 +416,35 @@ export type TiAnalyticsEventPropertiesByName = {
     property_id: string;
     date_source?: "tournament" | "booking_safe_fallback" | "unavailable" | "user_adjusted";
     source_page_type?: "tournament_hotels";
+    cta_placement?: string;
+    lodging_search_id?: string | null;
+    outbound_request_id?: string | null;
+    outbound_attribution_id?: string;
+  };
+  hotel_pin_click: HotelMeasurementContext & {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string | null;
+    property_id: string;
+    source_page_type: "venue_map";
+    cta_placement: string;
+    outbound_request_id: string | null;
+    outbound_attribution_id: string;
+  };
+  hotel_checkout_handoff: HotelMeasurementContext & {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string | null;
+    property_id: string;
+    source_page_type: "venue_map";
+    cta_placement: string;
+    source: "hotel_pin_click" | "hotel_card_click";
+    checkin: string;
+    checkout: string;
+    outbound_request_id: string | null;
+    outbound_attribution_id: string;
   };
   tournament_hotels_page_viewed: HotelMeasurementContext & {
     tournament_id: string;
@@ -594,13 +626,15 @@ export type TiAnalyticsEventPropertiesByName = {
     hasCoordinates: boolean;
     hasOwlEyeData: boolean;
   };
-  hotels_click: {
+  hotels_click: HotelMeasurementContext & {
     page_type: "venue_map";
     tournament_id: string;
     tournament_slug: string;
     venue_id: string;
     venue_name: string | null;
     source: "venue_card" | "selected_venue_panel";
+    source_page_type: "venue_map";
+    cta_placement: string;
   };
   venue_view_click: {
     page_type: "venue_map";
@@ -747,6 +781,8 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_id: string;
     tournament_slug: string;
     venue_id: string;
+    source_page_type: "venue_map";
+    cta_placement: string;
   };
   team_block_cta_click: {
     page_type: "venue_map";
@@ -818,6 +854,8 @@ export type TiAnalyticsEventPropertiesByName = {
     cta: "travel_search";
     href: string;
     travel_kind: "hotels" | "rentals" | "book_travel";
+    source_page_type?: "weekend";
+    cta_placement?: string;
   };
   weekend_share_planner_hub_clicked: {
     page_type: "weekend_share";

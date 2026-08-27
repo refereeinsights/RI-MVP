@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import { HOTEL_PLANNER_BOOKING_PLACEMENTS } from "@/lib/hotelPlannerAttribution";
 import styles from "./WeekendPlanningCtasClient.module.css";
 
 export default function WeekendPlanningCtasClient(props: {
@@ -31,6 +32,8 @@ export default function WeekendPlanningCtasClient(props: {
               tournament_id: props.tournamentId,
               tournament_slug: slug,
               source_page: "weekend_share",
+              source_page_type: "weekend",
+              cta_placement: HOTEL_PLANNER_BOOKING_PLACEMENTS.weekendShareHotels,
               cta: "travel_search",
               href: props.hotelsHref!,
               travel_kind: "hotels",
