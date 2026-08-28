@@ -132,6 +132,7 @@ This exact time/cadence is the remaining founder/CPO product decision before Sta
 ## Prepared files and database gate
 
 - Forward migration: `supabase/migrations/20260828_corralio_slice36a_weekend_ready_push.sql`
+- Additive digest-resolution repair after the first applied-state behavioral run: `supabase/migrations/20260828_corralio_slice36a_digest_resolution_repair.sql`
 - Read-only catalog verifier: `scripts/analysis/corralio_slice36a_catalog_verification.sql`
 - Network-free rollback-only behavioral verifier: `scripts/analysis/corralio_slice36a_behavioral_verification.sql`
 - Read-only aggregate usage report: `scripts/analysis/corralio_slice36a_usage_report.sql`
@@ -140,7 +141,7 @@ This exact time/cadence is the remaining founder/CPO product decision before Sta
 
 The behavioral verifier explicitly exercises two authenticated owners and proves each timezone write remains scoped to the caller's household before restoring the second fixture to null for notification-ineligibility coverage.
 
-The migration has not been applied. The verifier files have not been run. Stage 1 prepares the confirmation UI and authorized action but adds no service worker, registration, push permission UI, push provider dependency, VAPID key, route, cron entry, or notification runtime call. The exact local time/cadence decision and database gate remain before Stage 2.
+The base migration was subsequently applied and its catalog verifier passed. The first behavioral run rolled back after exposing unqualified `digest` resolution inside the locked function search path; no fixture state was retained. The additive forward repair schema-qualifies both RPC calls as `extensions.digest` without changing schema or weakening function hardening. That repair remains to be applied, followed by the updated catalog and behavioral verifiers. Stage 1 prepares the confirmation UI and authorized action but adds no service worker, registration, push permission UI, push provider dependency, VAPID key, route, cron entry, or notification runtime call. The exact local time/cadence decision and database gate remain before Stage 2.
 
 ## Amendment verification
 

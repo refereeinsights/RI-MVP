@@ -7,6 +7,7 @@ const root = path.resolve(process.cwd());
 const source = (file: string) => readFileSync(path.join(root, file), "utf8");
 
 const migration = source("supabase/migrations/20260828_corralio_slice36a_weekend_ready_push.sql");
+const digestRepair = source("supabase/migrations/20260828_corralio_slice36a_digest_resolution_repair.sql");
 const catalog = source("scripts/analysis/corralio_slice36a_catalog_verification.sql");
 const behavioral = source("scripts/analysis/corralio_slice36a_behavioral_verification.sql");
 const usageReport = source("scripts/analysis/corralio_slice36a_usage_report.sql");
@@ -28,6 +29,13 @@ test("keeps subscription capabilities behind service-only tables and functions",
   assert.doesNotMatch(migration, /grant [^;]*on table public\.corralio_(?:push|weekend)[^;]+to authenticated/i);
   assert.match(migration, /endpoint_hash bytea generated always as \(digest\(endpoint, 'sha256'\)\) stored/);
   assert.match(migration, /auth_secret text not null/);
+});
+
+test("resolves pgcrypto digest through the trusted extension schema", () => {
+  assert.match(digestRepair, /extensions\.digest\(v_endpoint, 'sha256'\)/);
+  assert.match(digestRepair, /extensions\.digest\(btrim\(coalesce\(p_endpoint, ''\)\), 'sha256'\)/);
+  assert.match(digestRepair, /set search_path = pg_catalog, public/g);
+  assert.match(catalog, /trusted digest resolution/);
 });
 
 test("implements separate campaign and delivery idempotency with bounded retry", () => {

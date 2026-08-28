@@ -102,6 +102,10 @@ begin
      or not has_function_privilege('service_role', v_finish, 'EXECUTE')
   then raise exception 'Slice 3.6A catalog verification failed: service function grants'; end if;
 
+  if position('extensions.digest' in lower(pg_get_functiondef(v_upsert))) = 0
+     or position('extensions.digest' in lower(pg_get_functiondef(v_deactivate))) = 0
+  then raise exception 'Slice 3.6A catalog verification failed: trusted digest resolution'; end if;
+
   if position('for update of delivery skip locked' in lower(pg_get_functiondef(v_claim))) = 0
      or position('least(greatest(coalesce(p_limit, 50), 1), 50)' in lower(pg_get_functiondef(v_claim))) = 0
      or position('delivery.attempt_count < 2' in lower(pg_get_functiondef(v_claim))) = 0
