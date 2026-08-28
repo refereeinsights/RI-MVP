@@ -31,7 +31,7 @@ insert into public.corralio_events (
 ) values (
   'c36a0000-0000-4000-8000-000000000021',
   'c36a0000-0000-4000-8000-000000000011', 'manual', 'Fixture Game',
-  '2026-09-05T17:00:00Z', '2026-09-05T18:00:00Z', 'America/Chicago'
+  '2026-09-05T17:00:00Z', '2026-09-05T18:00:00Z', 'UTC'
 );
 
 set local role service_role;
@@ -77,7 +77,7 @@ select pg_temp.corralio_slice36a_assert(
 
 create temporary table slice36a_first_claims on commit drop as
 select * from public.corralio_claim_weekend_ready_deliveries_v1(
-  '2026-09-04', 'America/Chicago',
+  '2026-09-04',
   '2026-09-04T05:00:00Z', '2026-09-07T05:00:00Z', 50
 );
 select pg_temp.corralio_slice36a_assert(
@@ -107,7 +107,7 @@ select pg_temp.corralio_slice36a_assert(
 
 create temporary table slice36a_immediate_retry on commit drop as
 select * from public.corralio_claim_weekend_ready_deliveries_v1(
-  '2026-09-04', 'America/Chicago',
+  '2026-09-04',
   '2026-09-04T05:00:00Z', '2026-09-07T05:00:00Z', 50
 );
 select pg_temp.corralio_slice36a_assert(
@@ -120,7 +120,7 @@ set next_attempt_at = now() - interval '1 minute'
 where state = 'transient_failure';
 create temporary table slice36a_retry_claim on commit drop as
 select * from public.corralio_claim_weekend_ready_deliveries_v1(
-  '2026-09-04', 'America/Chicago',
+  '2026-09-04',
   '2026-09-04T05:00:00Z', '2026-09-07T05:00:00Z', 50
 );
 select pg_temp.corralio_slice36a_assert(

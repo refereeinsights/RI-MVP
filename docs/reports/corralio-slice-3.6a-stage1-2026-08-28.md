@@ -11,7 +11,7 @@ Runtime state: no service worker, push route, cron, permission request, subscrip
 
 `SLICE 3.6A READY FOR DATABASE VERIFICATION`
 
-Stage 2 remains gated on founder approval of the timing/timezone proposal below, human migration application, and both SQL verifiers. Email remains deliberately deferred and is not assigned to Slice 3.6B. No Mapbox, traffic-aware routing, schedule-change push, Leave Soon, SMS, or native-app work started.
+Stage 2 remains gated on human migration application and both SQL verifiers. The founder approved the fixed timing/window decision below on 2026-08-28. Email remains deliberately deferred and is not assigned to Slice 3.6B. No Mapbox, traffic-aware routing, schedule-change push, Leave Soon, SMS, or native-app work started.
 
 ## Repository audit
 
@@ -56,7 +56,7 @@ Available signals:
 
 Conclusion: **Corralio has no trustworthy household notification timezone.** Running `getThisWeekendRangeLocal()` inside Vercel would use server process locality and cannot be described as household-local truth. A single event or venue timezone is also insufficient.
 
-## Founder decision required — V1 timing and timezone
+## Founder decision approved — V1 fixed notification window
 
 ### Repository fact
 
@@ -66,22 +66,16 @@ No trustworthy household timezone exists, Vercel cron is UTC, and the exact This
 
 The only complete deterministic option without new timezone capture/inference is a fixed reference strategy. Adding browser timezone persistence would create a new household/device attribute whose travel, multi-device, and correction semantics are not established in Corralio.
 
-### Recommended bounded V1 decision
+### Approved bounded V1 decision
 
-- Use `America/Chicago` only as the explicitly labeled V1 **planning reference timezone**, not as a claimed household timezone.
-- Define the campaign weekend as Friday 00:00 through Monday 00:00 in that reference timezone using one extracted, explicitly time-zone-aware pure weekend-range helper. Preserve existing browser-local This Weekend rendering unchanged.
 - Primary send opportunity: **Thursday 20:37 UTC**.
 - One retry-worker opportunity: **Thursday 22:37 UTC**. It sends no second reminder; it can claim only an eligible transient delivery that was not provider-accepted at the primary opportunity.
-- Proposed Stage 2 cron expression: `37 20,22 * * 4`, on the separate push route.
-- State the limitation in the durable record: this is a US-centered fixed planning reference. It avoids overnight delivery across the continental US but is not household-local precision.
+- Stage 2 cron expression: `37 20,22 * * 4`, on the separate push route.
+- Model the campaign with the closed strategy key `fixed_us_v1` and explicit UTC event-window bounds. Do not store a reference timezone or describe any zone as the household/planning timezone.
+- State the limitation in the durable record: this is a fixed U.S.-centered V1 notification window. It is not household-local precision.
+- Household-local notification timing remains deferred until Corralio has trustworthy timezone data.
 
-### Material alternative
-
-Persist the browser's IANA timezone at subscription time and define correction/multi-device behavior. This produces more local-feeling timing but adds a new device/household attribute and product semantics not otherwise required for the one-notification V1. Stage 1 does not recommend expanding scope that way.
-
-### CPO/founder decision
-
-Approve or replace the fixed-reference proposal before Stage 2. No cron or runtime eligibility code has been added while this decision remains open.
+The founder explicitly rejected modeling `America/Chicago` as household/planning truth. No browser timezone attribute, event/venue inference, or household timezone architecture is authorized in this slice.
 
 ## Stage 1 architecture prepared
 
@@ -134,7 +128,7 @@ Approve or replace the fixed-reference proposal before Stage 2. No cron or runti
 - Offline pure subscription/payload/provider/batch boundary: `apps/corralio/lib/notifications/weekendReady.ts`
 - Focused tests: `apps/corralio/lib/notifications/weekendReady.test.ts`
 
-The migration has not been applied. The verifier files have not been run. Stage 1 adds no service worker, registration, permission UI, browser mutation, push provider dependency, VAPID key, route, cron entry, or runtime call.
+The migration has not been applied. The verifier files have not been run. Stage 1 adds no service worker, registration, permission UI, browser mutation, push provider dependency, VAPID key, route, cron entry, or runtime call. The timing/window decision is approved; only the database gate remains before Stage 2.
 
 ## Stage 2 evidence contract
 

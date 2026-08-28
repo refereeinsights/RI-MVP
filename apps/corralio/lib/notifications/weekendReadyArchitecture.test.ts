@@ -37,6 +37,16 @@ test("implements separate campaign and delivery idempotency with bounded retry",
   assert.match(migration, /membership_lost/);
 });
 
+test("uses the approved fixed UTC window without inventing household timezone truth", () => {
+  assert.match(migration, /window_strategy text not null default 'fixed_us_v1'/);
+  assert.doesNotMatch(migration, /reference_timezone|America\/Chicago/);
+  assert.doesNotMatch(behavioral, /America\/Chicago/);
+  assert.match(prompt, /Thursday 20:37 UTC/);
+  assert.match(prompt, /Thursday 22:37 UTC/);
+  assert.match(prompt, /fixed U\.S\.-centered V1 notification window/);
+  assert.match(prompt, /retry-only/);
+});
+
 test("does not overload the routing ledger or enter deferred notification scope", () => {
   assert.doesNotMatch(migration, /alter table public\.corralio_external_api_calls/i);
   assert.doesNotMatch(migration, /resend|email digest|mapbox|traffic|sms/i);

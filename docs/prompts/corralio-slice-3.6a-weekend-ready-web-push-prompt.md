@@ -132,7 +132,7 @@ Stage 1 must explicitly report:
 
 If no reliable household timezone exists, propose one bounded V1 send strategy for founder/CPO approval rather than silently assuming an offset or adding a timezone architecture.
 
-Do not run the existing browser-local weekend helper in the Vercel/server timezone and treat that result as household-local truth. If no trustworthy household timezone exists, Stage 1 must stop for a bounded founder decision on V1 send-time and weekend-eligibility behavior before Stage 2.
+Do not run the existing browser-local weekend helper in the Vercel/server timezone and treat that result as household-local truth. The audit found no trustworthy household timezone, and the resulting bounded founder decision is resolved in Section 14. Preserve that finding and decision; do not infer a timezone or reopen timezone architecture in Stage 2.
 
 ## Measurement
 
@@ -317,9 +317,18 @@ Reuse the canonical This Weekend date/window semantics. Do not create a notifica
 
 ---
 
-# 14. Send Timing and Timezone Strategy — Stage 1 Decision
+# 14. Send Timing and Timezone Strategy — Founder Decision
 
-Stage 1 must recommend one deterministic V1 Weekend Ready send time/window **and** the timezone strategy it depends on.
+Founder decision, 2026-08-28:
+
+- primary Weekend Ready run: Thursday 20:37 UTC;
+- bounded transient-retry run: Thursday 22:37 UTC;
+- the second run is retry-only and normal campaign/delivery idempotency prevents duplicate Weekend Ready sends;
+- this is a fixed U.S.-centered V1 notification window because Corralio has no trustworthy household timezone;
+- do not model or describe `America/Chicago` or any other reference zone as the household/planning timezone;
+- household-local notification timing remains deferred until Corralio has trustworthy timezone data.
+
+Stage 1 must preserve this deterministic send window and its honest timezone limitation.
 
 Optimize for:
 
@@ -332,9 +341,9 @@ Requirements:
 - no multiple reminders;
 - avoid middle-of-the-night delivery.
 
-This decision is downstream of Section 3's timezone audit. Do not propose a send window that assumes a timezone signal the audit didn't confirm exists. If no reliable household timezone exists, the Stage 1 recommendation must be the bounded V1 send strategy from Section 3 (e.g., a single fixed reference offset), presented explicitly as a limitation, not disguised as a precise local send time.
+This decision is downstream of Section 3's timezone audit. Do not make the fixed UTC schedule look household-local, infer a household zone from event/venue data, or add a timezone attribute in this slice.
 
-This is the principal CPO/founder decision required before Stage 2: **exact Weekend Ready send timing + timezone strategy.**
+This founder gate is resolved. Stage 2 must implement the approved fixed schedule exactly and preserve its limitation.
 
 ---
 
@@ -614,9 +623,9 @@ A human applies reviewed SQL. Continue only after both verifiers pass.
 
 # 31. Stage 1
 
-Stage 1 must: complete repository/PWA audit; verify current Web Push platform requirements; complete the timezone audit (Section 3); define smallest architecture; define subscription persistence; define idempotency; recommend exact send timing and timezone strategy together (Section 14); define batch/execution bounds; reconcile measurement; prepare migrations/verifiers where required; implement only work safe before database application; run offline verification; update notes; commit locally.
+Stage 1 must: complete repository/PWA audit; verify current Web Push platform requirements; complete the timezone audit (Section 3); define smallest architecture; define subscription persistence; define idempotency; record the approved exact fixed send timing and limitation (Section 14); define batch/execution bounds; reconcile measurement; prepare migrations/verifiers where required; implement only work safe before database application; run offline verification; update notes; commit locally.
 
-Return the send-timing-and-timezone recommendation for CPO/founder approval before Stage 2.
+The Section 14 founder gate is resolved. Do not request another timing/timezone decision before Stage 2.
 
 If database work is required, stop at: `SLICE 3.6A READY FOR DATABASE VERIFICATION`
 

@@ -41,12 +41,12 @@ create table public.corralio_weekend_ready_campaigns (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.corralio_households(id) on delete cascade,
   planning_weekend_start date not null,
-  reference_timezone text not null,
+  window_strategy text not null default 'fixed_us_v1',
   event_window_start timestamptz not null,
   event_window_end timestamptz not null,
   created_at timestamptz not null default now(),
-  constraint corralio_weekend_ready_campaigns_timezone_check
-    check (length(btrim(reference_timezone)) between 1 and 64),
+  constraint corralio_weekend_ready_campaigns_strategy_check
+    check (window_strategy = 'fixed_us_v1'),
   constraint corralio_weekend_ready_campaigns_window_check
     check (event_window_end > event_window_start),
   constraint corralio_weekend_ready_campaigns_household_week_unique
@@ -283,7 +283,6 @@ create trigger corralio_household_members_deactivate_push_subscriptions
 
 create function public.corralio_claim_weekend_ready_deliveries_v1(
   p_planning_weekend_start date,
-  p_reference_timezone text,
   p_event_window_start timestamptz,
   p_event_window_end timestamptz,
   p_limit integer default 50
@@ -307,15 +306,14 @@ begin
     raise exception 'Trusted Weekend Ready worker is required' using errcode = '42501';
   end if;
   if p_planning_weekend_start is null
-     or length(btrim(coalesce(p_reference_timezone, ''))) not between 1 and 64
      or p_event_window_start is null or p_event_window_end <= p_event_window_start
   then raise exception 'Weekend Ready window is invalid' using errcode = '22023'; end if;
 
   insert into public.corralio_weekend_ready_campaigns (
-    household_id, planning_weekend_start, reference_timezone, event_window_start, event_window_end
+    household_id, planning_weekend_start, window_strategy, event_window_start, event_window_end
   )
   select distinct subscription.household_id, p_planning_weekend_start,
-    btrim(p_reference_timezone), p_event_window_start, p_event_window_end
+    'fixed_us_v1', p_event_window_start, p_event_window_end
   from public.corralio_push_subscriptions subscription
   join public.corralio_household_members member
     on member.household_id = subscription.household_id
@@ -471,13 +469,13 @@ revoke all on function public.corralio_upsert_push_subscription_v1(uuid,uuid,tex
   public.corralio_deactivate_push_subscription_v1(uuid,uuid,text),
   public.corralio_record_push_interaction_v1(uuid,uuid,text),
   public.corralio_deactivate_member_push_subscriptions_v1(),
-  public.corralio_claim_weekend_ready_deliveries_v1(date,text,timestamptz,timestamptz,integer),
+  public.corralio_claim_weekend_ready_deliveries_v1(date,timestamptz,timestamptz,integer),
   public.corralio_finish_weekend_ready_delivery_v1(uuid,uuid,text,text)
   from public, anon, authenticated;
 grant execute on function public.corralio_upsert_push_subscription_v1(uuid,uuid,text,text,text),
   public.corralio_deactivate_push_subscription_v1(uuid,uuid,text),
   public.corralio_record_push_interaction_v1(uuid,uuid,text),
-  public.corralio_claim_weekend_ready_deliveries_v1(date,text,timestamptz,timestamptz,integer),
+  public.corralio_claim_weekend_ready_deliveries_v1(date,timestamptz,timestamptz,integer),
   public.corralio_finish_weekend_ready_delivery_v1(uuid,uuid,text,text)
   to service_role;
 
@@ -485,5 +483,5 @@ alter function public.corralio_upsert_push_subscription_v1(uuid,uuid,text,text,t
 alter function public.corralio_deactivate_push_subscription_v1(uuid,uuid,text) owner to postgres;
 alter function public.corralio_record_push_interaction_v1(uuid,uuid,text) owner to postgres;
 alter function public.corralio_deactivate_member_push_subscriptions_v1() owner to postgres;
-alter function public.corralio_claim_weekend_ready_deliveries_v1(date,text,timestamptz,timestamptz,integer) owner to postgres;
+alter function public.corralio_claim_weekend_ready_deliveries_v1(date,timestamptz,timestamptz,integer) owner to postgres;
 alter function public.corralio_finish_weekend_ready_delivery_v1(uuid,uuid,text,text) owner to postgres;

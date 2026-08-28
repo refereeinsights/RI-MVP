@@ -4,7 +4,7 @@ declare
   v_deactivate oid := 'public.corralio_deactivate_push_subscription_v1(uuid,uuid,text)'::regprocedure;
   v_interaction oid := 'public.corralio_record_push_interaction_v1(uuid,uuid,text)'::regprocedure;
   v_member_trigger oid := 'public.corralio_deactivate_member_push_subscriptions_v1()'::regprocedure;
-  v_claim oid := 'public.corralio_claim_weekend_ready_deliveries_v1(date,text,timestamptz,timestamptz,integer)'::regprocedure;
+  v_claim oid := 'public.corralio_claim_weekend_ready_deliveries_v1(date,timestamptz,timestamptz,integer)'::regprocedure;
   v_finish oid := 'public.corralio_finish_weekend_ready_delivery_v1(uuid,uuid,text,text)'::regprocedure;
 begin
   if (
