@@ -91,6 +91,18 @@ const fetchSuccess = async () => ({
   finalUrl: "https://calendar.example/team.ics",
 });
 
+const fetchValidEmpty = async () => ({
+  ok: true as const,
+  text: [
+    "BEGIN:VCALENDAR",
+    "PRODID:-//ArbiterSports Calendar//EN",
+    "VERSION:2.0",
+    "X-WR-CALNAME:ArbiterSports",
+    "END:VCALENDAR",
+  ].join("\n"),
+  finalUrl: "https://calendar.example/officials.ics",
+});
+
 test("an authenticated owner imports shared-engine events into only the resolved household", async () => {
   const state = memoryStore();
   const result = await ingestCorralioSchedule(
@@ -104,6 +116,20 @@ test("an authenticated owner imports shared-engine events into only the resolved
   assert.equal(state.sourceSports.get("source-1"), "soccer");
   assert.equal([...state.events.values()][0]?.source_location_text, "Regional Sports Park, Field 6");
   assert.deepEqual(state.matchingCalls, [{ householdId: "household-a", sourceId: "source-1", sourceEventUids: ["game-1"] }]);
+});
+
+test("a structurally valid empty calendar connects and remains refreshable", async () => {
+  const state = memoryStore();
+  const result = await ingestCorralioSchedule(
+    state.store,
+    { sourceUrl: "https://calendar.example/officials.ics", displayName: "My officiating assignments" },
+    { fetchSchedule: fetchValidEmpty },
+  );
+
+  assert.deepEqual(result, { ok: true, sourceId: "source-1", imported: 0 });
+  assert.equal(state.sources.size, 1);
+  assert.deepEqual(state.calls, [{ householdId: "household-a", sourceId: "source-1" }]);
+  assert.deepEqual(state.matchingCalls, [{ householdId: "household-a", sourceId: "source-1", sourceEventUids: [] }]);
 });
 
 test("post-persistence venue matching failure never changes ingestion success", async () => {
@@ -249,20 +275,7 @@ test("replacement intentionally rejects an empty feed without changing the worki
     sourceId: "source-1",
     sourceUrl: "https://calendar.example/empty.ics",
   }, {
-    fetchSchedule: async () => ({
-      ok: true as const,
-      text: [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "BEGIN:VEVENT",
-        "UID:past-game",
-        "DTSTART:20000101T170000Z",
-        "SUMMARY:Past Game",
-        "END:VEVENT",
-        "END:VCALENDAR",
-      ].join("\n"),
-      finalUrl: "https://calendar.example/empty.ics",
-    }),
+    fetchSchedule: fetchValidEmpty,
   });
   assert.deepEqual(result, { ok: false, error: "No upcoming events were found in that calendar.", errorKind: "no_events" });
   assert.equal(state.sourceUrls.get("source-1"), "https://calendar.example/old.ics");

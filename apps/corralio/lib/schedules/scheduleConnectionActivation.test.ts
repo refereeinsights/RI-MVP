@@ -19,17 +19,29 @@ const ingest = readFileSync(new URL("./ingest.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../../../../supabase/migrations/20260827_corralio_slice34_schedule_connection_activation.sql", import.meta.url), "utf8");
 const report = readFileSync(new URL("../../../../scripts/analysis/corralio_schedule_connection_activation_report.sql", import.meta.url), "utf8");
 
-test("the launch catalog is exactly four typed choices with honest compatibility tiers", () => {
+test("the launch catalog is exactly six typed choices with honest compatibility tiers", () => {
   assert.deepEqual(SCHEDULE_PLATFORMS.map(({ key }) => key), [
-    "gamechanger", "teamsnap", "stack_team_app", "other",
+    "gamechanger", "teamsnap", "stack_team_app", "arbiterlive", "arbiter_officials", "other",
   ]);
   assert.equal(getSchedulePlatform("gamechanger").tier, "COMPATIBLE");
   assert.equal(getSchedulePlatform("teamsnap").tier, "COMPATIBLE");
   assert.equal(getSchedulePlatform("stack_team_app").tier, "COMPATIBLE");
+  assert.equal(getSchedulePlatform("arbiterlive").recognition, "For school team schedules");
+  assert.equal(getSchedulePlatform("arbiter_officials").tier, "COMPATIBLE");
+  assert.match(getSchedulePlatform("arbiter_officials").caveat ?? "", /declined, reassigned, or canceled games/);
   assert.equal(getSchedulePlatform("other").tier, "MANUAL");
   assert.equal(parseSchedulePlatform("sportsengine"), null);
   assert.equal(parseSchedulePlatform("stack_team_app"), "stack_team_app");
+  assert.equal(parseSchedulePlatform("arbiterlive"), "arbiterlive");
+  assert.equal(parseSchedulePlatform("arbiter_officials"), "arbiter_officials");
   assert.doesNotMatch(JSON.stringify(SCHEDULE_PLATFORMS), /Blue Sombrero|DIRECT_INTEGRATION/);
+});
+
+test("valid-empty connection success uses the approved safe action and UI state", () => {
+  assert.match(actions, /result\.imported === 0[\s\S]*Schedule connected — no upcoming events were found yet\./);
+  assert.match(connectForm, /state\.status === "success"/);
+  assert.match(connectForm, /className="formNotice success"/);
+  assert.doesNotMatch(connectForm, /no upcoming events were found yet[\s\S]*connectionRecovery/);
 });
 
 test("the picker uses one catalog and preserves the existing secure ingestion boundary", () => {

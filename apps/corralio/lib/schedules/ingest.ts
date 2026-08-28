@@ -146,7 +146,6 @@ export async function ingestCorralioSchedule(
   const normalizeSchedule = dependencies.normalizeSchedule ?? normalizeIcsSchedule;
   const normalized = normalizeSchedule({ icsText: fetched.text, sourceUrl: fetched.finalUrl });
   if (normalized.errors.length) return userSafeError("not_ics");
-  if (!normalized.events.length) return userSafeError("no_events");
 
   const displayName = String(input.displayName ?? "").trim().slice(0, 100) || "Sports schedule";
   let sourceId: string | null = null;

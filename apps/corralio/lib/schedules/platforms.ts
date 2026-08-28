@@ -2,6 +2,8 @@ export const SCHEDULE_PLATFORM_KEYS = [
   "gamechanger",
   "teamsnap",
   "stack_team_app",
+  "arbiterlive",
+  "arbiter_officials",
   "other",
 ] as const;
 
@@ -17,7 +19,7 @@ export type SchedulePlatform = {
   caveat: string | null;
 };
 
-export const SCHEDULE_PLATFORM_CATALOG_VERSION = "corralio-schedule-platforms-v1";
+export const SCHEDULE_PLATFORM_CATALOG_VERSION = "corralio-schedule-platforms-v2";
 
 export const SCHEDULE_PLATFORMS: readonly SchedulePlatform[] = [
   {
@@ -55,6 +57,34 @@ export const SCHEDULE_PLATFORMS: readonly SchedulePlatform[] = [
       "Return here and paste that link below.",
     ],
     caveat: null,
+  },
+  {
+    key: "arbiterlive",
+    name: "ArbiterLive",
+    recognition: "For school team schedules",
+    tier: "COMPATIBLE",
+    instructions: [
+      "Sign in to ArbiterLive, or create a free account.",
+      "Find the school and team, then choose Follow.",
+      "Set Role to Parent, select Email me the iCal link, and choose Subscribe.",
+      "Check your email after a minute or two and copy the calendar link.",
+      "Return here and paste that link below.",
+    ],
+    caveat: "ArbiterLive emails your calendar link rather than showing it on screen — check your inbox a minute or two after subscribing.",
+  },
+  {
+    key: "arbiter_officials",
+    name: "Arbiter (Officials)",
+    recognition: "For officials — syncs your own accepted game assignments",
+    tier: "COMPATIBLE",
+    instructions: [
+      "Sign in to ArbiterSports.",
+      "Choose Settings, then Preferences.",
+      "Under Calendar Sync, choose Send Email.",
+      "Check your email for the iCal link ArbiterSports sends.",
+      "Return here and paste that link below.",
+    ],
+    caveat: "This connects your own officiating assignments. We haven’t yet confirmed how ArbiterSports reports declined, reassigned, or canceled games in this feed. Until that’s verified, double-check any important change directly in ArbiterSports.",
   },
   {
     key: "other",

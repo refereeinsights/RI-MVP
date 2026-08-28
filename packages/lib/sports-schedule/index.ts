@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import ical from "node-ical";
+import { extractIcsTextProperty } from "./icsProperty";
 import { sanitizeScheduleNotes } from "./sanitize";
 
 export { sanitizeScheduleNotes } from "./sanitize";
@@ -327,7 +328,7 @@ export function normalizeIcsSchedule(input: NormalizeIcsScheduleInput): Normaliz
   const events: NormalizedScheduleEvent[] = [];
   const canceledSourceEventUids = new Set<string>();
   let parsedTotal = 0;
-  let sawCalendarEvent = false;
+  let sawCalendarStructure = false;
 
   const sourceEventUid = (params: {
     uid: string;
@@ -347,11 +348,11 @@ export function normalizeIcsSchedule(input: NormalizeIcsScheduleInput): Normaliz
     const start = toEventDate(recurrence.instanceStart ?? event?.start, timezone);
     if (!start || start < windowStart || start > windowEnd) return;
 
-    const summary = String(event?.summary ?? "").trim();
-    const description = String(event?.description ?? "").trim();
+    const summary = extractIcsTextProperty(event?.summary).trim();
+    const description = extractIcsTextProperty(event?.description).trim();
     const parsedDescription = parseStructuredDescription(description);
     const rawLocationText = collapseWhitespace(
-      stripHtml(String(event?.location ?? "").trim() || parsedDescription.locationText || ""),
+      stripHtml(extractIcsTextProperty(event?.location).trim() || parsedDescription.locationText || ""),
     );
     const extractedLocation = extractScheduleFieldLabel(rawLocationText);
     const title = clamp(collapseWhitespace(stripHtml(summary)), 140) || "Imported calendar event";
@@ -397,8 +398,12 @@ export function normalizeIcsSchedule(input: NormalizeIcsScheduleInput): Normaliz
   };
 
   for (const event of Object.values(parsed)) {
+    if (event?.type === "VCALENDAR") {
+      sawCalendarStructure = true;
+      continue;
+    }
     if (!event || event.type !== "VEVENT") continue;
-    sawCalendarEvent = true;
+    sawCalendarStructure = true;
 
     if (event.rrule && typeof event.rrule.between === "function") {
       let occurrences: Date[] = [];
@@ -448,7 +453,7 @@ export function normalizeIcsSchedule(input: NormalizeIcsScheduleInput): Normaliz
   return {
     events,
     canceledSourceEventUids: Array.from(canceledSourceEventUids),
-    errors: sawCalendarEvent ? [] : ["not_ics"],
+    errors: sawCalendarStructure ? [] : ["not_ics"],
     parsedTotal,
   };
 }

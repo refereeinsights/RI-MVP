@@ -202,6 +202,13 @@ export async function connectSchedule(_state: FormState, formData: FormData): Pr
       return { status: "error", message: result.error, errorKind: result.errorKind };
     }
     revalidatePlanner();
+    if (result.imported === 0) {
+      return {
+        status: "success",
+        message: "Schedule connected — no upcoming events were found yet.",
+        imported: 0,
+      };
+    }
     return {
       status: "success",
       message: `Schedule connected — we found ${result.imported} upcoming ${result.imported === 1 ? "event" : "events"}`,
@@ -335,6 +342,13 @@ export async function connectTeamSchedule(_state: FormState, formData: FormData)
     );
     if (!result.ok) return { status: "error", message: result.error };
     revalidatePlanner();
+    if (result.imported === 0) {
+      return {
+        status: "success",
+        message: "Schedule connected — no upcoming events were found yet.",
+        imported: 0,
+      };
+    }
     return {
       status: "success",
       message: `Team schedule connected. ${result.imported} upcoming ${result.imported === 1 ? "event" : "events"} imported.`,

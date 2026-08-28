@@ -139,6 +139,63 @@ test("reports malformed input without throwing", () => {
   });
 });
 
+test("accepts a structurally valid empty calendar", () => {
+  const result = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/officials.ics",
+    icsText: [
+      "BEGIN:VCALENDAR",
+      "PRODID:-//ArbiterSports Calendar//EN",
+      "VERSION:2.0",
+      "X-WR-CALNAME:ArbiterSports",
+      "END:VCALENDAR",
+    ].join("\n"),
+  });
+  assert.deepEqual(result, {
+    events: [],
+    canceledSourceEventUids: [],
+    errors: [],
+    parsedTotal: 0,
+  });
+});
+
+test("preserves support for a bare VEVENT without a VCALENDAR wrapper", () => {
+  const result = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/bare-event.ics",
+    icsText: [
+      "BEGIN:VEVENT",
+      "UID:bare-event",
+      "DTSTART:20260824T180000Z",
+      "SUMMARY:Bare event",
+      "END:VEVENT",
+    ].join("\n"),
+  });
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.events[0]?.title, "Bare event");
+});
+
+test("unwraps parameterized Arbiter text properties without stringifying objects", () => {
+  const result = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/arbiterlive.ics",
+    icsText: calendar([
+      "BEGIN:VEVENT",
+      "SUMMARY;LANGUAGE=en-us:Jamboree Volleyball - HS @ Joel E. Ferris High School",
+      "DTSTART:20260903T230000Z",
+      "DTEND:20260904T030000Z",
+      "UID:G-100027364",
+      "LOCATION;LANGUAGE=en-us:Some Venue",
+      "DESCRIPTION;LANGUAGE=en-us:Arrival Time: 3:30 PM",
+      "END:VEVENT",
+    ]),
+  });
+  assert.equal(result.events[0]?.title, "Jamboree Volleyball - HS @ Joel E. Ferris High School");
+  assert.equal(result.events[0]?.rawLocation, "Some Venue");
+  assert.equal(result.events[0]?.notes, "Arrive 3:30 PM");
+  assert.doesNotMatch(JSON.stringify(result), /\[object Object\]/);
+});
+
 test("sanitizes HTML, URLs, UUIDs, and structured schedule notes", () => {
   const result = normalizeIcsSchedule({
     now: NOW,
