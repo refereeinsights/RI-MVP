@@ -1,0 +1,75 @@
+BEGIN:VCALENDAR
+PRODID:-//ArbiterSports Calendar//EN
+VERSION:2.0
+X-WR-CALNAME: ArbiterSports
+BEGIN:VEVENT
+SUMMARY;LANGUAGE=en-us:U14G Tournament
+CLASS:PUBLIC
+DTSTAMP:20260828T221458Z
+DTSTART:20260711T231000Z
+DTEND:20260712T001000Z
+UID:SAMPLE-001
+LOCATION: 100 Sample Complex Dr, Sample City WA  99000
+DESCRIPTION:Sport: Tournament\nLevel: U14G\nTeam: Sample Club U13G/14 Black\nSite: Sample Sports Complex\nSubsite: Sample Field #8\n\nOfficial A  Position: Referee\nOfficial B  Position: AR2\nOfficial C  Position: AR1\n\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY;LANGUAGE=en-us:U12B Silver Tournament
+CLASS:PUBLIC
+DTSTAMP:20260828T221458Z
+DTSTART:20260712T004500Z
+DTEND:20260712T014500Z
+UID:SAMPLE-002
+LOCATION: 100 Sample Complex Dr, Sample City WA  99000
+DESCRIPTION:Sport: Tournament\nLevel: U12B Silver\nTeam: Sample Club U12 B14-15 RCL2 - Coach\nSite: Sample Sports Complex\nSubsite: Sample Field #9\n\nOfficial D  Position: AR1\nOfficial A  Position: Referee\nOfficial B  Position: AR2\n\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY;LANGUAGE=en-us:U9G Tournament
+CLASS:PUBLIC
+DTSTAMP:20260828T221458Z
+DTSTART:20260712T194000Z
+DTEND:20260712T203000Z
+UID:SAMPLE-003
+LOCATION: 100 Sample Complex Dr, Sample City WA  99000
+DESCRIPTION:Sport: Tournament\nLevel: U9G\nSite: Sample Sports Complex\nSubsite: Sample Field #4\n\nOfficial A  Position: Referee\n\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY;LANGUAGE=en-us:Varsity Girls Soccer - HS
+CLASS:PUBLIC
+DTSTAMP:20260828T221458Z
+DTSTART:20260901T230000Z
+DTEND:20260902T003000Z
+UID:SAMPLE-004
+LOCATION: 200 Sample School Rd, Sample City WA  99001
+DESCRIPTION:Sport: Girls Soccer - HS\nLevel: Varsity\nTeam: Sample High School A\nSite: Sample Field House\nSubsite: Sample Field #1\n\nOfficial E  Position: AR 1\nOfficial A  Position: AR 2\nOfficial F  Position: Center\n\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY;LANGUAGE=en-us:Varsity Girls Soccer - HS
+CLASS:PUBLIC
+DTSTAMP:20260828T221458Z
+DTSTART:20260902T230000Z
+DTEND:20260903T013000Z
+UID:SAMPLE-005
+LOCATION: 300 Sample Blvd, Sample City WA  99002
+DESCRIPTION:Sport: Girls Soccer - HS\nLevel: Varsity\nTeam: Sample High School B\nSite: Sample Athletic Field\nSubsite: Soccer Varsity\n\nOfficial E  Position: AR 2\nOfficial A  Position: AR 1\nOfficial G  Position: Center\n\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY;LANGUAGE=en-us:Varsity Girls Soccer - HS
+CLASS:PUBLIC
+DTSTAMP:20260828T221458Z
+DTSTART:20260903T230000Z
+DTEND:20260904T004500Z
+UID:SAMPLE-006
+LOCATION: 400 Sample Rural Rd, Sample Town WA  99003
+DESCRIPTION:Sport: Girls Soccer - HS\nLevel: Varsity\nTeam: Sample High School C\nSite: Sample High School\nSubsite: Soccer Varsity\n\nOfficial H  Position: Center\nOfficial I  Position: AR 1\nOfficial A  Position: AR 2\n\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY;LANGUAGE=en-us:Junior Varsity - GSL Girls Soccer - HS
+CLASS:PUBLIC
+DTSTAMP:20260828T221458Z
+DTSTART:20260928T230000Z
+DTEND:20260929T010000Z
+UID:SAMPLE-007
+LOCATION: 500 Sample Market St, Sample Suburb WA  99004
+DESCRIPTION:Sport: Girls Soccer - HS\nLevel: Junior Varsity - GSL\nTeam: Sample High School D\nSite: Sample Stadium\nSubsite: Turf Field (Stadium)\n\nOfficial A  Position: Center\n\n
+END:VEVENT
+END:VCALENDAR
