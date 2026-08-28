@@ -290,15 +290,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const venuePath = getVenueHref(data);
   const nearestTournamentId = upcomingTournaments[0]?.id ?? null;
   const nearestTournamentSlug = upcomingTournaments[0]?.slug ?? null;
-  const travelHotelsHref = `${tiOrigin}/go/hotels?${new URLSearchParams({
-    venueId: data.id,
-    ...(nearestTournamentId ? { tournamentId: nearestTournamentId } : {}),
-    source: "referee_venue_detail",
-    pageType: "referee",
-    cta_placement: "ri_venue_detail_hotels",
-    flow_type: "referee_travel",
-    custom8: "app:refereeinsights",
-  }).toString()}`;
+  const travelHotelsHref = `/travel?${new URLSearchParams({ venue_id: data.id }).toString()}`;
   const travelRentalsHref = `${tiOrigin}/go/vrbo?${new URLSearchParams({
     venueId: data.id,
     ...(nearestTournamentId ? { tournamentId: nearestTournamentId } : {}),
@@ -620,24 +612,20 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
               <div className="detailCard" style={{ width: "min(720px, 100%)" }}>
                 <div className="detailLinksRow">
                   {showVenueHotelFallback ? (
-                    <RiVenueExternalLink
+                    <RiVenueInternalLink
                       className="secondaryLink"
                       href={travelHotelsHref}
-                      target="_blank"
-                      rel="noopener noreferrer sponsored"
                       eventName="ri_venue_hotels_cta_clicked"
                       sourcePageType="venue_detail"
                       venueId={data.id}
                       venueName={data.name || "Venue"}
                       city={data.city}
                       state={data.state}
-                      targetKind="hotel_outbound"
+                      targetKind="travel_search"
                       nearbyCategory="hotels"
                       linkedTournamentCount={linkedTournaments.length}
                       sourceSurface="venue_detail"
                       ctaPlacement="ri_venue_detail_hotels"
-                      outboundPartner="hotelplanner"
-                      outboundDestinationType="hotels"
                       tournamentId={nearestTournamentId}
                       tournamentSlug={nearestTournamentSlug}
                       sport={sportsFromTournaments[0] ?? null}
@@ -647,7 +635,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                       }}
                     >
                       🏨 Find hotels near this venue
-                    </RiVenueExternalLink>
+                    </RiVenueInternalLink>
                   ) : null}
                   <RiVenueExternalLink
                     className="secondaryLink"

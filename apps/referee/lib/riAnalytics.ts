@@ -15,7 +15,8 @@ export type RiPageType =
   | "tournament_detail"
   | "tournament_map"
   | "venue_directory"
-  | "venue_detail";
+  | "venue_detail"
+  | "travel";
 
 type CaptureArgs = {
   pageType: RiPageType;

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import {
   buildHotelPlannerBookingAttribution,
   createOutboundAttributionId,
+  deriveHotelOutboundSourceSurface,
   deriveHotelPlannerSourcePageType,
   isValidOutboundAttributionId,
   sanitizeHotelPlannerSpreadsheetContext,
@@ -138,6 +139,7 @@ export async function GET(request: Request) {
   const userAgent = request.headers.get("user-agent");
   const sourcePath = sourcePathFromReferer(referer);
   const source = sanitizeText(pickTrackingParam(reqUrl, "source"), 64);
+  const requestSource = sanitizeText(pickTrackingParam(reqUrl, "request_source"), 64);
   const pageType = sanitizeText(pickTrackingParam(reqUrl, "page_type"), 32);
   const sourcePageType = deriveHotelPlannerSourcePageType({
     source,
@@ -215,7 +217,7 @@ export async function GET(request: Request) {
         destination_type: "hotels",
         partner: "hotelplanner",
         outbound_partner: "hotelplanner",
-        source_surface: sourcePageType,
+        source_surface: deriveHotelOutboundSourceSurface({ requestSource, sourcePageType }),
         source_page_type: sourcePageType,
         venue_id: venueId,
         tournament_id: tournamentId,

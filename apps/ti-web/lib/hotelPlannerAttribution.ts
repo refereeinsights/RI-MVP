@@ -164,6 +164,13 @@ export function deriveHotelPlannerSourcePageType(args: {
   return args.hasVenueId ? "venue" : "other";
 }
 
+export function deriveHotelOutboundSourceSurface(args: {
+  requestSource: string | null | undefined;
+  sourcePageType: HotelPlannerSourcePageType;
+}) {
+  return args.requestSource?.trim() === "referee_travel" ? "referee_travel" : args.sourcePageType;
+}
+
 function sanitizeText(value: string | null | undefined, maxLength = 128) {
   const trimmed = String(value ?? "").trim();
   if (!trimmed) return null;

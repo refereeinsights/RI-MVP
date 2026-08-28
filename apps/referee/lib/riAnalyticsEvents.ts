@@ -1,4 +1,7 @@
 export const RI_PERSISTED_EVENTS = [
+  "ri_travel_page_viewed",
+  "ri_travel_search_submitted",
+  "ri_travel_results_returned",
   "ri_tournament_directory_viewed",
   "ri_tournament_filter_applied",
   "ri_tournament_map_opened",

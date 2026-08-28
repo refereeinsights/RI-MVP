@@ -516,15 +516,7 @@ export default async function TournamentDetailPage({
   const tiOrigin = getTiOrigin();
   const primaryVenue = linkedVenues[0] ?? null;
   const travelHotelsHref = primaryVenue
-    ? `${tiOrigin}/go/hotels?${new URLSearchParams({
-        venueId: primaryVenue.id,
-        tournamentId: data.id,
-        source: "referee_tournament_detail",
-        pageType: "referee",
-        cta_placement: "ri_tournament_detail_hotels",
-        flow_type: "referee_travel",
-        custom8: "app:refereeinsights",
-      }).toString()}`
+    ? `/travel?${new URLSearchParams({ venue_id: primaryVenue.id }).toString()}`
     : null;
   const travelRentalsHref = primaryVenue
     ? `${tiOrigin}/go/vrbo?${new URLSearchParams({
@@ -625,14 +617,12 @@ export default async function TournamentDetailPage({
                 Stay close to the venue — most refs prefer to be within 10–15 minutes of the fields.
               </p>
               <div className="detailLinksRow" style={{ marginTop: 10 }}>
-                <a
+                <Link
                   className="secondaryLink"
                   href={travelHotelsHref}
-                  target="_blank"
-                  rel="noopener noreferrer sponsored"
                 >
                   🏨 Find hotels near {primaryVenue.name ?? "this venue"}
-                </a>
+                </Link>
                 <a
                   className="secondaryLink"
                   href={travelRentalsHref}

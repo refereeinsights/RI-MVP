@@ -10,6 +10,7 @@ import {
 import { formatDateToMmDdYyyy } from "@/lib/lodging/lodging-dates";
 import { HotelPlannerApiError } from "@/lib/lodging/hotelPlannerProvider";
 import { classifyHotelSearchFailure } from "@/lib/lodging/hotelReliability";
+import { isGenericHotelSearchSource } from "@/lib/lodging/genericHotelSearchSource";
 import {
   evaluateHotelSearchDateHorizon,
   HOTEL_DATE_HORIZON_BODY,
@@ -647,11 +648,7 @@ export async function POST(request: Request) {
     return asRequestError("Missing destination");
   }
 
-  if (
-    isGenericSearch &&
-    genericSource !== "book_travel" &&
-    genericSource !== "weekend_planner"
-  ) {
+  if (isGenericSearch && !isGenericHotelSearchSource(genericSource)) {
     return asRequestError("Generic destination search is not allowed for this source");
   }
 

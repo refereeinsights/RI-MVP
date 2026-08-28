@@ -8,11 +8,17 @@ import {
   buildHotelPlannerGroupRequestAttribution,
   createOutboundAttributionId,
   deriveHotelPlannerSourcePageType,
+  deriveHotelOutboundSourceSurface,
   formatOutboundAttributionToken,
   isHotelPlannerSourcePageType,
   isValidOutboundAttributionId,
   sanitizeHotelPlannerSpreadsheetContext,
 } from "./hotelPlannerAttribution";
+
+test("preserves the exact RI Travel request surface without broadening arbitrary sources", () => {
+  assert.equal(deriveHotelOutboundSourceSurface({ requestSource: "referee_travel", sourcePageType: "referee" }), "referee_travel");
+  assert.equal(deriveHotelOutboundSourceSurface({ requestSource: "arbitrary", sourcePageType: "referee" }), "referee");
+});
 
 test("sanitizes spreadsheet-facing HotelPlanner context without changing ordinary labels", () => {
   assert.equal(sanitizeHotelPlannerSpreadsheetContext("  Summer\n Classic  "), "Summer Classic");

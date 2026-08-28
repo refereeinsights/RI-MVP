@@ -21,6 +21,7 @@ export const STATIC_SITEMAP_PATHS = [
   "/referrals",
   "/schools",
   "/terms",
+  "/travel",
   "/tournament-insights",
   "/tournaments",
   "/venues",

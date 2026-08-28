@@ -2,7 +2,9 @@ import { createHmac } from "node:crypto";
 import { unzipSync } from "fflate";
 import { supabaseAdmin } from "./supabaseAdmin";
 import {
+  collectConfirmedBookingAttributionIds,
   parseHotelPlannerAttributionId,
+  reconcileConfirmedBookingAttribution,
   summarizeHotelBookingRows,
 } from "./hotelBookingReconciliation";
 
@@ -450,9 +452,11 @@ export type HotelBookingSummary = {
   cancelledCount: number;
   pendingCount: number;
   // Attribution breakdown (confirmed bookings only)
-  trackedCount: number;        // outbound_attribution_id present → joined to ti_outbound_clicks
-  directOrganicCount: number;  // custom3 absent → direct / organic / shared / untracked white-label
-  anomalyCount: number;        // custom3 present but outbound_attribution_id null → unresolvable
+  reconciliationStatus: "available" | "unavailable";
+  matchedCount: number | null;
+  orphanedValidTokenCount: number | null;
+  missingTokenCount: number;
+  invalidTokenCount: number;
   totalBookingValueUsd: number;
   expectedCommissionUsd: number;
   topTournamentSlugs: Array<{ slug: string; count: number }>;
@@ -467,9 +471,11 @@ export async function loadHotelBookingSummary(windowDays = 7): Promise<HotelBook
     confirmedCount: 0,
     cancelledCount: 0,
     pendingCount: 0,
-    trackedCount: 0,
-    directOrganicCount: 0,
-    anomalyCount: 0,
+    reconciliationStatus: "available",
+    matchedCount: 0,
+    orphanedValidTokenCount: 0,
+    missingTokenCount: 0,
+    invalidTokenCount: 0,
     totalBookingValueUsd: 0,
     expectedCommissionUsd: 0,
     topTournamentSlugs: [],
@@ -503,32 +509,37 @@ export async function loadHotelBookingSummary(windowDays = 7): Promise<HotelBook
     outbound_attribution_id: string | null;
   }>;
 
-  const lastSyncedAt = (syncResult.data as { synced_at: string } | null)?.synced_at ?? null;
   const totals = summarizeHotelBookingRows(rows);
 
-  // Attribution breakdown: categorize confirmed bookings by Custom3 / outbound_attribution_id presence
-  let trackedCount = 0;
-  let directOrganicCount = 0;
-  let anomalyCount = 0;
-  for (const row of rows) {
-    const isConfirmed = (row.status ?? "").toLowerCase() === "confirmed";
-    if (!isConfirmed) continue;
-    if (row.outbound_attribution_id) {
-      trackedCount += 1;
-    } else if (!row.custom3) {
-      directOrganicCount += 1;
-    } else {
-      anomalyCount += 1;
+  const lastSyncedAt = (syncResult.data as { synced_at: string } | null)?.synced_at ?? null;
+  const attributionIds = collectConfirmedBookingAttributionIds(rows);
+  let matchedOutboundAttributionIds: Set<string> | null = new Set();
+  const batchSize = 200;
+  for (let offset = 0; offset < attributionIds.length; offset += batchSize) {
+    const result = await (supabaseAdmin as any)
+      .from("ti_outbound_clicks")
+      .select("outbound_attribution_id")
+      .in("outbound_attribution_id", attributionIds.slice(offset, offset + batchSize));
+    if (result.error) {
+      console.error("[hotel-booking-sync] outbound reconciliation error", result.error.message);
+      matchedOutboundAttributionIds = null;
+      break;
+    }
+    for (const row of (result.data ?? []) as Array<{ outbound_attribution_id: string | null }>) {
+      if (row.outbound_attribution_id) matchedOutboundAttributionIds.add(row.outbound_attribution_id.toLowerCase());
     }
   }
+  const reconciliation = reconcileConfirmedBookingAttribution(rows, matchedOutboundAttributionIds);
 
   return {
     confirmedCount: totals.confirmedCount,
     cancelledCount: totals.cancelledCount,
     pendingCount: totals.pendingCount,
-    trackedCount,
-    directOrganicCount,
-    anomalyCount,
+    reconciliationStatus: reconciliation.status,
+    matchedCount: reconciliation.matchedCount,
+    orphanedValidTokenCount: reconciliation.orphanedValidTokenCount,
+    missingTokenCount: reconciliation.missingTokenCount,
+    invalidTokenCount: reconciliation.invalidTokenCount,
     totalBookingValueUsd: totals.totalBookingValueUsd,
     expectedCommissionUsd: totals.expectedCommissionUsd,
     topTournamentSlugs: totals.topTournamentSlugs,
