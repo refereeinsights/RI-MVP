@@ -61,7 +61,9 @@ export function createSupabaseScheduleStore(
         p_display_name: input.displayName,
         p_source_url: input.sourceUrl,
         p_sport: input.sport,
-        p_child_id: input.childId,
+        // A team already owns its child relationship. The persisted source
+        // assignment is exactly one of child or team, never both.
+        p_child_id: input.teamId ? null : input.childId,
         p_team_id: input.teamId,
       });
       if (error || typeof data !== "string") databaseFailure("create_source", error);

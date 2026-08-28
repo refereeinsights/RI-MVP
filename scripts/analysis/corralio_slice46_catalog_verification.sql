@@ -25,6 +25,16 @@ begin
       and conname = 'corralio_events_schedule_arrival_check' and convalidated
   ) then raise exception 'Slice 4.6 catalog verification failed: arrival constraints'; end if;
 
+  if not has_column_privilege(
+    'authenticated', 'public.corralio_teams', 'arrival_buffer_minutes', 'UPDATE'
+  ) or has_column_privilege(
+    'anon', 'public.corralio_teams', 'arrival_buffer_minutes', 'UPDATE'
+  ) or has_column_privilege(
+    'public', 'public.corralio_teams', 'arrival_buffer_minutes', 'UPDATE'
+  ) or has_column_privilege(
+    'authenticated', 'public.corralio_teams', 'archived_at', 'UPDATE'
+  ) then raise exception 'Slice 4.6 catalog verification failed: team arrival update grant'; end if;
+
   if v_analytics is null or exists (
     select 1 from pg_class
     where oid = v_analytics and (

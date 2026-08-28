@@ -5,6 +5,18 @@ import test from "node:test";
 const actions = readFileSync(new URL("../../app/actions.ts", import.meta.url), "utf8");
 const familyUi = readFileSync(new URL("../../app/components/FamilySection.tsx", import.meta.url), "utf8");
 const store = readFileSync(new URL("./supabaseStore.ts", import.meta.url), "utf8");
+const repairMigration = readFileSync(
+  new URL("../../../../supabase/migrations/20260828_corralio_team_schedule_connection_fix.sql", import.meta.url),
+  "utf8",
+);
+const catalogVerifier = readFileSync(
+  new URL("../../../../scripts/analysis/corralio_slice46_catalog_verification.sql", import.meta.url),
+  "utf8",
+);
+const behavioralVerifier = readFileSync(
+  new URL("../../../../scripts/analysis/corralio_slice46_behavioral_verification.sql", import.meta.url),
+  "utf8",
+);
 
 const teamConnectionAction = actions.slice(
   actions.indexOf("export async function connectTeamSchedule"),
@@ -32,8 +44,23 @@ test("the edit-team panel accepts a resettable private URL without rendering it 
   assert.doesNotMatch(familyUi, /sourceUrl:\s*string|defaultValue=\{[^}]*sourceUrl|value=\{[^}]*sourceUrl/);
 });
 
-test("canonical source creation receives the server-validated assignment", () => {
-  assert.match(store, /p_child_id: input\.childId/);
+test("canonical source creation persists exactly one server-validated assignment", () => {
+  assert.match(store, /p_child_id: input\.teamId \? null : input\.childId/);
   assert.match(store, /p_team_id: input\.teamId/);
   assert.doesNotMatch(teamConnectionAction, /console\.(?:log|warn|error)|source_url/);
+});
+
+test("team arrival editing has a narrow authenticated repair and database coverage", () => {
+  assert.match(
+    repairMigration,
+    /grant update \(arrival_buffer_minutes\)[\s\S]*on table public\.corralio_teams to authenticated/,
+  );
+  assert.doesNotMatch(repairMigration, /grant update on table public\.corralio_teams/i);
+  assert.match(
+    catalogVerifier,
+    /has_column_privilege\(\s*'authenticated',[\s\S]*'arrival_buffer_minutes',[\s\S]*'UPDATE'\s*\)/,
+  );
+  assert.match(behavioralVerifier, /set arrival_buffer_minutes = 50/);
+  assert.match(behavioralVerifier, /Team-connected fixture/);
+  assert.match(behavioralVerifier, /p_child_id => null/);
 });

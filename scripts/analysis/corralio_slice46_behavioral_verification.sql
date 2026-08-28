@@ -80,10 +80,38 @@ select pg_temp.corralio_slice46_assert(
 set local role authenticated;
 select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('request.jwt.claim.sub', 'c4600000-0000-4000-8000-000000000001', true);
+update public.corralio_teams
+set arrival_buffer_minutes = 50
+where id = 'c4600000-0000-4000-8000-000000000031';
+select public.corralio_create_schedule_source_v2(
+  p_household_id => 'c4600000-0000-4000-8000-000000000011',
+  p_display_name => 'Team-connected fixture',
+  p_source_url => 'https://example.invalid/team-connected.ics',
+  p_sport => 'soccer',
+  p_child_id => null,
+  p_team_id => 'c4600000-0000-4000-8000-000000000031'
+);
 select public.corralio_record_what_fits_event_v1(
   'candidate_selected', 'food', null, 'ics_explicit', 3, 1
 );
 reset role;
+
+select pg_temp.corralio_slice46_assert(
+  (select arrival_buffer_minutes = 50
+   from public.corralio_teams
+   where id = 'c4600000-0000-4000-8000-000000000031'),
+  'authenticated owner could not update the team arrival preference'
+);
+
+select pg_temp.corralio_slice46_assert(
+  (select count(*) = 1
+   from public.corralio_schedule_sources
+   where household_id = 'c4600000-0000-4000-8000-000000000011'
+     and display_name = 'Team-connected fixture'
+     and child_id is null
+     and team_id = 'c4600000-0000-4000-8000-000000000031'),
+  'team-connected source did not persist the team-only assignment'
+);
 
 select pg_temp.corralio_slice46_assert(
   (select count(*) = 1 from public.corralio_what_fits_events
