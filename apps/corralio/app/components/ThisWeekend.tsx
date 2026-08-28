@@ -7,6 +7,7 @@ import { computeWeekendLeaveByAction, computeWhatFitsAction, recordWhatFitsAnaly
 import type { WhatFitsServerResult } from "@/lib/whatFits.server";
 import { buildNavigationLinks } from "@/lib/navigation";
 import { WhatFitsPanel } from "./WhatFitsPanel";
+import { WeekendReadyPrompt } from "./WeekendReadyPrompt";
 import { corralioSportIcon, corralioSportLabel } from "@/lib/schedules/sport";
 import { getThisWeekendRangeLocal } from "@/lib/weekend";
 import { buildWeekendPlan, type WeekendConflict, type WeekendPlanEvent } from "@/lib/weekendPlan";
@@ -88,10 +89,14 @@ export function ThisWeekend({
   events,
   candidateLimitReached = false,
   scheduleFreshness = null,
+  planningTimezone = null,
+  vapidPublicKey = null,
 }: {
   events: WeekendPlanEvent[];
   candidateLimitReached?: boolean;
   scheduleFreshness?: string | null;
+  planningTimezone?: string | null;
+  vapidPublicKey?: string | null;
 }) {
   const router = useRouter();
   const [now, setNow] = useState<Date | null>(null);
@@ -274,6 +279,9 @@ export function ThisWeekend({
           <p>Your schedule is connected. Events will appear here when they fall on Friday, Saturday, or Sunday.</p>
         </div>
       )}
+      {dayGroups.length ? (
+        <WeekendReadyPrompt planningTimezone={planningTimezone} vapidPublicKey={vapidPublicKey} />
+      ) : null}
       <dialog
         className="navigationDialog"
         ref={navigationDialogRef}

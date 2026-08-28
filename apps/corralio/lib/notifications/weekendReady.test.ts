@@ -68,7 +68,33 @@ test("isolates individual delivery failures and never exposes subscription mater
     transientFailures: 1,
     permanentFailures: 0,
     deadEndpoints: 1,
+    finalizationFailures: 0,
   });
   assert.deepEqual(finished.map((row) => row.outcome.kind), ["accepted", "transient_failure", "dead_endpoint"]);
   assert.doesNotMatch(JSON.stringify(result), /push\.example|p256dh|auth|subscription/i);
+});
+
+test("a finalization failure does not abort unrelated delivery attempts", async () => {
+  const claims: WeekendReadyDeliveryClaim[] = [
+    { ...validSubscription, deliveryId: "delivery-1", claimToken: "claim-1", attemptCount: 1 },
+    { ...validSubscription, endpoint: "https://push.example.test/subscription/two", deliveryId: "delivery-2", claimToken: "claim-2", attemptCount: 1 },
+  ];
+  const sent: string[] = [];
+  const store: WeekendReadyBatchStore = {
+    claimDeliveries: async () => claims,
+    finishDelivery: async ({ deliveryId }) => {
+      if (deliveryId === "delivery-1") throw new Error("database unavailable");
+    },
+  };
+  const result = await runWeekendReadyBatch({
+    store,
+    siteOrigin: "https://corralio.example",
+    sender: async (subscription) => {
+      sent.push(subscription.endpoint);
+      return { status: 201 };
+    },
+  });
+  assert.equal(sent.length, 2);
+  assert.equal(result.accepted, 2);
+  assert.equal(result.finalizationFailures, 1);
 });

@@ -317,11 +317,11 @@ Reuse the canonical Friday-through-Sunday This Weekend shape. For Weekend Ready 
 
 ---
 
-# 14. Send Timing and Timezone Strategy — Updated Decision Gate
+# 14. Send Timing and Timezone Strategy — Approved V1 Decision
 
 The fixed-US UTC schedule is superseded by the Household Timezone Foundation amendment.
 
-Stage 1 recommendation for founder/CPO approval:
+Founder/CPO-approved V1 behavior:
 
 - one primary send opportunity Thursday at 4:37 PM in the confirmed household timezone;
 - one bounded worker every 15 minutes during the global Thursday-local evaluation/retry envelope, using `7,22,37,52 2-23 * * 4` and `7,22,37,52 0-6 * * 5` in Vercel UTC cron (116 invocations/week, not an all-week poll);
@@ -341,7 +341,7 @@ Requirements:
 - no multiple reminders;
 - avoid middle-of-the-night delivery.
 
-This exact local send time and cadence require approval before Stage 2. The household-timezone product model itself is founder-approved and must not be replaced with the former fixed-US workaround.
+This exact local send time and cadence are approved for Stage 2. The household-timezone product model is founder-approved and must not be replaced with the former fixed-US workaround.
 
 ---
 

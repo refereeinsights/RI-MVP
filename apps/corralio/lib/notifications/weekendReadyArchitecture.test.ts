@@ -15,6 +15,13 @@ const prompt = source("docs/prompts/corralio-slice-3.6a-weekend-ready-web-push-p
 const actions = source("apps/corralio/app/actions.ts");
 const familyUi = source("apps/corralio/app/components/FamilySection.tsx");
 const productData = source("apps/corralio/app/_lib/productData.ts");
+const workerRoute = source("apps/corralio/app/api/cron/weekend-ready/route.ts");
+const workerServer = source("apps/corralio/lib/notifications/weekendReady.server.ts");
+const browserPrompt = source("apps/corralio/app/components/WeekendReadyPrompt.tsx");
+const serviceWorker = source("apps/corralio/public/sw.js");
+const vercel = source("apps/corralio/vercel.json");
+const middleware = source("apps/corralio/middleware.ts");
+const nextConfig = source("apps/corralio/next.config.js");
 
 test("keeps subscription capabilities behind service-only tables and functions", () => {
   for (const table of [
@@ -101,4 +108,43 @@ test("keeps the final founder corrections in the canonical prompt", () => {
     "UNVERIFIED ON PHYSICAL DEVICE",
     "CORRALIO_SITE_URL",
   ]) assert.match(prompt, new RegExp(phrase.replace("/", "\\/"), "i"));
+});
+
+test("ships an isolated authenticated bounded Weekend Ready worker", () => {
+  assert.match(workerRoute, /isCorralioCronAuthorized/);
+  assert.match(workerRoute, /createCorralioSupabaseAdminClient/);
+  assert.match(workerRoute, /maxDuration = 300/);
+  assert.doesNotMatch(workerRoute, /schedule-refresh|source_url|endpoint|p256dh|auth_secret/);
+  assert.match(workerServer, /corralio_claim_weekend_ready_deliveries_v1/);
+  assert.match(workerServer, /corralio_finish_weekend_ready_delivery_v1/);
+  assert.match(workerServer, /CORRALIO_VAPID_PRIVATE_KEY/);
+  assert.match(workerServer, /getCorralioSiteOrigin\(\)/);
+  assert.doesNotMatch(workerServer, /request\.headers|host|forwarded/i);
+  assert.match(vercel, /7,22,37,52 2-23 \* \* 4/);
+  assert.match(vercel, /7,22,37,52 0-6 \* \* 5/);
+});
+
+test("keeps subscription capability behind server actions and bounded browser states", () => {
+  assert.match(actions, /parsePushSubscriptionInput/);
+  assert.match(actions, /createCorralioSupabaseAdminClient\(\)\.rpc\(/);
+  assert.match(actions, /corralio_upsert_push_subscription_v1/);
+  assert.match(actions, /corralio_deactivate_push_subscription_v1/);
+  assert.match(browserPrompt, /Notification\.requestPermission\(\)/);
+  assert.match(browserPrompt, /permission_denied/);
+  assert.match(browserPrompt, /permission_dismissed/);
+  assert.match(browserPrompt, /Add to Home Screen/);
+  assert.match(browserPrompt, /localStorage\.setItem\(DISMISSED_KEY/);
+  assert.doesNotMatch(browserPrompt, /getCorralioSupabaseBrowserClient|\.from\(|\.rpc\(/);
+});
+
+test("uses a root service worker only for private-copy push and same-origin navigation", () => {
+  assert.match(serviceWorker, /self\.addEventListener\("push"/);
+  assert.match(serviceWorker, /self\.registration\.showNotification/);
+  assert.match(serviceWorker, /self\.addEventListener\("notificationclick"/);
+  assert.match(serviceWorker, /candidate\.origin === self\.location\.origin/);
+  assert.doesNotMatch(serviceWorker, /child_name|team_name|event_name|origin_address|source_url|private_note/i);
+  assert.doesNotMatch(serviceWorker, /addEventListener\("fetch"|caches\./);
+  assert.match(middleware, /manifest\.webmanifest\|sw\.js/);
+  assert.match(nextConfig, /Service-Worker-Allowed/);
+  assert.match(nextConfig, /no-cache, no-store, must-revalidate/);
 });

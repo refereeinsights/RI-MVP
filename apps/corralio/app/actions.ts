@@ -7,6 +7,7 @@ import { resolveCorralioViewer } from "@/app/_lib/productData";
 import { CORRALIO_ACQUISITION_COOKIE, resolveAcquisitionProvenanceCookie } from "@/lib/acquisition";
 import { nextChildColor, normalizeFamilyName, parseTeamSport } from "@/lib/family";
 import { parseIanaTimeZone } from "@/lib/householdTimezone";
+import { parsePushSubscriptionInput } from "@/lib/notifications/weekendReady";
 import { computeWeekendLeaveBy, saveHouseholdOrigin } from "@/lib/leaveBy.server";
 import { isValidUuid, parseScheduleAssignmentInput } from "@/lib/schedules/assignment";
 import {
@@ -55,7 +56,92 @@ async function getOwnerContext() {
   });
   if (householdError || typeof householdId !== "string") throw new Error("unauthorized");
 
-  return { supabase, householdId };
+  return { supabase, householdId, userId: authData.user.id };
+}
+
+export type WeekendReadyActionResult = {
+  status: "subscribed" | "unsubscribed" | "confirmed" | "error";
+};
+
+type WeekendReadyInteraction =
+  | "soft_ask_shown"
+  | "permission_granted"
+  | "permission_denied"
+  | "permission_dismissed";
+
+export async function recordWeekendReadyInteractionAction(input: unknown): Promise<void> {
+  if (
+    input !== "soft_ask_shown"
+    && input !== "permission_granted"
+    && input !== "permission_denied"
+    && input !== "permission_dismissed"
+  ) return;
+  try {
+    const { householdId, userId } = await getOwnerContext();
+    await createCorralioSupabaseAdminClient().rpc("corralio_record_push_interaction_v1", {
+      p_user_id: userId,
+      p_household_id: householdId,
+      p_interaction_type: input satisfies WeekendReadyInteraction,
+    });
+  } catch {
+    // Measurement cannot affect notification or planner behavior.
+  }
+}
+
+export async function confirmWeekendReadyTimezoneAction(input: unknown): Promise<WeekendReadyActionResult> {
+  const timezone = parseIanaTimeZone(input);
+  if (!timezone) return { status: "error" };
+  try {
+    const { supabase } = await getOwnerContext();
+    const { data, error } = await supabase.rpc("corralio_set_household_timezone_v1", {
+      p_timezone: timezone,
+    });
+    if (error || data !== timezone) return { status: "error" };
+    revalidatePlanner();
+    return { status: "confirmed" };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+export async function subscribeWeekendReadyAction(input: unknown): Promise<WeekendReadyActionResult> {
+  const subscription = parsePushSubscriptionInput(input);
+  if (!subscription) return { status: "error" };
+  try {
+    const { householdId, userId } = await getOwnerContext();
+    const { data, error } = await createCorralioSupabaseAdminClient().rpc(
+      "corralio_upsert_push_subscription_v1",
+      {
+        p_user_id: userId,
+        p_household_id: householdId,
+        p_endpoint: subscription.endpoint,
+        p_p256dh: subscription.p256dh,
+        p_auth: subscription.auth,
+      },
+    );
+    return { status: !error && data === "subscribed" ? "subscribed" : "error" };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+export async function unsubscribeWeekendReadyAction(input: unknown): Promise<WeekendReadyActionResult> {
+  const subscription = parsePushSubscriptionInput(input);
+  if (!subscription) return { status: "error" };
+  try {
+    const { householdId, userId } = await getOwnerContext();
+    const { data, error } = await createCorralioSupabaseAdminClient().rpc(
+      "corralio_deactivate_push_subscription_v1",
+      {
+        p_user_id: userId,
+        p_household_id: householdId,
+        p_endpoint: subscription.endpoint,
+      },
+    );
+    return { status: !error && data === "unsubscribed" ? "unsubscribed" : "error" };
+  } catch {
+    return { status: "error" };
+  }
 }
 
 export async function recordWeeklyEngagementAction(payload: EngagementPayload): Promise<void> {

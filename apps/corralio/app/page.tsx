@@ -2,6 +2,7 @@ import { loadWeekendData, resolveCorralioViewer } from "@/app/_lib/productData";
 import { ProductShell } from "@/app/components/ProductShell";
 import { SignedOutLanding } from "@/app/components/SignedOutLanding";
 import { ThisWeekend } from "@/app/components/ThisWeekend";
+import { getWeekendReadyPublicKey } from "@/lib/notifications/weekendReady.server";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export default async function HomePage() {
   const viewer = await resolveCorralioViewer();
   if (!viewer) return <SignedOutLanding />;
 
-  const { sourceCount, weekendEvents, candidateLimitReached, scheduleFreshness } = await loadWeekendData(viewer);
+  const { sourceCount, weekendEvents, candidateLimitReached, scheduleFreshness, planningTimezone } = await loadWeekendData(viewer);
   return (
     <ProductShell activeSection="weekend">
       <section className="heroSection">
@@ -22,7 +23,7 @@ export default async function HomePage() {
           <div><p className="eyebrow">Your plan</p><h2 id="weekend-heading">What’s happening</h2></div>
           {sourceCount ? <span className="countBadge">{sourceCount} {sourceCount === 1 ? "schedule" : "schedules"}</span> : null}
         </div>
-        {sourceCount ? <ThisWeekend events={weekendEvents} candidateLimitReached={candidateLimitReached} scheduleFreshness={scheduleFreshness} /> : (
+        {sourceCount ? <ThisWeekend events={weekendEvents} candidateLimitReached={candidateLimitReached} scheduleFreshness={scheduleFreshness} planningTimezone={planningTimezone} vapidPublicKey={getWeekendReadyPublicKey()} /> : (
           <div className="emptyState">
             <h3>Your weekend starts with one schedule</h3>
             <p>Open Family to connect a team schedule and bring upcoming games and practices into one place.</p>

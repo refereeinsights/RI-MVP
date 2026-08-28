@@ -97,7 +97,14 @@ export async function runWeekendReadyBatch(input: {
   );
   const claims = await input.store.claimDeliveries(limit);
   const payload = buildWeekendReadyPayload(input.siteOrigin);
-  const result = { claimed: claims.length, accepted: 0, transientFailures: 0, permanentFailures: 0, deadEndpoints: 0 };
+  const result = {
+    claimed: claims.length,
+    accepted: 0,
+    transientFailures: 0,
+    permanentFailures: 0,
+    deadEndpoints: 0,
+    finalizationFailures: 0,
+  };
 
   for (let offset = 0; offset < claims.length; offset += WEEKEND_READY_MAX_CONCURRENCY) {
     const chunk = claims.slice(offset, offset + WEEKEND_READY_MAX_CONCURRENCY);
@@ -112,14 +119,19 @@ export async function runWeekendReadyBatch(input: {
       } catch {
         outcome = { kind: "transient_failure", errorCode: "provider_error" };
       }
-      await input.store.finishDelivery({
-        deliveryId: claim.deliveryId,
-        claimToken: claim.claimToken,
-        outcome,
-      });
-      return outcome;
+      try {
+        await input.store.finishDelivery({
+          deliveryId: claim.deliveryId,
+          claimToken: claim.claimToken,
+          outcome,
+        });
+        return { outcome, finalized: true } as const;
+      } catch {
+        return { outcome, finalized: false } as const;
+      }
     }));
-    for (const outcome of outcomes) {
+    for (const { outcome, finalized } of outcomes) {
+      if (!finalized) result.finalizationFailures += 1;
       if (outcome.kind === "accepted") result.accepted += 1;
       else if (outcome.kind === "transient_failure") result.transientFailures += 1;
       else if (outcome.kind === "dead_endpoint") result.deadEndpoints += 1;

@@ -52,5 +52,8 @@ test("cron route uses only the admin client and returns no-store responses", () 
 
 test("one four-hour Vercel cron targets the protected API route", () => {
   const vercel = JSON.parse(source("../../vercel.json")) as { crons?: Array<{ path: string; schedule: string }> };
-  assert.deepEqual(vercel.crons, [{ path: "/api/cron/schedule-refresh", schedule: "17 */4 * * *" }]);
+  assert.deepEqual(
+    vercel.crons?.filter((cron) => cron.path === "/api/cron/schedule-refresh"),
+    [{ path: "/api/cron/schedule-refresh", schedule: "17 */4 * * *" }],
+  );
 });

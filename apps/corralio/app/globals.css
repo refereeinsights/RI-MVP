@@ -378,6 +378,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .sourceFreshness, .scheduleFreshness { margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.45; }
 .sourceFreshness.attention { color: var(--danger); font-weight: 700; }
 .scheduleFreshness { padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-subtle); }
+.weekendReadyPrompt { display: grid; gap: 10px; margin-top: 22px; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-subtle); }
+.weekendReadyPrompt h3, .weekendReadyPrompt p { margin: 0; }
+.weekendReadyPrompt h3 { font-size: 1.05rem; line-height: 1.35; }
+.weekendReadyPrompt > p:not(.eyebrow) { color: var(--muted); font-size: .86rem; line-height: 1.5; }
+.weekendReadyPrompt > button, .weekendReadyPrompt > a { width: fit-content; }
+.weekendReadyPrompt > .textButton { min-height: 44px; margin-left: -7px; }
 .sourceActions { display: flex; flex-wrap: wrap; gap: 8px; }
 .sourceActionForm { display: inline-flex; }
 .inlineSourceForm { display: grid; gap: 9px; padding-top: 13px; border-top: 1px solid var(--border); }

@@ -77,7 +77,7 @@ export async function loadWeekendData(viewer: CorralioViewer) {
   const familyPromise = loadActiveFamilyRows(viewer);
   const originPromise = viewer.householdId
     ? viewer.supabase.from("corralio_households")
-      .select("origin_geocoded_at")
+      .select("origin_geocoded_at,planning_timezone")
       .eq("id", viewer.householdId)
       .maybeSingle()
     : Promise.resolve({ data: null });
@@ -89,6 +89,9 @@ export async function loadWeekendData(viewer: CorralioViewer) {
   ]);
   const originGeocodedAt = typeof originResult.data?.origin_geocoded_at === "string"
     ? originResult.data.origin_geocoded_at
+    : null;
+  const planningTimezone = typeof originResult.data?.planning_timezone === "string"
+    ? originResult.data.planning_timezone
     : null;
   const { familyChildren, familyTeams } = mapFamily(familyRows.children, familyRows.teams);
   const sourceLabels = new Map(sources.map((source) => [source.id, source.display_name]));
@@ -117,7 +120,7 @@ export async function loadWeekendData(viewer: CorralioViewer) {
       : null;
     return { id: event.id, title: event.title, startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone, location: event.source_location_text ?? event.display_location_text, fieldLabel: event.source_location_text ? null : event.field_label, sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null, identityKind: identity.kind, identityLabel: identity.label, childColor: identity.childColor, resolvedChildId: identity.resolvedChildId, estimatedDriveMinutes: routeFresh ? event.estimated_drive_minutes : null, leaveByAt };
   });
-  return { sourceCount: sources.length, weekendEvents, candidateLimitReached: events.length === WEEKEND_CANDIDATE_LIMIT, scheduleFreshness };
+  return { sourceCount: sources.length, weekendEvents, candidateLimitReached: events.length === WEEKEND_CANDIDATE_LIMIT, scheduleFreshness, planningTimezone };
 }
 
 export async function loadFamilyData(viewer: CorralioViewer) {

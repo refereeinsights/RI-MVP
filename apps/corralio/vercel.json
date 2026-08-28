@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/schedule-refresh",
       "schedule": "17 */4 * * *"
+    },
+    {
+      "path": "/api/cron/weekend-ready",
+      "schedule": "7,22,37,52 2-23 * * 4"
+    },
+    {
+      "path": "/api/cron/weekend-ready",
+      "schedule": "7,22,37,52 0-6 * * 5"
     }
   ]
 }
