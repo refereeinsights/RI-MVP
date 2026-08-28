@@ -1,7 +1,6 @@
 import { sendEmailAlert } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadHotelBookingSummary, type HotelBookingSummary } from "@/lib/hotelPlannerBookingSync";
-import { calculateMatchedBookingConversion } from "@/lib/hotelBookingReconciliation";
 
 // ---------------------------------------------------------------------------
 // Recipients / base URL
@@ -286,29 +285,17 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
 
   // 3. Hotels
   const syncLine = `<div style="${MUTED_STYLE}">Hotel booking data last synced: ${escapeHtml(formatTimestamp(b.lastSyncedAt, pt))}</div>`;
-  const matchedConversion = calculateMatchedBookingConversion({
-    reconciliationStatus: b.reconciliationStatus,
-    matchedCount: b.matchedCount,
-    handoffCount: hh.current,
-  });
-  const conversionRate = b.reconciliationStatus === "unavailable"
-    ? "Unavailable"
-    : matchedConversion === null
-      ? "—"
-      : `${matchedConversion}%`;
+  const conversionRate = hh.current > 0 && b.trackedCount > 0
+    ? `${Math.round((b.trackedCount / hh.current) * 100)}%`
+    : "—";
 
   const hotelsContent = [
     row(`Hotel handoffs (${w}d, distinct)`, hh.current, trendLabel(hh.current, hh.prev, w)),
     row("Confirmed bookings", b.confirmedCount),
     b.confirmedCount > 0 ? [
-      b.reconciliationStatus === "available"
-        ? row("  · Matched TI", b.matchedCount ?? 0, "valid Custom3 → persisted outbound join")
-        : row("  · Attribution reconciliation", "Unavailable", "outbound lookup failed"),
-      b.reconciliationStatus === "available" && (b.orphanedValidTokenCount ?? 0) > 0
-        ? row("  · Orphaned valid token", b.orphanedValidTokenCount ?? 0, "valid Custom3 without an outbound match")
-        : "",
-      row("  · Missing token", b.missingTokenCount, "no Custom3"),
-      b.invalidTokenCount > 0 ? row("  · Invalid token", b.invalidTokenCount, "non-empty Custom3 with invalid format") : "",
+      row("  · Tracked TI", b.trackedCount, "Custom3 → outbound attribution join"),
+      row("  · Direct / organic / shared", b.directOrganicCount, "no Custom3 — legitimate HP traffic"),
+      b.anomalyCount > 0 ? row("  · Attribution anomaly", b.anomalyCount, "Custom3 present but unresolvable — check Alerts") : "",
     ].join("") : "",
     row("Cancelled bookings", b.cancelledCount),
     row("Tracked handoff → booking conversion", conversionRate),
@@ -352,14 +339,8 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
   if (b.confirmedCount === 0 && hh.current > 0 && syncAgeHours <= 36) {
     alerts.push("Hotel handoffs recorded but no confirmed bookings in sync window. HP reporting may lag 24-48h.");
   }
-  if (b.reconciliationStatus === "unavailable") {
-    alerts.push("Hotel booking attribution reconciliation is unavailable. Booking totals are preserved; matched conversion is suppressed.");
-  }
-  if ((b.orphanedValidTokenCount ?? 0) > 0) {
-    alerts.push(`${b.orphanedValidTokenCount} booking(s) have a valid Custom3 token without a persisted TI outbound match.`);
-  }
-  if (b.invalidTokenCount > 0) {
-    alerts.push(`${b.invalidTokenCount} booking(s) have a non-empty Custom3 value with an invalid attribution-token format.`);
+  if (b.anomalyCount > 0) {
+    alerts.push(`${b.anomalyCount} booking(s) have a Custom3 value that could not be resolved to a TI outbound record.`);
   }
 
   const alertsContent = alerts.length > 0
@@ -401,12 +382,10 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
     "3. Hotels",
     `  Hotel handoffs (${w}d, distinct): ${hh.current} ${trendLabel(hh.current, hh.prev, w)}`,
     `  Confirmed bookings: ${b.confirmedCount}`,
-    b.confirmedCount > 0 && b.reconciliationStatus === "available" ? `    · Matched TI: ${b.matchedCount ?? 0}` : "",
-    b.confirmedCount > 0 && b.reconciliationStatus === "unavailable" ? "    · Attribution reconciliation: Unavailable" : "",
-    b.confirmedCount > 0 && b.reconciliationStatus === "available" ? `    · Orphaned valid token: ${b.orphanedValidTokenCount ?? 0}` : "",
-    b.confirmedCount > 0 ? `    · Missing token: ${b.missingTokenCount}` : "",
-    b.invalidTokenCount > 0 ? `    · Invalid token: ${b.invalidTokenCount}` : "",
-    `  Matched conversion: ${conversionRate}`,
+    b.confirmedCount > 0 ? `    · Tracked TI: ${b.trackedCount}` : "",
+    b.confirmedCount > 0 ? `    · Direct/organic/shared: ${b.directOrganicCount}` : "",
+    b.anomalyCount > 0 ? `    · Attribution anomaly: ${b.anomalyCount}` : "",
+    `  Tracked conversion: ${conversionRate}`,
     b.expectedCommissionUsd > 0 ? `  Expected commission: ${formatUsd(b.expectedCommissionUsd)}` : "",
     `  Hotel booking data last synced: ${formatTimestamp(b.lastSyncedAt, pt)}`,
     "",

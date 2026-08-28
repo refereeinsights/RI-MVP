@@ -2885,6 +2885,12 @@ Maintenance rules:
   - Validation passed: 35 focused/protected-flow tests, TI TypeScript, TI lint, TI production build, and `git diff --check`.
   - Migration `20260814_ti_hotel_program_snapshot_foundation.sql` remains unapplied and must precede the application deployment. Implementation and rollback details are in `docs/reports/ti-hotel-fee-attribution-foundation-2026-08-14.md`.
 
+- 2026-08-28: HotelPlanner booking sync fixed — three bugs prevented `ti_hotel_bookings` from ever populating.
+  - Bug 1: XLSX extraction used a shell `unzip -p` command not available in Vercel's serverless runtime. Replaced with `fflate` (pure-JS, Vercel-safe). Added `fflate ^0.4.8` to `referee-app` dependencies.
+  - Bug 2: `getReport` POST body included `sc: "tournamentinsights"` which acted as a source-code filter, excluding bookings made through RI (`sc=refereeinsights`) and direct HP traffic. Removed the filter; attribution logic categorizes by source after sync.
+  - Bug 3: `HotelBookingSummary` type returned `matchedCount / orphanedValidTokenCount / missingTokenCount / invalidTokenCount` but `tiAdminDashboardEmail.ts` referenced `trackedCount / directOrganicCount / anomalyCount`. Reconciled both files to the simpler three-bucket model (tracked = `outbound_attribution_id` present; direct/organic = no Custom3; anomaly = Custom3 present but unresolvable). Dropped the `ti_outbound_clicks` reconciliation query from the summary path.
+  - Validation: TypeScript clean, lint clean. No push.
+
 - 2026-08-14: TI Hotel Fee Program Phase 2 trusted configuration and routing implemented locally.
   - Added service-role-only `ti_tournament_hotel_programs` configuration with one optional current row per tournament, server-generated concurrency UUIDs, $5/$10 rates, Pending/Active/Paused states, and cascade cleanup. The migration remains local and unapplied.
   - Extended the existing RI tournament-listings admin editor with Standard, TI Revenue, and Tournament Support controls, a read-only effective-routing summary, trusted configuration availability, fixed tournament beneficiary, stale-write detection, and explicit confirmation for changes to effective booking economics.
