@@ -69,6 +69,30 @@ select pg_temp.corralio_slice36a_assert(
   'travel event timezone changed while household timezone was saved'
 );
 
+select set_config('request.jwt.claim.sub', 'c36a0000-0000-4000-8000-000000000002', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
+select pg_temp.corralio_slice36a_assert(
+  public.corralio_set_household_timezone_v1('America/New_York') = 'America/New_York',
+  'second household owner could not set their own timezone'
+);
+reset role;
+select pg_temp.corralio_slice36a_assert(
+  (select planning_timezone = 'America/Los_Angeles' from public.corralio_households
+    where id = 'c36a0000-0000-4000-8000-000000000011'),
+  'timezone writer escaped the caller household'
+);
+select pg_temp.corralio_slice36a_assert(
+  (select planning_timezone = 'America/New_York' from public.corralio_households
+    where id = 'c36a0000-0000-4000-8000-000000000012'),
+  'second household owner changed a household other than their own'
+);
+
+-- Restore the second fixture to the supported unset state for null-timezone send proof.
+update public.corralio_households
+set planning_timezone = null
+where id = 'c36a0000-0000-4000-8000-000000000012';
+
 set local role service_role;
 select set_config('request.jwt.claim.role', 'service_role', true);
 

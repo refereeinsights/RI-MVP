@@ -138,6 +138,8 @@ This exact time/cadence is the remaining founder/CPO product decision before Sta
 - Offline pure subscription/payload/provider/batch boundary: `apps/corralio/lib/notifications/weekendReady.ts`
 - Focused tests: `apps/corralio/lib/notifications/weekendReady.test.ts`, `apps/corralio/lib/householdTimezone.test.ts`, and `apps/corralio/lib/notifications/weekendReadyArchitecture.test.ts`
 
+The behavioral verifier explicitly exercises two authenticated owners and proves each timezone write remains scoped to the caller's household before restoring the second fixture to null for notification-ineligibility coverage.
+
 The migration has not been applied. The verifier files have not been run. Stage 1 prepares the confirmation UI and authorized action but adds no service worker, registration, push permission UI, push provider dependency, VAPID key, route, cron entry, or notification runtime call. The exact local time/cadence decision and database gate remain before Stage 2.
 
 ## Amendment verification
