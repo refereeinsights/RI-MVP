@@ -4,14 +4,14 @@ Date: 2026-08-28
 
 Scope: Weekend Ready Web Push only
 
-Database state: migration prepared, not applied
-Runtime state: household-timezone UI/action prepared behind the unapplied migration; no service worker, push route, cron, permission request, subscription write, or notification send enabled
+Database state: base migration and additive digest repair applied; catalog and rollback-only behavioral verifiers passed
+Runtime state: household-timezone UI/action prepared locally; no service worker, push route, cron, permission request, subscription write, or notification send enabled
 
 ## Verdict
 
-`SLICE 3.6A READY FOR DATABASE VERIFICATION`
+`SLICE 3.6A DATABASE VERIFICATION COMPLETE`
 
-Stage 2 remains gated on founder/CPO approval of the exact household-local send recommendation below, human migration application, and both SQL verifiers. The founder approved the authoritative household-timezone foundation on 2026-08-28; that decision supersedes the temporary fixed-US workaround. Email remains deliberately deferred and is not assigned to Slice 3.6B. No Mapbox, traffic-aware routing, schedule-change push, Leave Soon, SMS, or native-app work started.
+Stage 2 remains gated on founder/CPO approval of the exact household-local send recommendation below. The database gate is complete. The founder approved the authoritative household-timezone foundation on 2026-08-28; that decision supersedes the temporary fixed-US workaround. Email remains deliberately deferred and is not assigned to Slice 3.6B. No Mapbox, traffic-aware routing, schedule-change push, Leave Soon, SMS, or native-app work started.
 
 ## Repository audit
 
@@ -141,7 +141,7 @@ This exact time/cadence is the remaining founder/CPO product decision before Sta
 
 The behavioral verifier explicitly exercises two authenticated owners and proves each timezone write remains scoped to the caller's household before restoring the second fixture to null for notification-ineligibility coverage.
 
-The base migration was subsequently applied and its catalog verifier passed. The first behavioral run rolled back after exposing unqualified `digest` resolution inside the locked function search path; no fixture state was retained. The additive forward repair schema-qualifies both RPC calls as `extensions.digest` without changing schema or weakening function hardening. That repair remains to be applied, followed by the updated catalog and behavioral verifiers. Stage 1 prepares the confirmation UI and authorized action but adds no service worker, registration, push permission UI, push provider dependency, VAPID key, route, cron entry, or notification runtime call. The exact local time/cadence decision and database gate remain before Stage 2.
+The base migration was subsequently applied and its catalog verifier passed. The first behavioral run rolled back after exposing unqualified `digest` resolution inside the locked function search path; no fixture state was retained. The additive forward repair schema-qualifies both RPC calls as `extensions.digest` without changing schema or weakening function hardening. A human applied that repair, after which the strengthened catalog verifier returned `SLICE 3.6A CATALOG VERIFICATION PASSED` and the behavioral verifier returned `SLICE 3.6A BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO`. Stage 1 prepares the confirmation UI and authorized action but adds no service worker, registration, push permission UI, push provider dependency, VAPID key, route, cron entry, or notification runtime call. The exact local time/cadence decision remains before Stage 2.
 
 ## Amendment verification
 
@@ -152,7 +152,7 @@ The base migration was subsequently applied and its catalog verifier passed. The
 - `git diff --check` passed.
 - The browser suggestion is consistent with MDN's documented `Intl.DateTimeFormat().resolvedOptions().timeZone` behavior: `https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat/resolvedOptions`.
 - PostgreSQL documents `pg_timezone_names` as its recognized named-zone catalog and named IANA zones as DST-rule-bearing rather than fixed offsets: `https://www.postgresql.org/docs/current/view-pg-timezone-names.html` and `https://www.postgresql.org/docs/current/datatype-datetime.html#DATATYPE-TIMEZONES`.
-- No migration/verifier was applied or run, and no database mutation, provider call, cron, push, or deployment occurred.
+- The base migration and additive repair were human-applied; both updated SQL verifiers passed and the behavioral fixtures rolled back to cleanup zero. No provider call, cron, push, or deployment occurred.
 
 ## Stage 2 evidence contract
 
