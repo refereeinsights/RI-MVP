@@ -15,10 +15,11 @@ import {
 } from "@/lib/schedules/connectionAnalytics";
 import { ingestCorralioSchedule, replaceCorralioSchedule } from "@/lib/schedules/ingest";
 import { refreshCorralioScheduleNow } from "@/lib/schedules/manualRefresh.server";
-import { parseSchedulePlatform } from "@/lib/schedules/platforms";
+import { isSchedulePlatformAllowed, parseSchedulePlatform } from "@/lib/schedules/platforms";
 import { CORRALIO_MANUAL_REFRESH_COOLDOWN_MINUTES } from "@/lib/schedules/refresh";
 import { CORRALIO_SPORTS, parseCorralioSport } from "@/lib/schedules/sport";
 import { createSupabaseScheduleStore } from "@/lib/schedules/supabaseStore";
+import { connectTeamScheduleWithDependencies } from "@/lib/schedules/teamConnection";
 import {
   createCorralioSupabaseAdminClient,
   createCorralioSupabaseServerClient,
@@ -180,7 +181,9 @@ export async function connectSchedule(_state: FormState, formData: FormData): Pr
   const displayName = String(formData.get("displayName") ?? "").trim();
   const submittedSport = String(formData.get("sport") ?? "").trim().toLowerCase();
   const platform = parseSchedulePlatform(formData.get("platform"));
-  if (!platform) return { status: "error", message: "Choose where this schedule lives." };
+  if (!platform || !isSchedulePlatformAllowed("household", platform)) {
+    return { status: "error", message: "Choose where this schedule lives." };
+  }
   if (!sourceUrl) {
     await recordConnectionFailure({ event: "link_submission_failed", platform, reason: "missing_url" });
     return { status: "error", message: "Paste your calendar link.", errorKind: "missing_url" };
@@ -315,32 +318,49 @@ export async function replaceScheduleLink(_state: FormState, formData: FormData)
 export async function connectTeamSchedule(_state: FormState, formData: FormData): Promise<FormState> {
   const teamId = String(formData.get("teamId") ?? "").trim();
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
-  if (!isValidUuid(teamId)) return { status: "error", message: "That team could not be found." };
-  if (!sourceUrl) return { status: "error", message: "Paste your team’s calendar link." };
+  const submittedPlatform = formData.get("platform");
+  const platform = parseSchedulePlatform(submittedPlatform);
 
   try {
-    const { supabase, householdId } = await getOwnerContext();
-    const { data: team, error: teamError } = await supabase
-      .from("corralio_teams")
-      .select("id,child_id,display_name,sport")
-      .eq("id", teamId)
-      .eq("household_id", householdId)
-      .is("archived_at", null)
-      .maybeSingle();
-    if (teamError || !team || typeof team.child_id !== "string") throw new Error("team unavailable");
-
-    const authenticatedClient = createCorralioSupabaseServerClient();
-    const adminClient = createCorralioSupabaseAdminClient();
-    const result = await ingestCorralioSchedule(
-      createSupabaseScheduleStore(authenticatedClient, adminClient),
+    const result = await connectTeamScheduleWithDependencies(
       {
-        sourceUrl,
-        displayName: String(team.display_name ?? ""),
-        sport: parseCorralioSport(team.sport),
-        assignment: { childId: team.child_id, teamId: team.id },
+        resolveTeam: async (submittedTeamId) => {
+          const { supabase, householdId } = await getOwnerContext();
+          const { data: team, error: teamError } = await supabase
+            .from("corralio_teams")
+            .select("id,child_id,display_name,sport")
+            .eq("id", submittedTeamId)
+            .eq("household_id", householdId)
+            .is("archived_at", null)
+            .maybeSingle();
+          if (teamError || !team || typeof team.child_id !== "string") return null;
+          return {
+            id: team.id,
+            childId: team.child_id,
+            displayName: String(team.display_name ?? ""),
+            sport: team.sport,
+          };
+        },
+        ingest: async (input) => ingestCorralioSchedule(
+          createSupabaseScheduleStore(
+            createCorralioSupabaseServerClient(),
+            createCorralioSupabaseAdminClient(),
+          ),
+          input,
+        ),
       },
+      { teamId, sourceUrl, platform: submittedPlatform },
     );
-    if (!result.ok) return { status: "error", message: result.error };
+    if (!result.ok) {
+      if (platform && result.errorKind) {
+        await recordConnectionFailure({
+          event: result.errorKind === "missing_url" ? "link_submission_failed" : "feed_validation_failed",
+          platform,
+          reason: result.errorKind,
+        });
+      }
+      return { status: "error", message: result.error, errorKind: result.errorKind };
+    }
     revalidatePlanner();
     if (result.imported === 0) {
       return {
@@ -351,10 +371,18 @@ export async function connectTeamSchedule(_state: FormState, formData: FormData)
     }
     return {
       status: "success",
-      message: `Team schedule connected. ${result.imported} upcoming ${result.imported === 1 ? "event" : "events"} imported.`,
+      message: `Schedule connected — we found ${result.imported} upcoming ${result.imported === 1 ? "event" : "events"}`,
+      imported: result.imported,
     };
   } catch {
-    return { status: "error", message: "We couldn’t connect that team schedule right now. Please try again." };
+    if (platform && isSchedulePlatformAllowed("team", platform)) {
+      await recordConnectionFailure({ event: "feed_validation_failed", platform, reason: "temporary_failure" });
+    }
+    return {
+      status: "error",
+      message: "We couldn’t connect that team schedule right now. Please try again.",
+      errorKind: "temporary_failure",
+    };
   }
 }
 

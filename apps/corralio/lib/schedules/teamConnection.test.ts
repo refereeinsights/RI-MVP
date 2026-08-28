@@ -4,6 +4,7 @@ import test from "node:test";
 
 const actions = readFileSync(new URL("../../app/actions.ts", import.meta.url), "utf8");
 const familyUi = readFileSync(new URL("../../app/components/FamilySection.tsx", import.meta.url), "utf8");
+const teamOrchestration = readFileSync(new URL("./teamConnection.ts", import.meta.url), "utf8");
 const store = readFileSync(new URL("./supabaseStore.ts", import.meta.url), "utf8");
 const repairMigration = readFileSync(
   new URL("../../../../supabase/migrations/20260828_corralio_team_schedule_connection_fix.sql", import.meta.url),
@@ -28,15 +29,17 @@ test("team schedule connection resolves active family context on the server", ()
   assert.match(teamConnectionAction, /\.from\("corralio_teams"\)/);
   assert.match(teamConnectionAction, /\.eq\("household_id", householdId\)/);
   assert.match(teamConnectionAction, /\.is\("archived_at", null\)/);
-  assert.match(teamConnectionAction, /assignment: \{ childId: team\.child_id, teamId: team\.id \}/);
+  assert.match(teamConnectionAction, /connectTeamScheduleWithDependencies/);
+  assert.match(teamOrchestration, /assignment: \{ childId: team\.childId, teamId: team\.id \}/);
   assert.doesNotMatch(familyUi, /name="householdId"|name="childId"[^>]*team-schedule/i);
 });
 
 test("the edit-team panel accepts a resettable private URL without rendering it back", () => {
   assert.match(familyUi, /<summary className="familyTeamSummary"[^>]*aria-label=\{`Edit team:/);
   assert.match(familyUi, /className="familyTeamName">\{team\.displayName\}<\/span>/);
-  assert.match(familyUi, />Calendar link<\/label>/);
-  assert.match(familyUi, /iCal or ICS subscription link/);
+  assert.match(familyUi, /Where does this team schedule live\?/);
+  assert.match(familyUi, />Paste calendar link<\/label>/);
+  assert.match(familyUi, /iCal, ICS, or calendar subscription link/);
   assert.match(familyUi, /Connect team schedule/);
   assert.match(familyUi, /name="sourceUrl"/);
   assert.match(familyUi, /type="url"/);

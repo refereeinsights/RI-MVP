@@ -49,7 +49,7 @@ test("Get Started reuses the established Magic Link account path", () => {
 test("schedule setup leads with parent language and preserves precise lifecycle terms", () => {
   assert.match(familyPage, /Connect a schedule/);
   assert.match(connectForm, /Where does this schedule live\?/);
-  assert.match(connectForm, />Calendar subscription link<\/label>/);
+  assert.match(connectForm, />Paste calendar link<\/label>/);
   assert.match(connectForm, /Connect another schedule/);
   assert.match(connectForm, /Choose another schedule source/);
   assert.match(connectForm, /See This Weekend/);

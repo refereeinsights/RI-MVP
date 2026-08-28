@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
 
 import {
   connectTeamSchedule,
   createChild,
   createTeam,
+  recordScheduleConnectionInteractionAction,
   renameChild,
   removeChild,
   removeTeam,
@@ -15,11 +16,19 @@ import {
   type FormState,
 } from "@/app/actions";
 import type { CorralioChildColor } from "@/lib/family";
+import { getScheduleConnectionRecoveryCopy } from "@/lib/schedules/connectionRecovery";
+import {
+  getSchedulePlatform,
+  getSchedulePlatformsForContext,
+  type SchedulePlatformKey,
+} from "@/lib/schedules/platforms";
 import { CORRALIO_SPORTS, corralioSportLabel, type CorralioSport } from "@/lib/schedules/sport";
 import { FormSubmitButton } from "./FormSubmitButton";
 import { LifecycleConfirmation } from "./LifecycleConfirmation";
+import { SchedulePlatformHelp } from "./SchedulePlatformHelp";
 
 const INITIAL_FORM_STATE: FormState = { status: "idle", message: "" };
+const TEAM_SCHEDULE_PLATFORMS = getSchedulePlatformsForContext("team");
 
 export type FamilyChild = {
   id: string;
@@ -129,11 +138,41 @@ function AddTeamForm({ child }: { child: FamilyChild }) {
 function TeamEditor({ team }: { team: FamilyTeam }) {
   const [state, action] = useFormState(updateTeam, INITIAL_FORM_STATE);
   const [scheduleState, scheduleAction] = useFormState(connectTeamSchedule, INITIAL_FORM_STATE);
+  const [schedulePlatform, setSchedulePlatform] = useState<SchedulePlatformKey | "">("");
+  const [, startMeasurementTransition] = useTransition();
+  const viewedInstructions = useRef(new Set<SchedulePlatformKey>());
   const scheduleFormRef = useRef<HTMLFormElement>(null);
+  const selectedPlatform = schedulePlatform ? getSchedulePlatform(schedulePlatform) : null;
+  const recoveryCopy = getScheduleConnectionRecoveryCopy(scheduleState.errorKind);
 
   useEffect(() => {
-    if (scheduleState.status === "success") scheduleFormRef.current?.reset();
+    if (scheduleState.status === "success") {
+      scheduleFormRef.current?.reset();
+      setSchedulePlatform("");
+    }
   }, [scheduleState]);
+
+  function chooseSchedulePlatform(nextPlatform: SchedulePlatformKey | "") {
+    setSchedulePlatform(nextPlatform);
+    if (!nextPlatform) return;
+    startMeasurementTransition(() => {
+      void recordScheduleConnectionInteractionAction({
+        event: "platform_selected",
+        platform: nextPlatform,
+      });
+    });
+  }
+
+  function recordInstructionsViewed(viewedPlatform: SchedulePlatformKey) {
+    if (viewedInstructions.current.has(viewedPlatform)) return;
+    viewedInstructions.current.add(viewedPlatform);
+    startMeasurementTransition(() => {
+      void recordScheduleConnectionInteractionAction({
+        event: "instructions_viewed",
+        platform: viewedPlatform,
+      });
+    });
+  }
 
   return (
     <li className="familyTeamItem">
@@ -173,7 +212,29 @@ function TeamEditor({ team }: { team: FamilyTeam }) {
         <form className="familyTeamForm teamScheduleForm" action={scheduleAction} ref={scheduleFormRef}>
           <input type="hidden" name="teamId" value={team.id} />
           <div>
-            <label htmlFor={`team-schedule-url-${team.id}`}>Calendar link</label>
+            <label htmlFor={`team-schedule-platform-${team.id}`}>Where does this team schedule live?</label>
+            <select
+              id={`team-schedule-platform-${team.id}`}
+              name="platform"
+              value={schedulePlatform}
+              onChange={(event) => chooseSchedulePlatform(event.target.value as SchedulePlatformKey | "")}
+              required
+            >
+              <option value="">Choose a schedule source</option>
+              {TEAM_SCHEDULE_PLATFORMS.map((platform) => (
+                <option value={platform.key} key={platform.key}>{platform.name}</option>
+              ))}
+            </select>
+          </div>
+          {selectedPlatform ? (
+            <SchedulePlatformHelp
+              key={selectedPlatform.key}
+              platform={selectedPlatform}
+              onInstructionsViewed={() => recordInstructionsViewed(selectedPlatform.key)}
+            />
+          ) : null}
+          <div>
+            <label htmlFor={`team-schedule-url-${team.id}`}>Paste calendar link</label>
             <input
               id={`team-schedule-url-${team.id}`}
               name="sourceUrl"
@@ -184,9 +245,10 @@ function TeamEditor({ team }: { team: FamilyTeam }) {
               required
             />
           </div>
-          <p className="fieldHelp">Paste the link provided by your team app. It may be called an iCal or ICS subscription link. New events will be assigned to this team automatically.</p>
+          <p className="fieldHelp">It may be called an iCal, ICS, or calendar subscription link. New events will be assigned to this team automatically.</p>
           <FormSubmitButton idle="Connect team schedule" pending="Connecting…" variant="secondary" />
           <FormNotice state={scheduleState} />
+          {scheduleState.status === "error" && recoveryCopy ? <p className="fieldHelp">{recoveryCopy}</p> : null}
         </form>
         <div className="familyLifecycleAction">
           <LifecycleConfirmation

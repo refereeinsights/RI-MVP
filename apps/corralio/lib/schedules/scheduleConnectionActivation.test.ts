@@ -19,9 +19,9 @@ const ingest = readFileSync(new URL("./ingest.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../../../../supabase/migrations/20260827_corralio_slice34_schedule_connection_activation.sql", import.meta.url), "utf8");
 const report = readFileSync(new URL("../../../../scripts/analysis/corralio_schedule_connection_activation_report.sql", import.meta.url), "utf8");
 
-test("the launch catalog is exactly six typed choices with honest compatibility tiers", () => {
+test("the launch catalog is exactly seven typed choices with honest compatibility tiers", () => {
   assert.deepEqual(SCHEDULE_PLATFORMS.map(({ key }) => key), [
-    "gamechanger", "teamsnap", "stack_team_app", "arbiterlive", "arbiter_officials", "other",
+    "gamechanger", "teamsnap", "stack_team_app", "arbiterlive", "arbiter_officials", "leagueapps", "other",
   ]);
   assert.equal(getSchedulePlatform("gamechanger").tier, "COMPATIBLE");
   assert.equal(getSchedulePlatform("teamsnap").tier, "COMPATIBLE");
@@ -34,6 +34,7 @@ test("the launch catalog is exactly six typed choices with honest compatibility 
   assert.equal(parseSchedulePlatform("stack_team_app"), "stack_team_app");
   assert.equal(parseSchedulePlatform("arbiterlive"), "arbiterlive");
   assert.equal(parseSchedulePlatform("arbiter_officials"), "arbiter_officials");
+  assert.equal(parseSchedulePlatform("leagueapps"), "leagueapps");
   assert.doesNotMatch(JSON.stringify(SCHEDULE_PLATFORMS), /Blue Sombrero|DIRECT_INTEGRATION/);
 });
 
@@ -45,7 +46,7 @@ test("valid-empty connection success uses the approved safe action and UI state"
 });
 
 test("the picker uses one catalog and preserves the existing secure ingestion boundary", () => {
-  assert.match(connectForm, /SCHEDULE_PLATFORMS\.map/);
+  assert.match(connectForm, /HOUSEHOLD_SCHEDULE_PLATFORMS\.map/);
   assert.match(connectForm, /Where does this schedule live\?/);
   assert.match(connectForm, /name="platform" value=\{selectedPlatform\.key\}/);
   assert.match(actions, /parseSchedulePlatform\(formData\.get\("platform"\)\)/);
@@ -62,7 +63,7 @@ test("success and contextual recovery use closed safe state without a forced red
   assert.doesNotMatch(actions.slice(actions.indexOf("export async function connectSchedule"), actions.indexOf("export async function updateScheduleSport")), /redirect\(/);
   assert.match(ingest, /This looks like a private or local address, not a public calendar link\./);
   assert.match(ingest, /This link doesn’t appear to be an iCal\/ICS calendar\./);
-  assert.match(connectForm, /RECOVERY_COPY/);
+  assert.match(connectForm, /getScheduleConnectionRecoveryCopy/);
   assert.match(connectForm, /Choose another schedule source/);
   assert.match(connectForm, /scrollIntoView\(\{ block: "start" \}\)/);
   assert.match(connectForm, /state\.status === "error" && state\.message && !errorDismissed/);

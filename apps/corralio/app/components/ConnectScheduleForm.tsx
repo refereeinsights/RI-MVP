@@ -8,23 +8,19 @@ import {
   recordScheduleConnectionInteractionAction,
   type FormState,
 } from "@/app/actions";
-import { SCHEDULE_PLATFORMS, type SchedulePlatformKey } from "@/lib/schedules/platforms";
+import { getScheduleConnectionRecoveryCopy } from "@/lib/schedules/connectionRecovery";
+import {
+  getSchedulePlatform,
+  getSchedulePlatformsForContext,
+  type SchedulePlatformKey,
+} from "@/lib/schedules/platforms";
 import { CORRALIO_SPORTS, corralioSportLabel } from "@/lib/schedules/sport";
 import { FormSubmitButton } from "./FormSubmitButton";
+import { SchedulePlatformHelp } from "./SchedulePlatformHelp";
 
 const INITIAL_FORM_STATE: FormState = { status: "idle", message: "" };
 
-const RECOVERY_COPY: Partial<Record<NonNullable<FormState["errorKind"]>, string>> = {
-  invalid_url: "Copy the calendar subscription link from your team app and try again.",
-  unsupported_protocol: "Use the full public http, https, or webcal subscription link.",
-  private_url: "Choose the app’s public calendar subscription link rather than a device or local-network address.",
-  fetch_failed: "Confirm the subscription is still active, then copy the link again.",
-  not_ics: "Look for Subscribe, Export calendar, iCal, ICS, or webcal in your team app.",
-  too_large: "Try a team or season calendar instead of an organization-wide calendar.",
-  no_events: "Confirm the calendar contains upcoming events and that its subscription is active.",
-  already_connected: "Use the connected-schedule controls below if you need to change its family assignment.",
-  needs_replacement: "Use Replace calendar link on the connected schedule below.",
-};
+const HOUSEHOLD_SCHEDULE_PLATFORMS = getSchedulePlatformsForContext("household");
 
 export function ConnectScheduleForm() {
   const [state, action] = useFormState(connectSchedule, INITIAL_FORM_STATE);
@@ -36,7 +32,8 @@ export function ConnectScheduleForm() {
   const platformPickerRef = useRef<HTMLFieldSetElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const sourceUrlRef = useRef<HTMLInputElement>(null);
-  const selectedPlatform = SCHEDULE_PLATFORMS.find((candidate) => candidate.key === platform) ?? null;
+  const selectedPlatform = platform ? getSchedulePlatform(platform) : null;
+  const recoveryCopy = getScheduleConnectionRecoveryCopy(state.errorKind);
 
   useEffect(() => {
     if (state.status === "success") {
@@ -46,13 +43,13 @@ export function ConnectScheduleForm() {
     if (state.status === "error") setErrorDismissed(false);
   }, [state]);
 
-  useEffect(() => {
-    if (!platform || viewedInstructions.current.has(platform)) return;
-    viewedInstructions.current.add(platform);
+  function recordInstructionsViewed(viewedPlatform: SchedulePlatformKey) {
+    if (viewedInstructions.current.has(viewedPlatform)) return;
+    viewedInstructions.current.add(viewedPlatform);
     startMeasurementTransition(() => {
-      void recordScheduleConnectionInteractionAction({ event: "instructions_viewed", platform });
+      void recordScheduleConnectionInteractionAction({ event: "instructions_viewed", platform: viewedPlatform });
     });
-  }, [platform]);
+  }
 
   function choosePlatform(nextPlatform: SchedulePlatformKey) {
     setPlatform(nextPlatform);
@@ -82,7 +79,7 @@ export function ConnectScheduleForm() {
       <fieldset className="schedulePlatformPicker" ref={platformPickerRef}>
         <legend>Where does this schedule live?</legend>
         <div className="schedulePlatformOptions">
-          {SCHEDULE_PLATFORMS.map((candidate) => (
+          {HOUSEHOLD_SCHEDULE_PLATFORMS.map((candidate) => (
             <button
               className={`schedulePlatformOption${platform === candidate.key ? " selected" : ""}`}
               type="button"
@@ -100,13 +97,11 @@ export function ConnectScheduleForm() {
       {selectedPlatform ? (
         <form className="stackForm" action={action} ref={formRef}>
           <input type="hidden" name="platform" value={selectedPlatform.key} />
-          <section className="schedulePlatformInstructions" aria-live="polite">
-            <p className="eyebrow">Connect from {selectedPlatform.name}</p>
-            <ol>
-              {selectedPlatform.instructions.map((instruction) => <li key={instruction}>{instruction}</li>)}
-            </ol>
-            {selectedPlatform.caveat ? <p className="fieldHelp">{selectedPlatform.caveat}</p> : null}
-          </section>
+          <SchedulePlatformHelp
+            key={selectedPlatform.key}
+            platform={selectedPlatform}
+            onInstructionsViewed={() => recordInstructionsViewed(selectedPlatform.key)}
+          />
           <label htmlFor="displayName">Schedule name <span>(optional)</span></label>
           <input id="displayName" name="displayName" maxLength={100} placeholder="Emma’s soccer team" />
           <label htmlFor="sport">Sport <span>(optional)</span></label>
@@ -114,7 +109,7 @@ export function ConnectScheduleForm() {
             <option value="">Choose a sport</option>
             {CORRALIO_SPORTS.map((sport) => <option value={sport} key={sport}>{corralioSportLabel(sport)}</option>)}
           </select>
-          <label htmlFor="sourceUrl">Calendar subscription link</label>
+          <label htmlFor="sourceUrl">Paste calendar link</label>
           <input
             id="sourceUrl"
             name="sourceUrl"
@@ -131,7 +126,7 @@ export function ConnectScheduleForm() {
             <div className="connectionRecovery">
               <div role="alert">
                 <p className="formNotice error">{state.message}</p>
-                {state.errorKind && RECOVERY_COPY[state.errorKind] ? <p>{RECOVERY_COPY[state.errorKind]}</p> : null}
+                {recoveryCopy ? <p>{recoveryCopy}</p> : null}
               </div>
               <button className="secondaryButton" type="button" onClick={chooseAnotherScheduleSource}>
                 Choose another schedule source
