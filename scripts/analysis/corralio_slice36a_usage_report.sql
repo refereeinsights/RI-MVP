@@ -2,6 +2,11 @@
 -- only; provider acceptance is not device delivery, and post-send return is
 -- not deterministic notification-click attribution.
 
+select
+  count(*) filter (where planning_timezone is null) as timezone_unset_households,
+  count(*) filter (where planning_timezone is not null) as timezone_confirmed_households
+from public.corralio_households;
+
 select state, count(*) as subscription_count
 from public.corralio_push_subscriptions
 group by state

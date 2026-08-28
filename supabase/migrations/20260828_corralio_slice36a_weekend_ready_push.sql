@@ -2,6 +2,27 @@
 -- Prepared for human review/application. This migration sends no notification,
 -- registers no cron, and performs no backfill or event reprocessing.
 
+alter table public.corralio_households
+  add column planning_timezone text null,
+  add constraint corralio_households_planning_timezone_check check (
+    planning_timezone is null
+    or (
+      length(planning_timezone) between 1 and 64
+      and (
+        planning_timezone = 'UTC'
+        or planning_timezone ~ '^[A-Za-z][A-Za-z0-9._+-]*/[A-Za-z0-9._+-]+(/[A-Za-z0-9._+-]+)?$'
+      )
+      and timezone(planning_timezone, timestamptz '2000-01-01 00:00:00+00') is not null
+    )
+  );
+
+comment on column public.corralio_households.planning_timezone is
+  'Parent-confirmed IANA timezone for recurring household-local planning; never inferred from event or venue timezone.';
+
+create index corralio_households_planning_timezone_idx
+  on public.corralio_households (planning_timezone, id)
+  where planning_timezone is not null;
+
 create table public.corralio_push_subscriptions (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.corralio_households(id) on delete cascade,
@@ -41,12 +62,14 @@ create table public.corralio_weekend_ready_campaigns (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.corralio_households(id) on delete cascade,
   planning_weekend_start date not null,
-  window_strategy text not null default 'fixed_us_v1',
+  household_timezone text not null,
   event_window_start timestamptz not null,
   event_window_end timestamptz not null,
   created_at timestamptz not null default now(),
-  constraint corralio_weekend_ready_campaigns_strategy_check
-    check (window_strategy = 'fixed_us_v1'),
+  constraint corralio_weekend_ready_campaigns_timezone_check check (
+    household_timezone = 'UTC'
+    or household_timezone ~ '^[A-Za-z][A-Za-z0-9._+-]*/[A-Za-z0-9._+-]+(/[A-Za-z0-9._+-]+)?$'
+  ),
   constraint corralio_weekend_ready_campaigns_window_check
     check (event_window_end > event_window_start),
   constraint corralio_weekend_ready_campaigns_household_week_unique
@@ -142,6 +165,42 @@ grant select, insert, update, delete on table public.corralio_push_subscriptions
   public.corralio_weekend_ready_deliveries,
   public.corralio_push_interactions
   to service_role;
+
+create function public.corralio_set_household_timezone_v1(p_timezone text)
+returns text
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $function$
+declare
+  v_timezone text := btrim(coalesce(p_timezone, ''));
+  v_household_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication is required' using errcode = '42501';
+  end if;
+  if length(v_timezone) not between 1 and 64
+     or (
+       v_timezone <> 'UTC'
+       and v_timezone !~ '^[A-Za-z][A-Za-z0-9._+-]*/[A-Za-z0-9._+-]+(/[A-Za-z0-9._+-]+)?$'
+     )
+     or not exists (select 1 from pg_catalog.pg_timezone_names zone where zone.name = v_timezone)
+  then raise exception 'Household timezone is invalid' using errcode = '22023'; end if;
+
+  select member.household_id into v_household_id
+  from public.corralio_household_members member
+  where member.user_id = auth.uid()
+    and member.role = 'owner' and member.status = 'active';
+  if v_household_id is null then
+    raise exception 'Household access denied' using errcode = '42501';
+  end if;
+
+  update public.corralio_households household
+  set planning_timezone = v_timezone
+  where household.id = v_household_id;
+  return v_timezone;
+end;
+$function$;
 
 create function public.corralio_upsert_push_subscription_v1(
   p_user_id uuid,
@@ -282,9 +341,7 @@ create trigger corralio_household_members_deactivate_push_subscriptions
   for each row execute function public.corralio_deactivate_member_push_subscriptions_v1();
 
 create function public.corralio_claim_weekend_ready_deliveries_v1(
-  p_planning_weekend_start date,
-  p_event_window_start timestamptz,
-  p_event_window_end timestamptz,
+  p_now timestamptz,
   p_limit integer default 50
 )
 returns table (
@@ -305,25 +362,43 @@ begin
   if coalesce(auth.role(), '') <> 'service_role' then
     raise exception 'Trusted Weekend Ready worker is required' using errcode = '42501';
   end if;
-  if p_planning_weekend_start is null
-     or p_event_window_start is null or p_event_window_end <= p_event_window_start
-  then raise exception 'Weekend Ready window is invalid' using errcode = '22023'; end if;
+  if p_now is null
+  then raise exception 'Weekend Ready evaluation time is required' using errcode = '22023'; end if;
 
-  insert into public.corralio_weekend_ready_campaigns (
-    household_id, planning_weekend_start, window_strategy, event_window_start, event_window_end
-  )
-  select distinct subscription.household_id, p_planning_weekend_start,
-    'fixed_us_v1', p_event_window_start, p_event_window_end
-  from public.corralio_push_subscriptions subscription
-  join public.corralio_household_members member
-    on member.household_id = subscription.household_id
-   and member.user_id = subscription.user_id
-   and member.role = 'owner' and member.status = 'active'
-  where subscription.state = 'active'
-    and exists (
+  with eligible_zones as materialized (
+    select zone.name
+    from pg_catalog.pg_timezone_names zone
+    where extract(isodow from p_now at time zone zone.name) = 4
+      and extract(hour from p_now at time zone zone.name) = 16
+      and extract(minute from p_now at time zone zone.name) >= 37
+      and extract(minute from p_now at time zone zone.name) < 52
+  ), household_candidates as materialized (
+    select household.id as household_id, household.planning_timezone as household_timezone,
+      (local_time.value::date + 1) as planning_weekend_start,
+      ((local_time.value::date + 1)::timestamp at time zone household.planning_timezone) as event_window_start,
+      ((local_time.value::date + 4)::timestamp at time zone household.planning_timezone) as event_window_end
+    from eligible_zones zone
+    join public.corralio_households household on household.planning_timezone = zone.name
+    cross join lateral (
+      select p_now at time zone household.planning_timezone as value
+    ) local_time
+    where exists (
+        select 1
+        from public.corralio_push_subscriptions subscription
+        join public.corralio_household_members member
+          on member.household_id = subscription.household_id
+         and member.user_id = subscription.user_id
+         and member.role = 'owner' and member.status = 'active'
+        where subscription.household_id = household.id and subscription.state = 'active'
+      )
+  ), eligible as materialized (
+    select candidate.*
+    from household_candidates candidate
+    where exists (
       select 1 from public.corralio_events event
-      where event.household_id = subscription.household_id
-        and event.starts_at >= p_event_window_start and event.starts_at < p_event_window_end
+      where event.household_id = candidate.household_id
+        and event.starts_at >= candidate.event_window_start
+        and event.starts_at < candidate.event_window_end
         and (
           event.schedule_source_id is null
           or exists (
@@ -334,20 +409,33 @@ begin
           )
         )
     )
-  on conflict (household_id, planning_weekend_start) do nothing;
-
-  insert into public.corralio_weekend_ready_deliveries (
-    campaign_id, subscription_id, subscription_hash
+    order by candidate.household_id
+    limit v_limit
+  ), campaigns as (
+    insert into public.corralio_weekend_ready_campaigns (
+      household_id, planning_weekend_start, household_timezone,
+      event_window_start, event_window_end, created_at
+    )
+    select eligible.household_id, eligible.planning_weekend_start,
+      eligible.household_timezone, eligible.event_window_start, eligible.event_window_end, p_now
+    from eligible
+    on conflict (household_id, planning_weekend_start) do update
+      set household_timezone = corralio_weekend_ready_campaigns.household_timezone
+    returning id, household_id
   )
-  select campaign.id, subscription.id, subscription.endpoint_hash
-  from public.corralio_weekend_ready_campaigns campaign
+  insert into public.corralio_weekend_ready_deliveries (
+    campaign_id, subscription_id, subscription_hash, next_attempt_at
+  )
+  select campaign.id, subscription.id, subscription.endpoint_hash, p_now
+  from campaigns campaign
   join public.corralio_push_subscriptions subscription
     on subscription.household_id = campaign.household_id and subscription.state = 'active'
   join public.corralio_household_members member
     on member.household_id = subscription.household_id
    and member.user_id = subscription.user_id
    and member.role = 'owner' and member.status = 'active'
-  where campaign.planning_weekend_start = p_planning_weekend_start
+  order by campaign.id, subscription.id
+  limit v_limit
   on conflict (campaign_id, subscription_hash) do nothing;
 
   return query
@@ -361,11 +449,12 @@ begin
       on member.household_id = subscription.household_id
      and member.user_id = subscription.user_id
      and member.role = 'owner' and member.status = 'active'
-    where campaign.planning_weekend_start = p_planning_weekend_start
-      and delivery.state in ('pending', 'transient_failure')
+    where delivery.state in ('pending', 'transient_failure')
       and delivery.attempt_count < 2
-      and coalesce(delivery.next_attempt_at, now()) <= now()
-      and (delivery.claim_token is null or delivery.claimed_at <= now() - interval '10 minutes')
+      and campaign.created_at >= p_now - interval '4 hours'
+      and campaign.created_at <= p_now + interval '5 minutes'
+      and coalesce(delivery.next_attempt_at, p_now) <= p_now
+      and (delivery.claim_token is null or delivery.claimed_at <= p_now - interval '10 minutes')
       and exists (
         select 1 from public.corralio_events event
         where event.household_id = campaign.household_id
@@ -386,9 +475,9 @@ begin
     limit v_limit
   ), claimed as (
     update public.corralio_weekend_ready_deliveries delivery
-    set claim_token = gen_random_uuid(), claimed_at = now(),
+    set claim_token = gen_random_uuid(), claimed_at = p_now,
         attempt_count = delivery.attempt_count + 1,
-        last_attempted_at = now(), updated_at = now()
+        last_attempted_at = p_now, updated_at = now()
     from candidates where delivery.id = candidates.id
     returning delivery.id, delivery.subscription_id, delivery.claim_token, delivery.attempt_count
   )
@@ -469,19 +558,22 @@ revoke all on function public.corralio_upsert_push_subscription_v1(uuid,uuid,tex
   public.corralio_deactivate_push_subscription_v1(uuid,uuid,text),
   public.corralio_record_push_interaction_v1(uuid,uuid,text),
   public.corralio_deactivate_member_push_subscriptions_v1(),
-  public.corralio_claim_weekend_ready_deliveries_v1(date,timestamptz,timestamptz,integer),
+  public.corralio_claim_weekend_ready_deliveries_v1(timestamptz,integer),
   public.corralio_finish_weekend_ready_delivery_v1(uuid,uuid,text,text)
   from public, anon, authenticated;
+revoke all on function public.corralio_set_household_timezone_v1(text) from public, anon;
 grant execute on function public.corralio_upsert_push_subscription_v1(uuid,uuid,text,text,text),
   public.corralio_deactivate_push_subscription_v1(uuid,uuid,text),
   public.corralio_record_push_interaction_v1(uuid,uuid,text),
-  public.corralio_claim_weekend_ready_deliveries_v1(date,timestamptz,timestamptz,integer),
+  public.corralio_claim_weekend_ready_deliveries_v1(timestamptz,integer),
   public.corralio_finish_weekend_ready_delivery_v1(uuid,uuid,text,text)
   to service_role;
+grant execute on function public.corralio_set_household_timezone_v1(text) to authenticated, service_role;
 
+alter function public.corralio_set_household_timezone_v1(text) owner to postgres;
 alter function public.corralio_upsert_push_subscription_v1(uuid,uuid,text,text,text) owner to postgres;
 alter function public.corralio_deactivate_push_subscription_v1(uuid,uuid,text) owner to postgres;
 alter function public.corralio_record_push_interaction_v1(uuid,uuid,text) owner to postgres;
 alter function public.corralio_deactivate_member_push_subscriptions_v1() owner to postgres;
-alter function public.corralio_claim_weekend_ready_deliveries_v1(date,timestamptz,timestamptz,integer) owner to postgres;
+alter function public.corralio_claim_weekend_ready_deliveries_v1(timestamptz,integer) owner to postgres;
 alter function public.corralio_finish_weekend_ready_delivery_v1(uuid,uuid,text,text) owner to postgres;

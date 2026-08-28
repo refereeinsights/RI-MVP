@@ -12,10 +12,16 @@ import {
   removeChild,
   removeTeam,
   updateHouseholdOrigin,
+  updateHouseholdTimezone,
   updateTeam,
   type FormState,
 } from "@/app/actions";
 import type { CorralioChildColor } from "@/lib/family";
+import {
+  HOUSEHOLD_TIMEZONE_OPTIONS,
+  householdTimezoneLabel,
+  parseIanaTimeZone,
+} from "@/lib/householdTimezone";
 import { getScheduleConnectionRecoveryCopy } from "@/lib/schedules/connectionRecovery";
 import {
   getSchedulePlatform,
@@ -65,6 +71,57 @@ function HomeOriginForm({ originAddress }: { originAddress: string }) {
       </div>
       <p className="fieldHelp">Used privately to estimate when your household should leave. Clear the field and save to remove it.</p>
       <FormSubmitButton idle="Save home address" pending="Locating…" variant="secondary" />
+      <FormNotice state={state} />
+    </form>
+  );
+}
+
+function HouseholdTimezoneForm({ planningTimezone }: { planningTimezone: string | null }) {
+  const [state, action] = useFormState(updateHouseholdTimezone, INITIAL_FORM_STATE);
+  const [suggestedTimezone, setSuggestedTimezone] = useState<string | null>(null);
+  const [selectedTimezone, setSelectedTimezone] = useState(planningTimezone ?? "");
+
+  useEffect(() => {
+    if (planningTimezone) return;
+    const suggestion = parseIanaTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    if (suggestion) {
+      setSuggestedTimezone(suggestion);
+      setSelectedTimezone(suggestion);
+    }
+  }, [planningTimezone]);
+
+  const options = [...HOUSEHOLD_TIMEZONE_OPTIONS];
+  const extraTimezone = selectedTimezone
+    && !options.some((option) => option.value === selectedTimezone)
+    ? selectedTimezone
+    : null;
+
+  return (
+    <form className="householdTimezoneForm" action={action}>
+      <div>
+        <label htmlFor="household-planning-timezone">Your family timezone</label>
+        <select
+          id="household-planning-timezone"
+          name="timezone"
+          value={selectedTimezone}
+          onChange={(event) => setSelectedTimezone(event.target.value)}
+          required
+        >
+          <option value="">Choose your timezone</option>
+          {extraTimezone ? <option value={extraTimezone}>{householdTimezoneLabel(extraTimezone)}</option> : null}
+          {options.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+        </select>
+      </div>
+      {!planningTimezone && suggestedTimezone ? (
+        <p className="fieldHelp">Suggested from this device: {householdTimezoneLabel(suggestedTimezone)}. Confirm it before Weekend Ready is enabled.</p>
+      ) : (
+        <p className="fieldHelp">Used for recurring family planning. Travel events keep their own local timezone.</p>
+      )}
+      <FormSubmitButton
+        idle={planningTimezone ? "Save timezone" : suggestedTimezone ? "Use this timezone" : "Save timezone"}
+        pending="Saving…"
+        variant="secondary"
+      />
       <FormNotice state={state} />
     </form>
   );
@@ -271,10 +328,12 @@ export function FamilySection({
   familyChildren,
   teams,
   originAddress,
+  planningTimezone,
 }: {
   familyChildren: FamilyChild[];
   teams: FamilyTeam[];
   originAddress: string;
+  planningTimezone: string | null;
 }) {
   const teamsByChild = new Map<string, FamilyTeam[]>();
   for (const team of teams) {
@@ -288,6 +347,15 @@ export function FamilySection({
       <p className="eyebrow">Every kid. Every team.</p>
       <h2 id="family-heading">Your family</h2>
       <p className="sectionIntro">Add the children and teams you plan for, then assign each connected schedule to the right person or team.</p>
+
+      <section className="householdSetting" aria-labelledby="household-timezone-heading">
+        <div>
+          <p className="eyebrow">Weekend Ready</p>
+          <h3 id="household-timezone-heading">Plan in your family’s time</h3>
+          <p>Confirm when recurring family reminders should arrive. Event times remain local to each venue.</p>
+        </div>
+        <HouseholdTimezoneForm planningTimezone={planningTimezone} />
+      </section>
 
       <section className="homeOrigin" aria-labelledby="home-origin-heading">
         <div>

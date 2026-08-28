@@ -124,7 +124,7 @@ export async function loadFamilyData(viewer: CorralioViewer) {
   const [rows, householdResult] = await Promise.all([
     loadFamilyRows(viewer),
     viewer.householdId
-      ? viewer.supabase.from("corralio_households").select("origin_address").eq("id", viewer.householdId).maybeSingle()
+      ? viewer.supabase.from("corralio_households").select("origin_address,planning_timezone").eq("id", viewer.householdId).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
   const { familyChildren, familyTeams } = mapFamily(rows.children, rows.teams);
@@ -142,5 +142,8 @@ export async function loadFamilyData(viewer: CorralioViewer) {
     originAddress: typeof householdResult.data?.origin_address === "string"
       ? householdResult.data.origin_address
       : "",
+    planningTimezone: typeof householdResult.data?.planning_timezone === "string"
+      ? householdResult.data.planning_timezone
+      : null,
   };
 }

@@ -11,6 +11,9 @@ const catalog = source("scripts/analysis/corralio_slice36a_catalog_verification.
 const behavioral = source("scripts/analysis/corralio_slice36a_behavioral_verification.sql");
 const usageReport = source("scripts/analysis/corralio_slice36a_usage_report.sql");
 const prompt = source("docs/prompts/corralio-slice-3.6a-weekend-ready-web-push-prompt.md");
+const actions = source("apps/corralio/app/actions.ts");
+const familyUi = source("apps/corralio/app/components/FamilySection.tsx");
+const productData = source("apps/corralio/app/_lib/productData.ts");
 
 test("keeps subscription capabilities behind service-only tables and functions", () => {
   for (const table of [
@@ -22,7 +25,7 @@ test("keeps subscription capabilities behind service-only tables and functions",
     assert.match(migration, new RegExp(`alter table public\\.${table} force row level security`));
   }
   assert.match(migration, /revoke all on table[\s\S]+from public, anon, authenticated/);
-  assert.doesNotMatch(migration, /grant [^;]+ to authenticated/);
+  assert.doesNotMatch(migration, /grant [^;]*on table public\.corralio_(?:push|weekend)[^;]+to authenticated/i);
   assert.match(migration, /endpoint_hash bytea generated always as \(digest\(endpoint, 'sha256'\)\) stored/);
   assert.match(migration, /auth_secret text not null/);
 });
@@ -37,14 +40,29 @@ test("implements separate campaign and delivery idempotency with bounded retry",
   assert.match(migration, /membership_lost/);
 });
 
-test("uses the approved fixed UTC window without inventing household timezone truth", () => {
-  assert.match(migration, /window_strategy text not null default 'fixed_us_v1'/);
-  assert.doesNotMatch(migration, /reference_timezone|America\/Chicago/);
-  assert.doesNotMatch(behavioral, /America\/Chicago/);
-  assert.match(prompt, /Thursday 20:37 UTC/);
-  assert.match(prompt, /Thursday 22:37 UTC/);
-  assert.match(prompt, /fixed U\.S\.-centered V1 notification window/);
-  assert.match(prompt, /retry-only/);
+test("stores confirmed household timezone separately and schedules against local time", () => {
+  assert.match(migration, /add column planning_timezone text null/);
+  assert.match(migration, /pg_catalog\.pg_timezone_names/);
+  assert.match(migration, /corralio_households_planning_timezone_idx/);
+  assert.match(migration, /eligible_zones as materialized/);
+  assert.match(migration, /extract\(isodow from p_now at time zone zone\.name\) = 4/);
+  assert.match(migration, /extract\(hour from p_now at time zone zone\.name\) = 16/);
+  assert.match(migration, /extract\(minute from p_now at time zone zone\.name\) >= 37/);
+  assert.doesNotMatch(migration, /window_strategy|fixed_us_v1|reference_timezone/);
+  assert.match(behavioral, /null-timezone household was silently scheduled/);
+  assert.match(behavioral, /travel event timezone changed while household timezone was saved/);
+  assert.match(prompt, /Thursday at 4:37 PM/);
+  assert.match(prompt, /7,22,37,52 2-23 \* \* 4/);
+  assert.match(prompt, /7,22,37,52 0-6 \* \* 5/);
+});
+
+test("keeps browser suggestion explicit and server validation authoritative", () => {
+  assert.match(familyUi, /Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/);
+  assert.match(familyUi, /Confirm it before Weekend Ready is enabled/);
+  assert.match(actions, /parseIanaTimeZone\(formData\.get\("timezone"\)\)/);
+  assert.match(actions, /corralio_set_household_timezone_v1/);
+  assert.match(productData, /origin_address,planning_timezone/);
+  assert.doesNotMatch(actions, /origin_address|event\.timezone|venue.*timezone/i);
 });
 
 test("does not overload the routing ledger or enter deferred notification scope", () => {

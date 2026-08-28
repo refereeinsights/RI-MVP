@@ -129,9 +129,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 
 .stackForm { display: grid; gap: 10px; }
 .stackForm label { margin-top: 4px; font-size: .86rem; font-weight: 750; }
-.stackForm label span, .inlineSourceForm label span, .familyEditForm label span, .familyTeamForm label span, .homeOriginForm label span { color: var(--muted); font-weight: 500; }
+.stackForm label span, .inlineSourceForm label span, .familyEditForm label span, .familyTeamForm label span, .homeOriginForm label span, .householdTimezoneForm label span { color: var(--muted); font-weight: 500; }
 .stackForm input, .stackForm select, .inlineSourceForm input, .inlineSourceForm select,
-.familyEditForm input, .familyTeamForm input, .familyTeamForm select, .familyAddForm input, .homeOriginForm input {
+.familyEditForm input, .familyTeamForm input, .familyTeamForm select, .familyAddForm input, .homeOriginForm input, .householdTimezoneForm select {
   width: 100%;
   min-height: 48px;
   padding: 11px 13px;
@@ -141,7 +141,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   color: var(--foreground);
 }
 .stackForm input:focus, .stackForm select:focus, .inlineSourceForm input:focus, .inlineSourceForm select:focus,
-.familyEditForm input:focus, .familyTeamForm input:focus, .familyTeamForm select:focus, .familyAddForm input:focus, .homeOriginForm input:focus { border-color: var(--focus); }
+.familyEditForm input:focus, .familyTeamForm input:focus, .familyTeamForm select:focus, .familyAddForm input:focus, .homeOriginForm input:focus, .householdTimezoneForm select:focus { border-color: var(--focus); }
 .primaryButton, .primaryLinkButton {
   display: flex;
   min-height: 48px;
@@ -332,12 +332,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .scheduleConnectionSuccessActions .primaryLinkButton { margin: 0; }
 
 .familyCard > .sectionIntro { margin-bottom: 22px; }
-.homeOrigin { display: grid; gap: 16px; margin: 0 0 24px; padding: 16px; border: 1px solid var(--border); border-radius: 15px; background: var(--surface-subtle); }
-.homeOrigin h3 { margin: 0; font-size: 1rem; }
-.homeOrigin > div > p:last-child { margin: 5px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
-.homeOriginForm { display: grid; gap: 9px; }
-.homeOriginForm label { display: block; margin-bottom: 5px; font-size: .8rem; font-weight: 750; }
-.homeOriginForm .secondaryButton { justify-self: start; }
+.homeOrigin, .householdSetting { display: grid; gap: 16px; margin: 0 0 24px; padding: 16px; border: 1px solid var(--border); border-radius: 15px; background: var(--surface-subtle); }
+.homeOrigin h3, .householdSetting h3 { margin: 0; font-size: 1rem; }
+.homeOrigin > div > p:last-child, .householdSetting > div > p:last-child { margin: 5px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.homeOriginForm, .householdTimezoneForm { display: grid; gap: 9px; }
+.homeOriginForm label, .householdTimezoneForm label { display: block; margin-bottom: 5px; font-size: .8rem; font-weight: 750; }
+.homeOriginForm .secondaryButton, .householdTimezoneForm .secondaryButton { justify-self: start; }
 .familyList { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
 .familyChild { min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-subtle); }
 .familyChildHeading { display: flex; align-items: center; gap: 11px; }

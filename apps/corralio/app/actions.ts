@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { resolveCorralioViewer } from "@/app/_lib/productData";
 import { CORRALIO_ACQUISITION_COOKIE, resolveAcquisitionProvenanceCookie } from "@/lib/acquisition";
 import { nextChildColor, normalizeFamilyName, parseTeamSport } from "@/lib/family";
+import { parseIanaTimeZone } from "@/lib/householdTimezone";
 import { computeWeekendLeaveBy, saveHouseholdOrigin } from "@/lib/leaveBy.server";
 import { isValidUuid, parseScheduleAssignmentInput } from "@/lib/schedules/assignment";
 import {
@@ -89,6 +90,27 @@ export async function updateHouseholdOrigin(
     return { status: result.ok ? "success" : "error", message: result.message };
   } catch {
     return { status: "error", message: "We couldn’t update your home address right now." };
+  }
+}
+
+export async function updateHouseholdTimezone(
+  _state: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const timezone = parseIanaTimeZone(formData.get("timezone"));
+  if (!timezone) {
+    return { status: "error", message: "Choose a valid family timezone." };
+  }
+  try {
+    const supabase = createCorralioSupabaseServerClient();
+    const { data, error } = await supabase.rpc("corralio_set_household_timezone_v1", {
+      p_timezone: timezone,
+    });
+    if (error || data !== timezone) throw new Error("timezone update failed");
+    revalidatePlanner();
+    return { status: "success", message: "Family timezone saved." };
+  } catch {
+    return { status: "error", message: "We couldn’t update your family timezone right now." };
   }
 }
 

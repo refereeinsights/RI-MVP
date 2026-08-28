@@ -4,7 +4,7 @@
 
 **Status: Founder-approved, 2026-08-28. Supersedes the earlier CPO draft `corralio-slice-3.6a-weekend-ready-notifications-prompt.md`, which bundled an email digest into this slice — that draft is retired. This document is canonical for Slice 3.6A.**
 
-**Amendments folded in below (all from the 2026-08-28 founder review):** Section 25's email item is now an explicit, reasoned deferral rather than a bare exclusion. Sections 3 and 14 require a mandatory Stage 1 timezone audit rather than allowing a silent assumption. The final specification corrections also lock the service-only subscription boundary, two-level idempotency, bounded opt-in/re-entry measurement, same-origin mutation protection, a separate push worker, physical-device evidence limits, operational logging, and trusted URL construction.
+**Amendments folded in below (all from the 2026-08-28 founder review):** Section 25's email item is now an explicit, reasoned deferral rather than a bare exclusion. The Household Timezone Foundation amendment supersedes the temporary fixed-US window: Corralio stores a parent-confirmed IANA planning timezone and keeps it separate from event/venue timezone and absolute event time. The final specification corrections also lock the service-only subscription boundary, two-level idempotency, bounded opt-in/re-entry measurement, same-origin mutation protection, a separate push worker, physical-device evidence limits, operational logging, and trusted URL construction.
 
 You are working inside the existing TournamentInsights / RefereeInsights / Corralio monorepo.
 
@@ -119,20 +119,20 @@ Reuse existing trusted scheduled-job patterns where appropriate. Do not create a
 
 ## Timezone
 
-Identify every trustworthy timezone signal currently available to Corralio, including household settings if any, event/venue timezone data, canonical venue intelligence, and any existing TI/RI timezone utilities. Determine whether any signal is sufficiently reliable for household-level Weekend Ready scheduling.
+The audit found no authoritative household timezone. Add the smallest nullable `planning_timezone` field to the household and store only a parent-confirmed, server-validated canonical IANA identifier. Existing households remain null; do not backfill from events or venues.
 
-Do not derive household timezone from a single event venue merely because that venue has a timezone.
+Maintain this hierarchy:
 
-Stage 1 must explicitly report:
+1. stored household timezone — authoritative for recurring household-local planning;
+2. browser/device timezone — suggestion only while unset;
+3. home-derived timezone — optional secondary suggestion only if an existing trusted capability makes it free and privacy-safe;
+4. event/venue timezone — event-local truth only, never household truth.
 
-- available timezone signals;
-- their provenance and reliability;
-- whether a trustworthy household notification timezone exists;
-- recommended V1 behavior if it does not.
+The authenticated browser may suggest `Intl.DateTimeFormat().resolvedOptions().timeZone`, but the parent must explicitly confirm it. Do not silently overwrite a confirmed value. Present human labels rather than requiring IANA knowledge, while storing only the canonical identifier. Reject offset strings such as `UTC-8` and `GMT+2` at both pure and server boundaries.
 
-If no reliable household timezone exists, propose one bounded V1 send strategy for founder/CPO approval rather than silently assuming an offset or adding a timezone architecture.
+Use the smallest Family/settings surface for initial confirmation and later correction. Do not create a preferences center. A null-timezone household is not eligible for Weekend Ready until confirmed. Never fall back to the browser, Vercel/server timezone, an event destination, or a guessed zone during worker eligibility.
 
-Do not run the existing browser-local weekend helper in the Vercel/server timezone and treat that result as household-local truth. The audit found no trustworthy household timezone, and the resulting bounded founder decision is resolved in Section 14. Preserve that finding and decision; do not infer a timezone or reopen timezone architecture in Stage 2.
+Household timezone remains stable during travel unless the parent changes it. Event display remains event-local, and leave-by/routing remains an absolute timestamp calculation. Do not add dynamic travel-zone UX, new provider calls, timezone history, device-timezone history, or timezone analytics.
 
 ## Measurement
 
@@ -313,22 +313,22 @@ Do not notify simply because a cron ran. Do not send empty Weekend Ready notific
 
 # 13. Weekend Definition
 
-Reuse the canonical This Weekend date/window semantics. Do not create a notification-specific definition of weekend. If necessary, extract only the smallest product-neutral helper from existing logic. Do not refactor This Weekend broadly.
+Reuse the canonical Friday-through-Sunday This Weekend shape. For Weekend Ready eligibility, resolve Friday 00:00 through Monday 00:00 in the confirmed household timezone, producing absolute UTC bounds. Preserve the existing browser-local This Weekend rendering and event-local display; do not refactor either broadly.
 
 ---
 
-# 14. Send Timing and Timezone Strategy — Founder Decision
+# 14. Send Timing and Timezone Strategy — Updated Decision Gate
 
-Founder decision, 2026-08-28:
+The fixed-US UTC schedule is superseded by the Household Timezone Foundation amendment.
 
-- primary Weekend Ready run: Thursday 20:37 UTC;
-- bounded transient-retry run: Thursday 22:37 UTC;
-- the second run is retry-only and normal campaign/delivery idempotency prevents duplicate Weekend Ready sends;
-- this is a fixed U.S.-centered V1 notification window because Corralio has no trustworthy household timezone;
-- do not model or describe `America/Chicago` or any other reference zone as the household/planning timezone;
-- household-local notification timing remains deferred until Corralio has trustworthy timezone data.
+Stage 1 recommendation for founder/CPO approval:
 
-Stage 1 must preserve this deterministic send window and its honest timezone limitation.
+- one primary send opportunity Thursday at 4:37 PM in the confirmed household timezone;
+- one bounded worker every 15 minutes during the global Thursday-local evaluation/retry envelope, using `7,22,37,52 2-23 * * 4` and `7,22,37,52 0-6 * * 5` in Vercel UTC cron (116 invocations/week, not an all-week poll);
+- each invocation evaluates the injected current instant through the household's stored IANA rules and claims only households inside the 15-minute local window;
+- no per-timezone cron and no unbounded household scan;
+- transient delivery failures become eligible once after the existing 90-minute cooldown; recurring worker cadence does not create another campaign or retry provider-accepted delivery;
+- households with null timezone remain disabled and receive the lightweight confirmation flow.
 
 Optimize for:
 
@@ -341,9 +341,7 @@ Requirements:
 - no multiple reminders;
 - avoid middle-of-the-night delivery.
 
-This decision is downstream of Section 3's timezone audit. Do not make the fixed UTC schedule look household-local, infer a household zone from event/venue data, or add a timezone attribute in this slice.
-
-This founder gate is resolved. Stage 2 must implement the approved fixed schedule exactly and preserve its limitation.
+This exact local send time and cadence require approval before Stage 2. The household-timezone product model itself is founder-approved and must not be replaced with the former fixed-US workaround.
 
 ---
 
@@ -558,41 +556,53 @@ Add deterministic tests covering at minimum:
 3. no subscription cannot;
 4. duplicate household/weekend claim is rejected.
 
+## Household timezone
+5. valid IANA timezone accepted and canonicalized;
+6. malformed/offset timezone rejected at the server boundary;
+7. browser timezone remains an unpersisted suggestion until confirmation;
+8. confirmed stored timezone remains authoritative;
+9. event/venue timezone cannot overwrite household timezone;
+10. eligibility uses household-local time rather than server timezone;
+11. null timezone remains disabled;
+12. representative US spring/fall DST behavior uses IANA rules;
+13. travel event time remains event-local/absolute without mutating household timezone;
+14. no home address, coordinates, or device-timezone history enters logging/measurement.
+
 ## Authorization
-5. authenticated user can create only an authorized subscription;
-6. cross-user/cross-household access denied;
-7. trusted worker has required access;
-8. browser cannot invoke trusted send/claim operations.
+15. authenticated user can create only an authorized subscription;
+16. cross-user/cross-household access denied;
+17. trusted worker has required access;
+18. browser cannot invoke trusted send/claim operations.
 
 ## Permission/subscription
-9. unsupported state;
-10. denied state;
-11. granted/subscribed state;
-12. revoked/expired state;
-13. dead endpoint handling.
+19. unsupported state;
+20. denied state;
+21. granted/subscribed state;
+22. revoked/expired state;
+23. dead endpoint handling.
 
 ## Privacy
-14. payload contains no child/team/event/location/private-note data;
-15. endpoint/key material does not enter analytics/logging;
-16. deep link contains no sensitive household data.
+24. payload contains no child/team/event/location/private-note data;
+25. endpoint/key material does not enter analytics/logging;
+26. deep link contains no sensitive household data.
 
 ## Weekend Ready
-17. approved copy;
-18. correct This Weekend deep link;
-19. duplicate cron/retry cannot duplicate normal send;
-20. individual failure does not abort unrelated work.
+27. approved copy;
+28. correct This Weekend deep link;
+29. duplicate cron/retry cannot duplicate normal send;
+30. individual failure does not abort unrelated work.
 
 ## Regression
-21. schedule connection unchanged;
-22. schedule freshness unchanged;
-23. This Weekend planning unchanged except approved notification opt-in entry;
-24. conflicts unchanged;
-25. leave-by unchanged;
-26. What Fits unchanged;
-27. schedule-source catalog unchanged;
-28. signed-out landing remains push-free.
+31. schedule connection unchanged;
+32. schedule freshness unchanged;
+33. This Weekend planning unchanged except approved notification opt-in entry;
+34. conflicts unchanged;
+35. leave-by unchanged;
+36. What Fits unchanged;
+37. schedule-source catalog unchanged;
+38. signed-out landing remains push-free.
 
-Automated tests must not send real push notifications.
+Use fixed/injected clocks. Automated tests must not send real push notifications.
 
 ---
 
@@ -623,9 +633,9 @@ A human applies reviewed SQL. Continue only after both verifiers pass.
 
 # 31. Stage 1
 
-Stage 1 must: complete repository/PWA audit; verify current Web Push platform requirements; complete the timezone audit (Section 3); define smallest architecture; define subscription persistence; define idempotency; record the approved exact fixed send timing and limitation (Section 14); define batch/execution bounds; reconcile measurement; prepare migrations/verifiers where required; implement only work safe before database application; run offline verification; update notes; commit locally.
+Stage 1 must: complete repository/PWA audit; verify current Web Push platform requirements; implement the smallest household-timezone foundation (Section 3); define subscription persistence; define idempotency; recommend exact household-local send timing and worker cadence (Section 14); define batch/execution bounds; reconcile measurement; prepare migrations/verifiers where required; implement only work safe before database application; run offline verification; update notes; commit locally.
 
-The Section 14 founder gate is resolved. Do not request another timing/timezone decision before Stage 2.
+Return the Section 14 local-time/cadence recommendation for founder/CPO approval before Stage 2. Confirm the household schema design, browser suggestion flow, null fallback, DST strategy, and separation from event/venue timezone.
 
 If database work is required, stop at: `SLICE 3.6A READY FOR DATABASE VERIFICATION`
 

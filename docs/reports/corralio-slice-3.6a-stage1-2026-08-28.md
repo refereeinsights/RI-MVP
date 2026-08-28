@@ -5,13 +5,13 @@ Date: 2026-08-28
 Scope: Weekend Ready Web Push only
 
 Database state: migration prepared, not applied
-Runtime state: no service worker, push route, cron, permission request, subscription write, or notification send enabled
+Runtime state: household-timezone UI/action prepared behind the unapplied migration; no service worker, push route, cron, permission request, subscription write, or notification send enabled
 
 ## Verdict
 
 `SLICE 3.6A READY FOR DATABASE VERIFICATION`
 
-Stage 2 remains gated on human migration application and both SQL verifiers. The founder approved the fixed timing/window decision below on 2026-08-28. Email remains deliberately deferred and is not assigned to Slice 3.6B. No Mapbox, traffic-aware routing, schedule-change push, Leave Soon, SMS, or native-app work started.
+Stage 2 remains gated on founder/CPO approval of the exact household-local send recommendation below, human migration application, and both SQL verifiers. The founder approved the authoritative household-timezone foundation on 2026-08-28; that decision supersedes the temporary fixed-US workaround. Email remains deliberately deferred and is not assigned to Slice 3.6B. No Mapbox, traffic-aware routing, schedule-change push, Leave Soon, SMS, or native-app work started.
 
 ## Repository audit
 
@@ -56,26 +56,36 @@ Available signals:
 
 Conclusion: **Corralio has no trustworthy household notification timezone.** Running `getThisWeekendRangeLocal()` inside Vercel would use server process locality and cannot be described as household-local truth. A single event or venue timezone is also insufficient.
 
-## Founder decision approved — V1 fixed notification window
+## Household Timezone Foundation amendment
 
 ### Repository fact
 
-No trustworthy household timezone exists, Vercel cron is UTC, and the exact This Weekend UI window is browser-local.
+No trustworthy household timezone exists in the applied schema, Vercel cron is UTC, and the exact This Weekend UI window is browser-local. Event/venue timezones are destination truth and absolute event timestamps are already independent of household settings.
 
 ### Audit evidence
 
-The only complete deterministic option without new timezone capture/inference is a fixed reference strategy. Adding browser timezone persistence would create a new household/device attribute whose travel, multi-device, and correction semantics are not established in Corralio.
+The existing one-owner household and Family settings surface support a narrow nullable planning field without a new preferences system. The browser can suggest an IANA zone, but only an explicit parent submission crosses the authenticated Server Action and authorization-scoped RPC. PostgreSQL's timezone catalog supplies independent server validation.
 
-### Approved bounded V1 decision
+### Founder-approved product model
 
-- Primary send opportunity: **Thursday 20:37 UTC**.
-- One retry-worker opportunity: **Thursday 22:37 UTC**. It sends no second reminder; it can claim only an eligible transient delivery that was not provider-accepted at the primary opportunity.
-- Stage 2 cron expression: `37 20,22 * * 4`, on the separate push route.
-- Model the campaign with the closed strategy key `fixed_us_v1` and explicit UTC event-window bounds. Do not store a reference timezone or describe any zone as the household/planning timezone.
-- State the limitation in the durable record: this is a fixed U.S.-centered V1 notification window. It is not household-local precision.
-- Household-local notification timing remains deferred until Corralio has trustworthy timezone data.
+- `corralio_households.planning_timezone` is nullable and stores only a confirmed canonical IANA zone.
+- Existing rows remain null. There is no migration backfill and no event-, venue-, home-, or server-timezone inference.
+- `Intl.DateTimeFormat().resolvedOptions().timeZone` is an unpersisted suggestion only. The parent confirms it or chooses a human-labeled common U.S. zone; the same Family surface permits later correction.
+- Null-timezone households remain ineligible for Weekend Ready.
+- Household timezone is stable during travel. Event rendering continues to use event-local timezone; routing and leave-by continue to resolve absolute instants.
+- The migration grants no direct authenticated update to the timezone column. A hardened authenticated RPC validates active ownership and `pg_timezone_names`; pure application validation supplies an earlier bounded error.
+- No timezone analytics/history, home data, coordinates, device history, or provider call was added.
 
-The founder explicitly rejected modeling `America/Chicago` as household/planning truth. No browser timezone attribute, event/venue inference, or household timezone architecture is authorized in this slice.
+### Recommended local schedule — approval required
+
+- Primary opportunity: **Thursday at 4:37 PM household local time**.
+- Worker cadence: every 15 minutes during the bounded global Thursday-local evaluation/retry envelope: `7,22,37,52 2-23 * * 4` and `7,22,37,52 0-6 * * 5` UTC. These offsets cover IANA zones whose UTC offsets fall on whole, half, or quarter hours without one cron per timezone, while avoiding an all-week poll.
+- The claim RPC accepts an injected absolute `p_now`, converts it using each confirmed household zone, and admits new campaigns only during the local 4:37–4:51 PM window.
+- Friday 00:00 through Monday 00:00 is resolved in the household timezone into absolute event bounds. PostgreSQL and `Intl` IANA rules provide DST behavior.
+- The worker first derives the bounded current eligible-zone set from PostgreSQL, joins through a partial `(planning_timezone, id)` household index, and bounds household candidates, inserted deliveries, and returned claims to 50. Recurring calls remain safe through campaign/delivery uniqueness and `SKIP LOCKED`.
+- The existing 90-minute transient cooldown remains. Later invocations may claim the one retry outside the primary window, while accepted delivery is terminal.
+
+This exact time/cadence is the remaining founder/CPO product decision before Stage 2.
 
 ## Stage 1 architecture prepared
 
@@ -100,8 +110,8 @@ The founder explicitly rejected modeling `America/Chicago` as household/planning
 - Maximum concurrent sends: 5.
 - Maximum attempts/subscription/campaign: 2.
 - Stage 2 sender timeout target: 10 seconds per push request.
-- Maximum scheduled invocations: 2 per week.
-- At current applied scale (one household), projected work is negligible. At the hard bound, a fully transient campaign can produce at most 100 provider attempts across the two invocations.
+- Maximum scheduled invocations: 116 per week across the two recommended UTC cron entries; only the bounded household-local window creates campaigns, while later calls can claim a due transient retry.
+- At current applied scale (one household), projected work is negligible. Each invocation claims at most 50 deliveries with concurrency 5, and each campaign/subscription still has at most two provider attempts.
 - The existing schedule-refresh cron and route remain untouched.
 
 ### Trusted URLs and secrets
@@ -126,9 +136,20 @@ The founder explicitly rejected modeling `America/Chicago` as household/planning
 - Network-free rollback-only behavioral verifier: `scripts/analysis/corralio_slice36a_behavioral_verification.sql`
 - Read-only aggregate usage report: `scripts/analysis/corralio_slice36a_usage_report.sql`
 - Offline pure subscription/payload/provider/batch boundary: `apps/corralio/lib/notifications/weekendReady.ts`
-- Focused tests: `apps/corralio/lib/notifications/weekendReady.test.ts`
+- Focused tests: `apps/corralio/lib/notifications/weekendReady.test.ts`, `apps/corralio/lib/householdTimezone.test.ts`, and `apps/corralio/lib/notifications/weekendReadyArchitecture.test.ts`
 
-The migration has not been applied. The verifier files have not been run. Stage 1 adds no service worker, registration, permission UI, browser mutation, push provider dependency, VAPID key, route, cron entry, or runtime call. The timing/window decision is approved; only the database gate remains before Stage 2.
+The migration has not been applied. The verifier files have not been run. Stage 1 prepares the confirmation UI and authorized action but adds no service worker, registration, push permission UI, push provider dependency, VAPID key, route, cron entry, or notification runtime call. The exact local time/cadence decision and database gate remain before Stage 2.
+
+## Amendment verification
+
+- 15 focused household-timezone/Weekend Ready tests passed, including summer/winter DST and null-timezone behavior.
+- All 286 Corralio/shared-schedule regression tests passed.
+- Corralio TypeScript and zero-warning lint passed.
+- All four production builds passed; RI/TI emitted only their existing unrelated warnings.
+- `git diff --check` passed.
+- The browser suggestion is consistent with MDN's documented `Intl.DateTimeFormat().resolvedOptions().timeZone` behavior: `https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat/resolvedOptions`.
+- PostgreSQL documents `pg_timezone_names` as its recognized named-zone catalog and named IANA zones as DST-rule-bearing rather than fixed offsets: `https://www.postgresql.org/docs/current/view-pg-timezone-names.html` and `https://www.postgresql.org/docs/current/datatype-datetime.html#DATATYPE-TIMEZONES`.
+- No migration/verifier was applied or run, and no database mutation, provider call, cron, push, or deployment occurred.
 
 ## Stage 2 evidence contract
 
