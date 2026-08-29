@@ -9,10 +9,6 @@
       "schedule": "5 * * * *"
     },
     {
-      "path": "/api/cron/ti-static-map-generator?token=ri_cron_9fB2KxM7eQWcA4HhPZt6R8D3NVaJYdLs",
-      "schedule": "*/10 * * * *"
-    },
-    {
       "path": "/api/cron/ti-admin-dashboard-email?token=ri_cron_9fB2KxM7eQWcA4HhPZt6R8D3NVaJYdLs",
       "schedule": "15 5 * * *"
     }
