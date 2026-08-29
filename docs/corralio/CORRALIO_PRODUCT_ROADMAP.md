@@ -218,11 +218,39 @@ V2 scope is hypothesis-driven and should follow evidence from V1.
 
 Potential value includes traffic-aware leave-by, advanced conflict intelligence, household coordination, schedule-change intelligence, smart briefings, advanced alerts, and advanced travel intelligence. Exact entitlements and pricing are not finalized.
 
+## Launch Readiness — Mobile Resilience & Offline PWA (added 2026-08-29)
+
+Founder direction, 2026-08-29. Audit-first launch-readiness item, not authorization for a comprehensive offline synchronization system. Placed here — after V2's planning-intelligence work (Slice 3.6B) and before pilot — because it protects value already built rather than adding new intelligence.
+
+**Roadmap placement (current slice sequence):** Slice 3.6A (Weekend Ready Web Push) → Slice 3.6B (Required Arrival, Routing Origin, HotelPlanner attribution, Mapbox traffic-aware leave-by) → **Mobile Resilience & Offline PWA audit, then only its P1 launch-blocking fixes** → physical-device end-to-end launch UAT (combined single pass covering 3.6A push/tap-handoff, 3.6B arrival/routing/traffic, and this workstream's offline/reconnect matrix — not a second separate device-testing pass) → bounded family pilot. Do not interrupt 3.6B to start this early unless the audit surfaces a prerequisite architectural blocker.
+
+**Launch question:** if a parent loses connectivity during a sports weekend (fields, gyms, rinks, tournament complexes, hotels, road trips), can they still see enough of the plan to know where they need to be? A temporary connectivity loss should not reduce the product to an empty screen or a permanent loading state.
+
+**Canonical direction:** server-authoritative intelligence + locally hydrated PWA + targeted synchronization. The client stays fast and useful with poor connectivity; Corralio's planning/business intelligence stays server-authoritative. Do not reproduce the planning engine in the browser.
+
+**P1 (audit and, if necessary, enable):** cached/readable This Weekend plan, event times, venue names/addresses, required-arrival info, last-known leave-by, applicable planned lodging/origin, explicit freshness/staleness disclosure (e.g. "Schedule updated 22 min ago," "Traffic unavailable offline"), graceful offline state, safe reconnect/refetch, no duplicate/destructive sync after reconnect. Real-time information must never masquerade as current when offline.
+
+**P2 — hypotheses, not launch requirements without evidence:** general offline-write queue, offline notes/checklist mutation, hide/unhide sync, offline origin changes, conflict-resolution sync, sophisticated merge logic. Read resilience matters more than offline mutation for launch.
+
+**Explicitly preserved, not reopened by this audit:** Slice 3.5.5's approved schedule-refresh cadence (4-hour cron plus 3-hour freshness-eligibility gate — confirmed current in `apps/corralio/vercel.json`). Any 15–30/30–60 minute polling cadence is a future hypothesis only, requiring its own separate evidence-based decision.
+
+**Server/client boundary:** server remains authoritative for schedule ingestion/normalization, event identity, schedule-change/cancellation semantics, required arrival, routing-origin decisions, HotelPlanner booking/lodging state, traffic-aware routing, What Fits, notification decisions, entitlement decisions, and source freshness/health. Client may own rendering, bounded local filtering/sorting, local countdowns, permissioned current-location capture, cached planning snapshots, offline/stale presentation, and lightweight reconnect behavior. (CPO note: verified directly — the current "This Weekend" implementation already respects this boundary; `apps/corralio/app/page.tsx` computes leave-by/freshness server-side via `loadWeekendData()` before the client component renders it, with no client-side raw Supabase querying found. This reduces this workstream's risk: the primary open question is how to cache already-correct server output, not how to fix a leaky boundary.)
+
+**Physical-device requirement:** representative iPhone and midrange Android, testing real network transitions (Wi-Fi → cellular → weak/no service → airplane mode → cellular restored → Wi-Fi). Browser emulation is supplemental only.
+
+**Privacy:** audit current caching/storage/persistence/sign-out/household-switching/shared-device exposure before adding any offline cache. Never cache private ICS subscription URLs, provider credentials, auth tokens beyond the existing secure framework, or unnecessary raw provider responses.
+
+**Success standard:** not "Corralio works completely offline" — a parent who loses connectivity can still understand the last-known family plan, knows what may be stale, and safely reconnects. Not a distributed-systems project before pilot.
+
+**Classification:** Launch Readiness / Mobile Resilience. Primary impact: Retention + Trust. Secondary: Activation. Not a monetization feature — protects the value already created by schedule aggregation, required arrival, routing, traffic-aware leave-by, HotelPlanner lodging context, What Fits, and notifications.
+
+Full audit-deliverable specification and CPO review (ADR/prompt conflict check) recorded separately; this entry establishes roadmap placement only. Do not begin implementation from this entry — an executable Codex audit prompt has not yet been authorized.
+
 ## Future possibilities, not commitments
 
 - Corralio begins as a mobile-first web/PWA experience. Native apps should earn their cost through measurable value from push, device integration, widgets, background refresh, or similar capabilities.
 - Native iOS and Android apps
-- Push notifications and leave-now alerts
+- Push notifications (Weekend Ready web push shipped, Slice 3.6A — pending physical-device UAT and production deployment) and leave-now alerts (traffic-aware departure notifications, not yet built — planned Slice 3.6B Phase 5)
 - Advanced household permissions
 - Shared-custody or multiple-household models
 - Direct sports-platform APIs/OAuth
