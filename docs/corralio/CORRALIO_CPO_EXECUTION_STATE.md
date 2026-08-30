@@ -69,6 +69,7 @@ Child color editing; team color coding; split color pill; manual event entry (sc
 3. **ADR-024 amendment** — the Mapbox/compute-on-demand traffic-routing architecture was accepted as CPO analysis (2026-08-27) but never landed in the canonical ADR file; ADR-024 still reads "provider selection and retention remain open."
 4. **Admin/support tooling for the pilot** — is founder-direct support sufficient for a 10–15 family bounded pilot, or is a minimal support-assisted schedule-URL-repair capability worth building first? No admin tooling exists anywhere in the repository today.
 5. **HotelPlanner status-contract bug** — the locked attribution design's reconciliation rule is written against `getClientSummary`'s numeric `status` field; the addendum correctly selected `getReport`, whose `Status` field is textual. The design doc has not yet been corrected. This is a documentation defect, not a founder decision, but it's real and open — will close once the evidence diagnostic (IN PROGRESS, above) returns.
+6. **Email/SMS-first pre-account onboarding** — founder proposal (2026-08-30) to accept schedules before an account exists, evaluated in `docs/corralio/cpo/2026-08-30-cpo-strategy-email-sms-first-onboarding.md`. Recommendation: run a manual/concierge test of the pre-account hypothesis before building any automated claim pipeline; treat post-account ICS-only email forwarding as a separate, much cheaper TEST FIRST candidate. Neither is authorized to build yet — awaiting founder response to the review's verdict.
 
 ---
 
