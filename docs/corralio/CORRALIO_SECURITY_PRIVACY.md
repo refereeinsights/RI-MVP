@@ -155,7 +155,7 @@ Principles:
 - The email address itself follows normal household-data retention: retained as long as the household account exists, deleted or anonymized on account deletion, consistent with the export/deletion requirements below.
 - Any third-party email-sending provider's own retention of message content must be reviewed at vendor-selection time and configured to the shortest retention the provider allows. Corralio's own retention policy is not sufficient on its own if the vendor independently retains a longer-lived copy of message content.
 
-### SMS (go-forward channel; currently roadmap-deferred to Phase 3, gated on push/email evidence)
+### SMS (go-forward channel; phase-gating status is being revisited under a 2026-08-30 founder SMS-first direction — see `docs/corralio/cpo/2026-08-30-cpo-review-heysammi-addendum-sms-first.md` and the priority-channels investigation; this section's principles apply regardless of when SMS ships)
 
 SMS carries the same content-minimization and RLS principles as email, plus SMS-specific exposure.
 
@@ -183,6 +183,8 @@ Corralio may share the underlying Supabase Auth tenant, but it has a distinct pr
 - Intentionally design cookie/domain and consent behavior.
 - Enforce authorization through server and RLS rules.
 - Keep account linking and product-profile creation explicit and idempotent.
+- **Phone-based authentication (founder decision, 2026-08-30 — email must not be required for account creation, authentication, household access, or the full web experience):** a verified phone number authenticates an identity — it proves control of that number at the moment of verification — and must never, by itself, be treated as authorization to an existing household. Household access is granted only through the existing household-membership/RLS model, identically for phone- and email-authenticated identities. Full audit and migration design: `docs/corralio/cpo/2026-08-30-cpo-investigation-phone-first-authentication.md`.
+- **Phone-number recycling is an accepted, documented residual risk of phone-based authentication, not a solved problem.** Carriers reassign dormant numbers; a reassigned number's new holder could pass phone verification and authenticate as the original household's existing identity. This is an inherent property of any phone-possession credential (shared by every SMS-first competitor), not a Corralio-specific defect. No mitigation is required before shipping phone auth, but this risk must not be silently assumed away, and should inform any future decision about how much sensitive content a phone-authenticated channel is trusted with relative to email.
 
 ## Analytics and logging
 

@@ -6,6 +6,8 @@ This is a delta document, not a rewrite. The revised prompt sharpens three thing
 
 **One new piece of repository evidence, gathered for this addendum:** Corralio's Supabase Auth today is entirely email-based. `SUPPORTED_OTP_TYPES = ["email", "magiclink", "recovery"]` (`apps/corralio/lib/authCallback.ts:3`) explicitly excludes phone, and every auth path in the repo (`signInWithPassword`, `signInWithOtp`, `resetPasswordForEmail`) is email-keyed — grepped directly, no phone-based Supabase auth exists anywhere in `apps/corralio`. This matters for Section 4 below.
 
+**Resolution (2026-08-30, same day): the founder has overridden Section 4's implicit conclusion.** Section 4 below treated "email is the only path to the full web experience today" as a constraint this work would have to design around. The founder's decision is the opposite: email must not be required for account creation, authentication, household access, or the full web experience at all — this repository fact was evidence about today's implementation, not a product constraint, and the SMS-first work should change it. See `2026-08-30-cpo-investigation-phone-first-authentication.md` for the full audit and migration design (headline finding: household creation is already keyed purely on `auth.uid()` with no email-specific step, so adding Supabase native phone auth via a Send SMS Hook is additive, not a parallel system). Section 4 below is preserved as written for its still-correct sub-answers (verification-as-dedup, recovery-policy reuse, the authentication-vs-authorization distinction) — only its "email is required for web login" framing is superseded.
+
 ---
 
 ## Where the original review needs correction, not just addition
