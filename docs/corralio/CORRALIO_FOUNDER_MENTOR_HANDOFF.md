@@ -398,8 +398,9 @@ V1:
 
 V1 may use estimated/non-live traffic routing.
 
-Later functionality may include:
+Later Pro functionality may include:
 
+- Traffic-aware leave-by
 - Team-specific arrival preferences
 - Sport-specific arrival preferences
 - Venue-specific considerations
@@ -407,7 +408,7 @@ Later functionality may include:
 
 Do not block the initial product on perfect live traffic.
 
-**Correction, 2026-08-30 (see Part II.13):** Traffic-aware leave-by itself is no longer a Pro hypothesis — it shipped as a V1 Standard-tier decision (ADR-007/ADR-011; 2026-08-27 notification/traffic-routing audit Section 3A), on the reasoning that an untested feature should not be paywalled and that traffic-aware leave-by is core utility, not the "planning complexity" Pro is meant to monetize. Pro's traffic-adjacent upside, if any, is downstream of it — live re-routing mid-drive, multi-stop/multi-child routing — not the base capability.
+**Decision, 2026-08-30 (final; supersedes this document's own same-day interim correction — see Part II.17):** Traffic-aware leave-by is Pro. Standard receives static/estimated leave-by as part of a periodic snapshot email/SMS; Pro adds the dynamic, checkpoint-based, live-traffic version (Part II.13's Mapbox checkpoint model). Founder reasoning: static leave-by is real, useful Standard value delivered through the ambient snapshot surface; ongoing live-traffic monitoring is the "helps manage what's happening" complexity Pro exists to monetize, not core utility. This also resolves the concern the interim correction was reacting to — Standard is not left without any leave-by experience, only without the dynamic one.
 
 ---
 
@@ -530,6 +531,7 @@ Monetizes:
 
 Potential value:
 
+- Traffic-aware leave-by
 - Advanced conflicts
 - Schedule-change impact
 - Family coordination
@@ -538,7 +540,7 @@ Potential value:
 - Advanced travel intelligence
 - Automation
 
-**Correction, 2026-08-30:** Traffic-aware leave-by was removed from this list — it is now a settled V1 Standard-tier capability, not a Pro hypothesis. See Part II.13 and II.17.
+**Decision, 2026-08-30 (final):** Traffic-aware leave-by is back on this list. See the Section 12 note above and Part II.17 for the full reasoning and the same-day history of how this was decided.
 
 Working principle:
 
@@ -1080,6 +1082,8 @@ Founder framing, adopted: notifications exist to deliver planning intelligence a
 
 Current state: Weekend Ready (generic, content-free) is the only notification shipped (II.6). Schedule-change push, traffic-aware "leave by" pushes, and "Leave Soon" live-countdown pushes are all designed or classified but unbuilt — see II.21 for the schedule-change push's specific unresolved status. **What Fits proactive notifications are explicitly deferred** — not started, not in the current build sequence, consistent with the discipline of proving utility before adding more notification surface rather than assuming more notifications create more value.
 
+**Daily snapshot email/SMS (proposed, not yet designed or built, founder direction 2026-08-30):** a periodic email/SMS digest is where Standard-tier static leave-by lives (II.17) — e.g., "4 events Saturday at 3 venues. First leave-by 7:42 AM." This is a materially richer piece of content than Weekend Ready's deliberately content-free push, and would need its own build prompt, its own UAT, and explicit application of `CORRALIO_SECURITY_PRIVACY.md`'s Email/SMS retention sections before it ships — it is not an extension of 3.6A, and nothing about it is authorized to build yet.
+
 ## II.15 Mobile / Network-Survivability Requirements
 
 Hard launch gate, stated as outcomes rather than a checklist (founder, 2026-08-29): Corralio must retain a useful last-known weekend plan through temporary connectivity loss, disclose stale/live state honestly, and recover safely without duplication or destructive synchronization. **This explicitly does not require full offline writes or a delta-sync engine** — the audit's job is to find the smallest implementation achieving those outcomes, not to build a distributed-systems project before pilot. Canonical direction: server-authoritative intelligence + locally hydrated PWA + targeted synchronization; the client stays fast and useful offline, but the planning/business engine is never reproduced in the browser. Required outcomes: cached/readable This Weekend plan, event times, venue info, required-arrival info, last-known leave-by, applicable lodging/origin, explicit freshness disclosure ("Schedule updated 22 min ago," "Traffic unavailable offline"), graceful offline state, safe reconnect with no duplicate/destructive sync. P2/not-required-without-evidence: general offline-write queue, offline mutation of any kind, conflict-resolution sync. Physical-device requirement: representative iPhone and midrange Android, real network transitions (Wi-Fi → cellular → weak/no service → airplane mode → restored) — browser emulation is supplemental only. Audit prompt not yet authorized — follows once 3.6B core planning (Phases 1/2/3A/4/5) is done, per founder instruction.
@@ -1090,7 +1094,7 @@ Seven-platform catalog live (GameChanger, TeamSnap, Stack Team App, ArbiterLive,
 
 ## II.17 Standard / Pro / Travel Monetization Boundaries — Current Status
 
-Part I's hybrid model (Standard + Pro + Travel) stands. What's newly settled since Part I was written: **traffic-aware leave-by ships Standard, not Pro, for V1** (`dc10c888`; ADR-007/ADR-011; 2026-08-27 audit Section 3A) — see the corrections in Part I Sections 12 and 16 above. Reasoning: no Pro/billing/entitlement infrastructure exists anywhere in `apps/corralio` today (confirmed by repository search); paywalling an untested feature is exactly what ADR-011 warns against; and fragmenting the launch experience (free Weekend Ready + free Schedule Change push sitting next to a paywalled traffic upgrade on the same card) would put a half-free experience in front of exactly the parents launch is trying to activate. HotelPlanner sites are provisioned at three fee tiers (II.11), but production traffic runs Standard/no-fee until the $5/$10 tiers are explicitly tested post-gate.
+Part I's hybrid model (Standard + Pro + Travel) stands. **Traffic-aware leave-by is Pro; static/estimated leave-by is Standard — final founder decision, 2026-08-30.** This moved twice in one day and the full trail is preserved rather than compressed away: (1) `dc10c888` and the 2026-08-27 notification/traffic-routing audit (Section 3A) originally argued Standard for V1 — reasoning: no Pro/billing/entitlement infrastructure exists anywhere in `apps/corralio`, paywalling an untested feature is what ADR-011 warns against, and gating the *only* leave-by experience behind Pro would leave Standard users with nothing on a core utility. (2) This document's own Part I corrections, made earlier the same day at the founder's request, followed that reasoning. (3) The founder then explicitly overrode both, given the emerging ambient/multi-surface model (`docs/corralio/cpo/2026-08-30-cpo-response-ambient-multisurface-strategy.md`): static leave-by is delivered to Standard through a periodic snapshot email/SMS — a real, shipped-or-shippable Standard value, not nothing — while Pro's traffic-aware, checkpoint-based, live-updating version (II.13) is exactly the "helps manage what's happening" complexity Pro exists to monetize. This resolves reasoning (1)'s core objection without needing to keep traffic-aware in Standard. `CORRALIO_PRODUCT_ROADMAP.md` never actually changed on this point — its V2 "Corralio Pro testing" section listed traffic-aware leave-by as Pro-potential throughout; only this handoff briefly deviated from it and has now been corrected back into agreement. No entitlement/billing infrastructure exists yet regardless (ADR-011 still governs timing — this is a target-tier decision, not authorization to build billing now). HotelPlanner sites are provisioned at three fee tiers (II.11), but production traffic runs Standard/no-fee until the $5/$10 tiers are explicitly tested post-gate.
 
 ## II.18 Privacy / Security Boundaries — Execution Notes
 

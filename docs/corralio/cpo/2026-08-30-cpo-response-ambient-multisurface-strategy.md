@@ -4,6 +4,8 @@
 
 Strategy response only. No ADR, roadmap, or pricing document was changed by this note — one specific proposal in it directly reverses an already-committed decision, and I'm flagging that rather than silently updating anything to match.
 
+**Resolution (2026-08-30, same day):** Founder decision — traffic-aware leave-by is Pro; static/estimated leave-by is delivered to Standard via a periodic snapshot email/SMS. This directly answers the open question below. `CORRALIO_FOUNDER_MENTOR_HANDOFF.md` Part I Sections 12/16 and Part II.17 now carry the corrected canonical text and the full same-day reasoning trail (audit recommended Standard → this document's interim correction followed it → founder overrode both with the snapshot-email/SMS rationale, which resolves the original objection about leaving Standard with no leave-by at all).
+
 ## The one thing to resolve before anything else in this document matters
 
 **The pricing table puts traffic-aware leave-by under Pro. That reverses a decision this project already made, with reasoning, and already committed to the repository.**
