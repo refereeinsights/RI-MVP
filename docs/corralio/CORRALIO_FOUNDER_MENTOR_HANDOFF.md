@@ -1127,6 +1127,20 @@ These are stated as open, not resolved, per explicit instruction. Do not pick a 
 
 **Sequencing:** slots into Phase A (verified channel identity) of the priority-channels investigation (`2026-08-30-cpo-investigation-email-sms-priority-channels.md`) — the auth and channel-identity work are the same underlying capability and should be scoped as one build prompt, not two. Does not touch the 3.6B critical path.
 
-## II.23 What Happens Next
+## II.23 Critical Path Fork Confirmed — Channel/Auth Work Authorized (2026-08-30)
+
+**Founder decision, same day as II.22, refining and confirming the priority-channels investigation's recommended slot.** The critical path forks after 3.6B Phase 1 ships:
+
+**Phase 1 -> { Channel/Auth Phase A+B (phone-first identity + deterministic email/SMS intake)  ||  3.6B Phase 2 (Arbiter group-identity audit)  ||  HotelPlanner Phase 3B evidence diagnostic } -> resume 3A -> 3B -> 4 -> 5.**
+
+Dispatch order, founder's explicit words: "Send Stage 1 first." HotelPlanner's diagnostic runs in parallel with no reason to wait. Channel/Auth Phase A+B follows Stage 1. Phase 2 (Arbiter audit) "remains parallel/non-blocking... don't sacrifice it, just don't let it hold up channel/auth work" — a correction of the prior recommendation's "alongside/instead of Phase 2" framing to "alongside, full stop."
+
+**Why this is now foundational, not a side project, in the founder's own words:** "SMS/phone isn't feature creep anymore: it changes how families enter Corralio, while Phase 1 determines whether the planning information they receive is trustworthy. They reinforce each other." This reframes Channel/Auth from a notification-delivery convenience to activation infrastructure on par with Phase 1's role in the core loop.
+
+**Binding scope guardrail on the Phase A+B build prompt (not a recommendation — a founder instruction):** establish phone auth/channel identity and deterministic schedule intake cleanly; explicitly do not build the full SMS onboarding conversation yet. Reasoning, verbatim: "We've just identified that the exact onboarding contract depends on inference, arrival handling, secure-origin capture, and source evidence. Keep those separable so we don't bake today's conversational assumptions into the infrastructure." Concretely: inference (sport/team auto-detection maturity) isn't proven, arrival handling is Stage 1 itself and still in progress, secure-origin capture is Phase 3A and not yet built, and source evidence is the Schedule-Source Compatibility & Evidence Matrix, filed but not run. The build prompt (`docs/prompts/corralio-phase-a-b-phone-auth-schedule-intake-prompt.md`) ships the infrastructure with a deliberately plain, explicit confirmation UX rather than the fuller inferred-copy conversation sketched in earlier CPO review documents — that richer conversation is a separable follow-on once its dependencies land, not something to design around prematurely.
+
+**SMS-first destination is preserved regardless of build order** — email shipping first within Phase B is purely an A2P/10DLC carrier-lead-time execution fact, not a strategic demotion, per the same distinction already drawn in the SMS-first addendum (II.22's cross-referenced documents).
+
+## II.24 What Happens Next
 
 See `CORRALIO_CPO_EXECUTION_STATE.md`, "NEXT 5 ACTIONS." In one line: run the filed 3.6B Stage 1 audit and the filed HotelPlanner evidence diagnostic (independent of each other, both ready today), get the founder's ruling on the four items in II.21, then proceed down the critical path in II.5 phase by phase as each phase's dependency clears.

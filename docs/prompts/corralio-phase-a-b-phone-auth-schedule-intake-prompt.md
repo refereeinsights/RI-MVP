@@ -1,0 +1,93 @@
+# Corralio Phase A+B — Phone-First Channel Identity & Deterministic Schedule Intake
+
+**Infrastructure-and-narrow-build only. Does not authorize a full SMS onboarding conversation, AI/LLM extraction, CSV/PDF/screenshot ingestion, anonymous pre-account claim infrastructure, message-based schedule-management commands (rename/disconnect/etc.), or any live-traffic/notification work. Those remain separately scoped and separately gated — see "Explicit non-goals" below.**
+
+> **Founder direction, 2026-08-30.** Confirms and refines the critical-path slot recommended across three CPO investigations this session (`2026-08-30-cpo-investigation-email-sms-priority-channels.md`, `2026-08-30-cpo-review-heysammi-addendum-sms-first.md`, `2026-08-30-cpo-investigation-phone-first-authentication.md`): the critical path forks after 3.6B Phase 1 ships — `Phase 1 → { this Phase A+B work || 3.6B Phase 2 (Arbiter audit, parallel/non-blocking) || HotelPlanner Phase 3B evidence diagnostic (parallel) } → resume 3A → 3B → 4 → 5`. Dispatch order: 3.6B Stage 1 goes to Codex first; this prompt follows it. Founder's own framing for why this is now foundational, not a notification side project: *"SMS/phone isn't feature creep anymore: it changes how families enter Corralio, while Phase 1 determines whether the planning information they receive is trustworthy. They reinforce each other."*
+
+## 0. Why This Exists
+
+Corralio's core loop starts with "Connect schedules," and that step today requires a parent to already be an authenticated web user navigating settings UI. The founder's direction is to let a parent begin the Corralio relationship — verify identity, connect a first schedule, receive real value back — without installing a PWA, granting notification permission, or providing an email address, using channels (phone/SMS, email) a parent already has open. This prompt builds the two pieces of infrastructure that make that possible: a phone-capable identity/authentication layer, and a deterministic (link/attachment-based) schedule-intake path reachable from outside the authenticated web app.
+
+**This is explicitly infrastructure, not the finished onboarding experience.** The founder's own instruction: *"We've just identified that the exact onboarding contract depends on inference, arrival handling, secure-origin capture, and source evidence. Keep those separable so we don't bake today's conversational assumptions into the infrastructure."* Concretely — sport/team auto-detection confidence, the resolved-arrival-with-provenance model (3.6B Stage 1, in progress as this prompt is written), secure temporary-location capture (Phase 3A, not yet built), and per-source-platform evidence about what signal is actually available (Schedule-Source Compatibility & Evidence Matrix, filed but not run) are all real dependencies of a *good* onboarding conversation, and none of them are ready. Build the plumbing so that richer conversation can be layered on later without reworking the auth or ingestion layer underneath it.
+
+## 1. Confirmed Starting Facts (verify independently before relying on them)
+
+Established by direct repository inspection this session — re-confirm before building if anything looks stale:
+
+- **Household creation has no email-specific step anywhere in it.** `corralio_ensure_owner_household()` (`supabase/migrations/20260818_corralio_household_rls_foundation.sql:478-524`), a `security definer` Postgres RPC, reads `auth.uid()` and lazily creates a household + owner membership row the first time any authenticated action needs one. It's invoked from `getOwnerContext()` (`apps/corralio/app/actions.ts:46-58`) and `lib/schedules/supabaseStore.ts:31`. It has never known or cared which auth provider produced the `auth.uid()` — a phone-authenticated session hits this exact same path with zero changes required.
+- **Auth today is entirely email-based.** `SUPPORTED_OTP_TYPES = new Set(["email", "magiclink", "recovery"])` (`apps/corralio/lib/authCallback.ts:3`) excludes phone. No phone-auth code exists anywhere in `apps/corralio`. `@supabase/supabase-js@^2.95.3` and `@supabase/ssr@^0.8.0` are the current versions — recent enough to support Supabase's native phone-OTP auth and Auth Hooks.
+- **Supabase Auth has built-in phone sign-in** (`signInWithOtp({ phone })` → `verifyOtp({ phone, token, type: "sms" })`), and a **Send SMS Hook** that replaces Supabase's built-in SMS delivery entirely — the hook receives the phone number and the generated OTP, and application code is responsible for actually sending it via any vendor. This decouples the auth-provider decision from the SMS-vendor decision: Telnyx (the vendor baseline from `2026-08-30-cpo-review-standard-plus-pro-monetization-economics.md`) can be used for OTP delivery without adopting Twilio just because it's on Supabase's natively-integrated list (Twilio, MessageBird, Vonage, TextLocal).
+- **No SMS/email vendor account exists yet.** No Telnyx or Resend credentials, no environment variables, no provider config anywhere in the monorepo — confirmed via grep across every `.env*`, `package.json`, and `vercel.json` this session. Task 0 below is a real prerequisite, not a formality.
+- **`corralio_schedule_sources` already supports household-level/unassigned sources.** `child_id` and `team_id` are both nullable with `constraint ... check (num_nonnulls(child_id, team_id) <= 1)` (`...household_rls_foundation.sql:92-129`). A source with both null is valid today — no new entity is needed to represent "this schedule isn't tied to a specific child."
+- **The deterministic ICS ingestion pipeline (`ingest.ts`, `refresh.ts`, `teamConnection.ts`, `platforms.ts`) already exists and is unchanged by this work.** Both new intake surfaces (email, SMS) are new *front doors* onto this pipeline, not new parsing capability.
+- **No application-level rate limiting or CAPTCHA exists for any auth flow today.** The email-recovery route (`app/api/auth/recovery/route.ts`) relies entirely on Supabase Auth's own built-in send-rate limits (default: one OTP per 60 seconds per identifier, 1-hour expiry) and an enumeration-safe generic response pattern. There is nothing to extend — this prompt's phone-OTP send endpoint needs the same discipline built fresh, plus CAPTCHA (Section 4).
+- **No logging of schedule URLs or message bodies exists today, and this must not regress.** `databaseFailure()` (`lib/schedules/supabaseStore.ts:10-16`, `refreshSupabaseStore.ts:8-14`) explicitly logs only a stage name and error code, never the URL, event payload, or upstream response. Raw schedule URLs — which may carry embedded access tokens in their query string, confirmed unredacted at storage — are persisted in `corralio_schedule_sources.source_url` but never logged.
+
+## 2. Explicit Non-Goals (binding scope boundary)
+
+Do not build any of the following as part of this prompt, even if they seem like small additions once the infrastructure exists:
+
+- **No full SMS/email onboarding conversation.** No inferred "We found Jake's Spokane Select baseball schedule — Add this schedule?" copy. Use plain, explicit confirmation instead (Section 3.4/4.4) — a richer conversational layer is a separate, later prompt once its dependencies (Section 0) land.
+- **No AI/LLM extraction, no CSV/PDF/screenshot ingestion, no arbitrary forwarded-email prose parsing.** Only ICS/calendar URLs (email body, SMS body) and `.ics` file attachments (email only).
+- **No anonymous pre-account claim infrastructure.** Every household this work creates or attaches to is authenticated, from the moment of phone/email verification — there is no unclaimed/anonymous intermediate state.
+- **No message-based schedule-management commands** (rename child, rename team, change arrival buffer, disconnect calendar). Separately evaluated in `2026-08-30-cpo-decision-email-sms-schedule-intake-and-management.md`; not authorized here even though the underlying mutations (`renameChild`, `updateTeam`, `disconnectSchedule`) already exist.
+- **No notification/brief delivery work.** Phase C (daily/event-day brief, schedule-change alerts) is separately scoped and gated on 3.6B Phase 1 shipping. This prompt only needs channel identity to exist so Phase C has somewhere to deliver to later — it does not build any delivery.
+- **No live-traffic or checkpoint-monitoring work.** Unrelated to this prompt.
+- **No entitlement/billing/tier gating.** Nothing in this prompt is Plus/Pro-gated; none of it should reference or depend on billing infrastructure, which doesn't exist.
+
+## 3. Task 1 — Phone-First Channel Identity & Authentication (Phase A)
+
+**Task 0 (prerequisite, do first): vendor/account spike.** No Telnyx or Supabase-phone-auth configuration exists yet. Before writing product code: (a) confirm Telnyx account access and API credentials for outbound SMS send; (b) enable phone auth in the Supabase project and confirm the Send SMS Hook mechanism works end-to-end in a test environment (Supabase generates an OTP, the hook receives it, a test call to Telnyx's send API succeeds); (c) confirm Supabase's phone+email identity-linking behavior directly (`linkIdentity()`) rather than assuming it from general documentation — this determines the shape of Task 1.4 below. Report findings before proceeding if anything here doesn't work as expected from the audit in Section 1 — this is exactly the kind of assumption that needs verifying against a live account, not documentation.
+
+**3.1 Enable Supabase native phone-OTP auth**, delivered via the Send SMS Hook calling Telnyx (not Twilio) for the actual SMS send. This should be a configuration change plus a small server-side hook implementation, not a new auth system — reuse Supabase's session/refresh-token handling unchanged.
+
+**3.2 Build the phone entry + code entry UI**, alongside (not replacing) the existing `SignInForm.tsx` email path.
+
+**3.3 Build the "tap to verify" link mechanism as a thin wrapper around the same OTP verification** — do not build a second, parallel signed-token system. The SMS text's link carries the phone number and the OTP code as query parameters; the landing page, on load, silently calls `verifyOtp({ phone, token, type: "sms" })` with those values. If it succeeds (same device, link tapped promptly), the parent lands authenticated with no typing. If the link is opened on a different device, expired, or already used, fall back to the manual-entry OTP form. **Before shipping, explicitly test and mitigate link-prefetch/early-consumption risk** (a link-scanning security tool or shared inbox client could pre-fetch and burn a one-time code before the parent taps it) — a short expiry and strict one-time-use enforcement are the minimum required mitigation; do not ship without testing this specific failure mode.
+
+**3.4 CAPTCHA on the phone-OTP send endpoint, from day one — not a later hardening pass.** Use Supabase's native hCaptcha or Cloudflare Turnstile support. Unlike email, an abused phone-OTP endpoint has an immediate, real dollar cost per attempt (a billed Telnyx segment) — this is a launch requirement, not a nice-to-have.
+
+**3.5 Email as an optional, linked identity — build the mechanism, not the UI polish.** Confirm and implement `linkIdentity()` (or the equivalent confirmed in Task 0) so a phone-authenticated household can later add an email identity to the *same* `auth.users` row, not a second account. A minimal prompt ("add an email to also sign in that way") is sufficient for this phase — do not design the full "when should Corralio ask for this" conversation (that's Section 2's non-goal).
+
+**3.6 Phone-number change handling.** A signed-in user can update their phone number via Supabase's identity-update path, re-verified with a fresh OTP to the new number. This is the only phone-change behavior required in this phase — do not attempt to build any defense against carrier number-recycling (the previously-documented residual risk in `CORRALIO_SECURITY_PRIVACY.md`'s Authentication boundary section); that risk is accepted and documented, not solved.
+
+**Verified phone ≠ household authorization — this is unchanged by this work and must not be weakened.** Authentication (phone/email verification) answers "who is this"; household membership (the existing `corralio_household_members` table and its RLS policies) answers "what can they access." This task plugs a new identity source into the existing `auth.uid()`-keyed household RPC — it does not touch, and must not touch, the authorization model itself.
+
+## 4. Task 2 — Deterministic Schedule Intake via Email (Phase B, email leg)
+
+Ship the email leg first; the SMS leg (Section 5) follows once A2P/10DLC registration clears — this is an execution-timing fact, not a reason to design the email leg as though SMS doesn't matter.
+
+**4.1 Inbound email webhook.** Stand up Resend's inbound-email webhook (or the vendor confirmed by a separate, already-recommended vendor spike if that changes) at a Corralio-owned address. Parse the message body for a calendar/ICS URL, and parse any `.ics` file attachment. Validate and bound attachment size/content-type before processing — this is a real security surface (Section 6).
+
+**4.2 Route into the existing ingestion pipeline unchanged.** A detected URL or attachment should call the same `ingest.ts`/`refresh.ts` machinery an authenticated web user's paste-a-link flow already uses. Do not write a second, email-specific ingestion code path.
+
+**4.3 Require an authenticated, verified sender.** The inbound email's sender address must correspond to a household's verified email identity (from Task 1.5, or an existing email-authenticated household) before any schedule is created or modified. An email from an unrecognized address should not create a new household implicitly — Section 2's non-goal (no anonymous claim infrastructure) applies here directly: an unrecognized sender gets a reply directing them to connect via the web app or verify a channel identity first, not a silently-created household.
+
+**4.4 Minimal, explicit confirmation — not inferred copy.** When owner/sport/team association cannot be resolved unambiguously (e.g., the household has multiple children and the message doesn't clearly indicate whose schedule this is), reply asking the parent to pick from their **existing** entities (per Section 1's ownership-model evidence — child, team, or unassigned/household). Do not attempt confident inference-and-present ("We found Jake's...") in this phase — that's explicitly deferred per Section 0/2.
+
+**4.5 Arrival buffer.** Default new sources to the existing 30-minute constant (`LEAVE_BY_ARRIVAL_BUFFER_MINUTES` in `leaveBy.ts`) — do not ask the parent to set this during intake. Note the confirmed schema gap: this default only has somewhere to live for team-attached sources today (`corralio_teams.arrival_buffer_minutes`); an unassigned/household-level source has no arrival-buffer field in the schema at all. Extending the schema to close this gap is in scope for this task if needed to ship a coherent intake experience — flag it plainly in the PR rather than silently working around it.
+
+## 5. Task 3 — SMS Leg of Intake (sequenced after Task 2, contingent on A2P/10DLC timing)
+
+Once phone auth (Task 1) exists, the SMS intake leg reuses the same authenticated-sender and ingestion-pipeline requirements as Task 2 — a text from a verified phone number containing a supported calendar/schedule URL should route into the same pipeline the same way. Do not build SMS-specific ingestion logic distinct from the email leg's Section 4.2/4.3/4.4 pattern. This task is explicitly sequenced behind (not equal-priority-but-parallel with) Task 2 only because of external A2P/10DLC registration lead time — confirm current registration status before starting this task's implementation work, since the timeline may have moved since this prompt was written.
+
+## 6. Security & Privacy Requirements (acceptance criteria, not optional polish)
+
+- **Never log a schedule URL or a raw inbound message body**, in either the email or SMS intake path — extend the existing `databaseFailure()` discipline (Section 1) to the new webhook handlers, don't invent a new logging pattern.
+- **Vendor message-body retention must be confirmed, not assumed**, for whichever email/SMS vendor is used — a forwarded schedule URL can carry an embedded access token (confirmed unredacted at storage in Section 1), and it now transits third-party infrastructure that never saw it before. This is a named requirement for the vendor spike (Task 0), not a general caution.
+- **CAPTCHA on the OTP-send endpoint is required before this ships to any real users** (Section 3.4).
+- **RLS and household authorization are unchanged by this entire prompt.** If any part of the implementation seems to require a new authorization path outside the existing `corralio_household_members`/RLS model, stop and flag it — that would mean this prompt's scope has drifted into something requiring separate CPO/security review.
+- **No analytics event from this work may include a URL, phone number, email address, message body, or child/team name.** Sanitized IDs and event-taxonomy only, consistent with `CORRALIO_SECURITY_PRIVACY.md`.
+
+## 7. Verification
+
+Before calling this complete, confirm:
+
+1. A new user can authenticate purely by phone — no email is requested or required at any point in the phone-auth path.
+2. The same `corralio_ensure_owner_household()` RPC fires for a phone-authenticated first-time user exactly as it does for an email-authenticated one, with no code path differences in household creation.
+3. The tap-to-verify link authenticates correctly on the same device, and falls back cleanly to manual entry on a different device or after expiry — test the link-prefetch failure mode explicitly (Section 3.3).
+4. CAPTCHA blocks scripted repeated OTP-send attempts against the phone endpoint.
+5. An email or SMS containing a supported calendar URL, sent from a verified household's channel identity, results in a schedule connected via the existing ingestion pipeline — with no new parsing logic duplicated outside `ingest.ts`/`refresh.ts`.
+6. An email or SMS from an unrecognized sender does not create or modify any household data, and receives a reply directing them to the existing connection flow instead.
+7. No log line, error message, or analytics event anywhere in the new code paths contains a URL, phone number, email address, or message body — spot-check this directly, don't just assume the pattern was followed.
+8. A household with an ambiguous new schedule source (can't be resolved to a single existing child/team) receives an explicit, plain request to choose — never a silent guess.
