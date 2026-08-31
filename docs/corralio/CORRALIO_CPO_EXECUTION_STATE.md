@@ -37,6 +37,7 @@ Core planning loop (household → children/teams → schedules → This Weekend 
 1. **3.6B Stage 1 — Required-Arrival Accuracy & Arbiter Group-Identity Audit** — `docs/prompts/corralio-slice-3.6b-required-arrival-accuracy-audit-prompt.md`. First item in the critical path; unblocks the Mapbox traffic-check model (Phase 4/5) and is a roadmap prerequisite for Phase 3A.
 2. **3.6B Phase 3A — Temporary Routing Origin** — `docs/prompts/corralio-slice-3.6b-phase3a-temporary-routing-origin-prompt.md`. Home / current-location / choose-another-location. No hotel/trip data model. Roadmap places this after Stage 1.
 3. **Schedule-Source Compatibility & Evidence Matrix** — `docs/prompts/corralio-schedule-source-compatibility-evidence-matrix-prompt.md`. Prerequisite (UX Unification) satisfied. Non-blocking — internal data-model slice, no parent-facing surface, can run anytime alongside anything else.
+4. **ICS Calendar-Level Metadata Preservation (micro-slice)** — `docs/prompts/corralio-ics-calendar-metadata-preservation-micro-slice-prompt.md`. Founder-accepted, Do Now (2026-08-31). Preserves `X-WR-CALNAME` at the parser boundary only (currently parsed by `node-ical` and discarded); no team/sport inference or persistence. Soft prerequisite for Phase A+B's Section 6.4 (stronger feed-evidence signal for association resolution) — not a blocker; independent, two-file change, can run anytime.
 
 ## CRITICAL PATH — CONFIRMED FORK AFTER PHASE 1 (2026-08-30, founder decision)
 
@@ -52,7 +53,7 @@ Founder's explicit dispatch order: 3.6B Stage 1 first (send now); HotelPlanner d
 
 **SMS-first destination preserved regardless of build order:** email shipping first within Phase B is an execution-sequencing fact (A2P/10DLC carrier lead time), not a strategic demotion of SMS — consistent with the HeySammi addendum's Section 3 finding, restated here as a binding instruction for the build prompt, not just a recommendation.
 
-Build prompt: `docs/prompts/corralio-phase-a-b-phone-auth-schedule-intake-prompt.md` — filed this session, not yet sent to Codex.
+Build prompt: `docs/prompts/corralio-phase-a-b-phone-auth-schedule-intake-prompt.md` — filed 2026-08-30, corrected 2026-08-31 (security/architecture review, SMS Production Readiness promoted to its own gate, RPC-reuse and CALNAME-dependency amendments). **Founder-reviewed and accepted, 2026-08-31** — review cycle closed; ready to send to Codex once the CALNAME micro-slice above has been filed/run (soft prerequisite) and 3.6B Stage 1 ships. See `docs/corralio/cpo/2026-08-31-cpo-decision-sms-schedule-onboarding-contract.md` and `docs/corralio/cpo/2026-08-31-cpo-audit-ics-calendar-metadata.md` for the reviews that preceded acceptance.
 
 ## TEST FIRST (evidence required before a build prompt can even be written)
 
@@ -91,10 +92,11 @@ Child color editing; team color coding; split color pill; manual event entry (sc
 
 ---
 
-## NEXT 5 ACTIONS
+## NEXT 6 ACTIONS
 
 1. **Send the filed 3.6B Stage 1 prompt to Codex first** (required-arrival accuracy + Arbiter group-identity audit) — explicit founder instruction, 2026-08-30. Critical-path prerequisite for Phase 3A, the Mapbox traffic-check model, and now also the trustworthiness of the daily/event-day brief content the channel/auth work will eventually deliver.
 2. **Run the filed HotelPlanner Phase 3B evidence diagnostic in parallel** (read-only SQL enumeration + one live `getReport` cancellation-window call) — independent, no reason to wait on #1.
-3. **Following Stage 1: send the filed Phase A+B build prompt** (`docs/prompts/corralio-phase-a-b-phone-auth-schedule-intake-prompt.md`) — phone-first channel identity/authentication + deterministic email/SMS schedule intake, scope-guarded per the confirmed fork above (no full onboarding conversation yet).
-4. **3.6B Phase 2 (Arbiter group-identity audit) continues in parallel/non-blocking** throughout — not gated on #1 or #3, and not to be deprioritized by them.
-5. **Once #1 (Phase 1) ships:** send the filed Phase 3A prompt (temporary routing origin); once the diagnostic (#2) returns, correct the attribution design doc's status-contract section and write Phase 3B's build prompt; write the Phase 4/5 Mapbox traffic-aware leave-by build prompt using the accepted checkpoint model.
+3. **Send the filed ICS Calendar-Level Metadata Preservation micro-slice independently** (`docs/prompts/corralio-ics-calendar-metadata-preservation-micro-slice-prompt.md`) — Do Now, founder-accepted 2026-08-31, no dependency on #1/#2, small and self-contained.
+4. **Following Stage 1: send the filed Phase A+B build prompt** (`docs/prompts/corralio-phase-a-b-phone-auth-schedule-intake-prompt.md`) — founder-reviewed and accepted 2026-08-31; phone-first channel identity/authentication + deterministic email/SMS schedule intake, scope-guarded per the confirmed fork above (no full onboarding conversation yet). Does not need to wait on #3 (a soft prerequisite only).
+5. **3.6B Phase 2 (Arbiter group-identity audit) continues in parallel/non-blocking** throughout — not gated on #1 or #4, and not to be deprioritized by them.
+6. **Once #1 (Phase 1) ships:** send the filed Phase 3A prompt (temporary routing origin); once the diagnostic (#2) returns, correct the attribution design doc's status-contract section and write Phase 3B's build prompt; write the Phase 4/5 Mapbox traffic-aware leave-by build prompt using the accepted checkpoint model.

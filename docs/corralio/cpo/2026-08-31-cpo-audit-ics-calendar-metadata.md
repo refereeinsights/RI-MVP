@@ -71,3 +71,23 @@ Total footprint: one non-test file (~10 net new lines plus one new field declara
 - **Consistent with the existing 3.6B Phase 1 precedent already in this prompt.** Section 6.5 already treats a different prerequisite (the required-arrival model) the same way: named, depended-upon, explicitly not duplicated inline, "stop and flag if absent" rather than block. This document's Section 6.4 amendment applies that identical pattern to calendar-name metadata, for consistency rather than inventing a second dependency-handling idiom.
 
 **If accepted, this becomes its own short, separately-filed build prompt** (parser change + the two test-file edits above), landing independently of and prior to any implementation of Phase A+B's Section 6.4 resolution logic. Not authorized to build from this audit alone — this document is the audit and recommendation Phase A+B's amended Section 6.2/6.4 now references, nothing more.
+
+## 6. Founder Decision, 2026-08-31 — Accepted, Do Now
+
+**Assessment:** the micro-slice recommendation is accepted. `X-WR-CALNAME` is worth preserving because it is already available at parse time and can improve inference, but the current evidence is not strong enough to make it authoritative — treating it as a medium-confidence input signal, per Section 2 above, is the correct boundary.
+
+**Risk, named explicitly:** overfitting onboarding to metadata that is platform-dependent. The `"ArbiterSports"` fixture (Section 1/2 above) is exactly the cautionary example — calendar-level metadata may identify the vendor, not the team. **Standing product rule, binding on every future consumer of this field, not just this slice: CALNAME can reduce questions; it cannot independently establish team/sport truth.**
+
+**Opportunity, reconfirmed:** keeping Phase A+B clean is the bigger win here — `ingestCorralioSchedule()` already covers most of the shared ingestion core and already supports optional assignment (Section 3's amendment to Phase A+B Section 6.2/6.4 already reflects this). Pending intake should resolve the association, then reuse the existing ingestion/assignment path, not introduce a new orchestration layer.
+
+**Recommendation, accepted as Do Now:** file and run the CALNAME preservation micro-slice independently (Section 8 of the newly filed build prompt, below). It remains a soft prerequisite for SMS onboarding inference, not a blocker for Phase A+B — the Schedule-Source Compatibility & Evidence Matrix determines per-platform confidence later, once it runs.
+
+**Binding acceptance rule for the micro-slice, founder's exact words — this governs both this slice and every future consumer of the field it preserves:**
+
+> Preserve calendar-level metadata and provenance; do not derive or persist canonical team/sport values solely from `X-WR-CALNAME`. Any inference must remain confidence-scored and fall back to parent confirmation.
+
+This slice itself performs no inference at all (Section 3 — it only preserves and returns the raw string), so the rule binds it trivially today; its real force is on whoever later builds the Section 6.4 consumption logic, and it is recorded here so that work inherits the constraint rather than rediscovering it.
+
+**Filed as its own build prompt:** `docs/prompts/corralio-ics-calendar-metadata-preservation-micro-slice-prompt.md` — small, independent, no push/deploy, following this audit's Section 3 design exactly. **Filing is complete; dispatching it to Codex is not something this session has a mechanism to do** (established earlier this session — no queue or dispatch tool is available here), so it joins the other filed-but-not-yet-sent prompts awaiting the founder's own dispatch action.
+
+**After this slice, per founder instruction: proceed to Phase A+B rather than opening another investigation cycle.** The architecture is converging; the next leverage is implementation and real-feed evidence, not further review. See the corresponding update to the Phase A+B prompt's own header.
