@@ -2,6 +2,10 @@
 
 **Product-contract and roadmap-reconciliation decision. Not authorization to build.** Phone-first authentication and SMS-first activation are treated as settled founder decisions throughout — not reopened here. Nothing in this document authorizes code, schema, or ADR changes; Section 11 lists what should change *if* this contract is accepted.
 
+**Dependency update — 2026-08-31:** Slice 3.6B Phase 1 is complete locally at `34d83cf4`. The accepted shared required-arrival hierarchy and source-preference implementation are repository fact and must be reused. This contract does not authorize another arrival column, schema, resolver tier, or SMS-specific arrival computation.
+
+**Execution update — 2026-08-31:** Phase A+B implements SMS before email and does not implement origin. Phase 3A alone owns the origin page, schema, authorization, and routing value exchange; Phase A+B may link to it only after it exists. Execution Gates 1–2 completed, but the required capped vendor spike is blocked on missing Telnyx/test configuration. See `2026-08-31-cpo-audit-phase-a-b-execution-gates.md`.
+
 Verified against the live repository rather than assumed — every claim below that could be checked, was. Where evidence doesn't exist yet, this document says so explicitly rather than filling the gap with a plausible-sounding assumption.
 
 ## 0. What Changed From Assuming to Knowing
@@ -94,12 +98,15 @@ Before the state machine, three findings from this review materially change how 
   → [S7]
 
 [S7] ARRIVAL PREFERENCE
-  resolve via the precedence chain (Section 5): trustworthy explicit
-  schedule value → saved team/source preference → ask → 30-min fallback
-  if a live schedule value or saved preference already answers it: skip
+  resolve through the existing shared hierarchy (Section 5):
+  ICS explicit → source preference → team preference → Corralio default
+  if the existing resolver already supplies an explicit/source/team value: skip
   straight to [S8], mention the value used, don't ask
   otherwise ask the one bounded question ("How early should Jake arrive
   for Spokane Select? Reply minutes, or SKIP for 30.")
+  a valid numeric answer is saved as this schedule source's existing
+  source preference through the narrow authorized writer; it is not a
+  fifth resolver tier or a pending-intake-only arrival value
   parent replies a number, "SKIP", or something unparseable
       unparseable after 1 retry → default to 30, note it plainly, → [S8]
       (arrival never blocks connection — [S6] already happened)
@@ -171,20 +178,20 @@ Estimates below are grounded in drafted, character-counted candidate copy (not a
 
 ## 5. Arrival Rules
 
-Reconciles the 30-minute fallback with progressive collection, per the founder's explicit instruction, against the **actual current status** of 3.6B Phase 1: **not yet shipped**. `CORRALIO_CPO_EXECUTION_STATE.md` lists it as the first item in the critical path, with the founder's own most recent instruction being "send Stage 1 first" — it is a filed prompt, not verified-complete work, as of this writing.
+Slice 3.6B Phase 1 is complete locally at `34d83cf4`. Database verification and bounded signed-in UAT closed the dependency. Arrival is no longer an open design question for this contract.
 
-Precedence chain (identical to Phase A+B Section 6.5 — restated here for this document's own completeness, not a second independent design):
+Canonical shared resolver hierarchy (restated for this document's completeness, not a second design):
 
-1. A trustworthy explicit schedule value, from the 3.6B Phase 1 required-arrival model, if the feed itself carries one.
-2. A saved team/source arrival-buffer preference (`corralio_teams.arrival_buffer_minutes`), if this source is already team-attached and a value exists.
-3. A parent-provided value, collected via the one bounded [S7] question.
-4. The 30-minute fallback constant (`LEAVE_BY_ARRIVAL_BUFFER_MINUTES`, `leaveBy.ts`).
+1. Valid feed/event explicit arrival — `ics_explicit`.
+2. Existing schedule-source preference — `source_preference`.
+3. Existing team preference — `team_preference`.
+4. Corralio's 30-minute default — `corralio_default`.
 
-**Binding rule, restated because it's easy to violate under implementation pressure: arrival resolution must never block [S6] (schedule connection).** The 30-minute default exists so a parent's progress is never lost waiting on a value Corralio doesn't have yet — not as a reason to stop asking. Once 3.6B Phase 1 ships and step 1 becomes real, [S7] should re-evaluate silently (no new SMS) whenever a schedule already has a step-1-quality value, and only fall to steps 2–4 when it doesn't. **Until 3.6B Phase 1 ships, step 1 of this chain does not exist — this state machine must not simulate it or build a provisional version; it starts at step 2 for any already-team-attached source and step 3/4 otherwise, exactly as Phase A+B's Section 6.5 already specifies ("stop and flag" if the foundation is absent).**
+**Binding rule: arrival resolution must never block [S6] (schedule connection).** [S7] calls the completed resolver; it does not reimplement precedence. If an explicit, source, or team value already resolves the event, the flow does not ask. When the bounded question is needed, a valid answer is persisted to the connected source's existing nullable `arrival_buffer_minutes` through `corralio_update_schedule_source_arrival_v1`; clearing or omitting it naturally restores team/default behavior. No pending-intake arrival field, direct authenticated update grant, new preference column, or parallel resolver is authorized.
 
 ## 6. Secure-Origin Flow
 
-Specifies the same interaction already designed in Phase A+B Section 6.6 — restated here in this document's own terms per the required output, not re-litigated:
+Specifies the future consumer interaction owned by Phase 3A. Phase A+B does not build this page, schema, or routing orchestration and must omit the CTA until Phase 3A exists:
 
 - The SMS message ([S8]) contains only a plain navigational link — no home address, phone number, OTP, auth token, household identifier, or other sensitive state in the URL itself.
 - If the browser already holds a valid Corralio session (same device, already authenticated this session), the origin form shows directly.
@@ -192,7 +199,7 @@ Specifies the same interaction already designed in Phase A+B Section 6.6 — res
 - The page itself is minimal and single-purpose — one field, nothing that resembles a general onboarding form (explicitly not a place to add scope later without separate review).
 - After saving, the resulting drive duration and leave-by ([S9]) render immediately on that same page, using the existing on-demand Geocodio geocode + OpenRouteService route calculation (`leaveBy.ts`) — no new compute path, no new provider.
 
-**This document adds no new requirement beyond what Phase A+B already specified for this step.** Restating it here exists only to satisfy this document's own required-output list and confirm the two documents agree — a genuine second design here would be exactly the kind of duplication Section 10 warns against.
+**This document does not move origin into Phase A+B.** It records how the later onboarding flow may consume Phase 3A after that separately authorized capability exists; a second SMS-specific origin implementation would be exactly the duplication Section 10 warns against.
 
 ## 7. Platform Instruction Matrix
 
@@ -265,8 +272,8 @@ Mapped against the workstreams already in flight, explicitly to avoid duplicatin
 | Platform-name question + reused instruction copy ([S1]–[S2]) | **Phase A+B, small addition to Task 2/3**, using the existing `platforms.ts` catalog verbatim | No new content to write — the instructions already exist; this is wiring, not authorship |
 | **Platform detection from URL (auto-skip [S1]/[S2] when the parent leads with a link)** | **New, small, separately-scoped slice — not yet in any filed prompt** | Section 0's finding: this capability doesn't exist. It's plausibly cheap (host/path pattern matching against a handful of known platforms) but needs its own verification against real captured URLs per platform before being trusted, and should not be assumed "basically done" because the picker catalog already lists the platforms |
 | **Calendar-name (`X-WR-CALNAME`) extraction** | **New, small, separately-scoped slice — not yet in any filed prompt** | Section 0's finding: no calendar-level metadata is read today. This is the single highest-leverage piece of new work for making [S5]'s "high confidence" branch actually reachable at meaningful frequency, rather than mostly falling to "ask" |
-| Arrival precedence chain (Section 5, steps 1–2) | **Depends on 3.6B Phase 1 for step 1; step 2 already exists** | Do not build a provisional step-1 substitute — stop and flag per Phase A+B Section 6.5, unchanged recommendation |
-| The one bounded [S7] arrival question | **Phase A+B, Task 2/3** | Already specified there verbatim |
+| Required-arrival resolution | **Completed 3.6B Phase 1 dependency (`34d83cf4`)** | Reuse `ics_explicit → source_preference → team_preference → corralio_default`; no new schema or resolution logic |
+| The one bounded [S7] arrival question | **Phase A+B, Task 2/3** | Collection only: save a valid answer through the existing narrow source-preference writer; do not create a separate SMS arrival value |
 | Secure-origin web page, phone-OTP gate, immediate leave-by render | **Phase 3A (temporary routing origin) + Phase A+B's link-out to it** | Phase 3A owns the "collect a routing origin securely" capability generally (home / current-location / choose-another); this SMS flow's [S8]/[S9] is a consumer of that capability, not a reason to build a second, SMS-specific version of it |
 | Second-schedule prompt ([S10]) | **Phase A+B, trivial addition** | One more state-machine step reusing [S1] — no new capability |
 | Full conversational/inferred-copy layer, general assistant, message-based management commands | **Explicitly not this contract, not Phase A+B** | Unchanged from every prior document this session — this contract formalizes the deterministic version, not the richer conversation those documents already deferred |
@@ -275,9 +282,9 @@ Mapped against the workstreams already in flight, explicitly to avoid duplicatin
 
 ## 11. Canonical-Document Reconciliation
 
-No code or canonical document was modified in producing this review. If this onboarding contract is accepted, the following should be updated:
+The original review changed no code or canonical document. The 2026-08-31 dependency reconciliation now records Phase 1 completion without authorizing engineering work:
 
-- **`CORRALIO_CPO_EXECUTION_STATE.md`** — the "CRITICAL PATH — CONFIRMED FORK AFTER PHASE 1" section's Phase A+B reference should gain a pointer to this contract document as the source for [S1]/[S2]/[S5]/[S7]'s specific copy and resolution logic, and OPEN items should gain two new entries: (a) platform-detection-from-URL as unbuilt, separately-verifiable capability (Section 0/10 of this document), and (b) calendar-name extraction as the same.
+- **`CORRALIO_CPO_EXECUTION_STATE.md`** — updated: the Phase 1 dependency is satisfied by `34d83cf4`, the fork is active, and Phase A+B is bound to reuse the completed resolver/source-preference implementation. The previously identified platform-detection and calendar-name evidence items remain separate capabilities.
 - **`CORRALIO_FOUNDER_MENTOR_HANDOFF.md`** — Section II's running decision log should gain an entry recording this contract's acceptance (or requested revisions), consistent with how every other founder decision this session was recorded, so the "why does [S1]/[S5] work this way" trail survives independent of this document surviving in the founder's own memory.
 - **`docs/prompts/corralio-phase-a-b-phone-auth-schedule-intake-prompt.md`** (v2) — Section 6.4 currently describes association resolution in general terms; if this contract is accepted, that section should be tightened to cite the specific existing primitive (`corralio_update_schedule_source_assignment_v1` via the same pattern `updateScheduleAssignment()` already uses) rather than describing "use existing primitives" abstractly. This is a precision improvement to an already-accepted document, not a scope change.
 - **`docs/prompts/corralio-schedule-source-compatibility-evidence-matrix-prompt.md`** — unaffected in scope, but its eventual results (once run) should feed back into this contract's Section 7/8 — specifically, any platform that surfaces a new known-caveat should get that caveat reflected in this document's failure-behavior table, not left only in the evidence matrix's internal representation.

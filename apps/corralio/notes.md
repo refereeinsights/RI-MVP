@@ -1,5 +1,14 @@
 # Corralio Notes
 
+## 2026-08-31 — Phase A+B execution audit stopped at vendor-spike gate
+
+- Reconciled the founder-approved Phase A+B prompt with the repository, local configuration, and the Corralio Vercel project before writing product code. Slice 3.6B Phase 1 is complete at `34d83cf4`; its shared `ics_explicit → source_preference → team_preference → corralio_default` resolver, nullable source preference, and narrow writer remain authoritative and unchanged.
+- Official provider-contract review confirmed that Supabase supports phone OTP plus a custom Send SMS Hook and that Telnyx signs messaging webhooks with its timestamped Ed25519 envelope. Resend inbound events use signed webhooks, but the initial `email.received` event contains metadata rather than the message body/headers; the exact trustworthy sender-authentication evidence required by this prompt remains unproven and therefore blocks only the later email leg.
+- The mandatory test-environment vendor spike cannot currently run. Neither local configuration nor any Corralio Vercel environment contains Telnyx API/sender/profile/public-key configuration, CAPTCHA configuration, or a dedicated channel-identity HMAC key. The repository also has no local Supabase test-project configuration, declared Telnyx hard-spend/segment cap, disposable test phone contract, or recorded A2P/10DLC campaign state. Corralio's Vercel project contains only its existing Supabase, routing/geocoding, VAPID, site, cron, and evidence-fingerprint configuration; no environment values were copied into the repository.
+- Because the canonical prompt makes the capped live Telnyx/Supabase spike a sequential prerequisite, no phone-auth UI, SMS webhook, intake orchestration, channel-identity/pending-intake schema, migration, verifier, provider configuration, outbound SMS, database mutation, or application code was created. Proceeding would have contradicted the accepted abuse/cost and evidence gates.
+- Smallest follow-up: a human provisions an isolated test Telnyx sender/profile and key, records the hard spend/segment cap and A2P status, provides a disposable test number, configures test Supabase phone Auth/Send SMS Hook plus CAPTCHA, and supplies a dedicated channel-HMAC secret. Then rerun Gate 3 with the predeclared cap. Resend webhook/sender-auth evidence can be audited later without blocking the SMS-first path.
+- Verdict: **CORRALIO PHASE A+B BLOCKED AT TEST-ENVIRONMENT VENDOR SPIKE**. No migration was prepared or applied, and nothing was pushed or deployed.
+
 ## 2026-08-31 — Slice 3.6B Phase 1 complete locally
 
 - A human applied `20260831_corralio_slice36b_required_arrival.sql`. The read-only catalog verifier returned `SLICE 3.6B PHASE 1 CATALOG VERIFICATION PASSED`, and the rollback-only behavioral verifier returned `SLICE 3.6B PHASE 1 BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO`.
