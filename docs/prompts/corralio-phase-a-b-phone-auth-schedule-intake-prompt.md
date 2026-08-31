@@ -5,6 +5,8 @@
 **Do not begin implementation from this document. This is the corrected prompt awaiting founder review before it is sent to Codex.**
 
 > **v2 revision note, 2026-08-31.** This supersedes the v1 prompt filed 2026-08-30. Codex ran a security and architecture review of v1 and the founder accepted its findings, with the corrections below. v1's core scope (phone-first identity, deterministic link-based intake, infrastructure-not-onboarding-conversation) is unchanged; what changed is *how* — no tap-to-verify links, no `.ics` attachments in V1, a real bounded pending-intake state instead of "connect unassigned or nothing," a shared identity-resolution core instead of two independent webhook handlers, and a full inbound-channel-security and SMS-compliance gate list that v1 only gestured at. Read this document in full even if you reviewed v1 — do not assume unchanged section numbers mean unchanged content.
+>
+> **Same-day follow-up, 2026-08-31.** SMS Production Readiness is promoted to its own top-level, independently tracked gate (Section 9) — it was previously folded into Task 3 (Section 7) as though it were part of that task's engineering scope. It is not. Section numbers 9 onward shifted accordingly (Execution Gates is now Section 10, Verification is now Section 11).
 
 > **Founder direction, 2026-08-30, reconfirmed and corrected 2026-08-31.** Confirms and refines the critical-path slot recommended across three CPO investigations this session (`2026-08-30-cpo-investigation-email-sms-priority-channels.md`, `2026-08-30-cpo-review-heysammi-addendum-sms-first.md`, `2026-08-30-cpo-investigation-phone-first-authentication.md`): the critical path forks after 3.6B Phase 1 ships — `Phase 1 → { this Phase A+B work || 3.6B Phase 2 (Arbiter audit, parallel/non-blocking) || HotelPlanner Phase 3B evidence diagnostic (parallel) } → resume 3A → 3B → 4 → 5`. Dispatch order: 3.6B Stage 1 goes to Codex first; this prompt follows it. Founder's own framing for why this is now foundational, not a notification side project: *"SMS/phone isn't feature creep anymore: it changes how families enter Corralio, while Phase 1 determines whether the planning information they receive is trustworthy. They reinforce each other."*
 
@@ -26,7 +28,7 @@ Established by direct repository inspection during v1 authoring — re-confirm b
 - **No SMS/email vendor account exists yet.** No Telnyx or Resend credentials, no environment variables, no provider config anywhere in the monorepo — confirmed via grep across every `.env*`, `package.json`, and `vercel.json` during v1 authoring. Task 0 (Section 3) is a real prerequisite, not a formality, and its scope has grown in v2 (Section 3).
 - **`corralio_schedule_sources` already supports household-level/unassigned sources.** `child_id` and `team_id` are both nullable with `constraint ... check (num_nonnulls(child_id, team_id) <= 1)` (`...household_rls_foundation.sql:92-129`). A source with both null is valid today. **V2 note: this remains true, but Section 6.4 below requires that ambiguous intake not default into this unassigned state merely to avoid building resolution — unassigned is a legitimate terminal state when the parent explicitly chooses it, not a shortcut around the pending-intake flow.**
 - **The deterministic ICS ingestion pipeline (`ingest.ts`, `refresh.ts`, `teamConnection.ts`, `platforms.ts`) already exists and is unchanged by this work.** Both new intake surfaces (email, SMS) are new *front doors* onto this pipeline, not new parsing capability. **V2 scope note: both front doors now route through one shared ingestion-core function (Section 4), not two independent handlers calling the pipeline separately as v1 implied.**
-- **No application-level rate limiting or CAPTCHA exists for any auth flow today.** The email-recovery route (`app/api/auth/recovery/route.ts`) relies entirely on Supabase Auth's own built-in send-rate limits (default: one OTP per 60 seconds per identifier, 1-hour expiry) and an enumeration-safe generic response pattern. There is nothing to extend — this prompt's phone-OTP send endpoint needs the same discipline built fresh. **V2 correction: CAPTCHA alone is not an acceptable cost/abuse boundary for SMS — see the full gate list in Section 7.1.**
+- **No application-level rate limiting or CAPTCHA exists for any auth flow today.** The email-recovery route (`app/api/auth/recovery/route.ts`) relies entirely on Supabase Auth's own built-in send-rate limits (default: one OTP per 60 seconds per identifier, 1-hour expiry) and an enumeration-safe generic response pattern. There is nothing to extend — this prompt's phone-OTP send endpoint needs the same discipline built fresh. **V2 correction: CAPTCHA alone is not an acceptable cost/abuse boundary for SMS — see the independent SMS Production Readiness gate, Section 9. That gate is tracked separately from this task's engineering completion.**
 - **No logging of schedule URLs or message bodies exists today, and this must not regress.** `databaseFailure()` (`lib/schedules/supabaseStore.ts:10-16`, `refreshSupabaseStore.ts:8-14`) explicitly logs only a stage name and error code, never the URL, event payload, or upstream response. Raw schedule URLs — which may carry embedded access tokens in their query string, confirmed unredacted at storage — are persisted in `corralio_schedule_sources.source_url` but never logged. **V2 note: this discipline now also applies to the new pending-intake table (Section 6.3) and the new channel-identity table (Section 4.2) — neither may hold or log a raw calendar URL, phone number, or channel value in plaintext where an ordinary log line or authenticated-client query could expose it.**
 - **`corralio_teams.arrival_buffer_minutes` exists; no schedule-source-level or child-level arrival-buffer field exists.** Confirmed in `supabase/migrations/20260826_corralio_slice46_what_fits.sql:5-10`. Relevant to Section 6.5's arrival-value precedence chain.
 - **No schema exists yet for pending/unresolved intake, channel identity, or webhook idempotency tracking.** All three are new in v2 (Sections 4.2, 6.3, 7.4) — there is no prior art in the repository to reuse for these; design them as new, minimal, purpose-built tables rather than overloading an existing one.
@@ -55,7 +57,7 @@ No Telnyx or Supabase-phone-auth configuration exists yet. Before writing produc
 3. **Confirm Supabase's phone+email identity-linking behavior directly** (`linkIdentity()`) rather than assuming it from general documentation — this determines the shape of Section 5.5.
 4. **Confirm what authenticated-message evidence is actually available for inbound email**, for whichever vendor is used (e.g., SPF/DKIM/DMARC alignment passed through by the inbound-webhook provider, or an equivalent signed assertion). This is a hard prerequisite for Section 6.7 (email `From` is not authentication) — do not proceed to build the email-authorization logic in Section 6.7 until this is confirmed against the live vendor, not assumed from documentation.
 5. **Confirm phone-number geography/format handling** required for E.164 normalization and any geographic policy the vendor enforces (Section 7.1).
-6. **Confirm current A2P/10DLC registration status and expected timeline** — this gates Task 3 (Section 7) and should be re-checked at the start of that task regardless of what this spike finds, since timing may move.
+6. **Confirm current A2P/10DLC registration status and expected timeline** — this feeds both Task 3's engineering sequencing (Section 7) and the independent SMS Production Readiness gate (Section 9); re-check it at the start of Task 3 regardless of what this spike finds, since timing may move.
 
 Report findings before proceeding to Sections 4–7 if anything here doesn't work as expected — this is exactly the kind of assumption that needs verifying against a live account, not documentation.
 
@@ -97,7 +99,7 @@ A new table mapping a verified phone number or email address to a household's us
 - The SMS OTP message contains only the numeric code (and minimal required compliance text, Section 7.1) — no link.
 - A future opaque, prefetch-resistant one-time authentication-link design may be investigated separately, later, as its own reviewed piece of work — do not build a version of it here under a different name or justification.
 
-**5.4 CAPTCHA on the phone-OTP send endpoint, from day one — necessary but not sufficient.** Use Supabase's native hCaptcha or Cloudflare Turnstile support. This remains a requirement, but per Section 7.1, CAPTCHA alone is not an acceptable cost/abuse boundary for SMS — the full gate list in Section 7.1 must be satisfied before SMS intake (and, by extension, real-volume phone-OTP send) is enabled for real users.
+**5.4 CAPTCHA on the phone-OTP send endpoint, from day one — necessary but not sufficient.** Use Supabase's native hCaptcha or Cloudflare Turnstile support. This remains a requirement, but CAPTCHA alone is not an acceptable cost/abuse boundary for SMS. Real-volume production phone-OTP send is gated by Section 9 (SMS Production Readiness) exactly like SMS-leg intake — building and testing this endpoint is engineering scope (in scope here); authorizing it to send at production volume to real users is not (governed entirely by Section 9, tracked independently).
 
 **5.5 Email as an optional, linked identity — build the mechanism, not the UI polish.** Confirm and implement `linkIdentity()` (or the equivalent confirmed in Task 0) so a phone-authenticated household can later add an email identity to the *same* `auth.users` row, not a second account. A minimal prompt ("add an email to also sign in that way") is sufficient for this phase — do not design the full "when should Corralio ask for this" conversation (Section 2's non-goal). Linking or removing an email identity must synchronize the channel-identity table (Section 4.2).
 
@@ -164,27 +166,13 @@ The pending-intake record must have:
 
 **6.7 Sender authorization — inbound email `From` alone is not authentication.** This corrects v1 Section 4.3, which treated a recognized `From` address as sufficient. Required: authenticated-message evidence, established during the Task 0 vendor spike (Section 3, item 4) — e.g., a vendor-verified SPF/DKIM/DMARC-aligned signal, not just a header value — **plus** a verified Corralio channel identity (Section 4.2) for that address. If sender authenticity cannot be established to sufficient confidence by both of those together, do not mutate any data from the inbound message — instead, require authenticated web confirmation before anything is connected (e.g., reply directing the parent to confirm via the authenticated web app). **Do not create account-enumeration or backscatter behavior for unknown senders** — a message from an address with no matching channel identity gets a generic, non-revealing reply (or, depending on vendor cost/abuse tradeoffs confirmed in Task 0, silent drop), never a reply that confirms or denies whether a Corralio account exists for that address.
 
-## 7. Task 3 — SMS Leg of Intake (sequenced after Task 2, gated on the requirements below)
+## 7. Task 3 — SMS Leg of Intake, Engineering (sequenced after Task 2)
 
 Once phone auth (Section 5) and the shared channel-identity/ingestion-core architecture (Section 4) exist, the SMS intake leg reuses the same authorized-sender, pending-intake, and ingestion-core requirements as the email leg (Section 6.2–6.5, 6.7) — a text from a verified phone number containing a supported calendar/subscription URL routes into the same shared ingestion core the same way, correlating clarification replies through the same pending-intake mechanism (Section 6.3). Do not build SMS-specific ingestion logic distinct from the email leg's pattern.
 
-**7.1 SMS abuse/compliance gate — required before SMS intake (or any real-volume phone-OTP send) is enabled for real users. CAPTCHA alone is not an acceptable cost/abuse boundary.**
+**This section is engineering scope only.** Writing, testing, and committing this code does not authorize sending production SMS to real users. That authorization is governed entirely by Section 9 (SMS Production Readiness) — a gate tracked independently of this task's completion, of Section 8's webhook-security work, and of Section 10's execution-gate sequence.
 
-- A2P/10DLC approval completed.
-- An approved sender/use case registered with the carrier/aggregator.
-- An explicit consent model for SMS (documented, not assumed).
-- STOP/START/HELP behavior implemented and tested.
-- Durable opt-out (a STOP must persist and be honored across both auth-OTP and intake SMS, not just one).
-- Telnyx webhook signature verification (Section 3, item 1) implemented on every inbound Telnyx callback.
-- Billed-segment accounting — visibility into actual segment counts/cost, not an estimate.
-- E.164 phone-number normalization applied consistently everywhere a phone number is stored, hashed (Section 4.2), or sent to the vendor.
-- Explicit geographic policy (which countries/regions are supported; reject or handle others deliberately, not by accident).
-- OTP send/attempt/cooldown limits enforced server-side, independent of Supabase's own defaults.
-- Provider (Telnyx) spend controls — a hard cap, not just an alert, given the test-environment cap requirement in Section 3.
-- Enumeration-safe responses for SMS, mirroring the email requirement in Section 6.7.
-- A defined retention policy for SMS message content and metadata, confirmed against the vendor (Section 3, item 4's counterpart for SMS).
-
-**7.2 Registration-timing check.** Confirm current A2P/10DLC registration status and expected timeline at the start of this task's implementation work, regardless of what Task 0's spike found — the timeline may have moved since this prompt was written.
+**7.1 Registration-timing check.** Confirm current A2P/10DLC registration status and expected timeline at the start of this task's implementation work, regardless of what Task 0's spike found (Section 3, item 6) — the timeline may have moved since this prompt was written. This check is informational for sequencing the engineering work; it does not by itself satisfy Section 9.
 
 ## 8. Webhook Security Requirements (both inbound channels — acceptance criteria, not optional polish)
 
@@ -199,9 +187,31 @@ Applies to both the email webhook (Section 6.1) and the SMS webhook (Section 7):
 - **Sanitized logging** — extends Section 1's existing `databaseFailure()` discipline to these new handlers; no raw URL, phone number, email address, or message body in any log line, error message, or analytics event, anywhere in these code paths.
 - **Safe retry/failure isolation** — a failure processing one inbound message must not affect processing of others, and must fail in a way the vendor's own retry behavior (Section 7.1/8) handles safely (idempotent, not double-effecting).
 
-## 9. Execution Gates
+## 9. SMS Production Readiness — Independent Gate (tracked separately from Phase A+B engineering)
 
-Revise implementation into these explicit, sequential gates. Do not proceed past a gate without its output in hand.
+**This is a standing gate, not a step in the Section 10 execution sequence. Neither finishing the code (Section 10, gate 9) nor completing database verification (Section 10, gates 5–7) authorizes production SMS.** Track it on its own timeline, with its own owner — carrier registration and compliance work routinely lags or leads engineering, and "the code is done" is not evidence this gate is satisfied. It applies equally to Task 3's SMS intake leg and to Section 5's phone-OTP auth once that moves beyond test volume — both ride the same Telnyx SMS channel and are authorized together, not separately. CAPTCHA (Section 5.4) is necessary but never sufficient on its own to open this gate.
+
+Production SMS — any real-volume send to a real user, whether OTP or intake-related — requires all of the following, verified against the live vendor and carrier, not assumed from documentation:
+
+- A2P/10DLC approval completed.
+- An approved sender/use case registered with the carrier/aggregator.
+- An explicit consent model for SMS (documented, not assumed).
+- STOP/START/HELP behavior implemented and tested.
+- Durable opt-out (a STOP must persist and be honored across both auth-OTP and intake SMS, not just one).
+- Telnyx webhook signature verification (Section 3, item 1; Section 8) implemented and confirmed working on every inbound Telnyx callback.
+- Billed-segment accounting — visibility into actual segment counts/cost, not an estimate.
+- E.164 phone-number normalization applied consistently everywhere a phone number is stored, hashed (Section 4.2), or sent to the vendor.
+- Explicit geographic policy (which countries/regions are supported; reject or handle others deliberately, not by accident).
+- OTP send/attempt/cooldown limits enforced server-side, independent of Supabase's own defaults.
+- Provider (Telnyx) spend controls — a hard cap, not just an alert, carried forward from the test-environment cap in Section 3 into production.
+- Enumeration-safe responses for SMS, mirroring the email requirement in Section 6.7.
+- A defined, vendor-confirmed retention policy for SMS message content and metadata (Section 3, item 4's counterpart for SMS).
+
+**Sign-off on this gate is a separate, explicit act** — someone with authority to authorize production SMS reviews the list above against verified evidence and says so. It is not implied by a pull request merging, a migration applying, or a UAT pass. Until it is signed off, production SMS stays off regardless of what any other section of this prompt reports as complete.
+
+## 10. Execution Gates
+
+Revise implementation into these explicit, sequential gates. Do not proceed past a gate without its output in hand. **These gates cover engineering completion only — they do not include, and cannot substitute for, Section 9's SMS Production Readiness sign-off.**
 
 1. **Repository/provider-contract audit.** Re-verify every claim in Section 1 against the current repository state; re-verify Supabase's and Telnyx's current documented contracts for phone auth, Send SMS Hook, and webhook signing.
 2. **Confirm provider configuration, phone geography, and the URL-only intake contract.** Confirm Task 0's findings (Section 3) are current; confirm the URL-only decision (Section 2, Section 6) is reflected in every place the email/SMS copy or parsing logic is drafted.
@@ -212,9 +222,9 @@ Revise implementation into these explicit, sequential gates. Do not proceed past
 7. **Rollback-only catalog/behavior verification.** Confirm every new migration has a corresponding rollback path, and that rollback has actually been verified to work, not just written.
 8. **Bounded vendor UAT with disposable identities and cleanup verification.** Test end-to-end using disposable/test phone numbers and email addresses; confirm cleanup (test channel identities, test pending-intake records, test households) is actually removed afterward, not left behind.
 9. **Tests, typecheck, lint, four production builds, notes, and local commit.** Standard verification bar before this is considered done at the code level.
-10. **No push, production deployment, production Auth enablement, DNS changes, or live campaign activation without separate authorization.** Gate 9's local commit is the stopping point for this prompt; anything beyond it — pushing, deploying, flipping production Supabase Auth settings, DNS/domain changes for the inbound-email address, or activating the live A2P/10DLC campaign — requires separate, explicit authorization, not implied by "the code is done."
+10. **No push, production deployment, production Auth enablement, or DNS changes without separate authorization; no live SMS campaign activation or production-volume SMS send under any circumstances until Section 9 is independently signed off.** Gate 9's local commit is the stopping point for this prompt's engineering scope; anything beyond it — pushing, deploying, flipping production Supabase Auth settings, DNS/domain changes for the inbound-email address — requires separate, explicit authorization. Completing gates 1–9 above is necessary but never sufficient to activate the live A2P/10DLC campaign or send production SMS — that requires Section 9's independent sign-off, full stop, regardless of how complete the engineering is.
 
-## 10. Verification
+## 11. Verification
 
 Before calling any gate complete, confirm:
 
@@ -229,7 +239,8 @@ Before calling any gate complete, confirm:
 9. The home/default-origin link contains no sensitive data, requires phone-OTP authentication when the browser has no valid session, and shows the resulting drive time/leave-by immediately after the origin is saved.
 10. Every inbound webhook (email, SMS) verifies the raw-body signature and rejects replayed/duplicate events before any processing occurs.
 11. No log line, error message, or analytics event anywhere in the new code paths contains a URL, phone number, email address, or message body — spot-check this directly, don't just assume the pattern was followed.
-12. CAPTCHA blocks scripted repeated OTP-send attempts against the phone endpoint, **and** the full Section 7.1 gate list is satisfied before SMS intake is enabled for any real user.
+12. CAPTCHA blocks scripted repeated OTP-send attempts against the phone endpoint. This confirms engineering readiness only — it is not, and must not be treated as, evidence that Section 9 (SMS Production Readiness) is satisfied.
+13. Section 9's SMS Production Readiness checklist has an explicit, separate sign-off on record before any production SMS is sent — confirm this sign-off exists as its own artifact, not inferred from Section 10's execution gates or this verification list being complete.
 
 ## Product Objective
 
