@@ -1,5 +1,11 @@
 # Corralio Notes
 
+## 2026-08-31 — Slice 3.6B Phase 1 database verification in progress
+
+- A human applied `20260831_corralio_slice36b_required_arrival.sql`, and the read-only catalog verifier returned `SLICE 3.6B PHASE 1 CATALOG VERIFICATION PASSED`.
+- The first rollback-only behavioral invocation stopped at its first preference-writer call because PostgreSQL does not implicitly narrow an integer fixture literal while resolving the exact `(uuid, smallint)` RPC signature. This was a verifier-only call-site defect, not a migration, function, schema, authorization, or product-code defect.
+- Updated every verifier RPC call to cast its source ID and nullable preference explicitly as `uuid` and `smallint`, with an offline architecture assertion covering all five narrow arguments. No additive migration or applied-database change is required. The behavioral verifier must now be rerun before Phase 1 can be marked complete.
+
 ## 2026-08-31 — Slice 3.6B Phase 1 required-arrival convergence ready for database verification
 
 - Merged the founder's authoritative corrections into the canonical Slice 3.6B prompt and confirmed the repository starting facts. What Fits already honored a valid ICS/event `schedule_arrival_at` before team/default behavior, while This Weekend/Leave-by did not select that field and independently subtracted its own 30-minute default. Schedule sources had no arrival preference. This divergence is now resolved in repository code through one pure resolver with the exact hierarchy `ics_explicit → source_preference → team_preference → corralio_default` and typed in-memory provenance for all four tiers.

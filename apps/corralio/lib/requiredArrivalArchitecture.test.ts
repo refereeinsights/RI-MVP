@@ -56,6 +56,11 @@ test("verifiers prove narrow grants, cross-household denial, immutability, and c
   assert.match(catalogVerifier, /arrival_buffer_minutes', 'UPDATE'/);
   assert.match(behavioralVerifier, /cross-household update unexpectedly succeeded/);
   assert.match(behavioralVerifier, /direct authenticated update unexpectedly succeeded/);
+  assert.equal(
+    behavioralVerifier.match(/::smallint/g)?.length,
+    5,
+    "every narrow RPC fixture argument must resolve explicitly as smallint",
+  );
   assert.match(behavioralVerifier, /source preference mutated the team/);
   assert.match(behavioralVerifier, /source preference mutated feed-derived arrival/);
   assert.match(behavioralVerifier, /ROLLBACK CLEANUP ZERO/);

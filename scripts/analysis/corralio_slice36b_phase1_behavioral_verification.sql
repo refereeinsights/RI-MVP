@@ -79,13 +79,13 @@ select set_config('request.jwt.claim.sub', 'c36b0000-0000-4000-8000-000000000001
 
 select pg_temp.corralio_slice36b_assert(
   public.corralio_update_schedule_source_arrival_v1(
-    'c36b0000-0000-4000-8000-000000000041', 45
+    'c36b0000-0000-4000-8000-000000000041'::uuid, 45::smallint
   ) = 45,
   'owner could not set assigned-source preference'
 );
 select pg_temp.corralio_slice36b_assert(
   public.corralio_update_schedule_source_arrival_v1(
-    'c36b0000-0000-4000-8000-000000000042', 20
+    'c36b0000-0000-4000-8000-000000000042'::uuid, 20::smallint
   ) = 20,
   'owner could not set unassigned-source preference'
 );
@@ -94,14 +94,14 @@ do $expected_denials$
 begin
   begin
     perform public.corralio_update_schedule_source_arrival_v1(
-      'c36b0000-0000-4000-8000-000000000043', 30
+      'c36b0000-0000-4000-8000-000000000043'::uuid, 30::smallint
     );
     raise exception using errcode = 'P0001', message = 'cross-household update unexpectedly succeeded';
   exception when sqlstate 'P0001' then raise; when insufficient_privilege then null; end;
 
   begin
     perform public.corralio_update_schedule_source_arrival_v1(
-      'c36b0000-0000-4000-8000-000000000041', 43
+      'c36b0000-0000-4000-8000-000000000041'::uuid, 43::smallint
     );
     raise exception using errcode = 'P0001', message = 'invalid preference unexpectedly succeeded';
   exception when sqlstate 'P0001' then raise; when invalid_parameter_value then null; end;
@@ -116,7 +116,7 @@ end;
 $expected_denials$;
 
 select public.corralio_update_schedule_source_arrival_v1(
-  'c36b0000-0000-4000-8000-000000000042', null
+  'c36b0000-0000-4000-8000-000000000042'::uuid, null::smallint
 );
 reset role;
 
