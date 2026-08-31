@@ -4,10 +4,15 @@ import type {
   OvertureIntentCategory,
   OverturePoolCategory,
 } from "./overtureNearby";
+import {
+  CORRALIO_DEFAULT_ARRIVAL_MINUTES,
+  resolveRequiredArrival,
+  type RequiredArrivalSource,
+} from "./requiredArrival";
 
 export const WHAT_FITS_POLICY_VERSION = "corralio-what-fits-v1";
 export const WHAT_FITS_MINIMUM_GAP_MINUTES = 45;
-export const WHAT_FITS_DEFAULT_ARRIVAL_MINUTES = 30;
+export const WHAT_FITS_DEFAULT_ARRIVAL_MINUTES = CORRALIO_DEFAULT_ARRIVAL_MINUTES;
 export const WHAT_FITS_MAX_RESULTS = 10;
 export const WHAT_FITS_ROUTED_CANDIDATES_PER_MODE = 6;
 export const WHAT_FITS_ROUTE_CONCURRENCY = 3;
@@ -22,7 +27,7 @@ export const WHAT_FITS_DWELL_MINUTES = Object.freeze({
   other_food: 45,
 } satisfies Record<OvertureIntentCategory, number>);
 
-export type WhatFitsArrivalSource = "ics_explicit" | "team_preference" | "corralio_default";
+export type WhatFitsArrivalSource = RequiredArrivalSource;
 export type WhatFitsMode = OverturePoolCategory;
 export type WhatFitsSuppressionReason =
   | "below_minimum_gap"
@@ -40,6 +45,7 @@ export type WhatFitsEvent = {
   timezone: string | null;
   teamId: string | null;
   scheduleArrivalAt: string | null;
+  sourceArrivalMinutes: number | null;
   teamArrivalMinutes: number | null;
   latitude: number | null;
   longitude: number | null;
@@ -118,36 +124,7 @@ export function resolveWhatFitsRequiredArrival(event: WhatFitsEvent): {
   source: WhatFitsArrivalSource;
   minutes: number;
 } | null {
-  const startsAt = validTime(event.startsAt);
-  if (startsAt === null) return null;
-  const explicitAt = validTime(event.scheduleArrivalAt);
-  if (explicitAt !== null) {
-    const minutes = (startsAt - explicitAt) / 60_000;
-    if (Number.isInteger(minutes) && minutes >= 0 && minutes <= 180) {
-      return {
-        requiredArrivalAt: new Date(explicitAt).toISOString(),
-        source: "ics_explicit",
-        minutes,
-      };
-    }
-  }
-  if (
-    Number.isInteger(event.teamArrivalMinutes)
-    && (event.teamArrivalMinutes as number) >= 0
-    && (event.teamArrivalMinutes as number) <= 120
-    && (event.teamArrivalMinutes as number) % 5 === 0
-  ) {
-    return {
-      requiredArrivalAt: new Date(startsAt - (event.teamArrivalMinutes as number) * 60_000).toISOString(),
-      source: "team_preference",
-      minutes: event.teamArrivalMinutes as number,
-    };
-  }
-  return {
-    requiredArrivalAt: new Date(startsAt - WHAT_FITS_DEFAULT_ARRIVAL_MINUTES * 60_000).toISOString(),
-    source: "corralio_default",
-    minutes: WHAT_FITS_DEFAULT_ARRIVAL_MINUTES,
-  };
+  return resolveRequiredArrival(event);
 }
 
 function hasHouseholdConflict(
@@ -347,6 +324,9 @@ export function sanitizeWhatFitsAnalytics(input: unknown): WhatFitsAnalyticsPayl
   const reason = reasons.includes(value.reason as (typeof reasons)[number])
     ? value.reason as (typeof reasons)[number]
     : null;
+  // Slice 3.6B adds resolver provenance, not analytics vocabulary. Until a
+  // separately authorized migration exists, source preference is intentionally
+  // recorded as null rather than widening the closed Slice 4.6 schema.
   const sources: readonly WhatFitsArrivalSource[] = ["ics_explicit", "team_preference", "corralio_default"];
   const arrivalSource = sources.includes(value.arrivalSource as WhatFitsArrivalSource)
     ? value.arrivalSource as WhatFitsArrivalSource

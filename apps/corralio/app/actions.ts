@@ -9,6 +9,7 @@ import { nextChildColor, normalizeFamilyName, parseTeamSport } from "@/lib/famil
 import { parseIanaTimeZone } from "@/lib/householdTimezone";
 import { parsePushSubscriptionInput } from "@/lib/notifications/weekendReady";
 import { computeWeekendLeaveBy, saveHouseholdOrigin } from "@/lib/leaveBy.server";
+import { parseArrivalPreferenceInput } from "@/lib/requiredArrival";
 import { isValidUuid, parseScheduleAssignmentInput } from "@/lib/schedules/assignment";
 import {
   recordScheduleConnectionInteraction,
@@ -354,6 +355,29 @@ export async function updateScheduleSport(_state: FormState, formData: FormData)
     return { status: "success", message: "Sport updated." };
   } catch {
     return { status: "error", message: "We couldn’t update that sport right now." };
+  }
+}
+
+export async function updateScheduleArrivalPreference(_state: FormState, formData: FormData): Promise<FormState> {
+  const sourceId = String(formData.get("sourceId") ?? "").trim();
+  const preference = parseArrivalPreferenceInput(formData.get("arrivalBufferMinutes"));
+  if (!isValidUuid(sourceId)) return { status: "error", message: "That schedule could not be updated." };
+  if (!preference.ok) return { status: "error", message: "Choose an arrival setting from 0 to 120 minutes." };
+
+  try {
+    const supabase = createCorralioSupabaseServerClient();
+    const { data, error } = await supabase.rpc("corralio_update_schedule_source_arrival_v1", {
+      p_source_id: sourceId,
+      p_arrival_buffer_minutes: preference.value,
+    });
+    if (error || data !== preference.value) throw new Error("arrival update failed");
+    revalidatePlanner();
+    return {
+      status: "success",
+      message: preference.value === null ? "Schedule arrival setting cleared." : "Schedule arrival setting updated.",
+    };
+  } catch {
+    return { status: "error", message: "We couldn’t update that arrival setting right now." };
   }
 }
 

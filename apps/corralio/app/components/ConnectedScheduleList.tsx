@@ -8,6 +8,7 @@ import {
   refreshScheduleNow,
   replaceScheduleLink,
   updateScheduleAssignment,
+  updateScheduleArrivalPreference,
   updateScheduleSport,
   type FormState,
 } from "@/app/actions";
@@ -23,6 +24,7 @@ import { LifecycleConfirmation } from "./LifecycleConfirmation";
 import type { FamilyChild, FamilyTeam } from "./FamilySection";
 
 const INITIAL_FORM_STATE: FormState = { status: "idle", message: "" };
+const ARRIVAL_MINUTE_OPTIONS = Array.from({ length: 25 }, (_, index) => index * 5);
 
 export type ConnectedSchedule = {
   id: string;
@@ -33,6 +35,7 @@ export type ConnectedSchedule = {
   refreshPausedAt: string | null;
   childId: string | null;
   teamId: string | null;
+  arrivalBufferMinutes: number | null;
   assignmentLabel: string;
   assignmentUnavailable: boolean;
 };
@@ -57,6 +60,7 @@ function ConnectedScheduleCard({
 }) {
   const [editingSport, setEditingSport] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState(false);
+  const [editingArrival, setEditingArrival] = useState(false);
   const [replacingLink, setReplacingLink] = useState(false);
   const currentTeam = source.teamId ? teams.find((team) => team.id === source.teamId) : null;
   const currentChildCandidate = source.childId ?? currentTeam?.childId ?? "";
@@ -70,6 +74,7 @@ function ConnectedScheduleCard({
   const [selectedTeamId, setSelectedTeamId] = useState(currentTeamId);
   const [sportState, sportAction] = useFormState(updateScheduleSport, INITIAL_FORM_STATE);
   const [assignmentState, assignmentAction] = useFormState(updateScheduleAssignment, INITIAL_FORM_STATE);
+  const [arrivalState, arrivalAction] = useFormState(updateScheduleArrivalPreference, INITIAL_FORM_STATE);
   const [replaceState, replaceAction] = useFormState(replaceScheduleLink, INITIAL_FORM_STATE);
   const [refreshState, refreshAction] = useFormState(refreshScheduleNow, INITIAL_FORM_STATE);
   const [cooldownActive, setCooldownActive] = useState(false);
@@ -87,6 +92,10 @@ function ConnectedScheduleCard({
   useEffect(() => {
     if (assignmentState.status === "success") setEditingAssignment(false);
   }, [assignmentState]);
+
+  useEffect(() => {
+    if (arrivalState.status === "success") setEditingArrival(false);
+  }, [arrivalState]);
 
   useEffect(() => {
     if (replaceState.status === "success") {
@@ -151,6 +160,9 @@ function ConnectedScheduleCard({
         >
           Change assignment
         </button>
+        <button className="secondaryButton" type="button" onClick={() => setEditingArrival((open) => !open)} aria-expanded={editingArrival} aria-controls={`source-arrival-form-${source.id}`}>
+          Arrival setting
+        </button>
         <button className="secondaryButton" type="button" onClick={() => setReplacingLink((open) => !open)} aria-expanded={replacingLink}>
           Replace calendar link
         </button>
@@ -210,6 +222,26 @@ function ConnectedScheduleCard({
           {source.assignmentUnavailable ? <p className="fieldHelp">Choose a new assignment or select No assignment.</p> : null}
           <FormSubmitButton idle="Save assignment" pending="Saving…" variant="secondary" />
           {assignmentState.message ? <p className={`formNotice ${assignmentState.status}`} role="status">{assignmentState.message}</p> : null}
+        </form>
+      ) : null}
+
+      {editingArrival ? (
+        <form className="inlineSourceForm" id={`source-arrival-form-${source.id}`} action={arrivalAction}>
+          <input type="hidden" name="sourceId" value={source.id} />
+          <label htmlFor={`source-arrival-${source.id}`}>Arrive before events</label>
+          <select
+            id={`source-arrival-${source.id}`}
+            name="arrivalBufferMinutes"
+            defaultValue={source.arrivalBufferMinutes === null ? "" : String(source.arrivalBufferMinutes)}
+          >
+            <option value="">Use team setting or Corralio default</option>
+            {ARRIVAL_MINUTE_OPTIONS.map((minutes) => (
+              <option value={minutes} key={minutes}>{minutes === 0 ? "At event start" : `${minutes} minutes early`}</option>
+            ))}
+          </select>
+          <p className="fieldHelp">An arrival time supplied by the schedule always takes priority.</p>
+          <FormSubmitButton idle="Save arrival setting" pending="Saving…" variant="secondary" />
+          {arrivalState.message ? <p className={`formNotice ${arrivalState.status}`} role="status">{arrivalState.message}</p> : null}
         </form>
       ) : null}
 

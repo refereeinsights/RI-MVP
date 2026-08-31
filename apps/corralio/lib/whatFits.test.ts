@@ -22,6 +22,7 @@ function event(overrides: Partial<WhatFitsEvent> = {}): WhatFitsEvent {
     timezone: "UTC",
     teamId: "team-a",
     scheduleArrivalAt: null,
+    sourceArrivalMinutes: null,
     teamArrivalMinutes: null,
     latitude: 47.6,
     longitude: -117.4,
@@ -55,14 +56,23 @@ const route = (outboundMinutes: number, inboundMinutes: number): WhatFitsCandida
   inboundDistanceMeters: inboundMinutes * 1_000,
 });
 
-test("required arrival follows explicit schedule, team preference, then the 30-minute default", () => {
+test("required arrival follows explicit schedule, source, team, then the 30-minute default", () => {
   assert.deepEqual(resolveWhatFitsRequiredArrival(event({
     scheduleArrivalAt: "2026-08-29T16:15:00.000Z",
+    sourceArrivalMinutes: 90,
     teamArrivalMinutes: 60,
   })), {
     requiredArrivalAt: "2026-08-29T16:15:00.000Z",
     source: "ics_explicit",
     minutes: 45,
+  });
+  assert.deepEqual(resolveWhatFitsRequiredArrival(event({
+    sourceArrivalMinutes: 75,
+    teamArrivalMinutes: 60,
+  })), {
+    requiredArrivalAt: "2026-08-29T15:45:00.000Z",
+    source: "source_preference",
+    minutes: 75,
   });
   assert.equal(resolveWhatFitsRequiredArrival(event({ teamArrivalMinutes: 60 }))?.requiredArrivalAt, "2026-08-29T16:00:00.000Z");
   assert.deepEqual(resolveWhatFitsRequiredArrival(event()), {
@@ -75,6 +85,7 @@ test("required arrival follows explicit schedule, team preference, then the 30-m
 test("invalid or ambiguous schedule arrival falls through without overriding team/default", () => {
   assert.equal(resolveWhatFitsRequiredArrival(event({
     scheduleArrivalAt: "2026-08-29T12:00:00.000Z",
+    sourceArrivalMinutes: null,
     teamArrivalMinutes: 45,
   }))?.source, "team_preference");
 });
@@ -225,4 +236,8 @@ test("analytics sanitization drops private and unbounded fields", () => {
   });
   assert.doesNotMatch(JSON.stringify(sanitized), /Private Child|Private Street/);
   assert.equal(sanitizeWhatFitsAnalytics({ event: "made_up", address: "secret" }), null);
+  assert.equal(sanitizeWhatFitsAnalytics({
+    event: "what_fits_viewed",
+    arrivalSource: "source_preference",
+  })?.arrivalSource, null);
 });

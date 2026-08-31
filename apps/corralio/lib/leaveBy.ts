@@ -1,4 +1,3 @@
-export const LEAVE_BY_ARRIVAL_BUFFER_MINUTES = 30;
 export const EVENT_GEOCODE_CAP_PER_MOUNT = 10;
 export const MAX_ROUTES_PER_MOUNT = 10;
 export const CORRALIO_DAILY_EXTERNAL_CALL_CAP_PER_HOUSEHOLD = 50;
@@ -279,21 +278,16 @@ export async function routeWithOpenRouteService(input: {
 }
 
 export function estimatedLeaveByIso(
-  startsAt: string,
+  requiredArrivalAt: string,
   estimatedDriveMinutes: number,
-  arrivalBufferMinutes = LEAVE_BY_ARRIVAL_BUFFER_MINUTES,
 ): string | null {
-  const startsAtMs = Date.parse(startsAt);
+  const requiredArrivalAtMs = Date.parse(requiredArrivalAt);
   if (
-    !Number.isFinite(startsAtMs)
+    !Number.isFinite(requiredArrivalAtMs)
     || !Number.isInteger(estimatedDriveMinutes)
     || estimatedDriveMinutes < 1
-    || !Number.isInteger(arrivalBufferMinutes)
-    || arrivalBufferMinutes < 0
   ) return null;
-  return new Date(
-    startsAtMs - (estimatedDriveMinutes + arrivalBufferMinutes) * 60_000,
-  ).toISOString();
+  return new Date(requiredArrivalAtMs - estimatedDriveMinutes * 60_000).toISOString();
 }
 
 export function isRouteFresh(input: {

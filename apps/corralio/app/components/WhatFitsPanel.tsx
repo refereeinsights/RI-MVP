@@ -34,6 +34,7 @@ function titleCase(value: string) {
 
 function arrivalLabel(result: ReadyResult) {
   if (result.arrivalSource === "ics_explicit") return "Arrival time from schedule";
+  if (result.arrivalSource === "source_preference") return `Based on this schedule’s ${result.arrivalMinutes}-minute arrival setting`;
   if (result.arrivalSource === "team_preference") return `Based on your team’s ${result.arrivalMinutes}-minute arrival setting`;
   return "Estimated · 30 min before start";
 }

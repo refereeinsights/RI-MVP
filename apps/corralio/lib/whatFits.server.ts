@@ -7,6 +7,7 @@ import {
 } from "./leaveBy.server";
 import { routeWithOpenRouteService, type Coordinates, type RouteEstimate } from "./leaveBy";
 import type { OvertureFoodTag, OvertureIntentCategory } from "./overtureNearby";
+import type { RequiredArrivalSource } from "./requiredArrival";
 import { createCorralioSupabaseAdminClient } from "./supabase/server";
 import {
   prefilterWhatFitsCandidates,
@@ -30,6 +31,7 @@ type EventRow = {
   ends_at: string | null;
   timezone: string | null;
   team_id: string | null;
+  schedule_source_id: string | null;
   schedule_arrival_at: string | null;
   location_lat: number | null;
   location_lng: number | null;
@@ -66,7 +68,7 @@ export type WhatFitsServerResult =
       requiredArrivalAt: string;
       rawGapMinutes: number;
       nextEventTimezone: string | null;
-      arrivalSource: "ics_explicit" | "team_preference" | "corralio_default";
+      arrivalSource: RequiredArrivalSource;
       arrivalMinutes: number;
       recommendations: WhatFitsClientRecommendation[];
     };
@@ -202,17 +204,24 @@ export async function computeWhatFits(input: {
 }): Promise<WhatFitsServerResult> {
   const admin = createCorralioSupabaseAdminClient();
   const { data, error } = await admin.from("corralio_events")
-    .select("id,starts_at,ends_at,timezone,team_id,schedule_arrival_at,location_lat,location_lng")
+    .select("id,starts_at,ends_at,timezone,team_id,schedule_source_id,schedule_arrival_at,location_lat,location_lng")
     .eq("household_id", input.householdId)
     .in("id", input.eventIds.slice(0, 200))
     .order("starts_at", { ascending: true });
   if (error) return { kind: "suppressed", reason: "missing_venue" };
   const rows = (data ?? []) as EventRow[];
   const teamIds = [...new Set(rows.flatMap((row) => row.team_id ? [row.team_id] : []))];
-  const { data: teamRows } = teamIds.length
-    ? await admin.from("corralio_teams").select("id,arrival_buffer_minutes").eq("household_id", input.householdId).in("id", teamIds)
-    : { data: [] as Array<{ id: string; arrival_buffer_minutes: number | null }> };
+  const sourceIds = [...new Set(rows.flatMap((row) => row.schedule_source_id ? [row.schedule_source_id] : []))];
+  const [{ data: teamRows }, { data: sourceRows }] = await Promise.all([
+    teamIds.length
+      ? admin.from("corralio_teams").select("id,arrival_buffer_minutes").eq("household_id", input.householdId).in("id", teamIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; arrival_buffer_minutes: number | null }> }),
+    sourceIds.length
+      ? admin.from("corralio_schedule_sources").select("id,arrival_buffer_minutes").eq("household_id", input.householdId).in("id", sourceIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; arrival_buffer_minutes: number | null }> }),
+  ]);
   const teamArrival = new Map((teamRows ?? []).map((team) => [team.id, team.arrival_buffer_minutes]));
+  const sourceArrival = new Map((sourceRows ?? []).map((source) => [source.id, source.arrival_buffer_minutes]));
   const gapResult = selectWhatFitsGap(rows.map((row) => ({
     id: row.id,
     startsAt: row.starts_at,
@@ -220,6 +229,7 @@ export async function computeWhatFits(input: {
     timezone: row.timezone,
     teamId: row.team_id,
     scheduleArrivalAt: row.schedule_arrival_at,
+    sourceArrivalMinutes: row.schedule_source_id ? sourceArrival.get(row.schedule_source_id) ?? null : null,
     teamArrivalMinutes: row.team_id ? teamArrival.get(row.team_id) ?? null : null,
     latitude: row.location_lat,
     longitude: row.location_lng,

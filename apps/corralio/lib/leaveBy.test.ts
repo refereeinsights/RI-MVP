@@ -118,10 +118,10 @@ test("isolates ORS HTTP request and uses longitude-latitude coordinate order", a
   assert.deepEqual(JSON.parse(body).coordinates, [[-122.2, 47.5], [-122.3, 47.6]]);
 });
 
-test("computes leave-by from the absolute start instant and configured buffer", () => {
+test("computes leave-by from the resolved required-arrival instant", () => {
   assert.equal(
     estimatedLeaveByIso("2026-09-05T16:00:00.000Z", 52),
-    "2026-09-05T14:38:00.000Z",
+    "2026-09-05T15:08:00.000Z",
   );
   assert.equal(estimatedLeaveByIso("invalid", 52), null);
 });
