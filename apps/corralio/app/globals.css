@@ -40,6 +40,29 @@ body {
   font-weight: 500;
   -webkit-font-smoothing: antialiased;
 }
+
+.siteFooter { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 18px; padding: 22px 18px 28px; border-top: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: .78rem; text-align: center; }
+.siteFooter p { margin: 0; }
+.siteFooter nav { display: flex; gap: 16px; }
+.siteFooter a { min-height: 44px; display: inline-flex; align-items: center; color: var(--link); font-weight: 750; text-underline-offset: 3px; }
+
+.legalShell { min-height: calc(100vh - 96px); padding: clamp(22px, 5vw, 54px) 18px; background: radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%), var(--background); }
+.legalCard { width: min(100%, 820px); margin: 0 auto; padding: clamp(24px, 5vw, 48px); border: 1px solid var(--border); border-radius: 24px; background: var(--surface); box-shadow: 0 20px 58px var(--shadow); }
+.legalBrand { display: inline-flex; min-height: 48px; align-items: center; border-radius: 8px; }
+.legalHeader { margin: clamp(28px, 5vw, 46px) 0 30px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+.legalHeader h1 { margin: 0; font-size: clamp(2rem, 7vw, 3.25rem); letter-spacing: -.045em; line-height: 1.05; }
+.legalHeader > p:last-child { margin: 12px 0 0; color: var(--muted); font-size: .84rem; }
+.legalContent { display: grid; gap: 26px; line-height: 1.68; }
+.legalContent > p, .legalContent section > p { margin: 0; }
+.legalContent section { display: grid; gap: 10px; }
+.legalContent h2 { margin: 0; font-size: 1.18rem; letter-spacing: -.02em; }
+.legalContent ul { display: grid; gap: 8px; margin: 0; padding-left: 22px; }
+.legalContent a { color: var(--link); font-weight: 700; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.smsOptIn { padding: clamp(20px, 4vw, 28px); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); border-radius: 18px; background: var(--accent-soft); }
+.smsOptIn h2 { font-size: clamp(1.35rem, 4vw, 1.75rem); }
+.smsNumber { white-space: nowrap; }
+.smsOptIn .primaryLinkButton { width: fit-content; margin-top: 6px; }
+.smsLegalLinks { color: var(--muted); font-size: .82rem; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: wait; opacity: .58; }

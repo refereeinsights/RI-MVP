@@ -143,7 +143,15 @@ export function buildHotelPlannerBackfillChunks(start: string, end: string) {
   const chunks: Array<{ start: Date; end: Date }> = [];
   for (let offset = 0; offset < totalDays; offset += HOTELPLANNER_BACKFILL_CHUNK_DAYS) {
     const chunkStart = new Date(startDate.getTime() + offset * 86_400_000);
-    const chunkEnd = new Date(Math.min(endDate.getTime(), chunkStart.getTime() + 6 * 86_400_000));
+    // HP treats purchasedDateEnd as exclusive: the start of that calendar day in UTC. A
+    // date-only string like "08/21/2026" means midnight of Aug 21, so bookings made later
+    // on Aug 21 are excluded. Evidence: the Aug 2026 dry run returned 35 of 40 rows; the
+    // 5 omissions fell on Aug 21 (1) and Aug 28 (4), which were the end days of their chunks.
+    // Fix: send the first instant of the calendar day after the intended last day (half-open
+    // window). Aug 15–21 chunk sends end=Aug 22, Aug 22–28 sends end=Aug 29, Aug 29–31
+    // sends end=Sep 1. Adjacent chunk starts equal the prior chunk end, so no day is lost.
+    const chunkLastDay = new Date(Math.min(endDate.getTime(), chunkStart.getTime() + 6 * 86_400_000));
+    const chunkEnd = new Date(chunkLastDay.getTime() + 86_400_000);
     chunks.push({ start: chunkStart, end: chunkEnd });
   }
   if (chunks.length > HOTELPLANNER_BACKFILL_MAX_CALLS) throw new Error("Backfill exceeds five-call limit");

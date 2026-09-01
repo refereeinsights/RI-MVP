@@ -111,7 +111,7 @@ A new table mapping a verified phone number or email address to a household's us
 - The SMS OTP message contains only the numeric code (and minimal required compliance text, Section 9) — no link.
 - A future opaque, prefetch-resistant one-time authentication-link design may be investigated separately, later, as its own reviewed piece of work — do not build a version of it here under a different name or justification.
 
-**5.4 CAPTCHA on the phone-OTP send endpoint, from day one — necessary but not sufficient.** Use Supabase's native hCaptcha or Cloudflare Turnstile support. This remains a requirement, but CAPTCHA alone is not an acceptable cost/abuse boundary for SMS. Real-volume production phone-OTP send is gated by Section 9 (SMS Production Readiness) exactly like SMS-leg intake — building and testing this endpoint is engineering scope (in scope here); authorizing it to send at production volume to real users is not (governed entirely by Section 9, tracked independently).
+**5.4 CAPTCHA on the phone-OTP send endpoint, from day one — necessary but not sufficient. Founder decision, 2026-08-31: Cloudflare Turnstile is the approved provider for Stage 1 phone authentication.** Use Supabase's native Cloudflare Turnstile support. This selects the provider only and does not authorize Cloudflare/Supabase configuration, phone Auth, deployment, or SMS. CAPTCHA alone is not an acceptable cost/abuse boundary for SMS. Real-volume production phone-OTP send is gated by Section 9 (SMS Production Readiness) exactly like SMS-leg intake — building and testing this endpoint is engineering scope (in scope here); authorizing it to send at production volume to real users is not (governed entirely by Section 9, tracked independently).
 
 **5.5 Optional email on a phone-first account — audit-gated, no API assumption.** Use only a mechanism proven by Task 0 to preserve the same `auth.uid()` safely across add, verify, sign-in, collision, and removal behavior. Do not name or call `linkIdentity()` unless the live SDK/provider audit proves it is the correct supported boundary for this exact phone+email case. A second `auth.users` row, automatic user merge, household reassignment, or custom identity-linking schema is not authorized. If safe same-user email addition is unproven, omit this optional mechanism from Stage 1 and return a bounded founder decision packet; phone-only authentication and SMS intake remain independently valid. Any implemented add/remove operation must synchronize the existing service-only channel-identity mapping without weakening household authorization.
 
@@ -227,6 +227,14 @@ Production SMS — any real-volume send to a real user, whether OTP or intake-re
 ## 10. Execution Gates
 
 Revise implementation into these explicit, sequential gates. Do not proceed past a gate without its output in hand. **These gates cover engineering completion only — they do not include, and cannot substitute for, Section 9's SMS Production Readiness sign-off.**
+
+The durable distributed safety prerequisite is specified by
+`docs/prompts/corralio-gate-3-durable-distributed-safety-state-prompt.md`.
+That prompt is authoritative for the two atomic authorization boundaries, the
+one-use phone send permit, durable test-policy authority, at-most-one Telnyx
+provider-attempt guarantee, permanent test-day segment reservation, and the
+real-PostgreSQL database-verification stop gate. Phase A+B must consume that
+verified boundary; it must not duplicate, weaken, or reinterpret it.
 
 1. **Repository/provider-contract audit.** Re-verify every claim in Section 1 against the current repository state; re-verify Supabase's and Telnyx's current documented contracts for phone auth, Send SMS Hook, and webhook signing.
 2. **Confirm provider configuration, phone geography, and the URL-only intake contract.** Confirm Task 0's findings (Section 3) are current; confirm the URL-only decision (Section 2, Section 6) is reflected in every place the email/SMS copy or parsing logic is drafted.

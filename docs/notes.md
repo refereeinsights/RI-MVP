@@ -14,6 +14,8 @@ Maintenance rules:
 
 ## 2026-09-01
 
+- **TI HotelPlanner backfill boundary bug fixed locally (not committed, dry run not yet executed).** `buildHotelPlannerBackfillChunks` set `chunkEnd` to midnight of the intended last day; HP treats `purchasedDateEnd` as exclusive, so bookings later on Aug 21 (1) and Aug 28 (4) were missed in the dry run (35 of 40). Fix: half-open window — `chunkEnd` is the first instant of the next calendar day. Aug 15–21 sends end=Aug 22; Aug 22–28 sends end=Aug 29; Aug 29–31 sends end=Sep 1. Adjacent chunks abut with no gap. 31-day/5-call/7-day bounds unchanged. 4 new boundary tests added; all 30 hotel tests pass; Referee TypeScript clean. Revenue path unchanged. Corrected August dry run pending separate authorization.
+
 - **TI hotel booking disclosure updated.** Default text in `apps/ti-web/components/AffiliateDisclosure.tsx` replaced with a HotelPlanner-specific disclosure. Names HotelPlanner as the booking provider, states TI may receive a marketing fee, and attributes reservation fulfillment and customer service to HotelPlanner. "At no additional cost to you" intentionally excluded — some HP programs may include per-night fees. No styling, layout, props, placement, calling components, or handoff logic changed. Fanatics callers unaffected. Lint clean.
 
 ## 2026-08-31

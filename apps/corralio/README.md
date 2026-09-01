@@ -20,6 +20,16 @@ npx tsc -p apps/corralio/tsconfig.json --noEmit
 npm run build --workspace corralio-app
 ```
 
+## SMS opt-in activation
+
+The public `/sms` route is deliberately fail-closed. It shows the phone number and consent disclosure only when:
+
+```bash
+CORRALIO_SMS_OPT_IN_ENABLED=true
+```
+
+Do not enable that value until the separately gated Telnyx inbound webhook, durable consent/STOP handling, send gating, provider controls, and production readiness checks are operational. The legal routes remain public regardless of this flag.
+
 ## Vercel
 
-Create a separate Vercel project from this repository and set its root directory to `apps/corralio`. No environment variables are currently required. Domain attachment and DNS changes remain manual steps after a successful deployment.
+Use Corralio's existing separate Vercel project with its root directory set to `apps/corralio`. Domain attachment, DNS changes, and environment changes remain manual steps. Keep `CORRALIO_SMS_OPT_IN_ENABLED` unset until the documented SMS production-readiness gate is complete.
