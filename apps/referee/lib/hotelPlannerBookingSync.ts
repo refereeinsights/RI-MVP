@@ -2,11 +2,25 @@ import { createHmac } from "node:crypto";
 import { unzipSync } from "fflate";
 import { supabaseAdmin } from "./supabaseAdmin";
 import {
+  classifyHotelPlannerStatus,
   collectConfirmedBookingAttributionIds,
+  isTournamentInsightsSource,
   parseHotelPlannerAttributionId,
   reconcileConfirmedBookingAttribution,
   summarizeHotelBookingRows,
 } from "./hotelBookingReconciliation";
+import {
+  HOTELPLANNER_REPORT_DOWNLOAD_TIMEOUT_MS,
+  HOTELPLANNER_REPORT_MAX_COMPRESSED_BYTES,
+  HOTELPLANNER_REPORT_MAX_UNCOMPRESSED_BYTES,
+  HOTELPLANNER_REPORT_MAX_ROWS,
+  HOTELPLANNER_REPORT_REQUEST_TIMEOUT_MS,
+  buildHotelPlannerBackfillChunks,
+  fetchWithTimeout,
+  inspectBoundedXlsxArchive,
+  readBoundedResponse,
+  validateHotelPlannerReportUrl,
+} from "./hotelPlannerReportSafety";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -58,7 +72,7 @@ function buildHeaders(config: HotelPlannerSyncConfig): HeadersInit {
 // ---------------------------------------------------------------------------
 
 function fmtMmDdYyyy(d: Date): string {
-  return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
+  return `${String(d.getUTCMonth() + 1).padStart(2, "0")}/${String(d.getUTCDate()).padStart(2, "0")}/${d.getUTCFullYear()}`;
 }
 
 // Excel serial dates: days since December 30, 1899 (Excel epoch with leap-year bug).
@@ -85,10 +99,21 @@ type GetReportResponse = {
   fileName: string;
 };
 
+export type ReportDateField = "purchased" | "cancelled";
+
+export function buildHotelPlannerReportBody(startDate: Date, endDate: Date, dateField: ReportDateField) {
+  const dateFields = dateField === "cancelled"
+    ? { cancelledDateStart: fmtMmDdYyyy(startDate), cancelledDateEnd: fmtMmDdYyyy(endDate) }
+    : { purchasedDateStart: fmtMmDdYyyy(startDate), purchasedDateEnd: fmtMmDdYyyy(endDate) };
+  return { reportType: "individual", includeCancelled: true, ...dateFields };
+}
+
 async function callGetReport(
   config: HotelPlannerSyncConfig,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  dateField: ReportDateField,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<GetReportResponse> {
   const epoch = Math.floor(Date.now() / 1000);
   const params = new URLSearchParams({
@@ -97,23 +122,17 @@ async function callGetReport(
     customerIPAddress: "10.0.0.1",
     customerUserAgent: "TI-Admin-BookingSync/1.0",
   });
-  const body = {
-    reportType: "individual",
-    purchasedDateStart: fmtMmDdYyyy(startDate),
-    purchasedDateEnd: fmtMmDdYyyy(endDate),
-  };
+  const body = buildHotelPlannerReportBody(startDate, endDate, dateField);
 
-  const resp = await fetch(`${config.baseUrl}/?${params}`, {
+  const resp = await fetchWithTimeout(fetchImpl, `${config.baseUrl}/?${params}`, {
     method: "POST",
     headers: buildHeaders(config),
     body: JSON.stringify(body),
-  });
+  }, HOTELPLANNER_REPORT_REQUEST_TIMEOUT_MS);
 
   const data = await resp.json() as Record<string, unknown>;
   if (!resp.ok || !data.downloadUrl) {
-    throw new Error(
-      `HotelPlanner getReport failed (${resp.status}): ${String(data.message ?? data.text ?? "unknown")}`
-    );
+    throw new Error("HotelPlanner report request failed");
   }
 
   return {
@@ -127,7 +146,7 @@ async function callGetReport(
 // xlsx parsing (inline XML; no external library dependency)
 // ---------------------------------------------------------------------------
 
-type BookingRow = {
+export type BookingRow = {
   itinerary_number: string | null;
   confirmation_number: string | null;
   status: string | null;
@@ -314,16 +333,26 @@ function mapDataRow(row: Record<number, string>, headerIndex: Map<string, number
   };
 }
 
-async function downloadAndParseXlsx(downloadUrl: string): Promise<BookingRow[]> {
-  const resp = await fetch(downloadUrl);
+export async function downloadAndParseXlsx(
+  downloadUrl: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<BookingRow[]> {
+  const reportUrl = validateHotelPlannerReportUrl(downloadUrl);
+  const resp = await fetchWithTimeout(fetchImpl, reportUrl, { redirect: "error" }, HOTELPLANNER_REPORT_DOWNLOAD_TIMEOUT_MS);
   if (!resp.ok) {
-    throw new Error(`Failed to download HotelPlanner report: HTTP ${resp.status}`);
+    throw new Error("HotelPlanner report download failed");
   }
-
-  const buf = new Uint8Array(await resp.arrayBuffer());
+  const contentType = (resp.headers.get("content-type") ?? "").toLowerCase();
+  if (contentType && !contentType.includes("spreadsheet") && !contentType.includes("octet-stream") && !contentType.includes("zip")) {
+    throw new Error("HotelPlanner report content type is invalid");
+  }
+  const buf = await readBoundedResponse(resp, HOTELPLANNER_REPORT_MAX_COMPRESSED_BYTES);
+  inspectBoundedXlsxArchive(buf);
 
   // Extract xl/worksheets/sheet1.xml from the xlsx zip using fflate (pure JS, Vercel-safe)
   const unzipped = unzipSync(buf);
+  const totalUncompressed = Object.values(unzipped).reduce((sum, bytes) => sum + bytes.byteLength, 0);
+  if (totalUncompressed > HOTELPLANNER_REPORT_MAX_UNCOMPRESSED_BYTES) throw new Error("HotelPlanner XLSX archive exceeds uncompressed limit");
   const sheetBytes = unzipped["xl/worksheets/sheet1.xml"];
   if (!sheetBytes) return [];
 
@@ -333,6 +362,7 @@ async function downloadAndParseXlsx(downloadUrl: string): Promise<BookingRow[]> 
 
   const headerIndex = buildHeaderIndex(allRows[0]);
   const dataRows = allRows.slice(1);
+  if (dataRows.length > HOTELPLANNER_REPORT_MAX_ROWS) throw new Error("HotelPlanner report row limit exceeded");
 
   return dataRows
     .map((row) => mapDataRow(row, headerIndex))
@@ -343,9 +373,9 @@ async function downloadAndParseXlsx(downloadUrl: string): Promise<BookingRow[]> 
 // Upsert to ti_hotel_bookings
 // ---------------------------------------------------------------------------
 
-type UpsertRecord = Record<string, unknown>;
+export type UpsertRecord = Record<string, unknown>;
 
-function toUpsertRecord(row: BookingRow, syncedAt: string): UpsertRecord {
+export function toUpsertRecord(row: BookingRow, syncedAt: string): UpsertRecord {
   return {
     itinerary_number:         row.itinerary_number,
     confirmation_number:      row.confirmation_number,
@@ -384,6 +414,15 @@ function toUpsertRecord(row: BookingRow, syncedAt: string): UpsertRecord {
   };
 }
 
+export function toCancellationUpsertRecord(row: BookingRow, syncedAt: string): UpsertRecord {
+  return {
+    itinerary_number: row.itinerary_number,
+    status: row.status,
+    cancel_date: excelSerialToIsoDate(row.cancel_date_serial),
+    synced_at: syncedAt,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -397,68 +436,174 @@ export type BookingSyncResult = {
   updated: number;
   errors: number;
   syncedAt: string;
+  cancellationRefresh: "completed" | "failed";
+  cancellationParsed: number;
 };
 
+type BookingUpsert = (record: UpsertRecord) => Promise<{ error: { message?: string } | null }>;
+
+export async function persistBookingRows(
+  rows: BookingRow[],
+  syncedAt: string,
+  upsert: BookingUpsert,
+  mapRecord: (row: BookingRow, syncedAt: string) => UpsertRecord = toUpsertRecord,
+) {
+  let inserted = 0;
+  let errors = 0;
+  for (const row of rows) {
+    if (!row.itinerary_number) continue;
+    const { error } = await upsert(mapRecord(row, syncedAt));
+    if (error) {
+      errors += 1;
+    } else {
+      inserted += 1;
+    }
+  }
+  if (errors > 0) console.error("[hotel-booking-sync] booking upsert failures");
+  return { inserted, errors };
+}
+
+function databaseUpsert(record: UpsertRecord) {
+  return (supabaseAdmin as any).from("ti_hotel_bookings").upsert(record, {
+    onConflict: "itinerary_number",
+    ignoreDuplicates: false,
+    defaultToNull: false,
+  }) as Promise<{ error: { message?: string } | null }>;
+}
+
+async function fetchReportRows(
+  config: HotelPlannerSyncConfig,
+  startDate: Date,
+  endDate: Date,
+  dateField: ReportDateField,
+  fetchImpl: typeof fetch = fetch,
+) {
+  const report = await callGetReport(config, startDate, endDate, dateField, fetchImpl);
+  const rows = await downloadAndParseXlsx(report.downloadUrl, fetchImpl);
+  return { report, rows };
+}
+
 export async function syncHotelPlannerBookings(lookbackDays = 7): Promise<BookingSyncResult> {
+  if (!Number.isInteger(lookbackDays) || lookbackDays < 1 || lookbackDays > 31) {
+    throw new Error("HotelPlanner sync lookback must be 1-31 days");
+  }
   const config = loadConfig();
   const now = new Date();
   const startDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
   const syncedAt = now.toISOString();
 
-  const report = await callGetReport(config, startDate, now);
-  const rows = await downloadAndParseXlsx(report.downloadUrl);
+  const purchase = await fetchReportRows(config, startDate, now, "purchased");
+  const purchasePersisted = await persistBookingRows(purchase.rows, syncedAt, databaseUpsert);
 
-  let inserted = 0;
-  let updated = 0;
-  let errors = 0;
-
-  for (const row of rows) {
-    if (!row.itinerary_number) continue;
-    const record = toUpsertRecord(row, syncedAt);
-
-    const { error } = await (supabaseAdmin as any)
-      .from("ti_hotel_bookings")
-      .upsert(record, {
-        onConflict: "itinerary_number",
-        ignoreDuplicates: false,
-      });
-
-    if (error) {
-      console.error("[hotel-booking-sync] upsert error", {
-        itinerary_number: row.itinerary_number,
-        error: error.message,
-      });
-      errors += 1;
-    } else {
-      // Supabase upsert doesn't distinguish insert vs update; track total successes
-      inserted += 1;
-    }
+  let cancellationRefresh: BookingSyncResult["cancellationRefresh"] = "completed";
+  let cancellationParsed = 0;
+  let cancellationPersisted = { inserted: 0, errors: 0 };
+  try {
+    const cancellationStart = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+    const cancellation = await fetchReportRows(config, cancellationStart, now, "cancelled");
+    cancellationParsed = cancellation.rows.length;
+    cancellationPersisted = await persistBookingRows(
+      cancellation.rows,
+      syncedAt,
+      databaseUpsert,
+      toCancellationUpsertRecord,
+    );
+  } catch {
+    cancellationRefresh = "failed";
+    console.error("[hotel-booking-sync] cancellation refresh failed");
   }
 
   return {
     lookbackDays,
     reportFetched: true,
-    recordCount: report.recordCount,
-    parsed: rows.length,
-    inserted,
-    updated,
-    errors,
+    recordCount: purchase.report.recordCount,
+    parsed: purchase.rows.length,
+    inserted: purchasePersisted.inserted + cancellationPersisted.inserted,
+    updated: 0,
+    errors: purchasePersisted.errors + cancellationPersisted.errors,
     syncedAt,
+    cancellationRefresh,
+    cancellationParsed,
   };
+}
+
+export type HotelPlannerBackfillResult = {
+  mode: "dry-run" | "apply";
+  chunks: number;
+  providerCalls: number;
+  parsed: number;
+  persisted: number;
+  errors: number;
+};
+
+type BackfillChunk = { start: Date; end: Date };
+
+export async function executeHotelPlannerHistoricalBackfill(input: {
+  chunks: BackfillChunk[];
+  apply: boolean;
+  confirmedDryRun: boolean;
+  fetchChunk: (chunk: BackfillChunk) => Promise<BookingRow[]>;
+  persistRows: (rows: BookingRow[]) => Promise<{ inserted: number; errors: number }>;
+}): Promise<HotelPlannerBackfillResult> {
+  if (input.apply && !input.confirmedDryRun) throw new Error("Backfill apply requires prior dry-run confirmation");
+  let parsed = 0;
+  let persisted = 0;
+  let errors = 0;
+  for (const chunk of input.chunks) {
+    // Deliberately sequential. Any thrown provider/download/parser/persistence
+    // error stops the run immediately; this operator path has no retry loop.
+    const rows = await input.fetchChunk(chunk);
+    parsed += rows.length;
+    if (input.apply) {
+      const saved = await input.persistRows(rows);
+      persisted += saved.inserted;
+      errors += saved.errors;
+      if (saved.errors > 0) throw new Error("HotelPlanner backfill persistence failed");
+    }
+  }
+  return {
+    mode: input.apply ? "apply" : "dry-run",
+    chunks: input.chunks.length,
+    providerCalls: input.chunks.length,
+    parsed,
+    persisted,
+    errors,
+  };
+}
+
+export async function runHotelPlannerHistoricalBackfill(input: {
+  start: string;
+  end: string;
+  apply?: boolean;
+  confirmedDryRun?: boolean;
+}): Promise<HotelPlannerBackfillResult> {
+  const chunks = buildHotelPlannerBackfillChunks(input.start, input.end);
+  const config = loadConfig();
+  const syncedAt = new Date().toISOString();
+  return executeHotelPlannerHistoricalBackfill({
+    chunks,
+    apply: Boolean(input.apply),
+    confirmedDryRun: Boolean(input.confirmedDryRun),
+    fetchChunk: async (chunk) => (await fetchReportRows(config, chunk.start, chunk.end, "purchased")).rows,
+    persistRows: (rows) => persistBookingRows(rows, syncedAt, databaseUpsert),
+  });
 }
 
 export type HotelBookingSummary = {
   confirmedCount: number;
   cancelledCount: number;
-  pendingCount: number;
+  otherCount: number;
+  unknownCount: number;
+  otherSourceCount: number;
   // Attribution breakdown (confirmed bookings only)
   reconciliationStatus: "available" | "unavailable";
   matchedCount: number | null;
   orphanedValidTokenCount: number | null;
-  missingTokenCount: number;
-  invalidTokenCount: number;
-  totalBookingValueUsd: number;
-  expectedCommissionUsd: number;
+  missingTokenCount: number | null;
+  invalidTokenCount: number | null;
+  confirmedBookingValueUsd: number;
+  confirmedExpectedCommissionUsd: number;
+  providerReportedPaidCommissionUsd: number;
   topTournamentSlugs: Array<{ slug: string; count: number }>;
   // Sync freshness — null when ti_hotel_bookings has no rows yet
   lastSyncedAt: string | null;
@@ -470,14 +615,17 @@ export async function loadHotelBookingSummary(windowDays = 7): Promise<HotelBook
   const empty: HotelBookingSummary = {
     confirmedCount: 0,
     cancelledCount: 0,
-    pendingCount: 0,
+    otherCount: 0,
+    unknownCount: 0,
+    otherSourceCount: 0,
     reconciliationStatus: "available",
     matchedCount: 0,
     orphanedValidTokenCount: 0,
     missingTokenCount: 0,
     invalidTokenCount: 0,
-    totalBookingValueUsd: 0,
-    expectedCommissionUsd: 0,
+    confirmedBookingValueUsd: 0,
+    confirmedExpectedCommissionUsd: 0,
+    providerReportedPaidCommissionUsd: 0,
     topTournamentSlugs: [],
     lastSyncedAt: null,
   };
@@ -485,7 +633,7 @@ export async function loadHotelBookingSummary(windowDays = 7): Promise<HotelBook
   const [windowResult, syncResult] = await Promise.all([
     (supabaseAdmin as any)
       .from("ti_hotel_bookings")
-      .select("status,total_usd,expected_commission_usd,custom2,custom3,outbound_attribution_id")
+      .select("status,source,total_usd,expected_commission_usd,paid_commission_usd,custom2,custom3,outbound_attribution_id")
       .gte("purchased_at", cutoff),
     (supabaseAdmin as any)
       .from("ti_hotel_bookings")
@@ -502,8 +650,10 @@ export async function loadHotelBookingSummary(windowDays = 7): Promise<HotelBook
 
   const rows = (windowResult.data ?? []) as Array<{
     status: string | null;
+    source: string | null;
     total_usd: number | null;
     expected_commission_usd: number | null;
+    paid_commission_usd: number | null;
     custom2: string | null;
     custom3: string | null;
     outbound_attribution_id: string | null;
@@ -534,14 +684,17 @@ export async function loadHotelBookingSummary(windowDays = 7): Promise<HotelBook
   return {
     confirmedCount: totals.confirmedCount,
     cancelledCount: totals.cancelledCount,
-    pendingCount: totals.pendingCount,
+    otherCount: totals.otherCount,
+    unknownCount: totals.unknownCount,
+    otherSourceCount: totals.otherSourceCount,
     reconciliationStatus: reconciliation.status,
     matchedCount: reconciliation.matchedCount,
     orphanedValidTokenCount: reconciliation.orphanedValidTokenCount,
     missingTokenCount: reconciliation.missingTokenCount,
     invalidTokenCount: reconciliation.invalidTokenCount,
-    totalBookingValueUsd: totals.totalBookingValueUsd,
-    expectedCommissionUsd: totals.expectedCommissionUsd,
+    confirmedBookingValueUsd: totals.confirmedBookingValueUsd,
+    confirmedExpectedCommissionUsd: totals.confirmedExpectedCommissionUsd,
+    providerReportedPaidCommissionUsd: totals.providerReportedPaidCommissionUsd,
     topTournamentSlugs: totals.topTournamentSlugs,
     lastSyncedAt,
   };
@@ -573,7 +726,7 @@ export type HotelBookingLifetimeSummary = {
 export async function loadHotelBookingLifetimeSummary(): Promise<HotelBookingLifetimeSummary> {
   const { data, error } = await (supabaseAdmin as any)
     .from("ti_hotel_bookings")
-    .select("status,total_usd,expected_commission_usd,paid_commission_usd,custom2,hotel_name,purchased_at")
+    .select("status,source,total_usd,expected_commission_usd,paid_commission_usd,custom2,hotel_name,purchased_at")
     .order("purchased_at", { ascending: true });
 
   if (error) {
@@ -595,6 +748,7 @@ export async function loadHotelBookingLifetimeSummary(): Promise<HotelBookingLif
 
   const rows = (data ?? []) as Array<{
     status: string | null;
+    source: string | null;
     total_usd: number | null;
     expected_commission_usd: number | null;
     paid_commission_usd: number | null;
@@ -613,15 +767,20 @@ export async function loadHotelBookingLifetimeSummary(): Promise<HotelBookingLif
   const hotelTotals = new Map<string, { count: number; totalUsd: number }>();
   let earliestPurchasedAt: string | null = null;
   let latestPurchasedAt: string | null = null;
+  let totalCount = 0;
 
   for (const row of rows) {
-    const status = (row.status ?? "").toLowerCase();
-    if (status === "confirmed") confirmedCount += 1;
-    else if (status.includes("cancel")) cancelledCount += 1;
+    if (!isTournamentInsightsSource(row.source)) continue;
+    totalCount += 1;
+    const status = classifyHotelPlannerStatus(row.status);
+    if (status === "confirmed") {
+      confirmedCount += 1;
+      totalBookingValueUsd += Number(row.total_usd ?? 0);
+      expectedCommissionUsd += Number(row.expected_commission_usd ?? 0);
+    }
+    else if (status === "cancelled") cancelledCount += 1;
     else pendingCount += 1;
 
-    totalBookingValueUsd += Number(row.total_usd ?? 0);
-    expectedCommissionUsd += Number(row.expected_commission_usd ?? 0);
     paidCommissionUsd += Number(row.paid_commission_usd ?? 0);
 
     if (row.purchased_at) {
@@ -629,13 +788,14 @@ export async function loadHotelBookingLifetimeSummary(): Promise<HotelBookingLif
       if (!latestPurchasedAt || row.purchased_at > latestPurchasedAt) latestPurchasedAt = row.purchased_at;
     }
 
-    const slug = (row.custom2 ?? "").trim();
-    if (slug) slugCounts.set(slug, (slugCounts.get(slug) ?? 0) + 1);
-
-    const hotel = (row.hotel_name ?? "").trim();
-    if (hotel) {
-      const existing = hotelTotals.get(hotel) ?? { count: 0, totalUsd: 0 };
-      hotelTotals.set(hotel, { count: existing.count + 1, totalUsd: existing.totalUsd + Number(row.total_usd ?? 0) });
+    if (status === "confirmed") {
+      const slug = (row.custom2 ?? "").trim();
+      if (slug) slugCounts.set(slug, (slugCounts.get(slug) ?? 0) + 1);
+      const hotel = (row.hotel_name ?? "").trim();
+      if (hotel) {
+        const existing = hotelTotals.get(hotel) ?? { count: 0, totalUsd: 0 };
+        hotelTotals.set(hotel, { count: existing.count + 1, totalUsd: existing.totalUsd + Number(row.total_usd ?? 0) });
+      }
     }
   }
 
@@ -650,7 +810,7 @@ export async function loadHotelBookingLifetimeSummary(): Promise<HotelBookingLif
     .map(([name, { count, totalUsd }]) => ({ name, count, totalUsd }));
 
   return {
-    totalCount: rows.length,
+    totalCount,
     confirmedCount,
     cancelledCount,
     pendingCount,

@@ -1,7 +1,7 @@
 import { sendEmailAlert } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadHotelBookingSummary, type HotelBookingSummary } from "@/lib/hotelPlannerBookingSync";
-import { calculateMatchedBookingConversion } from "@/lib/hotelBookingReconciliation";
+import { calculateAttributionCoverage } from "@/lib/hotelBookingReconciliation";
 
 // ---------------------------------------------------------------------------
 // Recipients / base URL
@@ -286,31 +286,42 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
 
   // 3. Hotels
   const syncLine = `<div style="${MUTED_STYLE}">Hotel booking data last synced: ${escapeHtml(formatTimestamp(b.lastSyncedAt, pt))}</div>`;
-  const matchedConversion = calculateMatchedBookingConversion({
+  const attributionCoverage = calculateAttributionCoverage({
     reconciliationStatus: b.reconciliationStatus,
     matchedCount: b.matchedCount,
-    handoffCount: hh.current,
+    confirmedTiSourceCount: b.confirmedCount,
   });
-  const conversionRate = b.reconciliationStatus === "unavailable"
+  const coverageRate = b.reconciliationStatus === "unavailable"
     ? "Unavailable"
-    : matchedConversion === null ? "—" : `${matchedConversion}%`;
+    : attributionCoverage === null ? "—" : `${attributionCoverage}%`;
+  const internallyUnmatched = b.reconciliationStatus === "available"
+    ? (b.orphanedValidTokenCount ?? 0) + (b.missingTokenCount ?? 0) + (b.invalidTokenCount ?? 0)
+    : null;
 
   const hotelsContent = [
-    row(`Hotel handoffs (${w}d, distinct)`, hh.current, trendLabel(hh.current, hh.prev, w)),
-    row("Confirmed bookings", b.confirmedCount),
+    `<div style="${MUTED_STYLE}">Commercial truth: normalized HotelPlanner Source = TournamentInsights</div>`,
+    row("Confirmed bookings", b.confirmedCount, "TournamentInsights source"),
+    row("Cancelled bookings", b.cancelledCount),
+    row("Other / unknown statuses", b.otherCount + b.unknownCount),
+    row("Confirmed booking value", formatUsd(b.confirmedBookingValueUsd), "not revenue"),
+    row("Confirmed expected commission", formatUsd(b.confirmedExpectedCommissionUsd), "not paid commission"),
+    row("Provider-reported paid commission — all provider statuses", formatUsd(b.providerReportedPaidCommissionUsd)),
+    row("Room nights", "UNPROVEN"),
+    row("HotelPlanner arrival", "UNOBSERVABLE", "redirect does not prove provider arrival"),
     b.confirmedCount > 0 ? [
       b.reconciliationStatus === "available"
-        ? row("  · Matched TI", b.matchedCount ?? 0, "valid Custom3 → persisted outbound join")
+        ? row("Deterministically matched", b.matchedCount ?? 0, "valid Custom3 → persisted outbound join")
         : row("  · Attribution reconciliation", "Unavailable", "outbound lookup failed"),
+      b.reconciliationStatus === "available" ? row("Internally unmatched", internallyUnmatched ?? 0) : "",
+      row("Attribution coverage", coverageRate),
       b.reconciliationStatus === "available" && (b.orphanedValidTokenCount ?? 0) > 0
-        ? row("  · Orphaned valid token", b.orphanedValidTokenCount ?? 0, "valid Custom3 without an outbound match") : "",
-      row("  · Missing token", b.missingTokenCount, "no Custom3"),
-      b.invalidTokenCount > 0 ? row("  · Invalid token", b.invalidTokenCount, "non-empty Custom3 with invalid format") : "",
+        ? row("  · Orphaned valid token", b.orphanedValidTokenCount ?? 0) : "",
+      b.reconciliationStatus === "available" ? row("  · Missing token", b.missingTokenCount ?? 0) : "",
+      b.reconciliationStatus === "available" && (b.invalidTokenCount ?? 0) > 0
+        ? row("  · Invalid token", b.invalidTokenCount ?? 0) : "",
     ].join("") : "",
-    row("Cancelled bookings", b.cancelledCount),
-    row("Tracked handoff → booking conversion", conversionRate),
-    b.expectedCommissionUsd > 0 ? row("Expected commission", formatUsd(b.expectedCommissionUsd)) : "",
-    b.totalBookingValueUsd > 0 ? row("Total booking value", formatUsd(b.totalBookingValueUsd)) : "",
+    row(`Diagnostic hotel handoffs (${w}d, distinct)`, hh.current, trendLabel(hh.current, hh.prev, w)),
+    b.otherSourceCount > 0 ? row("Other HotelPlanner Sources", b.otherSourceCount) : "",
     b.topTournamentSlugs.length > 0
       ? `<div style="${MUTED_STYLE}">Top tournaments: ${b.topTournamentSlugs.map((s) => `${escapeHtml(s.slug)} (${s.count})`).join(", ")}</div>`
       : "",
@@ -351,7 +362,7 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
   }
   if (b.reconciliationStatus === "unavailable") alerts.push("Hotel booking attribution reconciliation is unavailable. Booking totals are preserved; matched conversion is suppressed.");
   if ((b.orphanedValidTokenCount ?? 0) > 0) alerts.push(`${b.orphanedValidTokenCount} booking(s) have a valid Custom3 token without a persisted TI outbound match.`);
-  if (b.invalidTokenCount > 0) alerts.push(`${b.invalidTokenCount} booking(s) have a non-empty Custom3 value with an invalid attribution-token format.`);
+  if ((b.invalidTokenCount ?? 0) > 0) alerts.push(`${b.invalidTokenCount} booking(s) have a non-empty Custom3 value with an invalid attribution-token format.`);
 
   const alertsContent = alerts.length > 0
     ? alerts.map((a) => `<div style="font-size:13px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;margin-bottom:6px;">${escapeHtml(a)}</div>`).join("")
@@ -390,15 +401,21 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
     `  Tournament page views (${w}d): ${tr.current} ${trafficTrend}`,
     "",
     "3. Hotels",
-    `  Hotel handoffs (${w}d, distinct): ${hh.current} ${trendLabel(hh.current, hh.prev, w)}`,
+    "  Commercial truth: normalized HotelPlanner Source = TournamentInsights",
     `  Confirmed bookings: ${b.confirmedCount}`,
-    b.confirmedCount > 0 && b.reconciliationStatus === "available" ? `    · Matched TI: ${b.matchedCount ?? 0}` : "",
+    `  Cancelled bookings: ${b.cancelledCount}`,
+    `  Other / unknown statuses: ${b.otherCount + b.unknownCount}`,
+    `  Confirmed booking value: ${formatUsd(b.confirmedBookingValueUsd)} (not revenue)`,
+    `  Confirmed expected commission: ${formatUsd(b.confirmedExpectedCommissionUsd)}`,
+    `  Provider-reported paid commission — all provider statuses: ${formatUsd(b.providerReportedPaidCommissionUsd)}`,
+    "  Room nights: UNPROVEN",
+    "  HotelPlanner arrival: UNOBSERVABLE",
+    b.confirmedCount > 0 && b.reconciliationStatus === "available" ? `    · Deterministically matched: ${b.matchedCount ?? 0}` : "",
     b.confirmedCount > 0 && b.reconciliationStatus === "unavailable" ? "    · Attribution reconciliation: Unavailable" : "",
-    b.confirmedCount > 0 && b.reconciliationStatus === "available" ? `    · Orphaned valid token: ${b.orphanedValidTokenCount ?? 0}` : "",
-    b.confirmedCount > 0 ? `    · Missing token: ${b.missingTokenCount}` : "",
-    b.invalidTokenCount > 0 ? `    · Invalid token: ${b.invalidTokenCount}` : "",
-    `  Matched conversion: ${conversionRate}`,
-    b.expectedCommissionUsd > 0 ? `  Expected commission: ${formatUsd(b.expectedCommissionUsd)}` : "",
+    b.confirmedCount > 0 && b.reconciliationStatus === "available" ? `    · Internally unmatched: ${internallyUnmatched ?? 0}` : "",
+    `    · Attribution coverage: ${coverageRate}`,
+    `  Diagnostic hotel handoffs (${w}d, distinct): ${hh.current} ${trendLabel(hh.current, hh.prev, w)}`,
+    b.otherSourceCount > 0 ? `  Other HotelPlanner Sources: ${b.otherSourceCount}` : "",
     `  Hotel booking data last synced: ${formatTimestamp(b.lastSyncedAt, pt)}`,
     "",
     "4. Planning",

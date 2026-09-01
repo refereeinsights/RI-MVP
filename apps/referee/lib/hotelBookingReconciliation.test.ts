@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 
 import {
   collectConfirmedBookingAttributionIds,
-  calculateMatchedBookingConversion,
+  calculateAttributionCoverage,
+  classifyHotelPlannerStatus,
+  isTournamentInsightsSource,
   reconcileConfirmedBookingAttribution,
   summarizeHotelBookingRows,
 } from "./hotelBookingReconciliation";
@@ -12,11 +14,12 @@ const MATCHED_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const ORPHANED_ID = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 const rows = [
-  { status: "confirmed", custom3: `attr:${MATCHED_ID}` },
-  { status: "confirmed", custom3: `attr:${ORPHANED_ID}` },
-  { status: "confirmed", custom3: null },
-  { status: "confirmed", custom3: "not-a-token" },
-  { status: "cancelled", custom3: `attr:${MATCHED_ID}` },
+  { status: "Confirmed", source: " TournamentInsights ", custom3: `attr:${MATCHED_ID}` },
+  { status: "confirmed", source: "tournamentinsights", custom3: `attr:${ORPHANED_ID}` },
+  { status: "confirmed", source: "TournamentInsights", custom3: null },
+  { status: "confirmed", source: "TournamentInsights", custom3: "not-a-token" },
+  { status: "cancelled", source: "TournamentInsights", custom3: `attr:${MATCHED_ID}` },
+  { status: "confirmed", source: "AnotherPartner", custom3: `attr:${MATCHED_ID}` },
 ];
 
 test("classifies confirmed bookings by actual outbound matches", () => {
@@ -32,8 +35,8 @@ test("classifies confirmed bookings by actual outbound matches", () => {
   assert.equal(
     (reconciliation.matchedCount ?? 0) +
       (reconciliation.orphanedValidTokenCount ?? 0) +
-      reconciliation.missingTokenCount +
-      reconciliation.invalidTokenCount,
+      (reconciliation.missingTokenCount ?? 0) +
+      (reconciliation.invalidTokenCount ?? 0),
     4
   );
 });
@@ -47,25 +50,25 @@ test("marks reconciliation unavailable without misclassifying valid tokens", () 
     status: "unavailable",
     matchedCount: null,
     orphanedValidTokenCount: null,
-    missingTokenCount: 1,
-    invalidTokenCount: 1,
+    missingTokenCount: null,
+    invalidTokenCount: null,
   });
 });
 
-test("suppresses matched conversion when outbound reconciliation is unavailable", () => {
+test("publishes attribution coverage only when outbound reconciliation is available", () => {
   assert.equal(
-    calculateMatchedBookingConversion({
+    calculateAttributionCoverage({
       reconciliationStatus: "unavailable",
       matchedCount: null,
-      handoffCount: 10,
+      confirmedTiSourceCount: 10,
     }),
     null
   );
   assert.equal(
-    calculateMatchedBookingConversion({
+    calculateAttributionCoverage({
       reconciliationStatus: "available",
       matchedCount: 2,
-      handoffCount: 10,
+      confirmedTiSourceCount: 10,
     }),
     20
   );
@@ -74,8 +77,8 @@ test("suppresses matched conversion when outbound reconciliation is unavailable"
 test("does not let non-confirmed bookings change attribution totals", () => {
   const reconciliation = reconcileConfirmedBookingAttribution(
     [
-      { status: "cancelled", custom3: null },
-      { status: "pending", custom3: "invalid" },
+      { status: "cancelled", source: "TournamentInsights", custom3: null },
+      { status: "pending", source: "TournamentInsights", custom3: "invalid" },
     ],
     new Set()
   );
@@ -89,23 +92,35 @@ test("does not let non-confirmed bookings change attribution totals", () => {
   });
 });
 
-test("preserves booking status, money, and tournament totals", () => {
+test("uses exact Source and status cohorts for commercial truth", () => {
   assert.deepEqual(
     summarizeHotelBookingRows([
-      { status: "confirmed", custom3: null, custom2: "cup-a", total_usd: 125, expected_commission_usd: 12.5 },
-      { status: "cancelled", custom3: null, custom2: "cup-a", total_usd: 0, expected_commission_usd: 0 },
-      { status: "pending", custom3: null, custom2: "cup-b", total_usd: 80, expected_commission_usd: 8 },
+      { status: "confirmed", source: "TournamentInsights", custom3: null, custom2: "cup-a", total_usd: 125, expected_commission_usd: 12.5, paid_commission_usd: 1 },
+      { status: "cancelled", source: " tournamentinsights ", custom3: null, custom2: "cup-a", total_usd: 900, expected_commission_usd: 90, paid_commission_usd: 2 },
+      { status: "pending", source: "TOURNAMENTINSIGHTS", custom3: null, custom2: "cup-b", total_usd: 80, expected_commission_usd: 8, paid_commission_usd: 3 },
+      { status: null, source: "TournamentInsights", custom3: null, custom2: "cup-c", total_usd: 40, expected_commission_usd: 4, paid_commission_usd: 4 },
+      { status: "confirmed", source: "Other", custom3: null, custom2: "cup-z", total_usd: 500, expected_commission_usd: 50, paid_commission_usd: 50 },
     ]),
     {
       confirmedCount: 1,
       cancelledCount: 1,
-      pendingCount: 1,
-      totalBookingValueUsd: 205,
-      expectedCommissionUsd: 20.5,
-      topTournamentSlugs: [
-        { slug: "cup-a", count: 2 },
-        { slug: "cup-b", count: 1 },
-      ],
+      otherCount: 1,
+      unknownCount: 1,
+      confirmedBookingValueUsd: 125,
+      confirmedExpectedCommissionUsd: 12.5,
+      providerReportedPaidCommissionUsd: 10,
+      otherSourceCount: 1,
+      topTournamentSlugs: [{ slug: "cup-a", count: 1 }],
     }
   );
+});
+
+test("normalizes Source narrowly and does not invent status mappings", () => {
+  assert.equal(isTournamentInsightsSource(" TournamentInsights "), true);
+  assert.equal(isTournamentInsightsSource("Tournament Insights"), false);
+  assert.equal(isTournamentInsightsSource(null), false);
+  assert.equal(classifyHotelPlannerStatus("Confirmed"), "confirmed");
+  assert.equal(classifyHotelPlannerStatus("Cancelled"), "cancelled");
+  assert.equal(classifyHotelPlannerStatus("Cancellation Pending"), "other");
+  assert.equal(classifyHotelPlannerStatus(""), "unknown");
 });
