@@ -16,12 +16,8 @@ export function AffiliateDisclosure({ className, children }: Props) {
         lineHeight: 1.35,
       }}
     >
-      {children ?? (
-        <>
-          This page may contain affiliate links. TournamentInsights may earn a commission if you purchase through these links, at no
-          additional cost to you.
-        </>
-      )}
+      {children ??
+        "Hotel Booking Disclosure: Hotel booking is provided by HotelPlanner. TournamentInsights may receive a marketing fee for qualifying reservations. Reservations and reservation customer service are handled by HotelPlanner."}
     </div>
   );
 }
