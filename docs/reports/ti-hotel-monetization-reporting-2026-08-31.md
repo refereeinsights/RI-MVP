@@ -4,7 +4,7 @@ Date: 2026-08-31
 
 ## Verdict
 
-`PASS — AUTHORIZE AUGUST DRY RUN`
+`PASS — AUGUST DRY RUN COMPLETED; REVIEW VARIANCE BEFORE PERSISTENCE`
 
 Downstream HotelPlanner synchronization and reporting were hardened without changing any customer-facing acquisition, search, handoff, redirect, attribution-generation, fee, fallback, or commercial-routing path.
 
@@ -20,6 +20,8 @@ The corrected post-implementation validation was completed offline after the imp
 - `SEPTEMBER SCORECARD: READY` for the existing daily delivery of a rolling seven-day scorecard
 
 This validation made zero HotelPlanner calls, zero production database reads, and zero production writes. It used repository inspection, deterministic tests, and the previously completed aggregate-only cancellation diagnostic. It did not add a weekly snapshot, cron, reporting table, analytics store, or customer-facing behavior.
+
+The subsequently authorized August dry run is recorded separately below; it made the five planned read-only provider calls and still made zero database writes.
 
 ## Stage A gate
 
@@ -119,7 +121,22 @@ Only after separately reviewing that dry-run and separately authorizing producti
 TSX_TSCONFIG_PATH=apps/referee/tsconfig.json node --env-file=.env.local --env-file=apps/ti-web/.env.local --import tsx scripts/ops/backfill-hotelplanner-bookings.ts --start 2026-08-01 --end 2026-08-31 --apply --confirm-dry-run
 ```
 
-The implementation enforces 31 purchased-date days maximum, sequential chunks of at most seven days, five calls maximum, no concurrency, no retry, aggregate-only output, dry-run by default, explicit prior-dry-run confirmation for apply, and immediate stop on the first provider/download/parser/persistence failure. The dry run itself was not executed because it requires separate authorization and would make five live provider report calls. No production backfill was executed.
+The implementation enforces 31 purchased-date days maximum, sequential chunks of at most seven days, five calls maximum, no concurrency, no retry, aggregate-only output, dry-run by default, explicit prior-dry-run confirmation for apply, and immediate stop on the first provider/download/parser/persistence failure.
+
+The founder-authorized dry run was executed on 2026-09-01. Its aggregate result was:
+
+```text
+mode: dry-run
+chunks: 5
+provider calls: 5
+parsed rows: 35
+persisted rows: 0
+errors: 0
+```
+
+The first attempt made zero provider calls because the operator wrapper's top-level `await` was incompatible with the repository's CommonJS transform. The wrapper was corrected to use an async `main()` with a constant, payload-free failure message, after which the authorized run completed successfully.
+
+The 35 current provider rows differ from the previously captured 40-row August baseline. The dry run intentionally exposed no row-level data, so the cause is not established. It may reflect later provider reservation-state corrections or report-cohort behavior, but that must not be inferred. No production backfill was executed, and persistence should remain unauthorized until the aggregate variance is reviewed.
 
 ## September scorecard readiness
 
@@ -163,4 +180,4 @@ The 10,000-row ceiling is conservative against observed volumes (8 rows in the b
 - no push;
 - unrelated working-tree changes preserved.
 
-Next decision: `AUTHORIZE AUGUST DRY RUN`. That authorization would permit the five sequential read-only provider report calls shown above, but still would not authorize persistence. If checkout attribution coverage remains materially weaker than search/property coverage, prepare a separate attribution-only audit/patch; do not combine it with commercial routing.
+Next decision: review the aggregate 35-versus-40 baseline variance before authorizing August persistence. If persistence is later authorized, the existing `--apply --confirm-dry-run` boundary will upsert only `ti_hotel_bookings`. If checkout attribution coverage remains materially weaker than search/property coverage, prepare a separate attribution-only audit/patch; do not combine it with commercial routing.

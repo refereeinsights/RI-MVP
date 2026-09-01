@@ -5,14 +5,21 @@ function valueAfter(name: string) {
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
-const start = valueAfter("--start");
-const end = valueAfter("--end");
-const apply = process.argv.includes("--apply");
-const confirmedDryRun = process.argv.includes("--confirm-dry-run");
+async function main() {
+  const start = valueAfter("--start");
+  const end = valueAfter("--end");
+  const apply = process.argv.includes("--apply");
+  const confirmedDryRun = process.argv.includes("--confirm-dry-run");
 
-if (!start || !end) {
-  throw new Error("Usage requires --start YYYY-MM-DD --end YYYY-MM-DD");
+  if (!start || !end) {
+    throw new Error("Usage requires --start YYYY-MM-DD --end YYYY-MM-DD");
+  }
+
+  const result = await runHotelPlannerHistoricalBackfill({ start, end, apply, confirmedDryRun });
+  process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-const result = await runHotelPlannerHistoricalBackfill({ start, end, apply, confirmedDryRun });
-process.stdout.write(`${JSON.stringify(result)}\n`);
+void main().catch(() => {
+  console.error("HotelPlanner backfill operator command failed.");
+  process.exitCode = 1;
+});
