@@ -3,6 +3,11 @@
 import Script from "next/script";
 import { FormEvent, useCallback, useRef, useState } from "react";
 
+import {
+  claimFreshTurnstileToken,
+  type Gate3TurnstileTokenState,
+} from "@/lib/sms/turnstileDiagnostics";
+
 type TurnstileApi = {
   render(element: HTMLElement, options: {
     sitekey: string;
@@ -21,8 +26,10 @@ declare global {
 export function Gate3IsolatedClient({ siteKey }: { siteKey: string }) {
   const container = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string>();
+  const tokenState = useRef<Gate3TurnstileTokenState | null>(null);
+  const submissionInFlight = useRef(false);
   const [phone, setPhone] = useState("");
-  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaReady, setCaptchaReady] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitting" | "pending" | "denied">("idle");
 
   const renderWidget = useCallback(() => {
@@ -30,28 +37,51 @@ export function Gate3IsolatedClient({ siteKey }: { siteKey: string }) {
     widgetId.current = window.turnstile.render(container.current, {
       sitekey: siteKey,
       action: "corralio_gate3_phone_auth",
-      callback(token) { setCaptchaToken(token); },
-      "expired-callback"() { setCaptchaToken(""); },
-      "error-callback"() { setCaptchaToken(""); setStatus("denied"); },
+      callback(token) {
+        tokenState.current = { token, issuedAtMs: Date.now(), claimed: false };
+        setCaptchaReady(true);
+      },
+      "expired-callback"() {
+        tokenState.current = null;
+        setCaptchaReady(false);
+      },
+      "error-callback"() {
+        tokenState.current = null;
+        setCaptchaReady(false);
+        setStatus("denied");
+      },
     });
   }, [siteKey]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!captchaToken || status === "submitting") return;
+    if (submissionInFlight.current) return;
+    const claim = claimFreshTurnstileToken(tokenState.current, Date.now());
+    if (claim.category !== "ready") {
+      tokenState.current = null;
+      setCaptchaReady(false);
+      setStatus("denied");
+      if (widgetId.current) window.turnstile?.reset(widgetId.current);
+      return;
+    }
+    submissionInFlight.current = true;
+    tokenState.current = claim.nextState;
+    setCaptchaReady(false);
     setStatus("submitting");
     try {
       const response = await fetch("/api/gate3/otp/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, captchaToken }),
+        body: JSON.stringify({ phone, captchaToken: claim.token }),
       });
       const result = await response.json() as { status?: unknown };
       setStatus(response.ok && result.status === "pending" ? "pending" : "denied");
     } catch {
       setStatus("denied");
     } finally {
-      setCaptchaToken("");
+      submissionInFlight.current = false;
+      tokenState.current = null;
+      setCaptchaReady(false);
       if (widgetId.current) window.turnstile?.reset(widgetId.current);
     }
   }
@@ -79,7 +109,7 @@ export function Gate3IsolatedClient({ siteKey }: { siteKey: string }) {
           style={{ display: "block", margin: "0.5rem 0 1rem", minHeight: "44px", width: "100%" }}
         />
         <div ref={container} />
-        <button type="submit" disabled={!captchaToken || status === "submitting"} style={{ marginTop: "1rem" }}>
+        <button type="submit" disabled={!captchaReady || status === "submitting"} style={{ marginTop: "1rem" }}>
           {status === "submitting" ? "Checking…" : "Request isolated code"}
         </button>
       </form>

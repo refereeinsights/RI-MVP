@@ -8,6 +8,8 @@ const source = (file: string) => readFileSync(path.join(root, file), "utf8");
 const migration = source("supabase/migrations/20260831_corralio_sms_durable_safety_state.sql");
 const runtime = source("apps/corralio/lib/sms/durableSafety.ts");
 const server = source("apps/corralio/lib/sms/durableSafety.server.ts");
+const isolatedRoute = source("apps/corralio/app/api/gate3/otp/request/route.ts");
+const isolatedHookRoute = source("apps/corralio/app/api/gate3/sms-hook/route.ts");
 const catalog = source("scripts/analysis/corralio_sms_durable_state_catalog_verification.sql");
 const behavioral = source("scripts/analysis/corralio_sms_durable_state_behavioral_verification.sql");
 const concurrency = source("scripts/analysis/corralio_sms_durable_state_concurrency_verification.mjs");
@@ -50,6 +52,37 @@ test("verifies before database work and permits a provider call only after autho
   assert.match(runtime, /await input\.provider\.send/);
   assert.doesNotMatch(runtime, /telnyx\.com|TELNYX_API_KEY|PersistentSegmentLedger|gate3-sms-ledger/);
   assert.doesNotMatch(server, /filesystem|readFile|writeFile|PersistentSegmentLedger/);
+});
+
+test("Gate 3 diagnostics retain only bounded contract and Auth error metadata", () => {
+  assert.match(isolatedRoute, /sanitizeSupabaseAuthError\(error\)/);
+  assert.match(isolatedRoute, /transportStatus: authTransport\?\.httpStatus/);
+  assert.match(isolatedRoute, /requestId: authTransport\?\.requestId/);
+  assert.match(isolatedRoute, /durationMs: authTransport\?\.durationMs/);
+  assert.doesNotMatch(isolatedRoute, /console\.(?:warn|error)\([^\n]*(?:phone|captchaToken|error\s*[,}])/);
+  for (const field of ["hookStatus", "contentType", "responseBodyBytes", "durationMs", "retryObserved", "mockInvocations"])
+    assert.match(isolatedHookRoute, new RegExp(field));
+  assert.doesNotMatch(isolatedHookRoute, /console\.(?:info|warn|error)\([^\n]*(?:rawBody|webhook-signature|phone|otp)/i);
+});
+
+test("Gate 3 Turnstile handling is one-use and delegates its only redemption to Supabase", () => {
+  const client = source("apps/corralio/app/gate3-isolated/Gate3IsolatedClient.tsx");
+  const route = source("apps/corralio/app/api/gate3/otp/request/route.ts");
+  const diagnostics = source("apps/corralio/lib/sms/turnstileDiagnostics.ts");
+  const combined = `${client}\n${route}\n${diagnostics}`;
+  assert.match(client, /claimFreshTurnstileToken/);
+  assert.match(client, /submissionInFlight\.current/);
+  assert.match(client, /tokenState\.current = claim\.nextState/);
+  assert.match(route, /options: \{ captchaToken, shouldCreateUser: false \}/);
+  assert.equal((route.match(/auth\.auth\.signInWithOtp\(/g) ?? []).length, 1);
+  assert.doesNotMatch(combined, /siteverify/i);
+  for (const category of [
+    "missing_token",
+    "expired_or_reused_token",
+    "wrong_secret_sitekey_pairing",
+    "hostname_or_configuration_mismatch",
+    "generic_captcha_failed",
+  ]) assert.match(diagnostics, new RegExp(category));
 });
 
 test("ships catalog, rollback behavior and true concurrent-session verification artifacts", () => {

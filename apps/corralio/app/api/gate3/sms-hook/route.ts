@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 import { handleVerifiedSmsHook } from "@/lib/sms/durableSafety";
 import { createSmsDurableSafetyGateway } from "@/lib/sms/durableSafety.server";
-import { assertIsolatedSmsRuntimeConfiguration } from "@/lib/sms/isolatedRuntime";
+import {
+  assertIsolatedSmsRuntimeConfiguration,
+  createGate3SendSmsSuccessResponse,
+} from "@/lib/sms/isolatedRuntime";
 import { createCorralioSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -18,6 +21,7 @@ function hookError(status: number) {
 }
 
 export async function POST(request: Request) {
+  const startedAt = performance.now();
   try {
     assertIsolatedSmsRuntimeConfiguration(process.env);
   } catch {
@@ -44,16 +48,26 @@ export async function POST(request: Request) {
   });
 
   if (result.status === "attempted") {
-    return new NextResponse(null, {
-      status: 200,
-      headers: { ...NO_STORE, "x-corralio-gate3-mock-invocations": String(mockInvocations) },
+    console.info("[corralio][gate3] isolated Send SMS Hook completed", {
+      hookStatus: 200,
+      contentType: null,
+      responseBodyBytes: 0,
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      retryObserved: false,
+      mockInvocations,
     });
+    return createGate3SendSmsSuccessResponse(mockInvocations);
   }
   if (result.decision === "duplicate") {
-    return new NextResponse(null, {
-      status: 200,
-      headers: { ...NO_STORE, "x-corralio-gate3-mock-invocations": "0" },
+    console.info("[corralio][gate3] isolated Send SMS Hook completed", {
+      hookStatus: 200,
+      contentType: null,
+      responseBodyBytes: 0,
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      retryObserved: true,
+      mockInvocations: 0,
     });
+    return createGate3SendSmsSuccessResponse(0);
   }
   return hookError(result.failureClass === "transient" ? 503 : 400);
 }

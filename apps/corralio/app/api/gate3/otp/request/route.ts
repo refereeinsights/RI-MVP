@@ -1,7 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-import { requestIsolatedSmsOtp, assertIsolatedSmsRuntimeConfiguration } from "@/lib/sms/isolatedRuntime";
+import {
+  requestIsolatedSmsOtp,
+  assertIsolatedSmsRuntimeConfiguration,
+  sanitizeOpaqueRequestId,
+  sanitizeIsolatedConfigurationError,
+  sanitizeSupabaseAuthError,
+} from "@/lib/sms/isolatedRuntime";
 import { createSmsDurableSafetyGateway } from "@/lib/sms/durableSafety.server";
 import { createCorralioSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -14,7 +20,10 @@ export async function POST(request: Request) {
   let configuration: ReturnType<typeof assertIsolatedSmsRuntimeConfiguration>;
   try {
     configuration = assertIsolatedSmsRuntimeConfiguration(process.env);
-  } catch {
+  } catch (error) {
+    console.error("[corralio][gate3] isolated runtime unavailable", {
+      category: sanitizeIsolatedConfigurationError(error),
+    });
     return NextResponse.json({ status: "unavailable" }, { status: 404, headers: NO_STORE });
   }
 
@@ -30,10 +39,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "denied" }, { status: 400, headers: NO_STORE });
   }
 
+  let authTransport: { httpStatus: number; requestId: string | null; durationMs: number } | null = null;
+  const diagnosticFetch: typeof fetch = async (resource, init) => {
+    const startedAt = performance.now();
+    const response = await fetch(resource, init);
+    authTransport = {
+      httpStatus: response.status,
+      requestId: sanitizeOpaqueRequestId(
+        response.headers.get("x-request-id") ?? response.headers.get("sb-request-id"),
+      ),
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+    };
+    return response;
+  };
   const auth = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: diagnosticFetch },
+    },
   );
   const result = await requestIsolatedSmsOtp({
     request,
@@ -47,6 +72,14 @@ export async function POST(request: Request) {
         phone,
         options: { captchaToken, shouldCreateUser: false },
       });
+      if (error) {
+        console.warn("[corralio][gate3] isolated Supabase Auth denied", {
+          ...sanitizeSupabaseAuthError(error),
+          transportStatus: authTransport?.httpStatus ?? null,
+          requestId: authTransport?.requestId ?? null,
+          durationMs: authTransport?.durationMs ?? null,
+        });
+      }
       return { error };
     },
   });
