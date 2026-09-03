@@ -55,16 +55,18 @@ async function timeZoneFromCoordinates(lat: number, lng: number): Promise<string
   return zone;
 }
 
-async function coordsForVenueId(venueId: string): Promise<{ lat: number; lng: number } | null> {
+async function coordsForVenueId(
+  venueId: string
+): Promise<{ lat: number; lng: number; persistedTimezone: string | null } | null> {
   const { data, error } = await (supabaseAdmin.from("venues" as any) as any)
-    .select("latitude,longitude")
+    .select("latitude,longitude,timezone")
     .eq("id", venueId)
     .maybeSingle();
   if (error || !data) return null;
   const lat = typeof data.latitude === "number" ? data.latitude : Number(data.latitude);
   const lng = typeof data.longitude === "number" ? data.longitude : Number(data.longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng };
+  return { lat, lng, persistedTimezone: safeTimeZone(data.timezone ?? null) };
 }
 
 async function coordsForTournamentId(tournamentId: string): Promise<{ lat: number; lng: number } | null> {
@@ -106,9 +108,30 @@ export async function GET(req: Request) {
   }
 
   // Prefer venue/tournament IDs so the client doesn't need coordinates.
+  if (venueId) {
+    const venueResult = await coordsForVenueId(venueId);
+    if (!venueResult) return NextResponse.json({ ok: true, timezone: null });
+
+    // Use the persisted column — no network call.
+    if (venueResult.persistedTimezone) {
+      return NextResponse.json({ ok: true, timezone: venueResult.persistedTimezone });
+    }
+
+    // No persisted value — call TimeZoneDB and write back best-effort.
+    const timezone = await timeZoneFromCoordinates(venueResult.lat, venueResult.lng);
+    if (timezone) {
+      (supabaseAdmin.from("venues" as any) as any)
+        .update({ timezone })
+        .eq("id", venueId)
+        .then(({ error }: { error: unknown }) => {
+          if (error) console.error("[planner/timezone] failed to persist timezone for venue", venueId, error);
+        });
+    }
+    return NextResponse.json({ ok: true, timezone });
+  }
+
   let coords: { lat: number; lng: number } | null = null;
-  if (venueId) coords = await coordsForVenueId(venueId);
-  else if (tournamentId) coords = await coordsForTournamentId(tournamentId);
+  if (tournamentId) coords = await coordsForTournamentId(tournamentId);
   else if (lat !== null && lng !== null) coords = { lat, lng };
 
   if (!coords) return NextResponse.json({ ok: true, timezone: null });
