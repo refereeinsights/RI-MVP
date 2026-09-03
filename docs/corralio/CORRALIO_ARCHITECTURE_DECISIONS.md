@@ -191,11 +191,11 @@ These concise ADRs memorialize accepted strategy. An accepted direction may stil
 
 ## ADR-024 — Routing Infrastructure Must Be Server-Side and Cost-Controlled
 
-**Status:** Accepted — implementation details pending
+**Status:** Accepted — provider and architecture selected (amended 2026-09-03; see Founder Decision log)
 
-**Decision:** Future route-duration providers run server-side with caching, deduplication, timeouts, rate/cost controls, and staleness handling.
+**Decision:** Route-duration providers run server-side with caching, deduplication, timeouts, rate/cost controls, and staleness handling. Provider is **Mapbox** (2026-08-27 audit: 100,000 free requests/month vs. TomTom's 20,000, transparent published overage pricing, no traffic surcharge, existing account relationship in this monorepo). Architecture is **compute-on-demand, never persisted**: a traffic-aware duration is fetched live only at trigger moments (e.g., before a "traffic is building" push, or on app foreground within a bounded pre-event window), displayed with an "as of [time]" stamp, held client-side for roughly 10 minutes without re-asking, capped at 2–3 refetches per event, and never written to a column another render could read back as current.
 
-**Consequences:** Do not perform uncontrolled route calculations on every client render. Provider selection and retention remain open.
+**Consequences:** Do not perform uncontrolled route calculations on every client render. Do not persist a fetched traffic-aware duration as a durable, re-readable property. Provider selection and retention are no longer open questions; only entitlement tier (traffic-aware leave-by is Corralio Pro; static/estimated leave-by is Standard — separate founder decision, 2026-08-30, governed by ADR-011 timing) and implementation sequencing remain.
 
 ## ADR-025 — Private Planning Data Must Be Protected by RLS
 
