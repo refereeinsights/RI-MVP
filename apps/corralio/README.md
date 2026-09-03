@@ -1,6 +1,6 @@
 # Corralio
 
-Minimal Next.js application shell for Corralio. It intentionally contains no product features, data access, authentication, analytics, service worker, or environment-variable requirements.
+Next.js application for Corralio's private family-planning experience.
 
 ## Local development
 
@@ -45,6 +45,23 @@ Generate independent cryptographically random keys outside the repository. Never
 For rotation, add the next versioned encryption key, retain old versioned keys for decryption, and then change `CORRALIO_PENDING_SECRET_ACTIVE_KEY_VERSION`. New encryptions use the active version; existing envelopes select their old key from their explicit key ID. No automatic bulk re-encryption occurs. Remove an old key only after no retained ciphertext references it.
 
 The pending-intake consumer must validate the submitted calendar URL, encrypt the exact value, derive its separate keyed fingerprint, and persist only the serialized envelope plus fingerprint. Decryption is allowed only in trusted server code while resolving or fetching the pending intake. Encrypted material must be deleted when the intake resolves, expires, or is cancelled.
+
+## Phase A+B phone and SMS surfaces
+
+The new product phone-auth and inbound-intake surfaces are independently disabled by default. Their server-only activation contract is:
+
+```bash
+CORRALIO_PHONE_AUTH_ENABLED=true
+NEXT_PUBLIC_CORRALIO_TURNSTILE_SITE_KEY=<public widget site key>
+CORRALIO_PHONE_AUTH_SMS_HOOK_ENABLED=true
+CORRALIO_PHONE_AUTH_SMS_PROVIDER=mock|telnyx
+CORRALIO_SMS_INTAKE_ENABLED=true
+CORRALIO_SMS_INTAKE_PROVIDER=mock
+```
+
+These flags do not replace the required durable database policy, allowlist, rate, permit, and segment controls. `CORRALIO_SMS_CHANNEL_HMAC_SECRET`, `CORRALIO_SMS_SEND_HOOK_SECRET`, the pending-secret key contract above, and the provider-specific server secrets must also be present at their trusted runtime boundaries. Never expose those values to client code.
+
+Stage 1 leaves every flag unset and prepares the migration and verifiers only. `mock` is the only implemented clarification-delivery mode for inbound schedule intake; live clarification delivery remains blocked by the independent SMS Production Readiness gate. The product Send SMS Hook can select Telnyx only after separate migration, configuration, and live-UAT authorization. The Gate 3 isolated harness and its environment flags are verification-only and must not be reused as product activation flags.
 
 ## Vercel
 

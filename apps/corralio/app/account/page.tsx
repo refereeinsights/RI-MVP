@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { signOut } from "@/app/actions";
 import { BrandLogo } from "@/app/components/BrandLogo";
 import { PasswordForm } from "@/app/components/PasswordForm";
+import { PhoneChangeForm } from "@/app/components/PhoneChangeForm";
+import { readPhoneAuthConfiguration } from "@/lib/phoneAuth";
 import { createCorralioSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +32,7 @@ export default async function AccountPage() {
         <h1 id="account-password-heading">Password</h1>
         <p className="sectionIntro">Set or update the password for your shared account. This password also protects this identity in TournamentInsights and RefereeInsights where password sign-in is supported.</p>
         <PasswordForm />
+        {readPhoneAuthConfiguration(process.env).enabled ? <PhoneChangeForm /> : null}
         <Link className="authTextLink" href="/">Back to your family planner</Link>
       </section>
     </main>

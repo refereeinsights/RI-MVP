@@ -3,12 +3,16 @@ import { ProductShell } from "@/app/components/ProductShell";
 import { SignedOutLanding } from "@/app/components/SignedOutLanding";
 import { ThisWeekend } from "@/app/components/ThisWeekend";
 import { getWeekendReadyPublicKey } from "@/lib/notifications/weekendReady.server";
+import { readPhoneAuthConfiguration } from "@/lib/phoneAuth";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const viewer = await resolveCorralioViewer();
-  if (!viewer) return <SignedOutLanding />;
+  if (!viewer) {
+    const phoneAuth = readPhoneAuthConfiguration(process.env);
+    return <SignedOutLanding phoneAuthSiteKey={phoneAuth.enabled ? phoneAuth.siteKey : null} />;
+  }
 
   const { sourceCount, weekendEvents, candidateLimitReached, scheduleFreshness, planningTimezone } = await loadWeekendData(viewer);
   return (

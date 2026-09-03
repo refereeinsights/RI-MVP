@@ -1,4 +1,5 @@
 import { BrandLogo } from "@/app/components/BrandLogo";
+import { PhoneAuthForm } from "@/app/components/PhoneAuthForm";
 import { SignInForm } from "@/app/components/SignInForm";
 
 const EXAMPLE_DAYS = [
@@ -25,7 +26,7 @@ const EXAMPLE_DAYS = [
   },
 ] as const;
 
-export function SignedOutLanding() {
+export function SignedOutLanding({ phoneAuthSiteKey }: { phoneAuthSiteKey?: string | null }) {
   return (
     <main className="landingShell">
       <div className="landingCard">
@@ -87,7 +88,10 @@ export function SignedOutLanding() {
             <h2 id="account-access-title">Get started with your email</h2>
             <p>We’ll send a secure link so you can start bringing your family’s schedules together.</p>
           </div>
-          <SignInForm />
+          <div>
+            {phoneAuthSiteKey ? <PhoneAuthForm siteKey={phoneAuthSiteKey} /> : null}
+            <SignInForm />
+          </div>
         </section>
       </div>
     </main>
