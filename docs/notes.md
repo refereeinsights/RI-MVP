@@ -4878,3 +4878,30 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Summary line updated to show `ready N · ambiguous N` counts prominently.
   - Table layout (`table-layout: fixed`, `<colgroup>`) unchanged; no new columns added.
   - RI TypeScript and lint pass clean.
+
+- 2026-09-02: Internal tournament import API route added to RI app.
+  - `POST /api/internal/tournaments/import` — thin wrapper around the same functions the admin "Upload tournaments" form uses (`parseCsv` → `cleanCsvRows` → `csvRowsToTournamentRows` → `importTournamentRecords`).
+  - Authenticated via `x-internal-secret` header checked against `INTERNAL_API_SECRET` env var (timing-safe compare). Set the same value in both RI and partner-mcp Vercel projects.
+  - Request body: `{ csv, source, status, fallback_sport, fallback_state, fallback_city }`. `source` defaults to `external_crawl`, `status` to `draft`.
+  - Response: `{ ok, success, failed, new_count, existing_count, venue_links_created, dropped_by_cleaner, original_row_count, failure_samples? }`.
+  - `override_source_skip_guard` intentionally omitted — skip guard only applies to the grassroots365 live-fetch path, not CSV uploads.
+  - No upload log table written (form doesn't write one either). Results are returned inline; caller owns logging.
+  - RI TypeScript and lint pass clean.
+  - Handoff for partner-mcp coder below.
+
+  **partner-mcp handoff:**
+  - Endpoint: `https://www.refereeinsights.com/api/internal/tournaments/import`
+  - Auth header: `x-internal-secret: {INTERNAL_API_SECRET}`
+  - Method: `POST`, `Content-Type: application/json`
+  - Request fields:
+    - `csv` (string, required) — raw CSV text
+    - `source` (string, optional, default `"external_crawl"`) — one of: `us_club_soccer`, `cal_south`, `gotsoccer`, `soccerwire`, `external_crawl`, `public_submission`
+    - `status` (string, optional, default `"draft"`) — `"draft"` or `"published"`
+    - `fallback_sport` (string, optional, default `"soccer"`) — applied to rows missing `sport` column
+    - `fallback_state` (string, optional) — applied to rows missing `state`
+    - `fallback_city` (string, optional) — applied to rows missing `city`
+  - Success response (200): `{ ok: true, success, failed, new_count, existing_count, venue_links_created, venue_links_attempted, venue_link_errors, dropped_by_cleaner, original_row_count, failure_samples? }`
+  - Error responses: 401 unauthorized, 400 invalid JSON / missing csv, 422 no rows survived cleaner, 500 import threw
+  - Required CSV columns: `name`, `sport` (or set `fallback_sport`), `state` or `city`, `source_url`
+  - Optional CSV columns: `level`, `start_date`, `end_date`, `dates`, `venue`, `address`, `zip`, `summary`, `tournament_director`, `tournament_director_email`, `referee_contact`, `referee_contact_email`, `ref_cash_tournament`, `source_event_id`, `slug`, `tournament_association`, `confidence`
+  - Route file: `apps/referee/app/api/internal/tournaments/import/route.ts`
