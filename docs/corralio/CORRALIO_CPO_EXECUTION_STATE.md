@@ -1,7 +1,7 @@
 # Corralio CPO Execution State
 
 **Status:** Operational snapshot, not a strategic document.
-**As of:** 2026-09-03 (Phase A+B's bounded pre-10DLC Stage 2 UAT is complete with all non-live evidence passing and the required blocked verdict retained pending campaign approval; five open founder decisions resolved; Phase A+B Stage 1 database verification, Gate 3 PASS, 10DLC submission, and calendar-feed decision recorded; everything else reconciled through 2026-09-02)
+**As of:** 2026-09-03 (Phase A+B's bounded pre-10DLC Stage 2 UAT is complete with all non-live evidence passing and the required blocked verdict retained pending campaign approval; five open founder decisions resolved; Phase A+B Stage 1 database verification, Gate 3 PASS, 10DLC submission, and calendar-feed decision recorded; Slice 3.4 backfilled as complete and its prompt archived historical; the filed venue-promotion (Slice 4.5B) prompt added to READY TO EXECUTE, having been missing from this document since the day it was filed; everything else reconciled through 2026-09-02)
 **Companion document:** `CORRALIO_FOUNDER_MENTOR_HANDOFF.md` (Part II) carries the full narrative/architecture context behind every line item here. This document exists to answer, quickly: what's done, what's next, what's blocked, and on what evidence.
 
 **How to use this in a fresh session:** read this document's NEXT 5 ACTIONS first. Read the handoff's Part II only for the "why" behind an item, or when an item here references a design/decision by name.
@@ -51,6 +51,7 @@ Core planning loop (household → children/teams → schedules → This Weekend 
 3. **3.6B Phase 3A — Temporary Routing Origin** — `docs/prompts/corralio-slice-3.6b-phase3a-temporary-routing-origin-prompt.md`. Phase 1 dependency satisfied by `34d83cf4`.
 4. **Schedule-Source Compatibility & Evidence Matrix** — `docs/prompts/corralio-schedule-source-compatibility-evidence-matrix-prompt.md`. Non-blocking, can run anytime.
 5. **WeatherAPI.com migration implementation prompt** — `docs/prompts/2026-09-02-weatherapi-migration-implementation-prompt.md`. Founder-accepted 7-phase sequence with an explicit STOP before production deploy. No dependency on Gate 3/Phase A+B; can run in parallel.
+6. **Venue promotion (Slice 4.5B)** — `docs/prompts/2026-09-03-corralio-venue-promotion-implementation-prompt.md`. Six-task Codex build (eligibility v2, promotion RPC + audit, re-eval sweep, Overture-caller wiring, Level 1 deep link, admin audit feed) implementing the founder-confirmed Path A/Path B promotion design (`docs/corralio/cpo/2026-09-03-cpo-design-portfolio-venue-pipeline-implementation.md`). Fully specified, zero dependency on Gate 3/Phase A+B/10DLC. **Was missing from this list until 2026-09-03** — filed and committed the same day it was designed, but never added here; caught when the founder asked what Codex should work on next. **Deliberately not in NEXT 5 ACTIONS below** — per `CORRALIO_PRODUCT_ROADMAP.md`, venue promotion is V2 scope, not a V1 launch dependency (Section H of the Contextual Intelligence execution plan lists Slice 4.5B under "Not required for launch"). Ready whenever the founder wants to sequence it ahead of pilot-launch work.
 
 ## DATABASE / DEPLOYMENT GATES
 
