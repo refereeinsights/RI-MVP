@@ -123,9 +123,17 @@ export async function POST(req: Request) {
   try {
     const result = await importTournamentRecords(records);
 
-    const failureSamples = result.failures
-      .slice(0, 5)
-      .map((f) => ({ name: f.record?.name ?? null, error: f.error }));
+    // Full row-level error detail (no cap). Row numbers are not tracked
+    // through parseCsv → cleanCsvRows, so only name + reason are available.
+    const errors = result.failures.map((f) => ({
+      name: f.record?.name ?? null,
+      error: f.error,
+    }));
+
+    const droppedRows = dropped.map((d) => ({
+      name: String((d.row as any)?.name ?? ""),
+      reason: d.reason,
+    }));
 
     return NextResponse.json({
       ok: true,
@@ -138,7 +146,8 @@ export async function POST(req: Request) {
       venue_link_errors: result.venue_link_errors,
       dropped_by_cleaner: dropped.length,
       original_row_count: rowsWithFallback.length,
-      failure_samples: failureSamples.length ? failureSamples : undefined,
+      errors: errors.length ? errors : undefined,
+      dropped_rows: droppedRows.length ? droppedRows : undefined,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "import_failed";
