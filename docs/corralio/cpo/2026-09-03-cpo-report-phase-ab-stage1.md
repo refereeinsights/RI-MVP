@@ -18,7 +18,11 @@
 2. at least one event title contains the exact normalized full team name;
 3. exactly one eligible household team satisfies both signals.
 
-No fuzzy similarity is used. CALNAME alone is insufficient. Event-title text alone is insufficient. Conflicts or missing evidence create a bounded pending clarification. The CALNAME parser micro-slice has not landed, so the current server adapter supplies `calendarName: null`; automatic assignment is therefore intentionally unavailable in the real adapter until that separate capability lands.
+No fuzzy similarity is used. CALNAME alone is insufficient. Event-title text alone is insufficient. Conflicts or missing evidence create a bounded pending clarification. The independently authorized CALNAME parser micro-slice has now landed locally: the current server adapter supplies the shared parser's bounded `calendarName` instead of `null`, allowing this unchanged corroboration rule to operate on real feed metadata. This adds no new identity write or inference rule and remains subject to the same parent-clarification fallback.
+
+The concrete parser returns the field on every success/failure path. Its exported TypeScript field remains optional only for backward compatibility with established injected parser fakes in refresh tests; the server adapter normalizes absence to `null`. This type-level accommodation changes neither the real parser contract nor the assignment rule.
+
+Micro-slice closeout verification passed 377 Corralio/shared tests, the 10 unchanged TI ICS-import tests, Corralio TypeScript, zero-warning Corralio lint, and all four production builds. Direct diff review confirmed no identity-table write, schema, migration, provider, or product-surface expansion.
 
 ## Security and privacy result
 

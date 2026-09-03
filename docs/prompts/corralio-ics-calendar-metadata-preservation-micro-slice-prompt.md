@@ -8,7 +8,9 @@
 
 ## 0. Why This Exists
 
-`node-ical@0.20.1` already parses `X-WR-CALNAME` into the object `normalizeIcsSchedule()` (`packages/lib/sports-schedule/index.ts`, the `for (const event of Object.values(parsed))` loop) already visits on every single parse — and then discards, via a bare `continue`. This slice stops discarding it. Nothing about ingestion, parsing correctness, or event handling changes; the only change is that one additional, **required, nullable** field (`calendarName: string | null` — not optional; every parse returns it, sometimes as `null`) is now returned instead of silently dropped.
+`node-ical@0.20.1` already parses `X-WR-CALNAME` into the object `normalizeIcsSchedule()` (`packages/lib/sports-schedule/index.ts`, the `for (const event of Object.values(parsed))` loop) already visits on every single parse — and then discards, via a bare `continue`. This slice stops discarding it. Nothing about ingestion, parsing correctness, or event handling changes; every real `normalizeIcsSchedule()` execution returns `calendarName` as a bounded string or `null` instead of silently dropping it.
+
+**Implementation-time TypeScript correction, 2026-09-03:** the repository audit correctly found no exhaustive result comparisons outside the two named assertions, but it missed six injected `normalizeSchedule` test fakes in `refresh.test.ts`. Those fakes structurally implement `typeof normalizeIcsSchedule` and omit the new field. To preserve the binding prohibition on changing refresh code/tests while retaining the concrete runtime guarantee above, the exported result type declares `calendarName?: string | null`; the real parser still includes the key on every return, and the one authorized consumer normalizes an absent fake value to `null`. This is type-level backward compatibility, not optional runtime behavior.
 
 Read the corrected Section 1 below before implementing — it replaces the original audit's single-shape trace, which a 2026-09-03 live-parser test found to be incomplete.
 
@@ -35,7 +37,7 @@ Read the corrected Section 1 below before implementing — it replaces the origi
   ```
   with a comment stating the preservation slice hasn't landed. This slice authorizes changing that one line to:
   ```ts
-  return { ok: true, evidence: { calendarName: normalized.calendarName, eventTitles: normalized.events.map((event) => event.title) } };
+  return { ok: true, evidence: { calendarName: normalized.calendarName ?? null, eventTitles: normalized.events.map((event) => event.title) } };
   ```
   and nothing else in that file. The already-completed, already-audited `resolveDeterministicIntakeAssignment()` (`apps/corralio/lib/schedules/intakeAssignment.ts`) already refuses to trust `calendarName` alone: it requires an exact normalized match between `calendarName` and a candidate team's name, **and** a corroborating exact team-name token match in at least one event title, before it will assign — anything short of that returns `clarification_required`. Wiring the one line above only lets that existing rule see real data instead of a hardcoded `null`; it does not add, loosen, version-bump, or bypass any rule, and it introduces no new inference architecture.
 - **No `X-WR-CALDESC` or any other calendar-level property in this pass.** `calendarName` only. `X-WR-CALDESC` is available via the identical mechanism if ever wanted, but adding it now is scope creep against "smallest change" — flag it as a trivial future add if asked for, don't build it speculatively.
@@ -47,7 +49,7 @@ Read the corrected Section 1 below before implementing — it replaces the origi
 
 **`packages/lib/sports-schedule/index.ts`:**
 
-- Add one field to `NormalizeIcsScheduleResult`: `calendarName: string | null`.
+- Add one backward-compatible field to `NormalizeIcsScheduleResult`: `calendarName?: string | null`. Every concrete parser return must still include `calendarName`; optionality exists only so established injected parser fakes remain source-compatible without editing prohibited consumer tests.
 - Implement a small deterministic extractor that checks the supported keys in **both** locations identified in Section 1 — the `VCALENDAR` object, then the top-level parsed result — with a defined precedence, reusing the existing helpers (`extractIcsTextProperty`, `stripHtml`, `collapseWhitespace`, `clamp` — no new dependency):
   ```ts
   const CALNAME_KEYS = ["WR-CALNAME", "wr-calname", "x-wr-calname"] as const;
@@ -82,7 +84,7 @@ Read the corrected Section 1 below before implementing — it replaces the origi
 
 **`apps/corralio/lib/sms/scheduleIntake.server.ts`:**
 
-- Change exactly the one line specified in Section 2 (`calendarName: null` → `calendarName: normalized.calendarName`). No other line in this file changes.
+- Change exactly the one line specified in Section 2 (`calendarName: null` → `calendarName: normalized.calendarName ?? null`). No other line in this file changes.
 
 **Do not modify** `apps/corralio/lib/schedules/ingest.ts`, `apps/corralio/lib/schedules/refresh.ts`, `apps/ti-web/lib/planner/ics-import.ts`, `apps/corralio/lib/schedules/intakeAssignment.ts`, or any of their tests. If implementation discovers that any of the first three actually do perform exhaustive shape comparison against `normalizeIcsSchedule()`'s result (contradicting Section 1's finding), stop and report it — that would mean this slice's blast radius is larger than scoped, which is a finding to surface, not silently work around.
 

@@ -66,9 +66,7 @@ export function createSmsScheduleIntakeDependencies(input: {
       if (!fetched.ok) return { ok: false };
       const normalized = normalizeIcsSchedule({ icsText: fetched.text, sourceUrl: fetched.finalUrl });
       if (normalized.errors.length) return { ok: false };
-      // CALNAME preservation is a separately authorized micro-slice and has not
-      // landed. Do not reimplement it here or substitute fuzzy title matching.
-      return { ok: true, evidence: { calendarName: null, eventTitles: normalized.events.map((event) => event.title) } };
+      return { ok: true, evidence: { calendarName: normalized.calendarName ?? null, eventTitles: normalized.events.map((event) => event.title) } };
     },
     async connect(owner, url, assignment) {
       let displayName = "Sports schedule";

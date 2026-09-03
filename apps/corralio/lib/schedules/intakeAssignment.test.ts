@@ -21,3 +21,18 @@ test("CALNAME alone, fuzzy titles, conflicts, and duplicate same-sport teams all
     [target, { ...target, teamId: "team-2" }],
   ).outcome, "clarification_required");
 });
+
+test("vendor-generic and ambiguous calendar evidence cannot assign or write identity", () => {
+  const vendorGeneric = resolveDeterministicIntakeAssignment({
+    calendarName: "ArbiterSports",
+    eventTitles: ["ArbiterSports game"],
+  }, [target]);
+  assert.equal(vendorGeneric.outcome, "clarification_required");
+
+  const ambiguous = resolveDeterministicIntakeAssignment({
+    calendarName: "Spokane Select",
+    eventTitles: ["Spokane Select vs Mead"],
+  }, [target, { ...target, teamId: "team-2", childId: "child-2", childName: "Alex" }]);
+  assert.equal(ambiguous.outcome, "clarification_required");
+  assert.deepEqual(Object.keys(ambiguous).sort(), ["outcome", "ruleVersion"]);
+});

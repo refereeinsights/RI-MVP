@@ -30,6 +30,7 @@ export type NormalizeIcsScheduleResult = {
   canceledSourceEventUids: string[];
   errors: ScheduleNormalizationError[];
   parsedTotal: number;
+  calendarName?: string | null;
 };
 
 type NormalizeIcsScheduleInput = {
@@ -65,6 +66,18 @@ function clamp(value: string | null, maxLength: number) {
   const normalized = String(value ?? "").trim();
   if (!normalized) return null;
   return normalized.length > maxLength ? normalized.slice(0, maxLength) : normalized;
+}
+
+const CALENDAR_NAME_KEYS = ["WR-CALNAME", "wr-calname", "x-wr-calname"] as const;
+
+function readCalendarName(source: Record<string, unknown> | undefined): string | null {
+  if (!source) return null;
+  for (const key of CALENDAR_NAME_KEYS) {
+    const raw = extractIcsTextProperty(source[key]);
+    const value = clamp(collapseWhitespace(stripHtml(raw.trim())), 140);
+    if (value) return value;
+  }
+  return null;
 }
 
 function normalizeStructuredNoteLabel(label: string) {
@@ -318,7 +331,7 @@ export function normalizeIcsSchedule(input: NormalizeIcsScheduleInput): Normaliz
   try {
     parsed = ical.parseICS(input.icsText) as Record<string, any>;
   } catch {
-    return { events: [], canceledSourceEventUids: [], errors: ["not_ics"], parsedTotal: 0 };
+    return { events: [], canceledSourceEventUids: [], errors: ["not_ics"], parsedTotal: 0, calendarName: null };
   }
 
   const now = input.now ? new Date(input.now.getTime()) : new Date();
@@ -329,6 +342,7 @@ export function normalizeIcsSchedule(input: NormalizeIcsScheduleInput): Normaliz
   const canceledSourceEventUids = new Set<string>();
   let parsedTotal = 0;
   let sawCalendarStructure = false;
+  let calendarName: string | null = null;
 
   const sourceEventUid = (params: {
     uid: string;
@@ -400,6 +414,10 @@ export function normalizeIcsSchedule(input: NormalizeIcsScheduleInput): Normaliz
   for (const event of Object.values(parsed)) {
     if (event?.type === "VCALENDAR") {
       sawCalendarStructure = true;
+      if (calendarName === null) {
+        calendarName = readCalendarName(event as Record<string, unknown>)
+          ?? readCalendarName(parsed as Record<string, unknown>);
+      }
       continue;
     }
     if (!event || event.type !== "VEVENT") continue;
@@ -455,5 +473,6 @@ export function normalizeIcsSchedule(input: NormalizeIcsScheduleInput): Normaliz
     canceledSourceEventUids: Array.from(canceledSourceEventUids),
     errors: sawCalendarStructure ? [] : ["not_ics"],
     parsedTotal,
+    calendarName,
   };
 }

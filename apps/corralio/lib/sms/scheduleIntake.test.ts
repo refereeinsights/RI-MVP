@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { processSmsScheduleIntake, type SmsScheduleIntakeDependencies } from "./scheduleIntake";
+
+test("server inspection threads the shared parser calendar name without reimplementing inference", () => {
+  const source = readFileSync(new URL("./scheduleIntake.server.ts", import.meta.url), "utf8");
+  assert.match(source, /calendarName:\s*normalized\.calendarName\s*\?\?\s*null/);
+  assert.doesNotMatch(source, /calendarName:\s*null/);
+});
 
 function dependencies(overrides: Partial<SmsScheduleIntakeDependencies> = {}) {
   const calls: string[] = [];

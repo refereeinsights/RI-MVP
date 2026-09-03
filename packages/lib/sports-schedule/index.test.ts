@@ -136,6 +136,7 @@ test("reports malformed input without throwing", () => {
     canceledSourceEventUids: [],
     errors: ["not_ics"],
     parsedTotal: 0,
+    calendarName: null,
   });
 });
 
@@ -156,7 +157,64 @@ test("accepts a structurally valid empty calendar", () => {
     canceledSourceEventUids: [],
     errors: [],
     parsedTotal: 0,
+    calendarName: "ArbiterSports",
   });
+});
+
+test("preserves bounded calendar name metadata alongside real events", () => {
+  const result = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/team.ics",
+    icsText: calendar([
+      "X-WR-CALNAME:<b>  Spokane   Select  </b>",
+      "BEGIN:VEVENT",
+      "UID:calname-event",
+      "DTSTART:20260822T170000Z",
+      "SUMMARY:Spokane Select vs Mead",
+      "END:VEVENT",
+    ]),
+  });
+  assert.equal(result.calendarName, "Spokane Select");
+  assert.equal(result.events.length, 1);
+});
+
+test("reads parameterized calendar names from node-ical's top-level fallback", () => {
+  const result = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/parameterized.ics",
+    icsText: calendar(["X-WR-CALNAME;LANGUAGE=en:Spokane Select"]),
+  });
+  assert.equal(result.calendarName, "Spokane Select");
+});
+
+test("supports the audited lowercase key variants", () => {
+  const mixedCase = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/mixed.ics",
+    icsText: calendar(["X-wr-calname:Mixed Case League"]),
+  });
+  const lowercase = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/lower.ics",
+    icsText: calendar(["x-wr-calname:Lowercase League"]),
+  });
+  assert.equal(mixedCase.calendarName, "Mixed Case League");
+  assert.equal(lowercase.calendarName, "Lowercase League");
+});
+
+test("repeated or unsupported title-case calendar-name properties degrade to null", () => {
+  const repeated = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/repeated.ics",
+    icsText: calendar(["X-WR-CALNAME:One", "X-WR-CALNAME:Two"]),
+  });
+  const unsupportedCase = normalizeIcsSchedule({
+    now: NOW,
+    sourceUrl: "https://example.com/title-case.ics",
+    icsText: calendar(["X-Wr-Calname:Title Case League"]),
+  });
+  assert.equal(repeated.calendarName, null);
+  assert.equal(unsupportedCase.calendarName, null);
 });
 
 test("preserves support for a bare VEVENT without a VCALENDAR wrapper", () => {
