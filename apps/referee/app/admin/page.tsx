@@ -113,7 +113,7 @@ import type {
 } from "@/lib/types/tournament";
 import { createTournamentFromUrl, fetchHtml } from "@/server/admin/pasteUrl";
 import { rollForwardTournamentsFromCsvText } from "@/server/admin/rollForwardTournaments";
-import { listTournamentRollForwardLogs } from "@/server/admin/rollForwardTournaments";
+import { listTournamentRollForwardLogs, promoteLogEntryToSibling } from "@/server/admin/rollForwardTournaments";
 import {
   insertRun as insertSourceRun,
   ensureRegistryRow,
@@ -175,12 +175,24 @@ const TOURNAMENT_SOURCES: TournamentSource[] = [
   "public_submission",
 ];
 const ROLL_FORWARD_LOG_STATUSES: RollForwardStatus[] = [
+  "ready_to_create",
+  "ambiguous",
   "pending",
   "no_dates_announced",
   "discontinued",
+  "linked_existing",
   "done",
-  "ambiguous",
 ];
+
+const STATUS_ORDER: Record<RollForwardStatus, number> = {
+  ready_to_create: 0,
+  ambiguous: 1,
+  pending: 2,
+  no_dates_announced: 3,
+  linked_existing: 4,
+  discontinued: 5,
+  done: 6,
+};
 const SUBMISSION_TYPES = ["internet", "website", "paid", "admin"] as const;
 
 const SUBMISSION_LABELS: Record<string, string> = {
@@ -678,13 +690,18 @@ export default async function AdminPage({
           })
         ).filter((log) => !rollForwardHiddenSet.has(log.id))
       : [];
+  rollForwardLogs.sort((a, b) => {
+    const aOrder = STATUS_ORDER[a.status] ?? 99;
+    const bOrder = STATUS_ORDER[b.status] ?? 99;
+    return aOrder !== bOrder ? aOrder - bOrder : 0;
+  });
   const rollForwardLogCounts = rollForwardLogs.reduce(
     (acc, log) => {
       acc.total += 1;
       acc[log.status] += 1;
       return acc;
     },
-    { total: 0, pending: 0, no_dates_announced: 0, discontinued: 0, done: 0, ambiguous: 0 } as Record<string, number>
+    { total: 0, pending: 0, no_dates_announced: 0, discontinued: 0, done: 0, ambiguous: 0, ready_to_create: 0, linked_existing: 0 } as Record<string, number>
   );
   const tournamentListingFetchLimit = missingFilter ? 5000 : 100;
   const listedTournaments: AdminListedTournament[] =
@@ -2511,6 +2528,26 @@ export default async function AdminPage({
     if (error) return redirectWithNotice(redirectTo, `Roll-forward log update failed: ${error.message}`);
     revalidatePath("/admin");
     return redirectWithNotice(redirectTo, "Roll-forward log updated.");
+  }
+
+  async function promoteRollForwardLogAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const redirectTo = formData.get("redirect_to");
+    const parentId = String(formData.get("parent_tournament_id") || "").trim();
+    const targetYear = Number(formData.get("target_year") || "0");
+    const startDate = String(formData.get("start_date") || "").trim();
+    const endDate = String(formData.get("end_date") || "").trim() || null;
+    if (!parentId) return redirectWithNotice(redirectTo, "Missing parent_tournament_id.");
+    if (!targetYear || targetYear < 2024 || targetYear > 2035) return redirectWithNotice(redirectTo, "Invalid target_year.");
+    if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return redirectWithNotice(redirectTo, "start_date must be YYYY-MM-DD.");
+    const result = await promoteLogEntryToSibling(parentId, targetYear, startDate, endDate || null);
+    if (!result.ok) return redirectWithNotice(redirectTo, `Create draft failed: ${(result as { ok: false; error: string }).error}`);
+    revalidatePath("/admin");
+    return redirectWithNotice(
+      redirectTo,
+      `Draft created: ${result.slug} · ${result.copiedVenueLinks} venue link(s) copied from parent.`,
+    );
   }
 
   async function bulkUpdateRollForwardLogsAction(formData: FormData) {
@@ -6630,7 +6667,7 @@ export default async function AdminPage({
               }}
             >
               <summary style={{ cursor: "pointer", fontWeight: 800, color: "#111", listStyle: "none" }}>
-                Roll-forward research log ({rollForwardLogCounts.total}) · done {rollForwardLogCounts.done} · no dates {rollForwardLogCounts.no_dates_announced} · ambiguous {rollForwardLogCounts.ambiguous}
+                Roll-forward research log ({rollForwardLogCounts.total}) · ready {rollForwardLogCounts.ready_to_create} · ambiguous {rollForwardLogCounts.ambiguous} · done {rollForwardLogCounts.done} · no dates {rollForwardLogCounts.no_dates_announced}
               </summary>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
                 <div>
@@ -6716,11 +6753,19 @@ export default async function AdminPage({
                 <>
                   {rollForwardLogs.map((log) => {
                     const formId = `roll-forward-log-${log.id}`;
+                    const promoteFormId = `roll-forward-promote-${log.id}`;
                     return (
-                      <form key={formId} id={formId} action={updateRollForwardLogAction}>
-                        <input type="hidden" name="redirect_to" value={adminBasePath} />
-                        <input type="hidden" name="log_id" value={log.id} />
-                      </form>
+                      <>
+                        <form key={formId} id={formId} action={updateRollForwardLogAction}>
+                          <input type="hidden" name="redirect_to" value={adminBasePath} />
+                          <input type="hidden" name="log_id" value={log.id} />
+                        </form>
+                        <form key={promoteFormId} id={promoteFormId} action={promoteRollForwardLogAction}>
+                          <input type="hidden" name="redirect_to" value={adminBasePath} />
+                          <input type="hidden" name="parent_tournament_id" value={log.parent_tournament_id} />
+                          <input type="hidden" name="target_year" value={log.target_year} />
+                        </form>
+                      </>
                     );
                   })}
                   <div style={{ marginTop: 12, marginBottom: 12, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -6805,19 +6850,32 @@ export default async function AdminPage({
                       </button>
                     </div>
                   </div>
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <div style={{ width: "100%" }}>
+                    <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontSize: 12 }}>
+                    <colgroup>
+                      <col style={{ width: 28 }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: 36 }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "17%" }} />
+                      <col style={{ width: 76 }} />
+                      <col style={{ width: 48 }} />
+                      <col style={{ width: "17%" }} />
+                    </colgroup>
                     <thead>
                       <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
-                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Pick</th>
-                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Parent</th>
-                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Target year</th>
-                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Batch</th>
-                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Status</th>
-                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Sibling</th>
-                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Notes</th>
-                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Researched</th>
-                        <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>Save</th>
+                        <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}></th>
+                        <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}>Parent</th>
+                        <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}>Yr</th>
+                        <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}>Batch</th>
+                        <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}>Status</th>
+                        <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}>Sibling</th>
+                        <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}>Notes</th>
+                        <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}>Researched</th>
+                        <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}></th>
+                        <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}>Create draft</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -6825,37 +6883,48 @@ export default async function AdminPage({
                         const parent = (log as any).parent;
                         const sibling = (log as any).sibling;
                         const formId = `roll-forward-log-${log.id}`;
+                        const promoteFormId = `roll-forward-promote-${log.id}`;
                         return (
                           <tr key={log.id} style={{ borderBottom: "1px solid #eee", verticalAlign: "top" }}>
-                            <td style={{ padding: 8 }}>
+                            <td style={{ padding: "6px 4px" }}>
                               <input type="checkbox" name="log_ids" value={log.id} />
                             </td>
-                            <td style={{ padding: 8 }}>
+                            <td style={{ padding: "6px 4px", overflow: "hidden" }}>
                               {parent?.slug ? (
-                                <a href={`/tournaments/${parent.slug}`} style={{ color: "#0f3d2e", fontWeight: 700, textDecoration: "none" }}>
+                                <a href={`/tournaments/${parent.slug}`} style={{ color: "#0f3d2e", fontWeight: 700, textDecoration: "none", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                   {parent?.name || parent?.slug}
                                 </a>
                               ) : (
-                                <span>{parent?.name || log.parent_tournament_id}</span>
+                                <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{parent?.name || log.parent_tournament_id}</span>
                               )}
-                              <div style={{ color: "#666", marginTop: 4 }}>{parent?.slug || log.parent_tournament_id}</div>
+                              <div style={{ color: "#666", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{parent?.slug || ""}</div>
                             </td>
-                            <td style={{ padding: 8 }}>{log.target_year}</td>
-                            <td style={{ padding: 8 }}>
+                            <td style={{ padding: "6px 4px" }}>{log.target_year}</td>
+                            <td style={{ padding: "6px 4px" }}>
                               <input
                                 form={formId}
                                 name="batch_label"
                                 defaultValue={(log as any).batch_label ?? ""}
-                                placeholder="jan-2026-wk1"
-                                style={{ width: "100%", minWidth: 150, padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                                placeholder="batch"
+                                style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1px solid #ccc", fontSize: 11, boxSizing: "border-box" }}
                               />
                             </td>
-                            <td style={{ padding: 8 }}>
+                            <td style={{ padding: "6px 4px" }}>
+                              {log.status === "ready_to_create" && (
+                                <div style={{ marginBottom: 4, padding: "2px 6px", borderRadius: 4, background: "#d1fae5", color: "#065f46", fontWeight: 700, fontSize: 10, display: "inline-block" }}>
+                                  Ready to create
+                                </div>
+                              )}
+                              {log.status === "linked_existing" && (
+                                <div style={{ marginBottom: 4, padding: "2px 6px", borderRadius: 4, background: "#dbeafe", color: "#1e40af", fontWeight: 700, fontSize: 10, display: "inline-block" }}>
+                                  Linked
+                                </div>
+                              )}
                               <select
                                 form={formId}
                                 name="status"
                                 defaultValue={log.status}
-                                style={{ padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                                style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1px solid #ccc", fontSize: 11, boxSizing: "border-box" }}
                               >
                                 {ROLL_FORWARD_LOG_STATUSES.map((status) => (
                                   <option key={status} value={status}>
@@ -6864,42 +6933,120 @@ export default async function AdminPage({
                                 ))}
                               </select>
                             </td>
-                            <td style={{ padding: 8 }}>
+                            <td style={{ padding: "6px 4px", overflow: "hidden" }}>
                               {sibling?.slug ? (
-                                <a href={`/tournaments/${sibling.slug}`} style={{ color: "#0f3d2e", fontWeight: 700, textDecoration: "none" }}>
+                                <a href={`/tournaments/${sibling.slug}`} style={{ color: "#0f3d2e", fontWeight: 700, textDecoration: "none", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                   {sibling?.name || sibling?.slug}
                                 </a>
                               ) : (
                                 <span style={{ color: "#777" }}>{log.sibling_id ?? "—"}</span>
                               )}
                             </td>
-                            <td style={{ padding: 8 }}>
+                            <td style={{ padding: "6px 4px" }}>
                               <textarea
                                 form={formId}
                                 name="notes"
                                 defaultValue={log.notes ?? ""}
-                                rows={3}
-                                style={{ width: "100%", minWidth: 220, padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                                rows={2}
+                                style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1px solid #ccc", fontSize: 11, resize: "vertical", boxSizing: "border-box" }}
                               />
                             </td>
-                            <td style={{ padding: 8, color: "#555" }}>
-                              {log.researched_at ? new Date(log.researched_at).toLocaleString() : "—"}
+                            <td style={{ padding: "6px 4px", color: "#555", fontSize: 11 }}>
+                              {log.researched_at ? log.researched_at.slice(0, 10) : "—"}
                             </td>
-                            <td style={{ padding: 8 }}>
+                            <td style={{ padding: "6px 4px" }}>
                               <button
                                 form={formId}
                                 type="submit"
                                 style={{
-                                  padding: "8px 10px",
-                                  borderRadius: 8,
+                                  padding: "5px 8px",
+                                  borderRadius: 6,
                                   border: "1px solid #555",
                                   background: "#fff",
                                   color: "#111",
-                                  fontWeight: 800,
+                                  fontWeight: 700,
+                                  fontSize: 11,
+                                  cursor: "pointer",
                                 }}
                               >
                                 Save
                               </button>
+                            </td>
+                            <td style={{ padding: "6px 4px", background: log.status === "ready_to_create" ? "#f0fdf4" : undefined }}>
+                              {log.sibling_id ? (
+                                <span style={{ color: "#888", fontSize: 11 }}>Done</span>
+                              ) : log.status === "discontinued" || log.status === "linked_existing" ? (
+                                <span style={{ color: "#888", fontSize: 11 }}>—</span>
+                              ) : (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                  {/* Staging data surfaced by research tool */}
+                                  {(log as any).target_start_date && (
+                                    <div style={{ fontSize: 11, color: "#333", lineHeight: 1.4 }}>
+                                      <span style={{ fontWeight: 700 }}>
+                                        {(log as any).target_start_date}
+                                        {(log as any).target_end_date && ` → ${(log as any).target_end_date}`}
+                                      </span>
+                                      {(log as any).verified_dates && (
+                                        <span style={{ marginLeft: 4, color: "#0f3d2e", fontWeight: 700 }}>✓</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {(log as any).target_venue_name && (
+                                    <div style={{ fontSize: 10, color: "#555", lineHeight: 1.3 }}>
+                                      {(log as any).target_venue_name}
+                                      {(log as any).target_venue_city && `, ${(log as any).target_venue_city}`}
+                                      {(log as any).target_venue_state && ` ${(log as any).target_venue_state}`}
+                                      {(log as any).verified_venue && (
+                                        <span style={{ marginLeft: 4, color: "#0f3d2e", fontWeight: 700 }}>✓</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {(log as any).target_source_url && (
+                                    <div style={{ fontSize: 10 }}>
+                                      <a href={(log as any).target_source_url} target="_blank" rel="noreferrer noopener"
+                                        style={{ color: "#0f3d2e", textDecoration: "none" }}>
+                                        Source ↗
+                                      </a>
+                                      {(log as any).verified_source && (
+                                        <span style={{ marginLeft: 4, color: "#0f3d2e", fontWeight: 700 }}>✓</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                    <input
+                                      form={promoteFormId}
+                                      type="date"
+                                      name="start_date"
+                                      required
+                                      defaultValue={(log as any).target_start_date ?? ""}
+                                      style={{ width: "100%", padding: "3px 4px", borderRadius: 5, border: "1px solid #ccc", fontSize: 11, boxSizing: "border-box" }}
+                                    />
+                                    <input
+                                      form={promoteFormId}
+                                      type="date"
+                                      name="end_date"
+                                      defaultValue={(log as any).target_end_date ?? ""}
+                                      style={{ width: "100%", padding: "3px 4px", borderRadius: 5, border: "1px solid #ccc", fontSize: 11, boxSizing: "border-box" }}
+                                    />
+                                    <button
+                                      form={promoteFormId}
+                                      type="submit"
+                                      style={{
+                                        padding: log.status === "ready_to_create" ? "8px 10px" : "6px 10px",
+                                        borderRadius: 8,
+                                        border: log.status === "ready_to_create" ? "2px solid #065f46" : "1px solid #0f3d2e",
+                                        background: log.status === "ready_to_create" ? "#065f46" : "#0f3d2e",
+                                        color: "#fff",
+                                        fontWeight: 700,
+                                        fontSize: log.status === "ready_to_create" ? 12 : 11,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      Create draft
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );
@@ -7083,15 +7230,28 @@ export default async function AdminPage({
 	                <table
 	                  style={{
 	                    width: "100%",
+                    tableLayout: "fixed",
                     borderCollapse: "collapse",
-                    fontSize: 13,
-                    minWidth: 700,
+                    fontSize: 12,
                   }}
                 >
+                  <colgroup>
+                    <col style={{ width: 32 }} />
+                    <col style={{ width: "18%" }} />
+                    <col style={{ width: "7%" }} />
+                    <col style={{ width: "8%" }} />
+                    <col style={{ width: "11%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "7%" }} />
+                    <col style={{ width: "7%" }} />
+                    <col style={{ width: "15%" }} />
+                  </colgroup>
 	                  <thead>
 	                    <tr style={{ background: "#f5f5f5" }}>
-	                      <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>
-                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+	                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd" }}>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>
                           <input
                             type="checkbox"
                             id="tournament-select-all"
@@ -7100,16 +7260,16 @@ export default async function AdminPage({
                           <span style={{ color: "#333", fontWeight: 600 }}>All</span>
                         </label>
                       </th>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Tournament</th>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Location</th>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Dates</th>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Venue & address</th>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Referee info</th>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Director</th>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Referee contact</th>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Source</th>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Website</th>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Actions</th>
+                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd", textAlign: "left" }}>Tournament</th>
+                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd", textAlign: "left" }}>Location</th>
+                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd", textAlign: "left" }}>Dates</th>
+                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd", textAlign: "left" }}>Venue</th>
+                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd", textAlign: "left" }}>Ref info</th>
+                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd", textAlign: "left" }}>Director</th>
+                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd", textAlign: "left" }}>Ref contact</th>
+                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd", textAlign: "left" }}>Source</th>
+                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd", textAlign: "left" }}>Website</th>
+                      <th style={{ padding: "6px 4px", borderBottom: "1px solid #ddd", textAlign: "left" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>

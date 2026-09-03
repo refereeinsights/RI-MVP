@@ -4867,3 +4867,14 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - New Active Tournament Support economics require an Approved enrollment for the exact tournament and rate at both the application and database boundaries. Submission and approval do not activate routing.
   - The additive migration remains unapplied because local apps use production Supabase. No production enrollment row, configuration change, fee activation, deployment, or HotelPlanner fee click occurred.
   - Mocked/static validation passed: 24 focused tests, both TypeScript checks, both lints, and both production builds. See `docs/reports/ti-hotel-support-director-enrollment-pilot-2026-08-17.md`.
+
+- 2026-09-02: Roll-forward log `ready_to_create` and `linked_existing` statuses added.
+  - Extended `RollForwardStatus` union in `supabase.ts` with the two new values written by the MCP `upsert_roll_forward_log` research tool.
+  - `ROLL_FORWARD_STATUSES` in `rollForwardTournaments.ts` and `ROLL_FORWARD_LOG_STATUSES` + `STATUS_ORDER` in `admin/page.tsx` updated to include both.
+  - `RollForwardRowAction` in `rollForwardTournaments.ts` extended so non-done CSV-import rows with the new statuses do not cause a TypeScript error.
+  - Admin log table: rows now sort `ready_to_create` first, then `ambiguous`, `pending`, `no_dates_announced`, `linked_existing`, `discontinued`, `done`.
+  - `ready_to_create` rows get a green "Ready to create" badge in the Status column, a green-tinted Create draft cell, and a slightly larger/bolder Create draft button.
+  - `linked_existing` rows get a blue "Linked" badge and show `—` in the Create draft column (no create action needed).
+  - Summary line updated to show `ready N · ambiguous N` counts prominently.
+  - Table layout (`table-layout: fixed`, `<colgroup>`) unchanged; no new columns added.
+  - RI TypeScript and lint pass clean.

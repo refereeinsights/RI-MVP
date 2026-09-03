@@ -45,6 +45,8 @@ type RollForwardRowAction =
   | "no_dates_announced"
   | "discontinued"
   | "ambiguous"
+  | "ready_to_create"
+  | "linked_existing"
   | "ambiguous_parent"
   | "missing_parent"
   | "invalid";
@@ -122,6 +124,8 @@ const ROLL_FORWARD_STATUSES: RollForwardStatus[] = [
   "discontinued",
   "done",
   "ambiguous",
+  "ready_to_create",
+  "linked_existing",
 ];
 
 function normalizeKey(value: string) {
@@ -461,6 +465,8 @@ function incrementStatusSummary(summary: RollForwardSummary, status: RollForward
   else if (status === "no_dates_announced") summary.noDatesAnnounced += 1;
   else if (status === "discontinued") summary.discontinued += 1;
   else if (status === "ambiguous") summary.ambiguous += 1;
+  // ready_to_create and linked_existing are research-tool statuses tracked via the log UI;
+  // they do not increment the CSV-import summary counters
 }
 
 function buildNotice(mode: RollForwardMode, summary: RollForwardSummary) {
@@ -794,6 +800,113 @@ export async function rollForwardTournamentsFromCsvText(
   };
 }
 
+export type PromoteLogEntryResult =
+  | { ok: true; id: string; slug: string; copiedVenueLinks: number }
+  | { ok: false; error: string };
+
+export async function promoteLogEntryToSibling(
+  parentTournamentId: string,
+  targetYear: number,
+  startDate: string,
+  endDate?: string | null,
+): Promise<PromoteLogEntryResult> {
+  const supabase = supabaseAdmin;
+
+  const parent = await loadParentById(supabase, parentTournamentId);
+  if (!parent) return { ok: false, error: "Parent tournament not found." };
+
+  const effectiveName = parent.name;
+  const effectiveSport = parent.sport;
+  if (!effectiveName || !effectiveSport) {
+    return { ok: false, error: "Parent tournament is missing name or sport." };
+  }
+
+  const startYear = Number(startDate.slice(0, 4));
+  if (startYear !== targetYear) {
+    return { ok: false, error: `start_date year (${startYear}) must match target_year (${targetYear}).` };
+  }
+
+  const effectiveState = normalizeState(parent.state);
+  const effectiveCity = parent.city ?? null;
+  const targetSlug = buildSeriesSlug(effectiveName, effectiveCity, effectiveState, targetYear);
+  if (!targetSlug) return { ok: false, error: "Could not derive sibling slug from parent name." };
+
+  const existing = await findExistingSibling(
+    supabase,
+    targetSlug,
+    { rowNumber: 0, existingTournamentId: parentTournamentId, existingSlug: null, targetYear, batchLabel: null,
+      rollForwardStatus: "done", name: effectiveName, sport: effectiveSport, level: null, venue: null,
+      address: null, city: effectiveCity, state: effectiveState, zip: null, startDate, endDate: endDate ?? null,
+      sourceUrl: null, notes: null, tournamentDirector: null, tournamentDirectorEmail: null,
+      refereeContact: null, refereeContactEmail: null, raw: {} },
+    effectiveSport,
+    effectiveState,
+  );
+  if (existing) {
+    await upsertRollForwardLog(supabase, {
+      parent_tournament_id: parentTournamentId,
+      target_year: targetYear,
+      batch_label: null,
+      status: "done",
+      sibling_id: existing.id,
+      notes: null,
+    });
+    return { ok: true, id: existing.id, slug: existing.slug, copiedVenueLinks: 0 };
+  }
+
+  const sourceUrl = parent.source_url ?? `https://tournamentinsights.com/admin/roll-forward/${targetSlug}`;
+  const sourceDomain = deriveSourceDomain(sourceUrl) ?? parent.source_domain ?? "tournamentinsights.com";
+  const insertPayload = {
+    name: effectiveName,
+    slug: targetSlug,
+    sport: effectiveSport,
+    level: parent.level,
+    sub_type: parent.sub_type ?? "admin",
+    ref_cash_tournament: parent.ref_cash_tournament,
+    state: effectiveState,
+    city: effectiveCity,
+    venue: parent.venue,
+    address: parent.address,
+    zip: parent.zip,
+    start_date: startDate,
+    end_date: endDate ?? startDate,
+    summary: parent.summary,
+    status: "draft",
+    source: (parent.source ?? "admin") as TournamentSource,
+    source_event_id: `rollforward:${parent.id}:${targetYear}:${crypto.randomUUID()}`,
+    source_url: sourceUrl,
+    source_domain: sourceDomain,
+    tournament_director: parent.tournament_director,
+    tournament_director_email: parent.tournament_director_email,
+    referee_contact: parent.referee_contact,
+    referee_contact_email: parent.referee_contact_email,
+  };
+
+  const insertRes = await supabase.from("tournaments" as any).insert(insertPayload).select("id").single();
+  if (insertRes.error) {
+    return { ok: false, error: insertRes.error.message || "Failed to insert sibling tournament." };
+  }
+
+  const newId = String((insertRes.data as any)?.id || "");
+  let copiedVenueLinks = 0;
+  try {
+    copiedVenueLinks = await copyVenueLinks(supabase, parent.id, newId);
+  } catch {
+    // venue copy is best-effort; sibling was already created
+  }
+
+  await upsertRollForwardLog(supabase, {
+    parent_tournament_id: parent.id,
+    target_year: targetYear,
+    batch_label: null,
+    status: "done",
+    sibling_id: newId,
+    notes: null,
+  });
+
+  return { ok: true, id: newId, slug: targetSlug, copiedVenueLinks };
+}
+
 export async function listTournamentRollForwardLogs(params?: {
   status?: RollForwardStatus | "";
   targetYear?: number | null;
@@ -803,7 +916,7 @@ export async function listTournamentRollForwardLogs(params?: {
   let query = supabaseAdmin
     .from("tournament_roll_forward_log")
     .select(
-      "id,parent_tournament_id,target_year,batch_label,status,sibling_id,notes,researched_at,created_at,updated_at,parent:tournaments!tournament_roll_forward_log_parent_tournament_id_fkey(id,name,slug,start_date),sibling:tournaments!tournament_roll_forward_log_sibling_id_fkey(id,name,slug,start_date)"
+      "id,parent_tournament_id,target_year,batch_label,status,sibling_id,notes,researched_at,created_at,updated_at,target_name,target_start_date,target_end_date,target_source_url,target_venue_name,target_venue_address,target_venue_city,target_venue_state,verified_dates,verified_source,verified_venue,match_confidence,recommended_action,parent:tournaments!tournament_roll_forward_log_parent_tournament_id_fkey(id,name,slug,start_date),sibling:tournaments!tournament_roll_forward_log_sibling_id_fkey(id,name,slug,start_date)"
     )
     .order("target_year", { ascending: false })
     .order("updated_at", { ascending: false })
@@ -815,7 +928,7 @@ export async function listTournamentRollForwardLogs(params?: {
 
   const { data, error } = await query;
   if (error) throw new Error(error.message || "failed_list_roll_forward_logs");
-  return (data ?? []) as Array<
+  return (data ?? []) as unknown as Array<
     TournamentRollForwardLogRow & {
       parent?: { id: string; name: string | null; slug: string | null; start_date: string | null } | null;
       sibling?: { id: string; name: string | null; slug: string | null; start_date: string | null } | null;
