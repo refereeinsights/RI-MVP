@@ -1,7 +1,7 @@
 # Corralio CPO Execution State
 
 **Status:** Operational snapshot, not a strategic document.
-**As of:** 2026-09-03 (Gate 3 PASS confirmed committed this pass; everything else reconciled through 2026-09-02)
+**As of:** 2026-09-03 (five open founder decisions resolved — email, schedule-change push, ADR-024, admin/support tooling, TI planning-handoff doc status; Phase A+B Stage 1 production database verification and calendar-feed decision recorded; Gate 3 PASS committed and confirmed earlier the same day; everything else reconciled through 2026-09-02)
 **Companion document:** `CORRALIO_FOUNDER_MENTOR_HANDOFF.md` (Part II) carries the full narrative/architecture context behind every line item here. This document exists to answer, quickly: what's done, what's next, what's blocked, and on what evidence.
 
 **How to use this in a fresh session:** read this document's NEXT 5 ACTIONS first. Read the handoff's Part II only for the "why" behind an item, or when an item here references a design/decision by name.
@@ -30,19 +30,21 @@ Core planning loop (household → children/teams → schedules → This Weekend 
 | Founder backlog reconciliation | `c525b2dd` | `docs/corralio/cpo/2026-08-30-founder-backlog-reconciliation.md`. |
 | Portfolio API Economics — Stage 1 + Stage 2 discovery/decision packets | `ac202d8c`, `f89f2c30`, `f38c1838`, `10508533` | Read-only measurement/decision work across the whole API portfolio; register at `docs/reports/portfolio-api-economics-register-stage2-2026-09-02.xlsx`. Not Corralio-specific but includes the Corralio Geocodio/OpenRouteService and `corralio_external_api_calls` findings. |
 | WeatherAPI.com migration decision recorded; 7-phase migration prompt filed | `ba105238`, `52153abb` | Founder decided to swap Open-Meteo → WeatherAPI.com (verified live: commercial use permitted on free tier, resolving the licensing ambiguity that made Open-Meteo an audit item). Register updated (Open-Meteo → SWAP/RETIRE). Migration prompt at `docs/prompts/2026-09-02-weatherapi-migration-implementation-prompt.md`, revised once per founder correction (measure-before-caching, one shared client across products, explicit STOP before production deploy). **Not yet executed** — this is a filed, accepted design, not a build in progress. |
+| ADR-024 amended — Mapbox / compute-on-demand routing decision canonicalized | `bc364705` | Founder decision, 2026-09-03. Documentation reconciliation only: ADR-024 no longer reads "provider selection and retention remain open" — records Mapbox as provider and compute-on-demand/never-persisted as architecture, both already-accepted CPO decisions (Handoff §II.13). No code/behavior change. |
 
 ## IN PROGRESS
 
-- **Phase A+B — Phone-First Channel Identity & Deterministic Schedule Intake:** Gate 3 now **PASSED and committed** (see COMPLETE table above). The isolated Telnyx phases 1–4 sub-spike remains `PARTIALLY VERIFIED` and is a separate item from Gate 3. **Next real step is the Phase A+B build prompt itself** (`docs/prompts/corralio-phase-a-b-phone-auth-schedule-intake-prompt.md`), founder-reviewed and accepted 2026-08-31, whose only remaining stated blocker was Gate 3 — that blocker is now cleared.
+- **Phase A+B — Phone-First Channel Identity & Deterministic Schedule Intake:** Stage 1 repository work is implemented, and production database verification is complete. Catalog, rollback-only behavioral, and real concurrent RPC verification all passed with cleanup zero; see `docs/corralio/cpo/2026-09-03-cpo-report-phase-ab-stage1.md`. Product flags remain unset and live SMS/provider readiness is not implied. The next gate is separately authorized bounded Stage 2 configuration/UAT.
 - **Founder decision — Cloudflare Turnstile (2026-08-31):** approved CAPTCHA provider for Corralio Stage 1 phone authentication. Not sufficient by itself for production SMS authorization; SMS Production Readiness (Section 9) remains fully separate and unaffected by Gate 3's result.
 - **10DLC compliance surface:** Sole Proprietor classification confirmed; submission packet drafted, not submitted anywhere on record. Gate 3 passing does not change 10DLC status.
 - **HotelPlanner Phase 3B evidence diagnostic filed** (`6fd64ffb`) — read-only, not yet run.
 - **HotelPlanner addendum reconciliation review** (`07279763`) — correction to attribution design doc Section 7 queued pending the diagnostic above.
 - **WeatherAPI.com migration prompt filed, not executed** — see COMPLETE table row above. Ready to dispatch to engineering whenever the founder wants it sequenced in; explicitly not urgent relative to Phase A+B/CALNAME.
+- **Private Corralio calendar feed — Phase 1 approved as TEST NEXT (2026-09-03), Phase 2/3 explicitly not authorized.** Investigation at `docs/corralio/cpo/2026-09-03-cpo-investigation-corralio-calendar-feed-travel-lifecycle.md`; founder decision at `docs/corralio/cpo/2026-09-03-founder-decision-calendar-feed-phase1-test-next.md`. Key findings: TI (`apps/ti-web/lib/planner/calendarFeeds.ts`) already has a complete, production RFC 5545 serializer + token lifecycle, portable to Corralio, correcting a prior misremembering that it was only a loose pattern. Corralio has zero tournament concept and zero HotelPlanner/lodging-state implementation today, so hotel-reservation-state feed updates (Phase 3) can't be scheduled independently of the still-unrun HotelPlanner Phase 3B evidence diagnostic. Founder-approved scope: one household feed, imported events only, minimal child identity, reduced venue, no leave-by/conflicts/hotel status/planning reminders/notes/home address/promotional content — with an explicit decision gate to be set before any code is written (10–15 activated multi-schedule households, evidence of persistent fetches weeks out, compared against differentiated-planning engagement in a matched non-subscribed cohort; stop rather than proceed to Phase 2 if that engagement collapses). A Phase-1-only implementation prompt is approved to be **written**, but stays queued behind the items in READY TO EXECUTE below — not dispatched yet. Promotional/advertising calendar content is a flat KILL.
 
 ## READY TO EXECUTE (prompts filed, fully specified)
 
-1. **Phase A+B build itself** — `docs/prompts/corralio-phase-a-b-phone-auth-schedule-intake-prompt.md`. Its stated Gate 3 precondition is now met and committed. This is the most consequential "ready" item in this list.
+1. **Phase A+B bounded Stage 2 configuration/UAT** — `docs/prompts/corralio-phase-a-b-stage-2-bounded-configuration-uat-prompt.md`. Stage 1 and its production database gate are complete. Proceed only under separate founder authorization; database verification does not authorize Telnyx, live SMS/OTP, product flags, deployment, or push.
 2. **ICS Calendar-Level Metadata Preservation (micro-slice)** — `docs/prompts/corralio-ics-calendar-metadata-preservation-micro-slice-prompt.md`. Founder-accepted, Do Now (2026-08-31). Still not dispatched/run as of 2026-09-03 (confirmed via direct grep: zero `X-WR-CALNAME`/`CALNAME` references in `packages/lib/sports-schedule/index.ts`). Zero dependency on Gate 3 or anything else — the other fully idle, ready-to-run item, alongside Phase A+B.
 3. **3.6B Phase 3A — Temporary Routing Origin** — `docs/prompts/corralio-slice-3.6b-phase3a-temporary-routing-origin-prompt.md`. Phase 1 dependency satisfied by `34d83cf4`.
 4. **Schedule-Source Compatibility & Evidence Matrix** — `docs/prompts/corralio-schedule-source-compatibility-evidence-matrix-prompt.md`. Non-blocking, can run anytime.
@@ -51,6 +53,7 @@ Core planning loop (household → children/teams → schedules → This Weekend 
 ## DATABASE / DEPLOYMENT GATES
 
 - ~~Phase A+B Gate 3 — corrected-config Auth call awaits separate authorization~~ **PASSED and committed, `b06daada`** — see COMPLETE table above.
+- **Phase A+B Stage 1 database gate PASSED, 2026-09-03** — production migration applied; catalog and rollback-only behavioral verifiers passed; both real concurrency races passed; final synthetic Auth/household/pending/claim fixture counts were zero.
 - `CORRALIO_VAPID_PUBLIC_KEY` / `CORRALIO_VAPID_PRIVATE_KEY` — still not configured in any deployment environment.
 - All migrations to date applied to a human-controlled dev/verification environment only. Repository remains unpushed to `origin` per standing instruction.
 
@@ -62,15 +65,34 @@ Real iPhone/Android push receipt; iOS Home Screen install friction; GPS/current-
 
 See `docs/corralio/cpo/2026-08-30-founder-backlog-reconciliation.md` for the full list and rationale.
 
-## OPEN — REQUIRES A FOUNDER DECISION, NOT MORE ENGINEERING (unchanged from 2026-09-02)
+## OPEN — REQUIRES A FOUNDER DECISION, NOT MORE ENGINEERING (as of 2026-09-03)
 
-Email channel status; schedule-change push; ADR-024 amendment; admin/support tooling for the pilot; HotelPlanner status-contract bug (documentation-only, closes with the evidence diagnostic). Items 6–8 from the prior version of this document are resolved and archived — see the 2026-09-02 revision history if the trail is needed.
+- **HotelPlanner status-contract bug** (documentation-only, closes with the Phase 3B evidence diagnostic — see READY TO EXECUTE #3).
+- **`CORRALIO_TI_PLANNING_HANDOFF.md` disposition** — new finding, 2026-09-03. The document (146 lines, substantive TI↔Corralio handoff policy, last reviewed 2026-08-18) was found only in a dangling, non-mainline commit (`af4d6ea6`) and has been recovered/committed locally (`c4580fe2`) to prevent loss to `git gc`. Not yet resolved: is this restored document the authoritative source going forward, or should it be marked superseded and merged into ADR-013 + `CORRALIO_SECURITY_PRIVACY.md`'s "TI to Corralio handoff" section, which currently carry only condensed fragments of the same policy? Recommend a quick Codex sanity-check on the git-history finding itself before finalizing.
+
+Resolved 2026-09-03 (see FOUNDER DECISIONS RECORDED below): email channel status, schedule-change push, ADR-024 amendment, admin/support tooling for the pilot.
+
+---
+
+## FOUNDER DECISIONS RECORDED, 2026-09-03 — pilot scope narrowed, not expanded
+
+Rod worked through all five open Founder Decisions in one pass. Net effect: these decisions **reduce** pilot launch scope rather than add to it — no new engineering was authorized by any of the five.
+
+1. **Email channel — DEFER for pilot.** Phase A+B SMS is explicitly solving the no-installed-client reach problem; building email before observing SMS reach data would add an unvalidated channel. Resolves the 3.6A-vs-audit documentation contradiction in favor of SMS-first. Revisit after initial SMS/pilot reach data. No email-vendor build authorized.
+2. **Schedule-change push — DEFER, explicitly recorded (not a silent drop).** Change detection isn't free (diff semantics, notification policy, false-positive risk, another delivery surface); Phase A+B activation is the closer proof point. ICS refresh can update the plan without proactively notifying the parent for the pilot. Revisit after recurring usage shows which changes parents actually care about.
+3. **ADR-024 — AMENDED.** Documentation reconciliation, not a new decision — see COMPLETE table (`bc364705`).
+4. **Pilot admin/support tooling — FOUNDER-DIRECT SUPPORT.** No admin product at 10–15 families; track support interventions and reasons (see READY-TO-EXECUTE-adjacent pilot-ops tracking in Todoist). Build a narrow tool only from observed recurring cases.
+5. **`CORRALIO_TI_PLANNING_HANDOFF.md` — reference under repair, not yet closed.** See OPEN section above; this one surfaced a real finding (recovered content, not just a stale pointer) and needs one more pass before it's fully resolved.
+
+Not pilot blockers, by these decisions: email, schedule-change push, admin tooling. Documentation cleanup: ADR-024 (done) + the handoff-doc reference (in progress). This keeps the sequencing discipline: prove the core loop with 10–15 families before adding more ways to notify them or more tooling to operate it — let the pilot expose those needs rather than predicting them.
+
+Full record: Todoist "Corralio — CPO" project, 🚨 Founder Decisions section (four completed tasks + one still open).
 
 ---
 
 ## NEXT 5 ACTIONS
 
-1. **Send the Phase A+B build prompt** — its Gate 3 precondition is met and committed (`b06daada`). The single highest-leverage next dispatch on the whole roadmap.
+1. **Review and authorize bounded Phase A+B Stage 2 configuration/UAT** — Stage 1 and production database verification are complete; keep Telnyx/live SMS and deployment behind their independent gates.
 2. **Send the filed ICS Calendar-Level Metadata Preservation micro-slice** (`docs/prompts/corralio-ics-calendar-metadata-preservation-micro-slice-prompt.md`) — still idle, zero dependency, Do Now since 8/31. This and #1 are the two items the founder asked about directly on 2026-09-03 ("what is next here?").
 3. **Run the filed HotelPlanner Phase 3B evidence diagnostic in parallel** — independent of the above.
 4. **Proceed with the filed Phase 3A prompt when selected** (temporary routing origin) — Phase 1 dependency satisfied.
