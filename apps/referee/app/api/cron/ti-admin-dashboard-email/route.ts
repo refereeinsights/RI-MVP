@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { syncHotelPlannerBookings } from "@/lib/hotelPlannerBookingSync";
 import { parseTiAdminDashboardRecipients, sendTiAdminDashboardEmail } from "@/lib/tiAdminDashboardEmail";
+import { executeTiAdminDashboardCron } from "@/lib/tiAdminDashboardCron";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,29 +23,25 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const syncResult = await (async () => {
-    try {
-      return await syncHotelPlannerBookings(7);
-    } catch (err: any) {
-      console.error("[ti-admin-dashboard-email] booking sync failed", err?.message ?? err);
-      return { error: err?.message ?? "Booking sync failed" };
-    }
-  })();
+  const execution = await executeTiAdminDashboardCron({
+    syncBookings: () => syncHotelPlannerBookings(7, { trigger: "vercel_cron" }),
+    sendEmail: () => sendTiAdminDashboardEmail(),
+    logSyncFailure: () => console.error("[ti-admin-dashboard-email] booking sync failed"),
+  });
 
-  try {
-    const result = await sendTiAdminDashboardEmail();
-    return NextResponse.json({
-      ok: true,
-      recipients: result.recipients,
-      bookingSync: syncResult,
-      generatedAt: result.summary.generatedAt,
-    });
-  } catch (error: any) {
+  if ("error" in execution) {
     return NextResponse.json(
-      { ok: false, error: error?.message ?? "Unknown error", bookingSync: syncResult },
+      { ok: false, error: execution.error, bookingSync: execution.bookingSync },
       { status: 500 }
     );
   }
+  const result = execution.email;
+  return NextResponse.json({
+    ok: true,
+    recipients: result.recipients,
+    bookingSync: execution.bookingSync,
+    generatedAt: result.summary.generatedAt,
+  });
 }
 
 export async function POST(req: Request) {

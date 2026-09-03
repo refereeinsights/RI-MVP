@@ -2,6 +2,8 @@ import { sendEmailAlert } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadHotelBookingSummary, type HotelBookingSummary } from "@/lib/hotelPlannerBookingSync";
 import { calculateAttributionCoverage } from "@/lib/hotelBookingReconciliation";
+import { loadHotelSyncHealth } from "@/lib/hotelPlannerSyncHeartbeat.server";
+import type { HotelSyncHealth } from "@/lib/hotelPlannerSyncHeartbeat";
 
 // ---------------------------------------------------------------------------
 // Recipients / base URL
@@ -170,16 +172,18 @@ export type TiAdminDashboardSummary = {
   hotelHandoffs: { current: number; prev: number };
   traffic: { current: number; prev: number };
   bookings: HotelBookingSummary;
+  hotelSyncHealth: HotelSyncHealth;
   plannerActivations: number;
   pending: Awaited<ReturnType<typeof loadPendingCounts>>;
 };
 
 export async function loadTiAdminDashboardSummary(windowDays = 7): Promise<TiAdminDashboardSummary> {
-  const [tiles, hotelHandoffs, traffic, bookings, plannerData, pending] = await Promise.all([
+  const [tiles, hotelHandoffs, traffic, bookings, hotelSyncHealth, plannerData, pending] = await Promise.all([
     loadTiles(),
     loadHotelHandoffs(windowDays),
     loadTrafficSummary(windowDays),
     loadHotelBookingSummary(windowDays),
+    loadHotelSyncHealth(),
     loadPlannerActivations(windowDays),
     loadPendingCounts(),
   ]);
@@ -191,6 +195,7 @@ export async function loadTiAdminDashboardSummary(windowDays = 7): Promise<TiAdm
     hotelHandoffs,
     traffic,
     bookings,
+    hotelSyncHealth,
     plannerActivations: plannerData.activations,
     pending,
   };
@@ -218,6 +223,12 @@ function formatTimestamp(iso: string | null, timeZone = "America/Los_Angeles"): 
     minute: "2-digit",
     hour12: true,
   });
+}
+
+function hotelSyncStatusLabel(health: HotelSyncHealth) {
+  if (health.attemptState === "stale_running") return "STALE RUNNING";
+  if (health.lastAttemptStatus === "running") return "RUNNING";
+  return health.lastAttemptStatus?.toUpperCase() ?? "NEVER";
 }
 
 function escapeHtml(v: string) {
@@ -265,6 +276,7 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
 
   const t = summary.tiles;
   const b = summary.bookings;
+  const sync = summary.hotelSyncHealth;
   const hh = summary.hotelHandoffs;
   const tr = summary.traffic;
   const w = summary.windowDays;
@@ -285,7 +297,17 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
   ].join("");
 
   // 3. Hotels
-  const syncLine = `<div style="${MUTED_STYLE}">Hotel booking data last synced: ${escapeHtml(formatTimestamp(b.lastSyncedAt, pt))}</div>`;
+  const syncHealthContent = [
+    row("Last attempt", formatTimestamp(sync.lastAttemptStartedAt, pt)),
+    row("Status", hotelSyncStatusLabel(sync)),
+    row("Last successful sync", formatTimestamp(sync.lastSuccessfulCompletedAt, pt)),
+    row("Purchases returned", sync.lastAttemptPurchaseRows),
+    row("Cancellations returned", sync.lastAttemptCancellationRows),
+    row("Rows updated", sync.lastAttemptRowsUpserted),
+    sync.lastAttemptRowsFailed > 0 ? row("Rows failed", sync.lastAttemptRowsFailed) : "",
+    sync.lastAttemptErrorStage ? row("Stage", sync.lastAttemptErrorStage) : "",
+    `<div style="${MUTED_STYLE}">Latest persisted purchase: ${escapeHtml(formatTimestamp(sync.latestPurchasedAt, pt))}</div>`,
+  ].join("");
   const attributionCoverage = calculateAttributionCoverage({
     reconciliationStatus: b.reconciliationStatus,
     matchedCount: b.matchedCount,
@@ -325,7 +347,6 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
     b.topTournamentSlugs.length > 0
       ? `<div style="${MUTED_STYLE}">Top tournaments: ${b.topTournamentSlugs.map((s) => `${escapeHtml(s.slug)} (${s.count})`).join(", ")}</div>`
       : "",
-    syncLine,
   ].join("");
 
   // 4. Planning
@@ -342,22 +363,21 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
   // 6. Alerts
   const alerts: string[] = [];
 
-  // Stale sync alert — fires when lastSyncedAt is >36h ago or never ran
-  const syncAgeHours = b.lastSyncedAt
-    ? (Date.now() - new Date(b.lastSyncedAt).getTime()) / 3_600_000
-    : Infinity;
-  if (syncAgeHours > 36) {
+  if (sync.attemptState === "stale_running") {
+    alerts.push(`Hotel booking sync has remained running for more than 30 minutes. Last terminal state: ${sync.lastTerminalStatus ?? "none"}.`);
+  }
+  if (sync.lastSuccessState !== "fresh") {
     alerts.push(
-      b.lastSyncedAt
-        ? `Hotel booking sync is stale — last synced ${formatTimestamp(b.lastSyncedAt, pt)} (${Math.round(syncAgeHours)}h ago). Verify the cron is running.`
-        : "Hotel booking sync has never completed. Verify the cron route and HP credentials."
+      sync.lastSuccessfulCompletedAt
+        ? `Hotel booking sync is stale — last success ${formatTimestamp(sync.lastSuccessfulCompletedAt, pt)} (${Math.round(sync.lastSuccessAgeHours ?? 0)}h ago). Verify the cron and heartbeat status.`
+        : "Hotel booking sync has no recorded successful run. Verify the cron route, heartbeat migration, and provider configuration."
     );
   }
 
   if (summary.pending.pendingVerifications > 0) {
     alerts.push(`${summary.pending.pendingVerifications} pending referee verification request(s)`);
   }
-  if (b.confirmedCount === 0 && hh.current > 0 && syncAgeHours <= 36) {
+  if (b.confirmedCount === 0 && hh.current > 0 && sync.lastSuccessState === "fresh") {
     alerts.push("Hotel handoffs recorded but no confirmed bookings in sync window. HP reporting may lag 24-48h.");
   }
   if (b.reconciliationStatus === "unavailable") alerts.push("Hotel booking attribution reconciliation is unavailable. Booking totals are preserved; matched conversion is suppressed.");
@@ -380,9 +400,10 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
         ${section("1. Business Snapshot", snapshotContent)}
         ${section("2. Traffic", trafficContent)}
         ${section("3. Hotels", hotelsContent)}
-        ${section("4. Planning", planningContent)}
-        ${section("5. Tournament Partners", partnersContent)}
-        ${section("6. Alerts", alertsContent)}
+        ${section("4. HotelPlanner Sync", syncHealthContent)}
+        ${section("5. Planning", planningContent)}
+        ${section("6. Tournament Partners", partnersContent)}
+        ${section("7. Alerts", alertsContent)}
       </div>
     </div>
   `;
@@ -416,16 +437,26 @@ export function buildTiAdminDashboardEmail(summary: TiAdminDashboardSummary) {
     `    · Attribution coverage: ${coverageRate}`,
     `  Diagnostic hotel handoffs (${w}d, distinct): ${hh.current} ${trendLabel(hh.current, hh.prev, w)}`,
     b.otherSourceCount > 0 ? `  Other HotelPlanner Sources: ${b.otherSourceCount}` : "",
-    `  Hotel booking data last synced: ${formatTimestamp(b.lastSyncedAt, pt)}`,
     "",
-    "4. Planning",
+    "4. HotelPlanner Sync",
+    `  Last attempt: ${formatTimestamp(sync.lastAttemptStartedAt, pt)}`,
+    `  Status: ${hotelSyncStatusLabel(sync)}`,
+    `  Last successful sync: ${formatTimestamp(sync.lastSuccessfulCompletedAt, pt)}`,
+    `  Purchases returned: ${sync.lastAttemptPurchaseRows}`,
+    `  Cancellations returned: ${sync.lastAttemptCancellationRows}`,
+    `  Rows updated: ${sync.lastAttemptRowsUpserted}`,
+    sync.lastAttemptRowsFailed > 0 ? `  Rows failed: ${sync.lastAttemptRowsFailed}` : "",
+    sync.lastAttemptErrorStage ? `  Stage: ${sync.lastAttemptErrorStage}` : "",
+    `  Latest persisted purchase: ${formatTimestamp(sync.latestPurchasedAt, pt)}`,
+    "",
+    "5. Planning",
     `  Planner activations (${w}d): ${summary.plannerActivations}`,
     "",
-    "5. Tournament Partners",
+    "6. Tournament Partners",
     `  Pending contacts: ${summary.pending.pendingContacts}`,
     `  Pending reviews: ${summary.pending.pendingReviews}`,
     "",
-    "6. Alerts",
+    "7. Alerts",
     alerts.length > 0 ? alerts.join("\n  ") : "No alerts.",
   ].filter(Boolean).join("\n");
 

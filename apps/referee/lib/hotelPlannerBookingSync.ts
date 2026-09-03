@@ -1,6 +1,12 @@
 import { createHmac } from "node:crypto";
 import { unzipSync } from "fflate";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { hotelSyncRunRepository } from "./hotelPlannerSyncHeartbeat.server";
+import {
+  type HotelSyncErrorStage,
+  type HotelSyncRunRepository,
+  type HotelSyncTrigger,
+} from "./hotelPlannerSyncHeartbeat";
 import {
   classifyHotelPlannerStatus,
   collectConfirmedBookingAttributionIds,
@@ -337,36 +343,50 @@ export async function downloadAndParseXlsx(
   downloadUrl: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<BookingRow[]> {
-  const reportUrl = validateHotelPlannerReportUrl(downloadUrl);
-  const resp = await fetchWithTimeout(fetchImpl, reportUrl, { redirect: "error" }, HOTELPLANNER_REPORT_DOWNLOAD_TIMEOUT_MS);
-  if (!resp.ok) {
-    throw new Error("HotelPlanner report download failed");
+  let buf: Uint8Array;
+  try {
+    const reportUrl = validateHotelPlannerReportUrl(downloadUrl);
+    const resp = await fetchWithTimeout(fetchImpl, reportUrl, { redirect: "error" }, HOTELPLANNER_REPORT_DOWNLOAD_TIMEOUT_MS);
+    if (!resp.ok) throw new Error("HotelPlanner report download failed");
+    const contentType = (resp.headers.get("content-type") ?? "").toLowerCase();
+    if (contentType && !contentType.includes("spreadsheet") && !contentType.includes("octet-stream") && !contentType.includes("zip")) {
+      throw new Error("HotelPlanner report content type is invalid");
+    }
+    buf = await readBoundedResponse(resp, HOTELPLANNER_REPORT_MAX_COMPRESSED_BYTES);
+  } catch (error) {
+    throw new HotelPlannerReportStageError("download", error);
   }
-  const contentType = (resp.headers.get("content-type") ?? "").toLowerCase();
-  if (contentType && !contentType.includes("spreadsheet") && !contentType.includes("octet-stream") && !contentType.includes("zip")) {
-    throw new Error("HotelPlanner report content type is invalid");
+
+  try {
+    inspectBoundedXlsxArchive(buf);
+    // Extract xl/worksheets/sheet1.xml from the xlsx zip using fflate (pure JS, Vercel-safe)
+    const unzipped = unzipSync(buf);
+    const totalUncompressed = Object.values(unzipped).reduce((sum, bytes) => sum + bytes.byteLength, 0);
+    if (totalUncompressed > HOTELPLANNER_REPORT_MAX_UNCOMPRESSED_BYTES) throw new Error("HotelPlanner XLSX archive exceeds uncompressed limit");
+    const sheetBytes = unzipped["xl/worksheets/sheet1.xml"];
+    if (!sheetBytes) return [];
+
+    const sheetXml = new TextDecoder().decode(sheetBytes);
+    const allRows = parseXlsxSheetXml(sheetXml);
+    if (allRows.length < 2) return []; // header + at least one data row
+
+    const headerIndex = buildHeaderIndex(allRows[0]);
+    const dataRows = allRows.slice(1);
+    if (dataRows.length > HOTELPLANNER_REPORT_MAX_ROWS) throw new Error("HotelPlanner report row limit exceeded");
+
+    return dataRows
+      .map((row) => mapDataRow(row, headerIndex))
+      .filter((row) => row.itinerary_number !== null);
+  } catch (error) {
+    throw new HotelPlannerReportStageError("parse", error);
   }
-  const buf = await readBoundedResponse(resp, HOTELPLANNER_REPORT_MAX_COMPRESSED_BYTES);
-  inspectBoundedXlsxArchive(buf);
+}
 
-  // Extract xl/worksheets/sheet1.xml from the xlsx zip using fflate (pure JS, Vercel-safe)
-  const unzipped = unzipSync(buf);
-  const totalUncompressed = Object.values(unzipped).reduce((sum, bytes) => sum + bytes.byteLength, 0);
-  if (totalUncompressed > HOTELPLANNER_REPORT_MAX_UNCOMPRESSED_BYTES) throw new Error("HotelPlanner XLSX archive exceeds uncompressed limit");
-  const sheetBytes = unzipped["xl/worksheets/sheet1.xml"];
-  if (!sheetBytes) return [];
-
-  const sheetXml = new TextDecoder().decode(sheetBytes);
-  const allRows = parseXlsxSheetXml(sheetXml);
-  if (allRows.length < 2) return []; // header + at least one data row
-
-  const headerIndex = buildHeaderIndex(allRows[0]);
-  const dataRows = allRows.slice(1);
-  if (dataRows.length > HOTELPLANNER_REPORT_MAX_ROWS) throw new Error("HotelPlanner report row limit exceeded");
-
-  return dataRows
-    .map((row) => mapDataRow(row, headerIndex))
-    .filter((row) => row.itinerary_number !== null);
+export class HotelPlannerReportStageError extends Error {
+  constructor(public readonly kind: "download" | "parse", cause: unknown) {
+    super(cause instanceof Error ? cause.message : "HotelPlanner report processing failed");
+    this.name = "HotelPlannerReportStageError";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -478,40 +498,136 @@ async function fetchReportRows(
   dateField: ReportDateField,
   fetchImpl: typeof fetch = fetch,
 ) {
-  const report = await callGetReport(config, startDate, endDate, dateField, fetchImpl);
-  const rows = await downloadAndParseXlsx(report.downloadUrl, fetchImpl);
+  let report: GetReportResponse;
+  try {
+    report = await callGetReport(config, startDate, endDate, dateField, fetchImpl);
+  } catch {
+    throw new HotelSyncStageFailure(dateField === "purchased" ? "provider_request" : "cancellation_request");
+  }
+  let rows: BookingRow[];
+  try {
+    rows = await downloadAndParseXlsx(report.downloadUrl, fetchImpl);
+  } catch (error) {
+    const parse = error instanceof HotelPlannerReportStageError && error.kind === "parse";
+    throw new HotelSyncStageFailure(dateField === "purchased"
+      ? (parse ? "report_parse" : "report_download")
+      : (parse ? "cancellation_parse" : "cancellation_download"));
+  }
   return { report, rows };
 }
 
-export async function syncHotelPlannerBookings(lookbackDays = 7): Promise<BookingSyncResult> {
+export class HotelSyncStageFailure extends Error {
+  constructor(public readonly stage: HotelSyncErrorStage) {
+    super("HotelPlanner sync stage failed");
+    this.name = "HotelSyncStageFailure";
+  }
+}
+
+type BookingSyncExecutionDependencies = {
+  now: Date;
+  repository: HotelSyncRunRepository;
+  fetchRows: (start: Date, end: Date, field: ReportDateField) => Promise<{ report: GetReportResponse; rows: BookingRow[] }>;
+  persistRows: (
+    rows: BookingRow[],
+    syncedAt: string,
+    mode: "purchase" | "cancellation",
+  ) => Promise<{ inserted: number; errors: number }>;
+};
+
+function failureStage(error: unknown, fallback: HotelSyncErrorStage): HotelSyncErrorStage {
+  return error instanceof HotelSyncStageFailure ? error.stage : fallback;
+}
+
+export async function executeHotelPlannerBookingSync(input: {
+  lookbackDays: number;
+  trigger: HotelSyncTrigger;
+  dependencies: BookingSyncExecutionDependencies;
+}): Promise<BookingSyncResult> {
+  const { lookbackDays, trigger, dependencies } = input;
   if (!Number.isInteger(lookbackDays) || lookbackDays < 1 || lookbackDays > 31) {
     throw new Error("HotelPlanner sync lookback must be 1-31 days");
   }
-  const config = loadConfig();
-  const now = new Date();
+  const now = dependencies.now;
   const startDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
   const syncedAt = now.toISOString();
+  const runId = await dependencies.repository.start({
+    trigger,
+    purchaseWindowStart: startDate.toISOString(),
+    purchaseWindowEnd: syncedAt,
+  });
 
-  const purchase = await fetchReportRows(config, startDate, now, "purchased");
-  const purchasePersisted = await persistBookingRows(purchase.rows, syncedAt, databaseUpsert);
+  let purchase;
+  try {
+    purchase = await dependencies.fetchRows(startDate, now, "purchased");
+  } catch (error) {
+    const finalized = await dependencies.repository.finalize(runId, {
+      status: "failed",
+      purchaseProviderCalls: 1,
+      purchaseRowsReturned: 0,
+      cancellationProviderCalls: 0,
+      cancellationRowsReturned: 0,
+      rowsUpserted: 0,
+      rowsFailed: 0,
+      errorStage: failureStage(error, "provider_request"),
+    });
+    if (!finalized) throw new Error("HotelPlanner heartbeat finalization rejected");
+    throw new Error("HotelPlanner purchase sync failed");
+  }
+  let purchasePersisted: { inserted: number; errors: number };
+  try {
+    purchasePersisted = await dependencies.persistRows(purchase.rows, syncedAt, "purchase");
+  } catch {
+    const finalized = await dependencies.repository.finalize(runId, {
+      status: "failed",
+      purchaseProviderCalls: 1,
+      purchaseRowsReturned: purchase.rows.length,
+      cancellationProviderCalls: 0,
+      cancellationRowsReturned: 0,
+      rowsUpserted: 0,
+      rowsFailed: purchase.rows.length,
+      errorStage: "purchase_upsert",
+    });
+    if (!finalized) throw new Error("HotelPlanner heartbeat finalization rejected");
+    throw new Error("HotelPlanner purchase persistence failed");
+  }
 
   let cancellationRefresh: BookingSyncResult["cancellationRefresh"] = "completed";
   let cancellationParsed = 0;
+  let cancellationPersistenceFailedRows = 0;
   let cancellationPersisted = { inserted: 0, errors: 0 };
+  let errorStage: HotelSyncErrorStage | null = purchasePersisted.errors > 0 ? "purchase_upsert" : null;
   try {
     const cancellationStart = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
-    const cancellation = await fetchReportRows(config, cancellationStart, now, "cancelled");
+    const cancellation = await dependencies.fetchRows(cancellationStart, now, "cancelled");
     cancellationParsed = cancellation.rows.length;
-    cancellationPersisted = await persistBookingRows(
-      cancellation.rows,
-      syncedAt,
-      databaseUpsert,
-      toCancellationUpsertRecord,
-    );
-  } catch {
+    try {
+      cancellationPersisted = await dependencies.persistRows(cancellation.rows, syncedAt, "cancellation");
+      if (cancellationPersisted.errors > 0) errorStage = "cancellation_upsert";
+    } catch {
+      cancellationRefresh = "failed";
+      cancellationPersistenceFailedRows = cancellation.rows.length;
+      errorStage = "cancellation_upsert";
+      console.error("[hotel-booking-sync] cancellation refresh failed");
+    }
+  } catch (error) {
     cancellationRefresh = "failed";
+    errorStage = failureStage(error, "cancellation_request");
     console.error("[hotel-booking-sync] cancellation refresh failed");
   }
+
+  const totalErrors = purchasePersisted.errors + cancellationPersisted.errors + cancellationPersistenceFailedRows;
+  const status = cancellationRefresh === "failed" || totalErrors > 0 ? "partial" : "succeeded";
+  const finalized = await dependencies.repository.finalize(runId, {
+    status,
+    purchaseProviderCalls: 1,
+    purchaseRowsReturned: purchase.rows.length,
+    cancellationProviderCalls: 1,
+    cancellationRowsReturned: cancellationParsed,
+    rowsUpserted: purchasePersisted.inserted + cancellationPersisted.inserted,
+    rowsFailed: totalErrors,
+    errorStage,
+  });
+  if (!finalized) throw new Error("HotelPlanner heartbeat finalization rejected");
 
   return {
     lookbackDays,
@@ -520,11 +636,34 @@ export async function syncHotelPlannerBookings(lookbackDays = 7): Promise<Bookin
     parsed: purchase.rows.length,
     inserted: purchasePersisted.inserted + cancellationPersisted.inserted,
     updated: 0,
-    errors: purchasePersisted.errors + cancellationPersisted.errors,
+    errors: totalErrors,
     syncedAt,
     cancellationRefresh,
     cancellationParsed,
   };
+}
+
+export async function syncHotelPlannerBookings(
+  lookbackDays = 7,
+  options: { trigger?: HotelSyncTrigger } = {},
+): Promise<BookingSyncResult> {
+  let config: HotelPlannerSyncConfig | null = null;
+  const getConfig = () => (config ??= loadConfig());
+  return executeHotelPlannerBookingSync({
+    lookbackDays,
+    trigger: options.trigger ?? "manual_operator",
+    dependencies: {
+      now: new Date(),
+      repository: hotelSyncRunRepository,
+      fetchRows: (start, end, field) => fetchReportRows(getConfig(), start, end, field),
+      persistRows: (rows, syncedAt, mode) => persistBookingRows(
+        rows,
+        syncedAt,
+        databaseUpsert,
+        mode === "cancellation" ? toCancellationUpsertRecord : toUpsertRecord,
+      ),
+    },
+  });
 }
 
 export type HotelPlannerBackfillResult = {
