@@ -43,6 +43,7 @@ import {
 } from "../../../../../packages/lib/venue";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { isValidLatLng } from "@/lib/staticTournamentMaps";
+import { buildPlanningMapUrl } from "@/lib/planningMapUrl";
 import "../../tournaments/tournaments.css";
 import styles from "./VenueDetail.module.css";
 
@@ -404,6 +405,11 @@ export default async function VenueDetailsPage({
     null;
 
   const contextTournament = selectedTournament ?? upcomingTournaments[0] ?? null;
+  const contextTournamentHasHotelDates = Boolean(
+    contextTournament?.startDate &&
+      contextTournament?.endDate &&
+      (contextTournament.startDate >= today || contextTournament.endDate >= today)
+  );
   const teamTravelEligibility = evaluateVenueTeamTravelEligibility({
     selectedTournament,
     upcomingTournaments,
@@ -783,6 +789,14 @@ export default async function VenueDetailsPage({
     checkin: contextTournament?.startDate ?? null,
     checkout: contextTournament?.endDate ?? null,
   });
+  const hotelMapHref =
+    contextTournamentHasHotelDates && contextTournament?.slug
+      ? buildPlanningMapUrl({
+          tournamentSlug: contextTournament.slug,
+          venueId: data.id,
+          source: "venue_details",
+        })
+      : null;
   const showPrimaryHotelBooking = canShowBookingCta({
     zip: data.zip,
     latitude: data.latitude,
@@ -832,11 +846,12 @@ export default async function VenueDetailsPage({
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {showPrimaryHotelBooking ? (
                     <HotelBookingCta
-                      href={hotelBookingHref}
+                      href={hotelMapHref ?? hotelBookingHref}
                       venueId={data.id}
                       tournamentId={contextTournament?.id ?? null}
-                      label="Find hotels near this venue"
+                      label={hotelMapHref ? "See hotels & rates on map" : "Find hotels near this venue"}
                       align="start"
+                      target={hotelMapHref ? "_self" : "_blank"}
                     />
                   ) : null}
                   {selectedTournament?.slug ? (

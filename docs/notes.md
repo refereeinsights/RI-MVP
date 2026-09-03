@@ -12,6 +12,10 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-09-03
+
+- **TI venue hotel entry now prefers the populated, date-aware venue map.** Venue detail reuses its existing explicit-or-earliest-upcoming linked tournament resolution. With a slug and usable current/upcoming dates, the primary hotel CTA opens the tournament venue map in the same tab with that venue preselected, causing the existing one-venue HotelPlanner search to populate names, ratings, and rates. Existing property and full-results handoffs remain inside the map; venues without usable tournament context retain the attributed `/go/hotels` fallback. Multi-venue pages still search only after selecting one venue. No schema, provider, attribution, commercial-routing, date-resolution, or RI change. One pre-change production diagnostic search returned 117 dated results/10 priced pins and made no booking. Focused coverage 3/3, TI TypeScript/lint/build, and diff checks passed; build warnings are pre-existing.
+
 ## 2026-09-01
 
 - **TI HotelPlanner backfill boundary bug fixed locally (not committed, dry run not yet executed).** `buildHotelPlannerBackfillChunks` set `chunkEnd` to midnight of the intended last day; HP treats `purchasedDateEnd` as exclusive, so bookings later on Aug 21 (1) and Aug 28 (4) were missed in the dry run (35 of 40). Fix: half-open window — `chunkEnd` is the first instant of the next calendar day. Aug 15–21 sends end=Aug 22; Aug 22–28 sends end=Aug 29; Aug 29–31 sends end=Sep 1. Adjacent chunks abut with no gap. 31-day/5-call/7-day bounds unchanged. 4 new boundary tests added; all 30 hotel tests pass; Referee TypeScript clean. Revenue path unchanged. Corrected August dry run pending separate authorization.

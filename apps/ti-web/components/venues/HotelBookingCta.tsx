@@ -9,13 +9,19 @@ export default function HotelBookingCta({
   tournamentId,
   label = "Check hotel availability",
   align = "center",
+  target = "_blank",
+  rel,
 }: {
   href: string;
   venueId: string;
   tournamentId?: string | null;
   label?: string;
   align?: "center" | "start";
+  target?: "_blank" | "_self";
+  rel?: string;
 }) {
+  const resolvedRel = rel ?? (target === "_blank" ? "noopener noreferrer sponsored" : undefined);
+
   return (
     <div className="detailLinksRow" style={{ justifyContent: align === "start" ? "flex-start" : "center" }}>
       <VenueHotelLink
@@ -24,8 +30,8 @@ export default function HotelBookingCta({
         ctaPlacement={VENUE_HOTEL_PLACEMENTS.venueDetailsBookingCta}
         venueId={venueId}
         tournamentId={tournamentId ?? null}
-        target="_blank"
-        rel="noopener noreferrer sponsored"
+        target={target}
+        rel={resolvedRel}
         style={{ minWidth: 260 }}
       >
         🏨 {label}
