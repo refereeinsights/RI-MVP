@@ -118,9 +118,9 @@ test("only an authorized request invokes Supabase with bounded inputs", async ()
 test("matches the documented Send SMS Hook success response contract", async () => {
   const response = createGate3SendSmsSuccessResponse(1);
   assert.equal(response.status, 200);
-  assert.equal(response.headers.get("content-type"), null);
+  assert.equal(response.headers.get("content-type"), "application/json");
   assert.equal(response.headers.get("x-corralio-gate3-mock-invocations"), "1");
-  assert.equal((await response.arrayBuffer()).byteLength, 0);
+  assert.equal(await response.text(), "{}");
 });
 
 test("sanitizes Supabase Auth errors without retaining messages or arbitrary fields", () => {

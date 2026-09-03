@@ -50,8 +50,8 @@ export async function POST(request: Request) {
   if (result.status === "attempted") {
     console.info("[corralio][gate3] isolated Send SMS Hook completed", {
       hookStatus: 200,
-      contentType: null,
-      responseBodyBytes: 0,
+      contentType: "application/json",
+      responseBodyBytes: 2,
       durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
       retryObserved: false,
       mockInvocations,
@@ -61,13 +61,18 @@ export async function POST(request: Request) {
   if (result.decision === "duplicate") {
     console.info("[corralio][gate3] isolated Send SMS Hook completed", {
       hookStatus: 200,
-      contentType: null,
-      responseBodyBytes: 0,
+      contentType: "application/json",
+      responseBodyBytes: 2,
       durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
       retryObserved: true,
       mockInvocations: 0,
     });
     return createGate3SendSmsSuccessResponse(0);
+  }
+  if (result.preAuthorizationCategory) {
+    console.warn("[corralio][gate3] isolated Send SMS Hook rejected before authorization", {
+      category: result.preAuthorizationCategory,
+    });
   }
   return hookError(result.failureClass === "transient" ? 503 : 400);
 }

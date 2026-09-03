@@ -21,6 +21,7 @@ export type SmsHookResult =
       status: "denied";
       decision: Exclude<SmsSafetyDecision, "authorized">;
       failureClass: "terminal" | "transient";
+      preAuthorizationCategory?: SmsPreAuthorizationFailureCategory;
     }
   | { status: "attempted"; decision: "authorized"; providerOutcome: "accepted" | "rejected" | "unknown" };
 
@@ -35,6 +36,23 @@ export interface SmsDurableSafetyGateway {
 
 export interface SmsProviderAdapter {
   send(input: { destination: string; message: string }): Promise<{ outcome: "accepted" | "rejected" }>;
+}
+
+export type SmsPreAuthorizationFailureCategory =
+  | "hook_secret_unavailable"
+  | "header_contract_invalid"
+  | "timestamp_invalid"
+  | "signature_mismatch"
+  | "payload_json_invalid"
+  | "payload_shape_invalid"
+  | "phone_invalid"
+  | "otp_invalid"
+  | "unknown_pre_authorization_failure";
+
+class SmsPreAuthorizationError extends Error {
+  constructor(readonly category: SmsPreAuthorizationFailureCategory) {
+    super("Send SMS Hook pre-authorization failed");
+  }
 }
 
 function normalizeIpv4(value: string) {
@@ -120,7 +138,7 @@ export async function authorizeSmsOtpRequest(input: {
 function parseWebhookSecret(secret: string) {
   const encoded = secret.trim().replace(/^v1,/, "").replace(/^whsec_/, "");
   const decoded = Buffer.from(encoded, "base64");
-  if (decoded.length < 16) throw new Error("Webhook secret is invalid");
+  if (decoded.length < 16) throw new SmsPreAuthorizationError("hook_secret_unavailable");
   return new Uint8Array([...decoded]);
 }
 
@@ -133,12 +151,16 @@ export function verifyStandardWebhook(input: {
   const webhookId = input.headers.get("webhook-id")?.trim() ?? "";
   const timestamp = input.headers.get("webhook-timestamp")?.trim() ?? "";
   const signatures = input.headers.get("webhook-signature")?.split(/\s+/) ?? [];
-  if (!input.secret || !/^[A-Za-z0-9_-]{1,128}$/.test(webhookId) || !/^\d{10}$/.test(timestamp)) {
-    throw new Error("Webhook signature is invalid");
+  if (!input.secret) throw new SmsPreAuthorizationError("hook_secret_unavailable");
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(webhookId) || signatures.length === 0) {
+    throw new SmsPreAuthorizationError("header_contract_invalid");
   }
+  if (!/^\d{10}$/.test(timestamp)) throw new SmsPreAuthorizationError("timestamp_invalid");
   const seconds = Number(timestamp);
   const now = input.nowSeconds ?? Math.floor(Date.now() / 1000);
-  if (!Number.isSafeInteger(seconds) || Math.abs(now - seconds) > 300) throw new Error("Webhook signature is invalid");
+  if (!Number.isSafeInteger(seconds) || Math.abs(now - seconds) > 300) {
+    throw new SmsPreAuthorizationError("timestamp_invalid");
+  }
   const expected = createHmac("sha256", parseWebhookSecret(input.secret))
     .update(`${webhookId}.${timestamp}.${input.rawBody}`)
     .digest();
@@ -149,7 +171,7 @@ export function verifyStandardWebhook(input: {
     return actual.length === expected.length
       && timingSafeEqual(new Uint8Array([...actual]), new Uint8Array([...expected]));
   });
-  if (!valid) throw new Error("Webhook signature is invalid");
+  if (!valid) throw new SmsPreAuthorizationError("signature_mismatch");
   return { webhookId };
 }
 
@@ -173,13 +195,23 @@ export function countGsm7Segments(message: string) {
 }
 
 function parseSendSmsPayload(rawBody: string) {
-  const value: unknown = JSON.parse(rawBody);
-  if (!value || typeof value !== "object") throw new Error("Webhook payload is invalid");
-  const row = value as { user?: { phone?: unknown }; sms?: { otp?: unknown } };
-  if (typeof row.user?.phone !== "string" || typeof row.sms?.otp !== "string" || !/^\d{4,10}$/.test(row.sms.otp)) {
-    throw new Error("Webhook payload is invalid");
+  let value: unknown;
+  try {
+    value = JSON.parse(rawBody);
+  } catch {
+    throw new SmsPreAuthorizationError("payload_json_invalid");
   }
-  return { phone: normalizeSmsPhone(row.user.phone), otp: row.sms.otp };
+  if (!value || typeof value !== "object") throw new SmsPreAuthorizationError("payload_shape_invalid");
+  const row = value as { user?: { phone?: unknown }; sms?: { otp?: unknown } };
+  if (typeof row.user?.phone !== "string" || typeof row.sms?.otp !== "string") {
+    throw new SmsPreAuthorizationError("payload_shape_invalid");
+  }
+  if (!/^\d{4,10}$/.test(row.sms.otp)) throw new SmsPreAuthorizationError("otp_invalid");
+  try {
+    return { phone: normalizeSmsPhone(row.user.phone), otp: row.sms.otp };
+  } catch {
+    throw new SmsPreAuthorizationError("phone_invalid");
+  }
 }
 
 export async function handleVerifiedSmsHook(input: {
@@ -201,8 +233,15 @@ export async function handleVerifiedSmsHook(input: {
       nowSeconds: input.nowSeconds,
     });
     payload = parseSendSmsPayload(input.rawBody);
-  } catch {
-    return { status: "denied", decision: "blocked", failureClass: "terminal" };
+  } catch (error) {
+    return {
+      status: "denied",
+      decision: "blocked",
+      failureClass: "terminal",
+      preAuthorizationCategory: error instanceof SmsPreAuthorizationError
+        ? error.category
+        : "unknown_pre_authorization_failure",
+    };
   }
   const message = `Your Corralio verification code is ${payload.otp}.`;
   let decision: SmsSafetyDecision;

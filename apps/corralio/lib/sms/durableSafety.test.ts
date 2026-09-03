@@ -9,6 +9,7 @@ import {
   handleVerifiedSmsHook,
   normalizeSmsPhone,
   normalizeTrustedIp,
+  type SmsPreAuthorizationFailureCategory,
   type SmsDurableSafetyGateway,
   type SmsSafetyDecision,
 } from "./durableSafety";
@@ -88,17 +89,45 @@ test("request authorization returns only a bounded browser result", async () => 
   }
 });
 
-test("invalid signature never reaches durable authorization or provider", async () => {
+test("pre-authorization failures return only bounded categories and never reach durable authorization or provider", async () => {
   let databaseCalls = 0;
   let providerCalls = 0;
-  const hook = signedHook();
-  hook.headers.set("webhook-signature", "v1,invalid");
-  const result = await handleVerifiedSmsHook({
-    ...hook, webhookSecret: `v1,whsec_${WEBHOOK_KEY}`, hmacSecret: HMAC_SECRET, nowSeconds: NOW,
-    gateway: gateway({ onHook: () => { databaseCalls += 1; } }),
-    provider: { async send() { providerCalls += 1; return { outcome: "accepted" }; } },
-  });
-  assert.deepEqual(result, { status: "denied", decision: "blocked", failureClass: "terminal" });
+  const fixtures: Array<{
+    category: SmsPreAuthorizationFailureCategory;
+    hook: ReturnType<typeof signedHook>;
+    secret?: string;
+    mutate?: (headers: Headers) => void;
+    rawBody?: string;
+  }> = [
+    { category: "hook_secret_unavailable", hook: signedHook(), secret: undefined },
+    { category: "header_contract_invalid", hook: { ...signedHook(), headers: new Headers() }, secret: `v1,whsec_${WEBHOOK_KEY}` },
+    { category: "timestamp_invalid", hook: signedHook(), secret: `v1,whsec_${WEBHOOK_KEY}`, mutate: (headers: Headers) => headers.set("webhook-timestamp", String(NOW - 301)) },
+    { category: "signature_mismatch", hook: signedHook(), secret: `v1,whsec_${WEBHOOK_KEY}`, mutate: (headers: Headers) => headers.set("webhook-signature", "v1,invalid") },
+    { category: "payload_json_invalid", hook: signedHook(), secret: `v1,whsec_${WEBHOOK_KEY}`, rawBody: "{" },
+    { category: "payload_shape_invalid", hook: signedHook(), secret: `v1,whsec_${WEBHOOK_KEY}`, rawBody: JSON.stringify({ user: {}, sms: {} }) },
+    { category: "phone_invalid", hook: signedHook(), secret: `v1,whsec_${WEBHOOK_KEY}`, rawBody: JSON.stringify({ user: { phone: "invalid" }, sms: { otp: "123456" } }) },
+    { category: "otp_invalid", hook: signedHook(), secret: `v1,whsec_${WEBHOOK_KEY}`, rawBody: JSON.stringify({ user: { phone: "+15095550123" }, sms: { otp: "not-an-otp" } }) },
+  ];
+  for (const fixture of fixtures) {
+    fixture.mutate?.(fixture.hook.headers);
+    const rawBody = fixture.rawBody ?? fixture.hook.rawBody;
+    const timestamp = fixture.hook.headers.get("webhook-timestamp") ?? String(NOW);
+    const webhookId = fixture.hook.headers.get("webhook-id") ?? "gate3_hook_1";
+    if (fixture.rawBody !== undefined) {
+      const signature = createHmac("sha256", WEBHOOK_KEY_TEXT)
+        .update(`${webhookId}.${timestamp}.${rawBody}`).digest("base64");
+      fixture.hook.headers.set("webhook-signature", `v1,${signature}`);
+    }
+    const result = await handleVerifiedSmsHook({
+      rawBody, headers: fixture.hook.headers, webhookSecret: fixture.secret, hmacSecret: HMAC_SECRET, nowSeconds: NOW,
+      gateway: gateway({ onHook: () => { databaseCalls += 1; } }),
+      provider: { async send() { providerCalls += 1; return { outcome: "accepted" }; } },
+    });
+    assert.deepEqual(result, {
+      status: "denied", decision: "blocked", failureClass: "terminal",
+      preAuthorizationCategory: fixture.category,
+    });
+  }
   assert.equal(databaseCalls, 0);
   assert.equal(providerCalls, 0);
 });

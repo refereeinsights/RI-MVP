@@ -61,10 +61,11 @@ export function sanitizeOpaqueRequestId(value: string | null): string | null {
 }
 
 export function createGate3SendSmsSuccessResponse(mockInvocations: number) {
-  return new Response(null, {
+  return new Response("{}", {
     status: 200,
     headers: {
       "Cache-Control": "no-store, max-age=0",
+      "Content-Type": "application/json",
       "x-corralio-gate3-mock-invocations": String(mockInvocations),
     },
   });
