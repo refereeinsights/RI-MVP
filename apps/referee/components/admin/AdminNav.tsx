@@ -20,6 +20,10 @@ export async function AdminNav() {
     .eq("review_status", "keep")
     .or(`last_swept_at.is.null,last_swept_at.lt.${overdueCutoff}`);
 
+  const { count: pendingEnrichmentCount } = await (supabaseAdmin.from("tournament_enrichment_proposals" as any) as any)
+    .select("id", { count: "exact", head: true })
+    .in("status", ["pending_review", "needs_verification"]);
+
   const claimCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
   const { data: claimEventsRaw } = await (supabaseAdmin.from("tournament_claim_events" as any) as any)
     .select("tournament_id,event_type,created_at")
@@ -193,6 +197,22 @@ export async function AdminNav() {
         </Link>
         <Link href="/admin/venues" style={linkStyle}>
           Venues
+        </Link>
+        <Link href="/admin/enrichment" style={linkStyle}>
+          Enrichment
+          {pendingEnrichmentCount && pendingEnrichmentCount > 0 ? (
+            <span
+              style={{
+                marginLeft: 6, minWidth: 16, height: 16, borderRadius: 999,
+                background: "#d97706", color: "#fff", fontSize: 10, fontWeight: 900,
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                padding: "0 5px", verticalAlign: "middle",
+              }}
+              title={`${pendingEnrichmentCount} enrichment proposal${pendingEnrichmentCount === 1 ? "" : "s"} need review`}
+            >
+              {pendingEnrichmentCount}
+            </span>
+          ) : null}
         </Link>
         <Link href="/admin/analytics" style={linkStyle}>
           Analytics

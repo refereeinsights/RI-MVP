@@ -4909,3 +4909,11 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Required CSV columns: `name`, `sport` (or set `fallback_sport`), `state` or `city`, `source_url`
   - Optional CSV columns: `level`, `start_date`, `end_date`, `dates`, `venue`, `address`, `zip`, `summary`, `tournament_director`, `tournament_director_email`, `referee_contact`, `referee_contact_email`, `ref_cash_tournament`, `source_event_id`, `slug`, `tournament_association`, `confidence`
   - Route file: `apps/referee/app/api/internal/tournaments/import/route.ts`
+
+- 2026-09-03: Tournament Enrichment Approval workflow added to RI admin.
+  - Migration (unapplied): `supabase/migrations/20260903_tournament_enrichment_proposals.sql` — `tournament_enrichment_proposals` table with status/action_type/confidence check constraints, jsonb current_value/proposed_value, proposed_by (text), reviewed_by/applied_by (UUID FK to auth.users), auto-updated_at trigger.
+  - `apps/referee/lib/tournaments/enrichmentProposals.ts` — types, `listTournamentEnrichmentProposals(filters)` (joins tournament context + batch-loads linked venues), `getEnrichmentProposalCounts()`.
+  - `apps/referee/lib/tournaments/applyEnrichmentProposal.ts` — `applyTournamentEnrichmentProposal(proposalId, adminUserId)`: requires status=approved, conflict-checks production before mutating, handles all 8 action types. Venue operations reuse findVenueMatch + upsert from venueNormalization. merge_duplicate and manual_review never apply automatically.
+  - `apps/referee/app/admin/enrichment/page.tsx` — new route `/admin/enrichment`. Server Actions for approve/reject/needsVerification/apply. Two-step model: Approve changes status only; Apply approved change button (only shown when status=approved) calls applyTournamentEnrichmentProposal. Action-specific current/proposed rendering. Conflict failures surface as needs_verification with no production mutation.
+  - AdminNav: Enrichment link with amber badge showing pending_review + needs_verification count.
+  - Roll-forward workflow unchanged.
