@@ -16,15 +16,17 @@ The event card uses progressive disclosure. Home is the reload default unless a 
 
 Only a typed alternate address can be stored durably. It is private household/event data protected by a composite event ownership foreign key, forced RLS, an owner-derived authenticated write boundary, and service-only provider mutation. Its route freshness depends on both origin and destination geocoding timestamps. The active lifecycle is calculated from the event's current end (or start when there is no end) plus 24 hours, so a reschedule changes lifecycle truth without a stale copied expiry. A separate capped cleanup worker hard-deletes expired rows.
 
-## Database gate
+## Database gate — passed 2026-09-04
 
-Prepared but unapplied:
+Applied and verified, in order:
 
-- `supabase/migrations/20260904_corralio_slice36b_phase3a_temporary_routing_origin.sql`
-- `scripts/analysis/corralio_slice36b_phase3a_catalog_verification.sql`
-- `scripts/analysis/corralio_slice36b_phase3a_behavioral_verification.sql`
+- `supabase/migrations/20260904_corralio_slice36b_phase3a_temporary_routing_origin.sql` — applied by a human.
+- First behavioral run: correctly rejected as ambiguous (SQL `NULL` rather than explicit `false`) on the losing side of a duplicate current-location claim; no duplicate provider authorization occurred.
+- `supabase/migrations/20260904_corralio_slice36b_phase3a_claim_result_repair.sql` — narrow repair, applied by a human: RPC now returns `coalesce(v_claim_token = p_claim_token, false)`.
+- `scripts/analysis/corralio_slice36b_phase3a_catalog_verification.sql` (strengthened to require the exact repaired boolean expression) — read-only, passed: `SLICE 3.6B PHASE 3A CATALOG VERIFICATION PASSED`.
+- `scripts/analysis/corralio_slice36b_phase3a_behavioral_verification.sql` — rollback-only, passed with cleanup zero: `SLICE 3.6B PHASE 3A BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO`. Proved owner access, cross-household denial, direct-write denial, Home non-mutation, duplicate current-location claim rejection (now correctly `false`, not `NULL`), current-event-time reschedule cleanup, and cleanup zero.
 
-After a human applies the migration, run the catalog verifier read-only and the behavioral verifier rollback-only. The latter proves owner access, cross-household denial, direct-write denial, Home non-mutation, duplicate current-location claim rejection, current-event-time reschedule cleanup, and cleanup zero. Stage 2 browser/provider UAT remains separately gated after those pass.
+Stage 2 browser/provider UAT (Home, alternate address, ephemeral current location, reload/clear behavior, provider usage accounting, cleanup) is next, separately gated. Physical-device GPS behavior remains its own gate — see below.
 
 ## Verification
 
