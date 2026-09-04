@@ -1,3 +1,5 @@
+import { evaluateHotelSearchDateHorizon, hotelSearchMaxDateIso } from "./hotelDateHorizon";
+
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MM_DD_YYYY_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 
@@ -27,7 +29,15 @@ export function hotelPlannerDateToIso(value: string | null | undefined) {
   return parseIsoDate(iso) ? iso : "";
 }
 
-export function validateHotelSearchDateRange(checkIn: string, checkOut: string) {
+export function hotelSearchDateInputBounds(now = new Date()) {
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return {
+    min: today.toISOString().slice(0, 10),
+    max: hotelSearchMaxDateIso(now),
+  };
+}
+
+export function validateHotelSearchDateRange(checkIn: string, checkOut: string, now = new Date()) {
   const normalizedCheckIn = checkIn.trim();
   const normalizedCheckOut = checkOut.trim();
   const parsedCheckIn = parseIsoDate(normalizedCheckIn);
@@ -43,6 +53,26 @@ export function validateHotelSearchDateRange(checkIn: string, checkOut: string) 
     return {
       ok: false as const,
       error: "Check-out must be after check-in.",
+    };
+  }
+
+  const bounds = hotelSearchDateInputBounds(now);
+  if (normalizedCheckIn < bounds.min) {
+    return {
+      ok: false as const,
+      error: "Check-in must be today or later.",
+    };
+  }
+
+  const horizon = evaluateHotelSearchDateHorizon({
+    checkIn: normalizedCheckIn,
+    checkOut: normalizedCheckOut,
+    now,
+  });
+  if (horizon.status !== "supported") {
+    return {
+      ok: false as const,
+      error: "Choose dates within the supported hotel search window.",
     };
   }
 

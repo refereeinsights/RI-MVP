@@ -12,7 +12,7 @@ import {
   getVenueTournamentCount24mo,
 } from "@/lib/venueHotelPilot";
 import VenueHotelSearchForm from "./VenueHotelSearchForm";
-import "../../tournaments/tournaments.css";
+import "../../../tournaments/tournaments.css";
 
 export const revalidate = 3600;
 

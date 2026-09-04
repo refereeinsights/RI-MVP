@@ -26,6 +26,7 @@ import {
 } from "@/lib/hotelPlannerAttribution";
 import {
   formatHotelSearchDateRange,
+  hotelSearchDateInputBounds,
   hotelPlannerDateToIso,
   validateHotelSearchDateRange,
 } from "@/lib/lodging/hotelSearchDateControls";
@@ -1602,20 +1603,24 @@ export default function TournamentVenueMapClient({
   const mapHotelLoadingVisible = mapReady && hotelPinsLoading && selectedVenue?.id === hotelVenueId;
   const hotelFallbackCardVisible =
     (hotelPinsFallback?.showHotelFallback || hotelPinsFallback?.showVrboFallback || filteredHotelPins.length === 0) && Boolean(hotelPinsFallback);
-  const hotelPanelSummary = hotelPinsLoading
-    ? "Searching HotelPlanner results…"
-    : hotelPinsError
-      ? hotelPinsError
-      : hotelFallbackCardVisible
-        ? "Limited hotel results available"
-        : hotelRatingFilter > 0
-          ? `Showing ${hotelResultCount} hotel results (${filteredHotelPins.length} match filter, ${mapHotelPinVisibleCount} on map)`
-          : `Showing ${hotelResultCount} hotel result${hotelResultCount === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`;
   const hotelDateRangeLabel = formatHotelSearchDateRange(
     hotelSearchResolvedCheckIn,
     hotelSearchResolvedCheckOut
   );
-
+  const hotelDateBounds = hotelSearchDateInputBounds();
+  const hotelDateSelectionRequired =
+    !hotelPinsLoading && hotelPinsFallback?.reason === "no_dates" && !hotelDateRangeLabel;
+  const hotelPanelSummary = hotelPinsLoading
+    ? "Searching HotelPlanner results…"
+    : hotelPinsError
+      ? hotelPinsError
+      : hotelDateSelectionRequired
+        ? "Choose dates to see nearby hotel rates"
+        : hotelFallbackCardVisible
+          ? "Limited hotel results available"
+          : hotelRatingFilter > 0
+            ? `Showing ${hotelResultCount} hotel results (${filteredHotelPins.length} match filter, ${mapHotelPinVisibleCount} on map)`
+            : `Showing ${hotelResultCount} hotel result${hotelResultCount === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`;
   const handleUpdateHotelDates = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedVenue) return;
@@ -3193,7 +3198,13 @@ export default function TournamentVenueMapClient({
                         </div>
                       ) : null}
 
-                      {isHotelDateEditorOpen ? (
+                      {hotelDateSelectionRequired ? (
+                        <div className={styles.hotelDateSummary} role="status">
+                          Choose check-in and check-out dates to see nearby hotel rates.
+                        </div>
+                      ) : null}
+
+                      {isHotelDateEditorOpen || hotelDateSelectionRequired ? (
                         <form id="hotel-date-editor" className={styles.hotelDateRow} onSubmit={handleUpdateHotelDates}>
                           <div className={styles.hotelDateField}>
                             <label className={styles.hotelFilterLabel} htmlFor="hotel-search-checkin">
@@ -3204,6 +3215,8 @@ export default function TournamentVenueMapClient({
                               className={styles.hotelDateInput}
                               type="date"
                               required
+                              min={hotelDateBounds.min}
+                              max={hotelDateBounds.max}
                               value={hotelDateCheckIn}
                               onChange={(event) => {
                                 setHotelDateCheckIn(event.target.value);
@@ -3220,6 +3233,8 @@ export default function TournamentVenueMapClient({
                               className={styles.hotelDateInput}
                               type="date"
                               required
+                              min={hotelDateCheckIn || hotelDateBounds.min}
+                              max={hotelDateBounds.max}
                               value={hotelDateCheckOut}
                               onChange={(event) => {
                                 setHotelDateCheckOut(event.target.value);
@@ -3303,7 +3318,7 @@ export default function TournamentVenueMapClient({
                             <div className={styles.lodgingFallback}>
                               <div className={styles.lodgingFallbackReason}>
                                 {hotelPinsFallback?.reason === "no_dates"
-                                  ? "Hotel search requires valid dates from the tournament schedule."
+                                  ? "Choose dates above to see nearby rates, or continue to HotelPlanner."
                                   : hotelPinsFallback?.reason === "no_venue_coordinates"
                                     ? "Venue coordinates were missing for precise results."
                                     : "Limited hotel inventory was returned for this venue."}

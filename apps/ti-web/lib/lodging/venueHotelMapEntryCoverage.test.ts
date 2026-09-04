@@ -54,6 +54,30 @@ test("hotel map changes dates only through the explicit update action", () => {
   assert.match(mapClient, /Update hotels/);
 });
 
+test("past or missing tournament dates expose a recoverable manual-date state", () => {
+  assert.match(mapClient, /hotelPinsFallback\?\.reason === "no_dates"/);
+  assert.match(mapClient, /Choose check-in and check-out dates to see nearby hotel rates\./);
+  assert.match(mapClient, /isHotelDateEditorOpen \|\| hotelDateSelectionRequired/);
+  assert.match(mapClient, /min=\{hotelDateBounds\.min\}/);
+  assert.match(mapClient, /max=\{hotelDateBounds\.max\}/);
+});
+
+test("the trusted lodging boundary rejects explicit past check-in dates before provider access", () => {
+  const route = readFileSync(new URL("../../app/api/lodging/search/route.ts", import.meta.url), "utf8");
+  assert.match(route, /explicitCheckin >= startOfTodayUtc\(\)/);
+  assert.match(route, /if \(!resolvedWindow\.window\)[\s\S]*return NextResponse\.json/);
+});
+
+test("the venue-hotel SEO pilot remains outside the tournament-map recovery", () => {
+  const seoForm = readFileSync(
+    new URL("../../app/venues/[venueId]/hotels/VenueHotelSearchForm.tsx", import.meta.url),
+    "utf8"
+  );
+  assert.match(seoForm, /source: "venue_hotel_seo"/);
+  assert.match(seoForm, /window\.location\.href = `\/go\/hotels\?/);
+  assert.doesNotMatch(mapClient, /venue_hotel_cta_clicked/);
+});
+
 test("venue page uses an undated attributed broad search when tournament context is only inferred", () => {
   assert.match(venuePage, /const hotelBookingHref = buildHotelsHref\(/);
   assert.match(venuePage, /tournamentId: selectedTournament\?\.id \?\? null/);

@@ -400,7 +400,12 @@ function resolveSearchWindow(body: SearchRequestBody, tournamentDates: { startDa
     ? parseIsoDate(checkoutText) ?? parseMmDdYyyy(checkoutText)
     : null;
 
-  if (explicitCheckin && explicitCheckout && explicitCheckout > explicitCheckin) {
+  if (
+    explicitCheckin &&
+    explicitCheckout &&
+    explicitCheckin >= startOfTodayUtc() &&
+    explicitCheckout > explicitCheckin
+  ) {
     return {
       source: "explicit" as const,
       window: {
