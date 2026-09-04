@@ -105,6 +105,15 @@ export function buildBookingSearchString(args: {
   return null;
 }
 
+export function resolveHotelPlannerCityParameter(args: {
+  hasVenueCoordinates: boolean;
+  citySearch?: string | null;
+}): string | null {
+  if (args.hasVenueCoordinates) return null;
+  const citySearch = String(args.citySearch ?? "").trim();
+  return citySearch || null;
+}
+
 type HotelUrlValue = string | number | null | undefined;
 
 function addQueryNumber(qp: URLSearchParams, key: string, value: HotelUrlValue) {

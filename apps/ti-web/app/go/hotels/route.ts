@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { buildBookingSearchString, isValidZip5 } from "@/lib/booking/venueBooking";
+import {
+  buildBookingSearchString,
+  isValidZip5,
+  resolveHotelPlannerCityParameter,
+} from "@/lib/booking/venueBooking";
 import {
   buildHotelPlannerBookingAttribution,
   createOutboundAttributionId,
@@ -651,7 +655,10 @@ export async function GET(request: Request) {
             destination: hotelPlannerDestination,
             latitude: hotelPlannerLat,
             longitude: hotelPlannerLng,
-            city: hotelPlannerCitySearch || null,
+            city: resolveHotelPlannerCityParameter({
+              hasVenueCoordinates: hasHotelPlannerLatLng,
+              citySearch: hotelPlannerCitySearch,
+            }),
             includeHash: false,
             dates: {
               checkin: hotelPlannerCheckin,

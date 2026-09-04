@@ -6,6 +6,7 @@ import {
   canShowBookingCta,
   hasValidVenueCoordinates,
   isValidZip5,
+  resolveHotelPlannerCityParameter,
 } from "./venueBooking";
 
 test("isValidZip5: accepts trimmed 5-digit ZIP", () => {
@@ -88,4 +89,31 @@ test("buildBookingSearchString: uses normalized city when city looks like a regi
 test("buildBookingSearchString: returns null when no usable inputs exist", () => {
   assert.equal(buildBookingSearchString({ venueName: null, city: null, state: null, zip: null }), null);
   assert.equal(buildBookingSearchString({ venueName: "Some Venue", city: null, state: "Colorado", zip: null }), null);
+});
+
+test("resolveHotelPlannerCityParameter: precise venue coordinates suppress city recentering", () => {
+  assert.equal(
+    resolveHotelPlannerCityParameter({
+      hasVenueCoordinates: true,
+      citySearch: "Spokane, WA 99205",
+    }),
+    null,
+  );
+});
+
+test("resolveHotelPlannerCityParameter: locality remains the fallback without venue coordinates", () => {
+  assert.equal(
+    resolveHotelPlannerCityParameter({
+      hasVenueCoordinates: false,
+      citySearch: " Spokane, WA 99205 ",
+    }),
+    "Spokane, WA 99205",
+  );
+  assert.equal(
+    resolveHotelPlannerCityParameter({
+      hasVenueCoordinates: false,
+      citySearch: "  ",
+    }),
+    null,
+  );
 });
