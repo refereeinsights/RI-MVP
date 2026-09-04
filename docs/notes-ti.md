@@ -15,6 +15,8 @@ Maintenance rules:
 
 ## 2026-09-04
 
+- **Tournament venue-map hotel dates are visible and explicitly editable.** The hotel panel now shows its active stay range and offers native date inputs behind `Change dates`; only `Update hotels` initiates a refreshed search. Valid updates refresh the existing HotelPlanner pool, rates, pins, property handoffs, team-block dates, and dated attributed `View all nearby hotels` path. Tournament dates remain the default, while ordinary direct venue visits remain on broad attributed search. Local UAT used no property or booking handoff: the default Sep 26–28 pool returned 71 results/10 pins, an invalid equal-date range was rejected without refresh, and Sep 27–29 returned 72 results/10 pins. Seven focused tests, TI TypeScript, zero-warning TI lint, all four production builds, and diff validation passed. Report: `docs/reports/ti-venue-map-hotel-date-controls-2026-09-04.md`.
+
 - **Direct venue hotel discovery now favors broad attributed results unless the visitor supplied tournament context.** The September 3 entry change had used an earliest-upcoming linked tournament to send an ordinary venue visitor into a dated hotel-pin map. The supplied HotelPlanner property page exposed date editing and an all-nearby link, but both were less discoverable than the broad results page. The direct venue CTA now enters the map only for an explicit valid `?tournament=` selection; otherwise it restores `Find hotels near this venue` through the existing attributed `/go/hotels` route. `Custom3` attribution is preserved. Tournament-originated map behavior, hotel pins, provider/commercial routing, schemas, RI, and Corralio are unchanged. Report: `docs/reports/ti-direct-venue-hotel-entry-correction-2026-09-04.md`.
 
 ## 2026-09-03

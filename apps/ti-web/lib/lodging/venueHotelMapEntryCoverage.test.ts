@@ -29,6 +29,18 @@ test("preselected tournament venue map automatically loads one venue hotel pool"
   assert.match(mapClient, /source: "venue_map"/);
 });
 
+test("hotel map changes dates only through the explicit update action", () => {
+  assert.match(mapClient, /Stay: <strong>\{hotelDateRangeLabel\}<\/strong>/);
+  assert.match(mapClient, /isHotelDateEditorOpen \? "Cancel" : "Change dates"/);
+  assert.match(mapClient, /<form id="hotel-date-editor"[\s\S]*onSubmit=\{handleUpdateHotelDates\}/);
+  assert.match(mapClient, /validateHotelSearchDateRange\(hotelDateCheckIn, hotelDateCheckOut\)/);
+  assert.match(mapClient, /checkin: explicitDates\?\.checkIn/);
+  assert.match(mapClient, /checkout: explicitDates\?\.checkOut/);
+  assert.match(mapClient, /checkin: activeHotelSearchCheckIn/);
+  assert.match(mapClient, /checkout: activeHotelSearchCheckOut/);
+  assert.match(mapClient, /Update hotels/);
+});
+
 test("venue page uses attributed broad search when tournament context is only inferred", () => {
   assert.match(venuePage, /const hotelBookingHref = buildHotelsHref\(/);
   assert.match(venuePage, /tournamentId: contextTournament\?\.id \?\? null/);

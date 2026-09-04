@@ -24,6 +24,11 @@ import {
   createOutboundAttributionId,
   HOTEL_PLANNER_BOOKING_PLACEMENTS,
 } from "@/lib/hotelPlannerAttribution";
+import {
+  formatHotelSearchDateRange,
+  hotelPlannerDateToIso,
+  validateHotelSearchDateRange,
+} from "@/lib/lodging/hotelSearchDateControls";
 import { getTeamHotelAcquisitionContext, getTeamHotelSessionId } from "@/lib/teamHotelClientTracking";
 import { parseTeamHotelRoomCount, TEAM_HOTEL_REQUEST_DEFAULTS } from "@/lib/teamHotelRequest";
 import NavigationChooser, { type NavProvider } from "./NavigationChooser";
@@ -140,6 +145,8 @@ function buildVenueHotelsHref(args: {
   venue: MapVenue;
   tournamentId: string;
   source?: "venue_map" | "venue_card" | "preview_card";
+  checkin?: string | null;
+  checkout?: string | null;
 }) {
   const href = buildHotelsHref({
     venueId: args.venue.id,
@@ -148,6 +155,8 @@ function buildVenueHotelsHref(args: {
     provider: "hotelplanner",
     latitude: args.venue.latitude,
     longitude: args.venue.longitude,
+    checkin: args.checkin,
+    checkout: args.checkout,
   });
   const url = new URL(href, "https://www.tournamentinsights.com");
   url.searchParams.set("page_type", "venue_map");
@@ -253,6 +262,10 @@ export default function TournamentVenueMapClient({
   const [hotelPinsVenueId, setHotelPinsVenueId] = useState<string | null>(null);
   const [hotelSearchResolvedCheckIn, setHotelSearchResolvedCheckIn] = useState<string | null>(null);
   const [hotelSearchResolvedCheckOut, setHotelSearchResolvedCheckOut] = useState<string | null>(null);
+  const [hotelDateCheckIn, setHotelDateCheckIn] = useState("");
+  const [hotelDateCheckOut, setHotelDateCheckOut] = useState("");
+  const [hotelDateRangeError, setHotelDateRangeError] = useState<string | null>(null);
+  const [isHotelDateEditorOpen, setIsHotelDateEditorOpen] = useState(false);
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
   const [hotelHandoffError, setHotelHandoffError] = useState<string | null>(null);
   const [hotelRatingFilter, setHotelRatingFilter] = useState<number>(0);
@@ -315,6 +328,8 @@ export default function TournamentVenueMapClient({
     () => hotelPins.find((pin) => pin.propertyId === selectedHotelId) ?? null,
     [hotelPins, selectedHotelId]
   );
+  const activeHotelSearchCheckIn = hotelPlannerDateToIso(hotelSearchResolvedCheckIn);
+  const activeHotelSearchCheckOut = hotelPlannerDateToIso(hotelSearchResolvedCheckOut);
 
   useEffect(() => {
     if (openedTrackedRef.current) return;
@@ -982,8 +997,11 @@ export default function TournamentVenueMapClient({
     } as never);
   };
 
-  const loadHotelPinsForVenue = async (venue: MapVenue) => {
-    if (!venue) return;
+  const loadHotelPinsForVenue = async (
+    venue: MapVenue,
+    explicitDates?: { checkIn: string; checkOut: string }
+  ) => {
+    if (!venue) return false;
     const runId = ++lodgingSearchInFlightRef.current;
     setHotelPinsLoading(true);
     setHotelPinsVenueId(null);
@@ -994,6 +1012,12 @@ export default function TournamentVenueMapClient({
     setSelectedHotelId(null);
     setHotelSearchResolvedCheckIn(null);
     setHotelSearchResolvedCheckOut(null);
+    if (!explicitDates) {
+      setHotelDateCheckIn("");
+      setHotelDateCheckOut("");
+      setHotelDateRangeError(null);
+      setIsHotelDateEditorOpen(false);
+    }
     setMapHotelPinVisibleCount(0);
     clearHotelMarkers();
 
@@ -1013,6 +1037,8 @@ export default function TournamentVenueMapClient({
           custom4: "srcp:venue_map",
           custom5: `place:${HOTEL_PLANNER_BOOKING_PLACEMENTS.venueMapViewAllHotels}`,
           page_type: "venue_map",
+          checkin: explicitDates?.checkIn,
+          checkout: explicitDates?.checkOut,
         }),
       }).then(async (r) => {
         const payload = await r.json().catch(() => null);
@@ -1029,7 +1055,7 @@ export default function TournamentVenueMapClient({
         return { ok: true, status: r.status, data } as const;
       });
 
-      if (runId !== lodgingSearchInFlightRef.current) return;
+      if (runId !== lodgingSearchInFlightRef.current) return false;
 
       if (!res.ok) {
         if (res.status === 429) {
@@ -1052,17 +1078,20 @@ export default function TournamentVenueMapClient({
             count: 0,
             status: "rate_limited",
           });
-          return;
+          return false;
         }
         setHotelPinsError(res.data.error ? String(res.data.error) : "Unable to load hotels right now.");
         setHotelPinsFallback(res.fallback ?? { showHotelFallback: true, showVrboFallback: true });
-        return;
+        return false;
       }
 
       const checkIn = (res.data.resolvedCheckIn ?? null) as string | null;
       const checkOut = (res.data.resolvedCheckOut ?? null) as string | null;
       setHotelSearchResolvedCheckIn(checkIn);
       setHotelSearchResolvedCheckOut(checkOut);
+      setHotelDateCheckIn(hotelPlannerDateToIso(checkIn));
+      setHotelDateCheckOut(hotelPlannerDateToIso(checkOut));
+      setHotelDateRangeError(null);
       setHotelHandoffError(null);
       setHotelPinsFallback(res.data.fallback ?? null);
 
@@ -1095,10 +1124,12 @@ export default function TournamentVenueMapClient({
         count: pinsShown,
         session_id: res.data.sessionId ?? null,
       });
+      return true;
     } catch (err) {
-      if (runId !== lodgingSearchInFlightRef.current) return;
+      if (runId !== lodgingSearchInFlightRef.current) return false;
       setHotelPinsError("Unable to load hotels right now.");
       setHotelPinsFallback({ showHotelFallback: true, showVrboFallback: true, reason: "provider_error" });
+      return false;
     } finally {
       if (runId === lodgingSearchInFlightRef.current) {
         setHotelPinsVenueId(venue.id);
@@ -1580,6 +1611,27 @@ export default function TournamentVenueMapClient({
         : hotelRatingFilter > 0
           ? `Showing ${hotelResultCount} hotel results (${filteredHotelPins.length} match filter, ${mapHotelPinVisibleCount} on map)`
           : `Showing ${hotelResultCount} hotel result${hotelResultCount === 1 ? "" : "s"} (${mapHotelPinVisibleCount} on map)`;
+  const hotelDateRangeLabel = formatHotelSearchDateRange(
+    hotelSearchResolvedCheckIn,
+    hotelSearchResolvedCheckOut
+  );
+
+  const handleUpdateHotelDates = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedVenue) return;
+    const validation = validateHotelSearchDateRange(hotelDateCheckIn, hotelDateCheckOut);
+    if (!validation.ok) {
+      setHotelDateRangeError(validation.error);
+      return;
+    }
+
+    setHotelDateRangeError(null);
+    const updated = await loadHotelPinsForVenue(selectedVenue, {
+      checkIn: validation.checkIn,
+      checkOut: validation.checkOut,
+    });
+    if (updated) setIsHotelDateEditorOpen(false);
+  };
 
   const getCurrentTeamBlockDates = (pin: HotelPin | null) => {
     if (!pin) return null;
@@ -2865,6 +2917,8 @@ export default function TournamentVenueMapClient({
                         href={buildVenueHotelsHref({
                           venue: hotelVenueForRedirect,
                           tournamentId: tournament.id,
+                          checkin: activeHotelSearchCheckIn,
+                          checkout: activeHotelSearchCheckOut,
                         })}
                         target="_blank"
                         rel="noopener noreferrer sponsored"
@@ -2881,6 +2935,8 @@ export default function TournamentVenueMapClient({
                           const baseHref = buildVenueHotelsHref({
                             venue: hotelVenueForRedirect,
                             tournamentId: tournament.id,
+                            checkin: activeHotelSearchCheckIn,
+                            checkout: activeHotelSearchCheckOut,
                           });
                           const url = new URL(baseHref, window.location.origin);
                           const sid = readOrCreateLodgingSessionId();
@@ -3117,6 +3173,71 @@ export default function TournamentVenueMapClient({
                         </span>
                       </button>
 
+                      {hotelDateRangeLabel ? (
+                        <div className={styles.hotelDateSummaryRow}>
+                          <div className={styles.hotelDateSummary}>
+                            Stay: <strong>{hotelDateRangeLabel}</strong>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.hotelDateChange}
+                            aria-expanded={isHotelDateEditorOpen}
+                            aria-controls="hotel-date-editor"
+                            onClick={() => {
+                              setHotelDateRangeError(null);
+                              setIsHotelDateEditorOpen((open) => !open);
+                            }}
+                          >
+                            {isHotelDateEditorOpen ? "Cancel" : "Change dates"}
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {isHotelDateEditorOpen ? (
+                        <form id="hotel-date-editor" className={styles.hotelDateRow} onSubmit={handleUpdateHotelDates}>
+                          <div className={styles.hotelDateField}>
+                            <label className={styles.hotelFilterLabel} htmlFor="hotel-search-checkin">
+                              Check-in
+                            </label>
+                            <input
+                              id="hotel-search-checkin"
+                              className={styles.hotelDateInput}
+                              type="date"
+                              required
+                              value={hotelDateCheckIn}
+                              onChange={(event) => {
+                                setHotelDateCheckIn(event.target.value);
+                                setHotelDateRangeError(null);
+                              }}
+                            />
+                          </div>
+                          <div className={styles.hotelDateField}>
+                            <label className={styles.hotelFilterLabel} htmlFor="hotel-search-checkout">
+                              Check-out
+                            </label>
+                            <input
+                              id="hotel-search-checkout"
+                              className={styles.hotelDateInput}
+                              type="date"
+                              required
+                              value={hotelDateCheckOut}
+                              onChange={(event) => {
+                                setHotelDateCheckOut(event.target.value);
+                                setHotelDateRangeError(null);
+                              }}
+                            />
+                          </div>
+                          <button type="submit" className={styles.hotelDateApply} disabled={hotelPinsLoading}>
+                            {hotelPinsLoading ? "Updating…" : "Update hotels"}
+                          </button>
+                        </form>
+                      ) : null}
+                      {hotelDateRangeError ? (
+                        <div className={styles.lodgingError} role="alert">
+                          {hotelDateRangeError}
+                        </div>
+                      ) : null}
+
                       {!isHotelResultsCollapsed ? (
                         <>
                           {hotelPinsLoading ? (
@@ -3148,6 +3269,8 @@ export default function TournamentVenueMapClient({
                                   href={buildVenueHotelsHref({
                                     venue: hotelLoadingFallbackVenue!,
                                     tournamentId: tournament.id,
+                                    checkin: activeHotelSearchCheckIn,
+                                    checkout: activeHotelSearchCheckOut,
                                   })}
                                   target="_blank"
                                   rel="noopener noreferrer sponsored"
@@ -3191,6 +3314,8 @@ export default function TournamentVenueMapClient({
                                   href={buildVenueHotelsHref({
                                     venue: hotelVenueForRedirect,
                                     tournamentId: tournament.id,
+                                    checkin: activeHotelSearchCheckIn,
+                                    checkout: activeHotelSearchCheckOut,
                                   })}
                                   target="_blank"
                                   rel="noopener noreferrer sponsored"

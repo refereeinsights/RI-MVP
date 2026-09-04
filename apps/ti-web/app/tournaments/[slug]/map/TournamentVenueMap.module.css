@@ -1112,6 +1112,39 @@
   align-items: center;
 }
 
+.hotelDateSummaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.hotelDateSummary {
+  font-size: 12px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.hotelDateChange {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #bfdbfe;
+  padding: 3px 0;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hotelDateChange:hover,
+.hotelDateChange:focus-visible {
+  color: #fff;
+}
+
 .hotelDateField {
   display: grid;
   gap: 4px;
