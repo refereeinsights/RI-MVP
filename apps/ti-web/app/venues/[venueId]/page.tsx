@@ -27,6 +27,7 @@ import { SITE_ORIGIN } from "@/lib/sitemaps";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { isUuid } from "@/lib/venues/isUuid";
 import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
+import { isVenueHotelPageEligible } from "@/lib/venueHotelPilot";
 import {
   buildCampingHref,
   CAMPSPOT_CTA_PLACEMENTS,
@@ -1108,6 +1109,17 @@ export default async function VenueDetailsPage({
                   ) : null
                 }
               />
+
+              {isVenueHotelPageEligible(data) && data.seo_slug && (
+                <div style={{ marginTop: "8px" }}>
+                  <Link
+                    href={`/venues/${encodeURIComponent(data.seo_slug)}/hotels`}
+                    style={{ fontSize: "0.9rem", color: "#1a6c3f", textDecoration: "none" }}
+                  >
+                    Browse hotel options near this venue →
+                  </Link>
+                </div>
+              )}
 
               {venueClusterCandidates.length > 0 ? (
                 <VenueClusterModule

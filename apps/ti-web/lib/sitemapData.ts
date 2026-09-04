@@ -7,8 +7,10 @@ import {
   TOURNAMENT_SITEMAP_PAGE_SIZE,
   VENUE_SITEMAP_PAGE_SIZE,
 } from "@/lib/sitemaps";
+import { loadVenueHotelPilotCohort } from "@/lib/venueHotelPilot";
 
 export const TI_SITEMAP_CACHE_VERSION = "v1";
+export const TI_SITEMAP_VENUE_HOTEL_ROWS_TAG = `ti:sitemap:venue-hotel-rows:${TI_SITEMAP_CACHE_VERSION}`;
 
 export const TI_SITEMAP_INDEX_COUNTS_TAG = `ti:sitemap:index-counts:${TI_SITEMAP_CACHE_VERSION}`;
 export const TI_SITEMAP_METRO_ROWS_TAG = `ti:sitemap:metro-rows:${TI_SITEMAP_CACHE_VERSION}`;
@@ -227,3 +229,21 @@ export const getTiVenueSitemapRows = unstable_cache(loadTiVenueSitemapRows, [TI_
   revalidate: SHARD_DATA_TTL_SECONDS,
   tags: [TI_SITEMAP_VENUE_ROWS_TAG],
 });
+
+export type TiVenueHotelSitemapRow = { seo_slug: string };
+
+async function loadTiVenueHotelSitemapRows() {
+  const startedAt = Date.now();
+  const rows = await loadVenueHotelPilotCohort();
+  console.info("[ti-sitemap-cache] Refreshed venue-hotel pilot cohort", {
+    durationMs: Date.now() - startedAt,
+    rowCount: rows.length,
+  });
+  return rows;
+}
+
+export const getTiVenueHotelSitemapRows = unstable_cache(
+  loadTiVenueHotelSitemapRows,
+  [TI_SITEMAP_VENUE_HOTEL_ROWS_TAG],
+  { revalidate: SHARD_DATA_TTL_SECONDS, tags: [TI_SITEMAP_VENUE_HOTEL_ROWS_TAG] }
+);

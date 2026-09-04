@@ -15,6 +15,9 @@ const HOTEL_MEASUREMENT_EVENTS = new Set([
   "venue_map_hotels_clicked",
   "venue_hotels_cta_clicked",
   "book_travel_hotels_clicked",
+  // Venue-hotel SEO pilot (TI-internal only; no Custom1-8 change)
+  "venue_hotel_page_viewed",
+  "venue_hotel_cta_clicked",
 ]);
 
 const QUICK_CHECK_EVENTS = new Set([

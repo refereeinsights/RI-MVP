@@ -44,6 +44,9 @@ export async function GET() {
     sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/venues-${page}.xml`);
   }
 
+  // Venue-hotel pilot: single shard covering the top-75 cohort
+  sitemapUrls.push(`${SITE_ORIGIN}/sitemaps/venue-hotels-1.xml`);
+
   const response = xmlResponse(buildSitemapIndexXml(sitemapUrls));
   response.headers.set("Cache-Control", SITEMAP_INDEX_CACHE_CONTROL);
   return response;

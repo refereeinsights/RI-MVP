@@ -9,6 +9,7 @@ import {
   getTiTournamentHotelSitemapRows,
   getTiTournamentSitemapRows,
   getTiVenueSitemapRows,
+  getTiVenueHotelSitemapRows,
 } from "@/lib/sitemapData";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 
@@ -32,6 +33,22 @@ function parsePagedSitemapName(name: string, prefix: string) {
 }
 
 export async function GET(_req: Request, { params }: { params: { name: string } }) {
+  // Venue-hotel pilot shard (single shard, top-75 cohort)
+  const venueHotelsPage = parsePagedSitemapName(params.name, "venue-hotels");
+  if (venueHotelsPage === 1) {
+    let rows;
+    try {
+      rows = await getTiVenueHotelSitemapRows();
+    } catch (error) {
+      console.error("[ti-sitemap] Venue-hotel shard unavailable", error);
+      return sitemapUnavailableResponse();
+    }
+    const entries: SitemapEntry[] = rows.map((row) => ({
+      url: `${SITE_ORIGIN}/venues/${encodeURIComponent(row.seo_slug)}/hotels`,
+    }));
+    return cachedXmlResponse(entries);
+  }
+
   const tournamentHotelsPage = parsePagedSitemapName(params.name, "tournament-hotels");
   if (tournamentHotelsPage) {
     let rows;
