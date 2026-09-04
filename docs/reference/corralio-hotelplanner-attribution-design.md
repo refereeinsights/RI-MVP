@@ -47,9 +47,20 @@ source === "corralio"
 
 Anything with a missing or non-Corralio-attributed token stays unmatched, even if `source` happens to read `"corralio"` (e.g., a malformed or expired token). This replaces the earlier, weaker draft rule based on household-email matching — email is not required anywhere in this design.
 
-## 7. Status field — empirical mapping, not yet fully enumerated
+## 7. Status field — corrected 2026-09-03: two distinct fields, only one is this design's actual mechanism
 
-A live `getClientSummary` diagnostic against two real, known reservations (one confirmed, one cancelled) empirically mapped the numeric `status` field: `status: 1` = confirmed, `status: 2` = cancelled. This is first-party evidence, better than the API docs provide (which don't document this field's value set at all) — but only two values have been observed. **Treat `status === 1` as a strict positive match, not "anything other than 2."** An unrecognized future status value should fail closed to "unmatched," the same way a missing attribution token does, rather than being treated as confirmed by elimination.
+**This section originally conflated two different HotelPlanner fields.** A live `getClientSummary` diagnostic against two real, known reservations (one confirmed, one cancelled) empirically mapped `getClientSummary`'s **numeric** `status` field: `status: 1` = confirmed, `status: 2` = cancelled. That evidence is real, but `getClientSummary` is not the mechanism Section 10 of this design actually selects — Section 10 chooses `getReport` as the primary reconciliation call, and `getReport`'s `Status` field is a **string**, not this numeric field. A 2026-08-30 CPO review (`docs/corralio/cpo/2026-08-30-hotelplanner-booking-reconciliation-lodging-routing-review.md`) caught this inconsistency and flagged it as a defect requiring a fix here before anything is built from this design; that fix is this section, applied 2026-09-03 after the underlying evidence gap actually closed (see below), not on the report alone.
+
+**The proven mechanism for `getReport`'s textual `Status` field**, implemented and shipped in `apps/referee/lib/hotelBookingReconciliation.ts` (`classifyHotelPlannerStatus`) and exercised in production by `hotelPlannerBookingSync.ts`'s separate cancellation refresh:
+
+- Normalize (trim, lowercase) and match exactly: `"confirmed"` → confirmed; `"cancelled"` → cancelled.
+- Any other nonblank normalized value → `other` (not treated as confirmed or cancelled by elimination).
+- Blank/null → `unknown`.
+- No broader status vocabulary has been proven against real production data beyond these two exact values, so none is inferred — the `other`/`unknown` split exists precisely so an unrecognized value fails closed rather than being silently misclassified.
+
+This textual contract was validated against a real, authorized, read-only `getReport` cancellation-window call (2026-08-25 through 2026-08-31, 8 rows, all exact `Cancelled`, all with cancellation date and reconciliation keys present — `docs/reports/ti-hotel-monetization-reporting-2026-08-31.md`, "Cancellation diagnostic" section) — the live test this section originally called for.
+
+**`getClientSummary`'s numeric `status: 1`/`status: 2` mapping is retained above for its own sake** (it's real, first-party evidence about that separate endpoint) but is **not** the rule this design's `getReport`-based reconciliation actually uses. If a future slice ever reconciles via `getClientSummary` instead of `getReport`, this numeric mapping is the one to reach for — not the textual rule above, and not vice versa. Do not conflate the two again.
 
 ## 8. Adjacent, separate item: TI's own reporting pipeline is silently dropping guest name
 

@@ -1,6 +1,8 @@
 # CPO Review — HotelPlanner Booking Reconciliation, Lodging State & Routing Origin Addendum
 **2026-08-30**
 
+> **Corrected 2026-09-03.** This document's two flagged evidence gaps — the `status === 1`/`getReport` field-type inconsistency (below) and the untested `cancelledDateStart/cancelledDateEnd` query shape — are both now closed. The design-doc fix promised below ("I'll fold the fix into the design doc") was applied 2026-09-03, not at the time this review was written. See `docs/reference/corralio-hotelplanner-attribution-design.md` Section 7 and `docs/corralio/cpo/2026-09-03-cpo-audit-hotelplanner-phase3b-diagnostic-overtaken.md` for the current state. Body left unrewritten below as historical evidence of the original finding.
+
 Reviewing the founder's "Slice 3.6B HotelPlanner Booking Reconciliation, Lodging State & Routing Origin" direction, treated as it says it should be: a reconciliation/scoping task, not build authorization. Verified every checkable claim directly against the vendor API doc, TI's live reconciliation code, and the actual database schema before responding — this document makes several real technical claims that turned out to be exactly right, one that needed a genuine correction, and it reopens a product-sequencing question I don't think should be resolved silently.
 
 ## What this document actually is, and the sequencing question it doesn't ask
