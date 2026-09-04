@@ -1,6 +1,6 @@
 # TournamentInsights to Corralio Planning Handoff
 
-**Status:** Accepted direction — implementation details pending  
+**Status:** Accepted direction — implementation details pending
 **Last reviewed:** August 18, 2026
 
 ## Purpose
@@ -143,4 +143,3 @@ Do not include child names, raw event locations, private notes, home/origin, aut
 - Cross-domain authentication experience
 - Availability and caching contract for TI tournament intelligence
 - Product/legal consent requirements for transferring context between brands
-
