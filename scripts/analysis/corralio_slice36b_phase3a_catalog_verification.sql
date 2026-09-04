@@ -91,6 +91,7 @@ begin
      or position('coalesce(event.ends_at, event.starts_at)' in pg_get_functiondef(v_cleanup)) = 0
      or position('interval ''24 hours''' in pg_get_functiondef(v_cleanup)) = 0
      or position('limit p_limit' in pg_get_functiondef(v_cleanup)) = 0
+     or position('return coalesce(v_claim_token = p_claim_token, false)' in pg_get_functiondef(v_claim)) = 0
   then raise exception 'Slice 3.6B Phase 3A catalog verification failed: authorization/lifecycle body'; end if;
 end
 $verify$;

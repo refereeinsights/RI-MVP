@@ -7,6 +7,7 @@ function source(path: string) {
 }
 
 const migration = source("../../../supabase/migrations/20260904_corralio_slice36b_phase3a_temporary_routing_origin.sql");
+const claimRepair = source("../../../supabase/migrations/20260904_corralio_slice36b_phase3a_claim_result_repair.sql");
 const catalog = source("../../../scripts/analysis/corralio_slice36b_phase3a_catalog_verification.sql");
 const behavioral = source("../../../scripts/analysis/corralio_slice36b_phase3a_behavioral_verification.sql");
 const server = source("./temporaryOrigin.server.ts");
@@ -32,6 +33,8 @@ test("database boundaries are owner-derived, service-only where required, and us
   assert.match(migration, /corralio_prepare_event_routing_origin_v1[\s\S]*auth\.uid\(\)[\s\S]*member\.role = 'owner'[\s\S]*member\.status = 'active'/);
   assert.match(migration, /coalesce\(event\.ends_at, event\.starts_at\) \+ interval '24 hours'/);
   assert.match(migration, /corralio_claim_current_location_route_v1[\s\S]*auth\.role\(\)[\s\S]*service_role/);
+  assert.match(migration, /return coalesce\(v_claim_token = p_claim_token, false\)/);
+  assert.match(claimRepair, /create or replace function public\.corralio_claim_current_location_route_v1[\s\S]*return coalesce\(v_claim_token = p_claim_token, false\)/);
   assert.match(migration, /corralio_cleanup_event_routing_origins_v1[\s\S]*p_limit > 500[\s\S]*skip locked/);
   assert.doesNotMatch(migration, /grant (insert|update|delete)[^;]*authenticated/i);
 });

@@ -1,5 +1,11 @@
 # Corralio Notes
 
+## 2026-09-04 — Slice 3.6B Phase 3A database verification passed
+
+- A human applied the Phase 3A migration. The first rollback-only behavioral run correctly exposed that a guarded duplicate-claim upsert returned SQL `NULL` rather than explicit boolean `false`; the row was not replaced and no provider authorization occurred, but the verifier properly rejected the ambiguous result.
+- Added and applied the narrow `20260904_corralio_slice36b_phase3a_claim_result_repair.sql`, changed both the canonical migration and claim RPC to `return coalesce(v_claim_token = p_claim_token, false)`, strengthened the catalog verifier to require that exact closed result, and added static regression coverage for both fresh and already-applied databases.
+- After repair, the read-only catalog verifier returned `SLICE 3.6B PHASE 3A CATALOG VERIFICATION PASSED`, and the rollback-only behavioral verifier returned `SLICE 3.6B PHASE 3A BEHAVIORAL VERIFICATION PASSED; ROLLBACK CLEANUP ZERO`. Repair verification also passed 12/12 focused tests, Corralio TypeScript, zero-warning lint, and `git diff --check`. No provider call, production configuration change, push, or deployment occurred. Phase 3A is database-verified and ready for its separately bounded Stage 2 UAT.
+
 ## 2026-09-04 — Slice 3.6B Phase 3A ready for database verification
 
 - Patched the canonical Phase 3A prompt and implemented its Stage 1 repository work. This Weekend now offers per-event progressive origin disclosure (`Leaving from Home · Change`) for a one-use current location or a durable typed alternate address. Home remains unchanged and selectable; What Fits remains unchanged. Both Home and alternate/current estimates consume the existing required-arrival hierarchy (`ics_explicit → source_preference → team_preference → corralio_default`), so changing an arrival preference changes leave-by without creating or snapshotting another arrival policy.

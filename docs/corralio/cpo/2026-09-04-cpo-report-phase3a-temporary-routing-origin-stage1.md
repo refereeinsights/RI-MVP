@@ -1,6 +1,8 @@
 # Slice 3.6B Phase 3A — Temporary Routing Origin Stage 1
 
-**Status:** `SLICE 3.6B PHASE 3A READY FOR DATABASE VERIFICATION`
+**Status:** Stage 1 database verification passed; bounded Stage 2 UAT is next.
+
+**Database closeout, 2026-09-04:** A human applied the migration. The first behavioral run exposed a losing duplicate-claim return of SQL `NULL` rather than explicit `false`; no duplicate claim/provider authorization occurred. The narrow repair migration changed the RPC to `coalesce(..., false)` and the catalog contract now requires it. The updated catalog verifier passed, and the rollback-only behavioral verifier passed with cleanup zero.
 
 ## Delivered boundary
 

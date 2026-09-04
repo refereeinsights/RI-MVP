@@ -224,7 +224,7 @@ begin
   where corralio_current_location_route_claims.claimed_at < statement_timestamp() - interval '2 minutes'
   returning claim_token into v_claim_token;
 
-  return v_claim_token = p_claim_token;
+  return coalesce(v_claim_token = p_claim_token, false);
 end;
 $function$;
 
