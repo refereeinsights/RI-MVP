@@ -22,6 +22,18 @@ test("venue hotel CTA uses the dated map only for explicit tournament context", 
   assert.match(venuePage, /target=\{hotelMapHref \? "_self" : "_blank"\}/);
 });
 
+test("direct venue map does not silently enter an inferred tournament", () => {
+  assert.doesNotMatch(venuePage, /const mapContextTournamentSlug =/);
+  assert.doesNotMatch(
+    venuePage,
+    /selectedTournamentSlug=\{[\s\S]*upcomingTournaments[\s\S]*\}/
+  );
+  assert.match(
+    venuePage,
+    /selectedTournamentSlug=\{\(selectedTournament\?\.slug \?\? ""\)\.trim\(\) \|\| null\}/
+  );
+});
+
 test("preselected tournament venue map automatically loads one venue hotel pool", () => {
   assert.match(mapShell, /if \(initialSelectedVenueId\) return initialSelectedVenueId/);
   assert.match(mapClient, /if \(!selectedVenueId\) return;[\s\S]*void loadHotelPinsForVenue\(selectedVenue\)/);
@@ -41,11 +53,14 @@ test("hotel map changes dates only through the explicit update action", () => {
   assert.match(mapClient, /Update hotels/);
 });
 
-test("venue page uses attributed broad search when tournament context is only inferred", () => {
+test("venue page uses an undated attributed broad search when tournament context is only inferred", () => {
   assert.match(venuePage, /const hotelBookingHref = buildHotelsHref\(/);
-  assert.match(venuePage, /tournamentId: contextTournament\?\.id \?\? null/);
-  assert.match(venuePage, /checkin: contextTournament\?\.startDate \?\? null/);
-  assert.match(venuePage, /checkout: contextTournament\?\.endDate \?\? null/);
+  assert.match(venuePage, /tournamentId: selectedTournament\?\.id \?\? null/);
+  assert.match(venuePage, /checkin: selectedTournament\?\.startDate \?\? null/);
+  assert.match(venuePage, /checkout: selectedTournament\?\.endDate \?\? null/);
+  assert.match(venuePage, /selectedTournamentId=\{selectedTournament\?\.id \?\? null\}/);
+  assert.match(venuePage, /selectedTournamentStartDate=\{selectedTournament\?\.startDate \?\? null\}/);
+  assert.match(venuePage, /selectedTournamentEndDate=\{selectedTournament\?\.endDate \?\? null\}/);
   assert.match(venuePage, /href=\{hotelMapHref \?\? hotelBookingHref\}/);
   assert.match(venuePage, /Find hotels near this venue/);
 });

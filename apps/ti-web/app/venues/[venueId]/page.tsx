@@ -398,12 +398,6 @@ export default async function VenueDetailsPage({
     Boolean((process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim()) &&
     isValidLatLng(data.latitude, data.longitude);
 
-  const mapContextTournamentSlug =
-    (selectedTournament?.slug ?? "").trim() ||
-    (upcomingTournaments.find((t) => (t.slug ?? "").trim())?.slug ?? "").trim() ||
-    (linkedTournaments.find((t) => (t.slug ?? "").trim())?.slug ?? "").trim() ||
-    null;
-
   const contextTournament = selectedTournament ?? upcomingTournaments[0] ?? null;
   const selectedTournamentHasHotelDates = Boolean(
     selectedTournament?.startDate &&
@@ -781,13 +775,13 @@ export default async function VenueDetailsPage({
     : null;
   const hotelBookingHref = buildHotelsHref({
     venueId: data.id,
-    tournamentId: contextTournament?.id ?? null,
+    tournamentId: selectedTournament?.id ?? null,
     source: "venue_directory",
     provider: "hotelplanner",
     latitude: data.latitude,
     longitude: data.longitude,
-    checkin: contextTournament?.startDate ?? null,
-    checkout: contextTournament?.endDate ?? null,
+    checkin: selectedTournament?.startDate ?? null,
+    checkout: selectedTournament?.endDate ?? null,
   });
   const hotelMapHref =
     selectedTournamentHasHotelDates && selectedTournament?.slug
@@ -1095,10 +1089,10 @@ export default async function VenueDetailsPage({
                 }}
                 hasOwlsEye={hasOwlsEye}
                 canViewPremiumDetails={canViewPremiumDetails}
-                selectedTournamentId={contextTournament?.id ?? null}
-                selectedTournamentSlug={mapContextTournamentSlug}
-                selectedTournamentStartDate={contextTournament?.startDate ?? null}
-                selectedTournamentEndDate={contextTournament?.endDate ?? null}
+                selectedTournamentId={selectedTournament?.id ?? null}
+                selectedTournamentSlug={(selectedTournament?.slug ?? "").trim() || null}
+                selectedTournamentStartDate={selectedTournament?.startDate ?? null}
+                selectedTournamentEndDate={selectedTournament?.endDate ?? null}
                 nearbyCounts={nearbyCounts}
                 airportSummary={airportSummary}
                 premiumNearby={premiumNearby}
