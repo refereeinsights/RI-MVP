@@ -11,6 +11,7 @@ const mapClient = readFileSync(
   new URL("../../app/tournaments/[slug]/map/TournamentVenueMapClient.tsx", import.meta.url),
   "utf8"
 );
+const venueCard = readFileSync(new URL("../../components/venues/OwlsEyeVenueCard.tsx", import.meta.url), "utf8");
 
 test("venue hotel CTA uses the dated map only for explicit tournament context", () => {
   assert.match(venuePage, /const contextTournament = selectedTournament \?\? upcomingTournaments\[0\] \?\? null/);
@@ -63,4 +64,14 @@ test("venue page uses an undated attributed broad search when tournament context
   assert.match(venuePage, /selectedTournamentEndDate=\{selectedTournament\?\.endDate \?\? null\}/);
   assert.match(venuePage, /href=\{hotelMapHref \?\? hotelBookingHref\}/);
   assert.match(venuePage, /Find hotels near this venue/);
+});
+
+test("venue travel actions are grouped with the map and directions", () => {
+  assert.match(venuePage, /primaryTravelAction=\{[\s\S]*<HotelBookingCta/);
+  assert.match(venuePage, /secondaryTravelAction=\{[\s\S]*<CampspotAffiliateLink/);
+  assert.match(
+    venueCard,
+    /<div className="detailLinksRow detailVenueUrlRow">[\s\S]*\{primaryTravelAction \?\? null\}[\s\S]*\{mapLinks && mapQuery \? \([\s\S]*\{secondaryTravelAction \?\? null\}/
+  );
+  assert.doesNotMatch(venuePage, /\{showPrimaryHotelBooking \|\| selectedTournament\?\.id \|\| teamHotelHref \? \(/);
 });

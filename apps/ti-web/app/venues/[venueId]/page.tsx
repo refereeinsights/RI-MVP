@@ -836,18 +836,8 @@ export default async function VenueDetailsPage({
                 {addressLabel || "Address TBA"}
               </p>
 
-              {showPrimaryHotelBooking || selectedTournament?.id || teamHotelHref ? (
+              {selectedTournament?.id || teamHotelHref ? (
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {showPrimaryHotelBooking ? (
-                    <HotelBookingCta
-                      href={hotelMapHref ?? hotelBookingHref}
-                      venueId={data.id}
-                      tournamentId={contextTournament?.id ?? null}
-                      label={hotelMapHref ? "See hotels & rates on map" : "Find hotels near this venue"}
-                      align="start"
-                      target={hotelMapHref ? "_self" : "_blank"}
-                    />
-                  ) : null}
                   {selectedTournament?.slug ? (
                     <ShareWeekendButton
                       tournamentSlug={selectedTournament.slug}
@@ -881,23 +871,6 @@ export default async function VenueDetailsPage({
                       ctaLevel={teamTravelEligibility.ctaLevel}
                     />
                   ) : null}
-                </div>
-              ) : null}
-
-              {campspotHref ? (
-                <div className={styles.campingSecondaryBlock}>
-                  <span className={styles.campingSecondaryLabel}>Camping or bringing an RV?</span>
-                  <CampspotAffiliateLink
-                    href={campspotHref}
-                    sourceSurface="venue_detail"
-                    ctaPlacement={CAMPSPOT_CTA_PLACEMENTS.venueDetail}
-                    venueId={data.id}
-                    tournamentId={contextTournament?.id ?? null}
-                    tournamentSlug={contextTournament?.slug ?? null}
-                    className={styles.campingSecondaryLink}
-                  >
-                    Find campgrounds &amp; RV parks near this venue →
-                  </CampspotAffiliateLink>
                 </div>
               ) : null}
 
@@ -1104,6 +1077,36 @@ export default async function VenueDetailsPage({
                 demoScoresIsDemo={isDemoVenue}
                 defaultNearbyAllCollapsed
                 showHotelBookingCta={false}
+                primaryTravelAction={
+                  showPrimaryHotelBooking ? (
+                    <HotelBookingCta
+                      href={hotelMapHref ?? hotelBookingHref}
+                      venueId={data.id}
+                      tournamentId={selectedTournament?.id ?? null}
+                      label={hotelMapHref ? "See hotels & rates on map" : "Find hotels near this venue"}
+                      align="start"
+                      target={hotelMapHref ? "_self" : "_blank"}
+                    />
+                  ) : null
+                }
+                secondaryTravelAction={
+                  campspotHref ? (
+                    <div className={styles.campingSecondaryBlock}>
+                      <span className={styles.campingSecondaryLabel}>Camping or bringing an RV?</span>
+                      <CampspotAffiliateLink
+                        href={campspotHref}
+                        sourceSurface="venue_detail"
+                        ctaPlacement={CAMPSPOT_CTA_PLACEMENTS.venueDetail}
+                        venueId={data.id}
+                        tournamentId={contextTournament?.id ?? null}
+                        tournamentSlug={contextTournament?.slug ?? null}
+                        className={styles.campingSecondaryLink}
+                      >
+                        Find campgrounds &amp; RV parks near this venue →
+                      </CampspotAffiliateLink>
+                    </div>
+                  ) : null
+                }
               />
 
               {venueClusterCandidates.length > 0 ? (

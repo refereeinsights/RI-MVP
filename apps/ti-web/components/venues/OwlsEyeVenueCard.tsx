@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { BRAND_OWL } from "@/lib/brand";
 import type { OwlsEyeDemoScores } from "@/lib/owlsEyeScores";
 import OwlsEyeDemoScoresPanel from "@/components/OwlsEyeDemoScoresPanel";
@@ -83,6 +84,8 @@ type OwlsEyeVenueCardProps = {
   demoScoresIsDemo?: boolean;
   defaultNearbyAllCollapsed?: boolean;
   showHotelBookingCta?: boolean;
+  primaryTravelAction?: ReactNode;
+  secondaryTravelAction?: ReactNode;
 };
 
 export default function OwlsEyeVenueCard({
@@ -104,6 +107,8 @@ export default function OwlsEyeVenueCard({
   demoScoresIsDemo = false,
   defaultNearbyAllCollapsed = false,
   showHotelBookingCta = true,
+  primaryTravelAction,
+  secondaryTravelAction,
 }: OwlsEyeVenueCardProps) {
   const locationLine = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
   const bookingHref = buildHotelsHref({
@@ -244,6 +249,7 @@ export default function OwlsEyeVenueCard({
                   </a>
                 ) : null}
               </div>
+              {primaryTravelAction ?? null}
             </div>
           </div>
           {mapLinks && mapQuery ? (
@@ -277,6 +283,7 @@ export default function OwlsEyeVenueCard({
               ) : null}
             </div>
           ) : null}
+          {secondaryTravelAction ?? null}
         </div>
 
         {showHotelBookingCta && showBooking && !hasOwlsEye ? (
