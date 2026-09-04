@@ -12,10 +12,11 @@ const mapClient = readFileSync(
   "utf8"
 );
 
-test("venue hotel CTA prefers the selected or nearest upcoming tournament map", () => {
+test("venue hotel CTA uses the dated map only for explicit tournament context", () => {
   assert.match(venuePage, /const contextTournament = selectedTournament \?\? upcomingTournaments\[0\] \?\? null/);
-  assert.match(venuePage, /contextTournamentHasHotelDates/);
-  assert.match(venuePage, /buildPlanningMapUrl\(\{[\s\S]*source: "venue_details"/);
+  assert.match(venuePage, /const selectedTournamentHasHotelDates = Boolean\([\s\S]*selectedTournament\?\.startDate/);
+  assert.match(venuePage, /selectedTournamentHasHotelDates && selectedTournament\?\.slug/);
+  assert.match(venuePage, /tournamentSlug: selectedTournament\.slug/);
   assert.match(venuePage, /href=\{hotelMapHref \?\? hotelBookingHref\}/);
   assert.match(venuePage, /See hotels & rates on map/);
   assert.match(venuePage, /target=\{hotelMapHref \? "_self" : "_blank"\}/);
@@ -28,8 +29,11 @@ test("preselected tournament venue map automatically loads one venue hotel pool"
   assert.match(mapClient, /source: "venue_map"/);
 });
 
-test("venue page retains the attributed HotelPlanner fallback without tournament dates", () => {
+test("venue page uses attributed broad search when tournament context is only inferred", () => {
   assert.match(venuePage, /const hotelBookingHref = buildHotelsHref\(/);
+  assert.match(venuePage, /tournamentId: contextTournament\?\.id \?\? null/);
+  assert.match(venuePage, /checkin: contextTournament\?\.startDate \?\? null/);
+  assert.match(venuePage, /checkout: contextTournament\?\.endDate \?\? null/);
   assert.match(venuePage, /href=\{hotelMapHref \?\? hotelBookingHref\}/);
   assert.match(venuePage, /Find hotels near this venue/);
 });

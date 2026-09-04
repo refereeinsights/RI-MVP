@@ -405,10 +405,10 @@ export default async function VenueDetailsPage({
     null;
 
   const contextTournament = selectedTournament ?? upcomingTournaments[0] ?? null;
-  const contextTournamentHasHotelDates = Boolean(
-    contextTournament?.startDate &&
-      contextTournament?.endDate &&
-      (contextTournament.startDate >= today || contextTournament.endDate >= today)
+  const selectedTournamentHasHotelDates = Boolean(
+    selectedTournament?.startDate &&
+      selectedTournament?.endDate &&
+      (selectedTournament.startDate >= today || selectedTournament.endDate >= today)
   );
   const teamTravelEligibility = evaluateVenueTeamTravelEligibility({
     selectedTournament,
@@ -790,9 +790,9 @@ export default async function VenueDetailsPage({
     checkout: contextTournament?.endDate ?? null,
   });
   const hotelMapHref =
-    contextTournamentHasHotelDates && contextTournament?.slug
+    selectedTournamentHasHotelDates && selectedTournament?.slug
       ? buildPlanningMapUrl({
-          tournamentSlug: contextTournament.slug,
+          tournamentSlug: selectedTournament.slug,
           venueId: data.id,
           source: "venue_details",
         })
