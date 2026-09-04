@@ -33,7 +33,7 @@ Add a temporary routing-origin override that a parent can set for **one specific
 
 **This is a settled per-event model, not an open design question:** a typed alternate address attaches to exactly one upcoming event; a current-location choice is request-scoped and never persisted beyond completing that event's leave-by calculation; clearing or expiration affects only that one event. **Do not build a household-wide temporary origin, a general saved-address book, or multi-event/standing overrides of any kind** — the roadmap (Section 1) already places broader per-event/multi-location work in V2, and this prompt's launch-scoped slice is deliberately narrower than that.
 
-A plain expiry (e.g., clears automatically once the event passes, or after a bounded window — whichever this implementation finds cheapest to implement correctly) plus an explicit manual clear is sufficient. Do not build more than that without a specific, stated reason tied to real repository/product evidence.
+The durable alternate-address override expires at **the event end, or the event start when no end exists, plus a 24-hour grace period**. Eligibility and cleanup must derive this boundary from the event's current persisted timing so a reschedule cannot leave a stale stored expiry. Expired overrides are inactive immediately and are hard-deleted by a separate bounded, cron-authenticated cleanup route. Manual clear remains available at any time. Do not build more than that.
 
 The override must never write to or overwrite `origin_address`/`origin_lat`/`origin_lng` on `corralio_households`. Home remains exactly what it is today, unconditionally. **The override must never be applied to What Fits' candidate routing** — What Fits has no origin concept to override (Section 0); nothing in this prompt changes what What Fits reads or how it selects candidates.
 
@@ -42,17 +42,38 @@ The override must never write to or overwrite `origin_address`/`origin_lat`/`ori
 This section exists because of the route-cache finding in Section 1 — read it before writing any storage code.
 
 * **Home's existing route cache (`corralio_events.estimated_drive_minutes`, `leave_by_computed_at`, and the fields `isRouteFresh` reads) must be left untouched by this work.** A route computed from a temporary origin (current-location or alternate-address) must never be written into those same columns, because nothing downstream (`productData.ts` line 116, or any other reader) can currently tell a Home-derived value from any other kind — it would be silently presented as a Home route on a later reload.
-* **Temporary-origin route results need their own storage with explicit provenance** — recorded against the specific event and origin choice (alternate-address vs. current-location), distinguishable from the Home-derived cache at read time. Current-location results in particular must be scoped to completing the one in-flight calculation; if anything is persisted at all to survive a page reload mid-calculation, persist the resolved route result with its provenance and an expiry, not an ongoing capability to recompute from stale coordinates.
+* **Only the typed alternate-address origin and its route result receive durable event-scoped storage with explicit provenance.** Store only the route duration/distance/provider/freshness state needed to render leave-by; do not snapshot a separate leave-by timestamp or arrival policy. Alternate-route freshness must depend on both the alternate-origin geocoding timestamp and the event destination's geocoding timestamp.
+* **Current location is strictly ephemeral.** Current GPS coordinates and any route derived from them are request/session-only. Do not persist either the coordinates or the route result. On reload, resolve to the persisted typed alternate origin when one exists and remains active; otherwise resolve to Home. Never reuse a current-location result across a reload or later visit.
 * **Clearing or expiring an override must restore/recompute the Home-derived route** for that event exactly as it would render with no override ever having been set — not leave a stale temporary-origin value behind, and not require the parent to trigger a fresh calculation manually.
 * **Reuse breadth for "choose another location":** validation, concurrency semantics, quota reservation, provider adapter, sanitized logging, and failure classifications, per Section 1. Do not call `claimOrigin()`/`clearOriginClaim()` directly; add the narrowest new claim/persistence boundary that satisfies the same guarantees for an event-scoped target.
+
+### Required-arrival invariant
+
+Temporary-origin selection changes only the estimated drive duration. Leave-by remains:
+
+`resolved required-arrival timestamp - selected-origin drive duration`
+
+Both durable alternate-address results and ephemeral current-location results must consume the completed shared hierarchy unchanged:
+
+`ics_explicit -> source_preference -> team_preference -> corralio_default`
+
+Do not persist, duplicate, reinterpret, or create a separate leave-by/arrival policy.
+
+### Single-event routing boundary
+
+Add a narrow server-only orchestration for exactly one event ID. It must derive the household from the authenticated viewer; prove the event belongs to that household and is within the existing Phase 3A weekend routing context; validate all caller-supplied coordinates before any provider access; route only that event; reserve the existing ORS quota; and reject manipulated/cross-household requests before Geocodio or ORS. "Currently displayed in the UI" is never an authorization primitive. Client in-flight disabling plus an atomic, short-lived, payload-free event claim must prevent duplicate clicks or concurrent requests from producing duplicate provider calls. The current-location claim may retain event/household/claim metadata only; it must never retain coordinates or a route result.
+
+Do not call the existing batch `computeWeekendLeaveBy()` orchestration for this single-event action: it unconditionally requires Geocodio configuration and processes a broad event set. Reuse its bounded provider adapters, quota, failure taxonomy, and sanitized audit behavior through the new single-event boundary.
 
 ## 4. Privacy and Security
 
 This is the most privacy-sensitive surface Corralio has built to date — treat it accordingly:
 
-* "Use current location" is permissioned, one-time-per-use, and ephemeral: one fresh user-gesture request only — no `watchPosition`, no background/periodic polling, no reuse of a previously-granted position across a reload or later visit, no analytics event carrying the coordinate, no raw-coordinate logging anywhere (application logs, provider audit rows, or otherwise). If any location-derived value must be persisted at all to complete an already-in-flight calculation across a reload, store the resolved-origin/route result with provenance (Section 3), not the raw coordinate, and expire it plainly.
-* Alternate-address overrides need an explicit retention rule: prefer deleting the override once its associated event has passed, plus a small documented grace period, rather than retaining it indefinitely.
+* "Use current location" is permissioned, one-time-per-use, and ephemeral: one fresh user-gesture request only — no `watchPosition`, no background/periodic polling, no reuse of a previously-granted position across a reload or later visit, no analytics event carrying the coordinate, no raw-coordinate logging anywhere (application logs, provider audit rows, or otherwise), and no persisted current-location route result.
+* Before requesting browser permission, tell the parent that current location is used once, sent to the routing provider to estimate the drive, and not retained by Corralio.
+* Alternate-address overrides use the exact event-time-plus-24-hours lifecycle in Section 2. Expired rows are inactive immediately; a separate cron-authenticated cleanup route hard-deletes a bounded batch without coupling cleanup failure to schedule refresh, push, or another product workflow.
 * The UI must visibly indicate when a temporary origin (of either kind) is active on an event and different from Home, so a parent is never confused about where Corralio thinks they're leaving from for that commitment. It must be trivially easy to clear back to Home.
+* Keep the event-card surface progressively disclosed: show a compact origin status such as `Leaving from Home · Change`, and reveal the three choices only after the parent explicitly opens it. Do not permanently place three controls on every event card.
 * RLS-scope the temporary-origin data exactly like the existing Home-origin fields — household-owned, denied cross-household, no broader read/write surface than what Home already has.
 * Do not add any new third-party geolocation/reverse-geocoding provider — "use current location" needs no reverse geocoding at all (Section 2); route the raw coordinate directly through the existing ORS routing call, reusing its existing cost/quota discipline (daily caps, skip-logging) rather than introducing a new unmetered call path.
 * **Extend `docs/corralio/CORRALIO_SECURITY_PRIVACY.md`'s "Home and origin locations" rule (line 56) to temporary-origin data of both kinds:** never expose it publicly or through TI, never treat it as a venue candidate, never let it participate in venue matching, provisional venues, Overture evidence, or any public venue intelligence, avoid raw-coordinate/raw-address logging and analytics, apply strict household RLS. A temporary origin is exactly as sensitive as Home, not less — in current-location's case, arguably more so.
@@ -68,7 +89,7 @@ This work most likely requires a migration (new columns or a table for the event
 * **Stage 1:** deliver the application code, an **unapplied** migration, a catalog verifier, and a rollback-only behavioral verifier. Stop at the terminal verdict `SLICE 3.6B PHASE 3A READY FOR DATABASE VERIFICATION` rather than proceeding further in the same pass.
 * **Only after a human applies the migration** in a verification environment should bounded UAT and final completion proceed to a `COMPLETE LOCALLY` verdict.
 * **Offline/unit tests cannot prove RLS.** Real rollback-only database verification is required specifically for: authorization (owning household can read/write its own override), cross-household denial, expiry behavior, and cleanup (no orphaned rows after an event passes or an override is cleared).
-* UAT cleanup must explicitly account for and zero out: event-override rows, any transient route records created for temporary-origin calculations, provider/vendor-call ledger rows created during testing, household/Auth test fixtures, and confirm zero retained raw current-location coordinates anywhere.
+* UAT cleanup must explicitly account for and zero out: event-override rows, payload-free current-location claim rows, provider/vendor-call ledger rows created during testing, household/Auth test fixtures, and confirm zero retained raw current-location coordinates or current-location route results anywhere.
 
 ## 7. Tests
 
@@ -81,8 +102,12 @@ Add/update deterministic tests covering at minimum:
 5. "use current location" permission states (granted, denied, dismissed, unsupported, error) all recover safely and never silently fall back to a stale or fabricated location; out-of-range/invalid coordinates are rejected server-side before any routing call;
 6. no raw current-location coordinate is retained beyond what's needed for the specific calculation in flight — assert this directly rather than only asserting the UI hides it;
 7. **a temporary-origin route is never written into the Home-derived route-cache columns**, and reading an event with no active override after one was previously set and cleared/expired returns the Home-derived route, not a stale temporary one (Section 3);
-8. the temporary override expires/clears per whatever smallest model this prompt lands on, and manual clearing works independently of that expiry, restoring the Home-derived route;
+8. the durable alternate override becomes inactive at event end (or start when no end exists) plus 24 hours, bounded cleanup hard-deletes it, and manual clearing works independently of expiry while restoring the Home-derived route;
 9. RLS: a temporary origin is scoped and denied cross-household exactly like the existing Home-origin fields.
+10. changing an event/source/team arrival preference changes leave-by through the existing shared required-arrival resolver without recomputing or rewriting the selected-origin drive duration;
+11. a rescheduled event uses its current end/start plus 24 hours for lifecycle and invalidates/re-evaluates route freshness from current destination state;
+12. duplicate clicks/concurrent requests authorize at most one provider call for that event operation;
+13. manipulated and cross-household event IDs are rejected before any Geocodio/ORS reservation or provider access.
 
 ## 8. Physical-Device Evidence Boundary
 
@@ -92,7 +117,7 @@ Automated/browser tests may exercise the Permissions API and Geolocation API thr
 
 Before completion run: focused temporary-origin tests; all affected deterministic tests; complete Corralio test suite; explicit Corralio TypeScript validation; zero-warning Corralio lint; `git diff --check`; all four production builds (`corp-app`, `corralio-app`, `referee-app`, `ti-web`).
 
-Also verify: no Slice 3.6A behavior changed; **no What Fits behavior changed**; no Mapbox/traffic-aware/notification work entered the diff; no hotel/trip data model was added; Home-origin fields/behavior are unchanged when no override is active; the Home-derived route cache is unchanged by any temporary-origin calculation (Section 3); database cleanup checklist (Section 6) fully accounted for once a migration is applied.
+Also verify: no Slice 3.6A behavior changed; **no What Fits behavior changed**; the completed `ics_explicit -> source_preference -> team_preference -> corralio_default` resolver remains authoritative; no Mapbox/traffic-aware/notification work entered the diff; no hotel/trip data model was added; Home-origin fields/behavior are unchanged when no override is active; the Home-derived route cache is unchanged by any temporary-origin calculation (Section 3); database cleanup checklist (Section 6) fully accounted for once a migration is applied.
 
 Do not push. Do not deploy.
 

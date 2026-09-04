@@ -9,6 +9,14 @@ import { nextChildColor, normalizeFamilyName, parseTeamSport } from "@/lib/famil
 import { parseIanaTimeZone } from "@/lib/householdTimezone";
 import { parsePushSubscriptionInput } from "@/lib/notifications/weekendReady";
 import { computeWeekendLeaveBy, saveHouseholdOrigin } from "@/lib/leaveBy.server";
+import {
+  routeFromCurrentLocation,
+  saveAlternateEventOrigin,
+} from "@/lib/temporaryOrigin.server";
+import {
+  parseCurrentLocationCoordinates,
+  type TemporaryOriginRouteResult,
+} from "@/lib/temporaryOrigin";
 import { parseArrivalPreferenceInput } from "@/lib/requiredArrival";
 import { isValidUuid, parseScheduleAssignmentInput } from "@/lib/schedules/assignment";
 import {
@@ -217,6 +225,70 @@ export async function computeWeekendLeaveByAction(eventIds: string[]): Promise<{
   } catch {
     console.warn("corralio: leave-by computation failed");
     return { changed: false };
+  }
+}
+
+export async function routeCurrentLocationAction(input: unknown): Promise<TemporaryOriginRouteResult> {
+  if (!input || typeof input !== "object") return { status: "invalid" };
+  const candidate = input as { eventId?: unknown; coordinates?: unknown };
+  if (typeof candidate.eventId !== "string" || !isValidUuid(candidate.eventId)) {
+    return { status: "invalid" };
+  }
+  const origin = parseCurrentLocationCoordinates(candidate.coordinates);
+  if (!origin) return { status: "invalid" };
+  try {
+    const viewer = await resolveCorralioViewer();
+    if (!viewer?.householdId) return { status: "unavailable" };
+    return await routeFromCurrentLocation({
+      householdId: viewer.householdId,
+      eventId: candidate.eventId,
+      origin,
+    });
+  } catch {
+    console.warn("corralio: temporary current-location route failed");
+    return { status: "unavailable" };
+  }
+}
+
+export async function saveAlternateEventOriginAction(input: unknown): Promise<TemporaryOriginRouteResult> {
+  if (!input || typeof input !== "object") return { status: "invalid" };
+  const candidate = input as { eventId?: unknown; address?: unknown };
+  if (
+    typeof candidate.eventId !== "string"
+    || !isValidUuid(candidate.eventId)
+    || typeof candidate.address !== "string"
+  ) return { status: "invalid" };
+  try {
+    const viewer = await resolveCorralioViewer();
+    if (!viewer?.householdId) return { status: "unavailable" };
+    const result = await saveAlternateEventOrigin({
+      authenticatedClient: viewer.supabase,
+      householdId: viewer.householdId,
+      eventId: candidate.eventId,
+      submittedAddress: candidate.address,
+    });
+    if (result.status === "success") revalidatePath("/");
+    return result;
+  } catch {
+    console.warn("corralio: temporary alternate-origin route failed");
+    return { status: "unavailable" };
+  }
+}
+
+export async function clearAlternateEventOriginAction(input: unknown): Promise<{ status: "cleared" | "invalid" | "unavailable" }> {
+  if (typeof input !== "string" || !isValidUuid(input)) return { status: "invalid" };
+  try {
+    const viewer = await resolveCorralioViewer();
+    if (!viewer?.householdId) return { status: "unavailable" };
+    const { error } = await viewer.supabase.rpc("corralio_clear_event_routing_origin_v1", {
+      p_event_id: input,
+    });
+    if (error) return { status: "unavailable" };
+    await computeWeekendLeaveBy({ householdId: viewer.householdId, eventIds: [input] });
+    revalidatePath("/");
+    return { status: "cleared" };
+  } catch {
+    return { status: "unavailable" };
   }
 }
 

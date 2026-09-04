@@ -67,7 +67,7 @@ Home/default origin is highly sensitive:
 
 A home address must not become trusted public evidence through repetition, geocoding, routing, or schedule imports.
 
-Slice 3.6B Phase 3A's temporary-routing-origin design (filed, not yet built) applies this principle directly to a new surface: "use current location" is permissioned per-use, triggered only by a user gesture, and must not retain a raw coordinate history beyond what a specific in-flight leave-by/What Fits calculation needs.
+Slice 3.6B Phase 3A's temporary-routing-origin design applies this principle directly to event leave-by: "use current location" is permissioned per-use, triggered only by a user gesture, sent to the routing provider for that one estimate, and retains neither the raw coordinates nor the derived route. A typed alternate address may be stored only against its owning household event, becomes inactive at the event end (or start when no end exists) plus 24 hours, and is removed by bounded cleanup. Temporary origins never affect What Fits or become venue evidence.
 
 ## Public versus private location boundary
 

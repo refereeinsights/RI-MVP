@@ -11,6 +11,9 @@ import { WeekendReadyPrompt } from "./WeekendReadyPrompt";
 import { corralioSportIcon, corralioSportLabel } from "@/lib/schedules/sport";
 import { getThisWeekendRangeLocal } from "@/lib/weekend";
 import { buildWeekendPlan, type WeekendConflict, type WeekendPlanEvent } from "@/lib/weekendPlan";
+import type { TemporaryOriginRouteResult } from "@/lib/temporaryOrigin";
+import { estimatedLeaveByIso } from "@/lib/leaveBy";
+import { EventRoutingOriginControl } from "./EventRoutingOriginControl";
 
 function validTimeZone(timezone: string | null) {
   if (!timezone) return undefined;
@@ -38,7 +41,17 @@ function EventCard({ event, conflicts, onNavigate }: { event: WeekendPlanEvent; 
   const timeZone = validTimeZone(event.timezone);
   const colorClass = event.childColor ? ` eventColor-${event.childColor}` : "";
   const location = event.location;
-  const leaveBy = event.leaveByAt ? new Date(event.leaveByAt) : null;
+  const [sessionRoute, setSessionRoute] = useState<Extract<TemporaryOriginRouteResult, { status: "success" }> | null>(null);
+  const [sessionAddress, setSessionAddress] = useState<string | null>(null);
+  const displayedLeaveByAt = sessionRoute && event.requiredArrivalAt
+    ? estimatedLeaveByIso(event.requiredArrivalAt, sessionRoute.estimatedDriveMinutes)
+    : event.leaveByAt;
+  const displayedDriveMinutes = sessionRoute?.estimatedDriveMinutes ?? event.estimatedDriveMinutes;
+  const displayedOriginKind = sessionRoute?.originKind ?? event.routingOriginKind;
+  const displayedOriginAddress = sessionRoute?.originKind === "alternate_address"
+    ? sessionAddress
+    : event.routingOriginAddress;
+  const leaveBy = displayedLeaveByAt ? new Date(displayedLeaveByAt) : null;
 
   return (
     <li className={`eventCard eventCard-${event.identityKind}${colorClass}`}>
@@ -65,14 +78,30 @@ function EventCard({ event, conflicts, onNavigate }: { event: WeekendPlanEvent; 
         </time>
         <div className="eventBody">
           <h4>{event.title}</h4>
-          {leaveBy && event.estimatedDriveMinutes ? (
+          {leaveBy && displayedDriveMinutes ? (
             <p className="eventLeaveBy">
               Leave by {leaveBy.toLocaleTimeString("en-US", {
                 hour: "numeric",
                 minute: "2-digit",
                 timeZone,
-              })} (est.) · ~{event.estimatedDriveMinutes} min estimated drive
+              })} (est.) · ~{displayedDriveMinutes} min estimated drive
             </p>
+          ) : null}
+          {event.routingOriginCanChange ? (
+            <EventRoutingOriginControl
+              eventId={event.id}
+              originKind={displayedOriginKind}
+              originAddress={displayedOriginAddress}
+              persistedAlternate={event.routingOriginKind === "alternate_address"}
+              onRoute={(result, address) => {
+                setSessionRoute(result);
+                setSessionAddress(address ?? null);
+              }}
+              onUseHome={() => {
+                setSessionRoute(null);
+                setSessionAddress(null);
+              }}
+            />
           ) : null}
           {location ? (
             <button className="eventLocation" type="button" aria-haspopup="dialog" onClick={() => onNavigate(location)}>

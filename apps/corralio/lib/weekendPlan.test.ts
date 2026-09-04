@@ -22,6 +22,11 @@ function event(id: string, startsAt: string): WeekendPlanEvent {
     resolvedChildId: null,
     estimatedDriveMinutes: null,
     leaveByAt: null,
+    requiredArrivalAt: null,
+    requiredArrivalSource: null,
+    routingOriginKind: "home",
+    routingOriginAddress: null,
+    routingOriginCanChange: false,
   };
 }
 

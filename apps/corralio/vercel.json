@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/weekend-ready",
       "schedule": "7,22,37,52 0-6 * * 5"
+    },
+    {
+      "path": "/api/cron/temporary-origin-cleanup",
+      "schedule": "43 10 * * *"
     }
   ]
 }

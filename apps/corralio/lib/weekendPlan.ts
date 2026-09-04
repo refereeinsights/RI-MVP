@@ -1,6 +1,7 @@
 import type { CorralioChildColor } from "./family";
 import { resolveAssignmentPresentation } from "./schedules/assignment";
 import type { CorralioSport } from "./schedules/sport";
+import type { RequiredArrivalSource } from "./requiredArrival";
 import { isInThisWeekend } from "./weekend";
 
 export type WeekendIdentityKind = "assigned" | "unassigned" | "unavailable";
@@ -20,6 +21,11 @@ export type WeekendPlanEvent = {
   resolvedChildId: string | null;
   estimatedDriveMinutes: number | null;
   leaveByAt: string | null;
+  requiredArrivalAt: string | null;
+  requiredArrivalSource: RequiredArrivalSource | null;
+  routingOriginKind: "home" | "alternate_address";
+  routingOriginAddress: string | null;
+  routingOriginCanChange: boolean;
 };
 
 export type WeekendConflict = {

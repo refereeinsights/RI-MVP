@@ -8,13 +8,15 @@ import { resolveAssignmentPresentation } from "@/lib/schedules/assignment";
 import { aggregateScheduleFreshness } from "@/lib/schedules/freshness";
 import { parseCorralioSport } from "@/lib/schedules/sport";
 import { createCorralioSupabaseServerClient } from "@/lib/supabase/server";
+import { isAlternateRouteFresh, isTemporaryOriginActive } from "@/lib/temporaryOrigin";
 import { getWeekendCandidateWindow } from "@/lib/weekend";
 import { resolveWeekendEventIdentity, type WeekendPlanEvent } from "@/lib/weekendPlan";
 
 type SourceRow = { id: string; display_name: string; sport: string | null; sync_status: string; last_synced_at: string | null; refresh_paused_at: string | null; child_id: string | null; team_id: string | null; arrival_buffer_minutes: number | null };
 type ChildRow = { id: string; display_name: string; color_token: string; sort_order: number };
 type TeamRow = { id: string; child_id: string; display_name: string; sport: string | null; sort_order: number; arrival_buffer_minutes: number | null };
-type EventRow = { id: string; title: string; starts_at: string; ends_at: string | null; timezone: string | null; source_location_text: string | null; display_location_text: string | null; field_label: string | null; schedule_source_id: string | null; child_id: string | null; team_id: string | null; schedule_arrival_at: string | null; estimated_drive_minutes: number | null; leave_by_computed_at: string | null; location_geocoded_at: string | null };
+type EventRow = { id: string; title: string; starts_at: string; ends_at: string | null; timezone: string | null; source_location_text: string | null; display_location_text: string | null; field_label: string | null; schedule_source_id: string | null; child_id: string | null; team_id: string | null; schedule_arrival_at: string | null; estimated_drive_minutes: number | null; leave_by_computed_at: string | null; location_lat: number | null; location_lng: number | null; location_geocoded_at: string | null };
+type AlternateOriginRow = { event_id: string; origin_address: string; origin_geocoded_at: string | null; estimated_drive_minutes: number | null; route_computed_at: string | null };
 
 const WEEKEND_CANDIDATE_LIMIT = 200;
 
@@ -65,7 +67,7 @@ async function loadWeekendEventRows(viewer: CorralioViewer, activeSourceIds: str
   if (!viewer.householdId) return [] as EventRow[];
   const window = getWeekendCandidateWindow(new Date());
   const sourceFilter = buildActivePlanningEventSourceFilter(activeSourceIds);
-  let query = viewer.supabase.from("corralio_events").select("id,title,starts_at,ends_at,timezone,source_location_text,display_location_text,field_label,schedule_source_id,child_id,team_id,schedule_arrival_at,estimated_drive_minutes,leave_by_computed_at,location_geocoded_at").eq("household_id", viewer.householdId).gte("starts_at", window.from).lt("starts_at", window.to);
+  let query = viewer.supabase.from("corralio_events").select("id,title,starts_at,ends_at,timezone,source_location_text,display_location_text,field_label,schedule_source_id,child_id,team_id,schedule_arrival_at,estimated_drive_minutes,leave_by_computed_at,location_lat,location_lng,location_geocoded_at").eq("household_id", viewer.householdId).gte("starts_at", window.from).lt("starts_at", window.to);
   query = sourceFilter
     ? query.or(sourceFilter)
     : query.is("schedule_source_id", null);
@@ -99,6 +101,15 @@ export async function loadWeekendData(viewer: CorralioViewer) {
   const sourceSports = new Map(sources.map((source) => [source.id, parseCorralioSport(source.sport)]));
   const sourceArrival = new Map(sources.map((source) => [source.id, source.arrival_buffer_minutes]));
   const teamArrival = new Map(familyRows.teams.map((team) => [team.id, team.arrival_buffer_minutes]));
+  const alternateResult = viewer.householdId && events.length
+    ? await viewer.supabase.from("corralio_event_routing_origins")
+      .select("event_id,origin_address,origin_geocoded_at,estimated_drive_minutes,route_computed_at")
+      .eq("household_id", viewer.householdId)
+      .in("event_id", events.map((event) => event.id))
+    : { data: [] };
+  const alternateByEventId = new Map(
+    ((alternateResult.data ?? []) as AlternateOriginRow[]).map((row) => [row.event_id, row]),
+  );
   const scheduleFreshness = aggregateScheduleFreshness(
     sources.flatMap((source) => {
       if (source.sync_status !== "pending" && source.sync_status !== "success" && source.sync_status !== "error") return [];
@@ -113,21 +124,36 @@ export async function loadWeekendData(viewer: CorralioViewer) {
       familyChildren,
       familyTeams,
     );
-    const routeFresh = event.estimated_drive_minutes !== null && isRouteFresh({
+    const homeRouteFresh = event.estimated_drive_minutes !== null && isRouteFresh({
       leaveByComputedAt: event.leave_by_computed_at,
       originGeocodedAt,
       locationGeocodedAt: event.location_geocoded_at,
     });
+    const alternate = alternateByEventId.get(event.id) ?? null;
+    const alternateActive = alternate !== null && isTemporaryOriginActive({
+      startsAt: event.starts_at,
+      endsAt: event.ends_at,
+    });
+    const alternateRouteFresh = alternateActive
+      && alternate?.estimated_drive_minutes !== null
+      && isAlternateRouteFresh({
+        routeComputedAt: alternate?.route_computed_at ?? null,
+        originGeocodedAt: alternate?.origin_geocoded_at ?? null,
+        locationGeocodedAt: event.location_geocoded_at,
+      });
     const requiredArrival = resolveRequiredArrival({
       startsAt: event.starts_at,
       scheduleArrivalAt: event.schedule_arrival_at,
       sourceArrivalMinutes: event.schedule_source_id ? sourceArrival.get(event.schedule_source_id) ?? null : null,
       teamArrivalMinutes: event.team_id ? teamArrival.get(event.team_id) ?? null : null,
     });
-    const leaveByAt = routeFresh && requiredArrival
-      ? estimatedLeaveByIso(requiredArrival.requiredArrivalAt, event.estimated_drive_minutes as number)
+    const selectedDriveMinutes = alternateActive
+      ? alternateRouteFresh ? alternate?.estimated_drive_minutes ?? null : null
+      : homeRouteFresh ? event.estimated_drive_minutes : null;
+    const leaveByAt = selectedDriveMinutes !== null && requiredArrival
+      ? estimatedLeaveByIso(requiredArrival.requiredArrivalAt, selectedDriveMinutes)
       : null;
-    return { id: event.id, title: event.title, startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone, location: event.source_location_text ?? event.display_location_text, fieldLabel: event.source_location_text ? null : event.field_label, sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null, identityKind: identity.kind, identityLabel: identity.label, childColor: identity.childColor, resolvedChildId: identity.resolvedChildId, estimatedDriveMinutes: routeFresh ? event.estimated_drive_minutes : null, leaveByAt };
+    return { id: event.id, title: event.title, startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone, location: event.source_location_text ?? event.display_location_text, fieldLabel: event.source_location_text ? null : event.field_label, sport: event.schedule_source_id ? sourceSports.get(event.schedule_source_id) ?? null : null, identityKind: identity.kind, identityLabel: identity.label, childColor: identity.childColor, resolvedChildId: identity.resolvedChildId, estimatedDriveMinutes: selectedDriveMinutes, leaveByAt, requiredArrivalAt: requiredArrival?.requiredArrivalAt ?? null, requiredArrivalSource: requiredArrival?.source ?? null, routingOriginKind: alternateActive ? "alternate_address" : "home", routingOriginAddress: alternateActive ? alternate?.origin_address ?? null : null, routingOriginCanChange: typeof event.location_lat === "number" && typeof event.location_lng === "number" && typeof event.location_geocoded_at === "string" };
   });
   return { sourceCount: sources.length, weekendEvents, candidateLimitReached: events.length === WEEKEND_CANDIDATE_LIMIT, scheduleFreshness, planningTimezone };
 }
