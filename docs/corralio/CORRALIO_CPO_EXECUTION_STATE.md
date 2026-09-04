@@ -1,7 +1,7 @@
 # Corralio CPO Execution State
 
 **Status:** Operational snapshot, not a strategic document.
-**As of:** 2026-09-03 (Phase A+B's bounded pre-10DLC Stage 2 UAT is complete with all non-live evidence passing and the required blocked verdict retained pending campaign approval; five open founder decisions resolved; Phase A+B Stage 1 database verification, Gate 3 PASS, 10DLC submission, and calendar-feed decision recorded; Slice 3.4 backfilled as complete and its prompt archived historical; the filed venue-promotion (Slice 4.5B) prompt added to READY TO EXECUTE; the ICS Calendar-Level Metadata Preservation micro-slice shipped — corrected after an independently-verified pre-implementation audit, then implemented and independently re-verified against the delivered diff — moved to COMPLETE; HotelPlanner Phase 3B evidence diagnostic found superseded by a pre-implementation audit and corrected — its cancellation-window evidence gap and the linked attribution-design Section 7 defect are both closed, five stale documents reconciled; everything else reconciled through 2026-09-02)
+**As of:** 2026-09-03 (Phase A+B's bounded pre-10DLC Stage 2 UAT is complete with all non-live evidence passing and the required blocked verdict retained pending campaign approval; five open founder decisions resolved; Phase A+B Stage 1 database verification, Gate 3 PASS, 10DLC submission, and calendar-feed decision recorded; Slice 3.4 backfilled as complete and its prompt archived historical; the filed venue-promotion (Slice 4.5B) prompt added to READY TO EXECUTE; the ICS Calendar-Level Metadata Preservation micro-slice shipped — corrected after an independently-verified pre-implementation audit, then implemented and independently re-verified against the delivered diff — moved to COMPLETE; HotelPlanner Phase 3B evidence diagnostic found superseded by a pre-implementation audit and corrected — its cancellation-window evidence gap and the linked attribution-design Section 7 defect are both closed, five stale documents reconciled, and NEXT 5 ACTIONS + OPEN corrected to remove the now-stale references to the superseded diagnostic that survived the first reconciliation pass; everything else reconciled through 2026-09-02)
 **Companion document:** `CORRALIO_FOUNDER_MENTOR_HANDOFF.md` (Part II) carries the full narrative/architecture context behind every line item here. This document exists to answer, quickly: what's done, what's next, what's blocked, and on what evidence.
 
 **How to use this in a fresh session:** read this document's NEXT 5 ACTIONS first. Read the handoff's Part II only for the "why" behind an item, or when an item here references a design/decision by name.
@@ -72,10 +72,9 @@ See `docs/corralio/cpo/2026-08-30-founder-backlog-reconciliation.md` for the ful
 
 ## OPEN — REQUIRES A FOUNDER DECISION, NOT MORE ENGINEERING (as of 2026-09-03)
 
-- **HotelPlanner status-contract bug** (documentation-only, closes with the Phase 3B evidence diagnostic — see READY TO EXECUTE #3).
 - **`CORRALIO_TI_PLANNING_HANDOFF.md` disposition** — new finding, 2026-09-03. The document (146 lines, substantive TI↔Corralio handoff policy, last reviewed 2026-08-18) was found only in a dangling, non-mainline commit (`af4d6ea6`) and has been recovered/committed locally (`c4580fe2`) to prevent loss to `git gc`. Not yet resolved: is this restored document the authoritative source going forward, or should it be marked superseded and merged into ADR-013 + `CORRALIO_SECURITY_PRIVACY.md`'s "TI to Corralio handoff" section, which currently carry only condensed fragments of the same policy? Recommend a quick Codex sanity-check on the git-history finding itself before finalizing.
 
-Resolved 2026-09-03 (see FOUNDER DECISIONS RECORDED below): email channel status, schedule-change push, ADR-024 amendment, admin/support tooling for the pilot.
+Resolved 2026-09-03 (see FOUNDER DECISIONS RECORDED below): email channel status, schedule-change push, ADR-024 amendment, admin/support tooling for the pilot. Also resolved 2026-09-03, outside that founder-decision batch: the HotelPlanner status-contract bug — `docs/reference/corralio-hotelplanner-attribution-design.md` Section 7 corrected; see `docs/corralio/cpo/2026-09-03-cpo-audit-hotelplanner-phase3b-diagnostic-overtaken.md`.
 
 ---
 
@@ -98,12 +97,14 @@ Full record: Todoist "Corralio — CPO" project, 🚨 Founder Decisions section 
 ## NEXT 5 ACTIONS
 
 1. **Wait for 10DLC approval, then resume only Phase A+B Stage 2's bounded live remainder** — the non-live isolated/schema/mock UAT is complete and passed. Approval (or explicit written Telnyx permission) clears the prompt's §5 gate for the capped OTP/handset/inbound evidence needed to replace the current required `BLOCKED` verdict.
-2. **Run the filed HotelPlanner Phase 3B evidence diagnostic** — independent of #1, zero dependency.
-3. **Proceed with the filed Phase 3A prompt when selected** (temporary routing origin) — Phase 1 dependency satisfied.
-4. **Sequence the WeatherAPI.com migration prompt in whenever convenient** — filed and accepted, no dependency on the above, not time-sensitive.
-5. **Schedule-Source Compatibility & Evidence Matrix, whenever convenient** — non-blocking, zero dependency.
+2. **Proceed with the filed Phase 3A prompt** (temporary routing origin) — Phase 1 dependency satisfied, zero other dependency, ready now.
+3. **Sequence the WeatherAPI.com migration prompt in whenever convenient** — filed and accepted, no dependency on the above, not time-sensitive.
+4. **Schedule-Source Compatibility & Evidence Matrix, whenever convenient** — non-blocking, zero dependency.
+5. **Decide `CORRALIO_TI_PLANNING_HANDOFF.md`'s disposition** — see OPEN section above; a quick Codex sanity-check on the recovered-commit finding, then a founder call on authoritative-source-vs-superseded, closes a real (if low-urgency) documentation-integrity gap.
 
 **ICS Calendar-Level Metadata Preservation micro-slice — done, 2026-09-03** (`089ff240`, corrected prompt at `c1628c27` after an independently-verified pre-implementation audit). No longer a NEXT ACTION.
+
+**HotelPlanner Phase 3B evidence diagnostic — superseded 2026-09-03, removed from NEXT ACTIONS.** Do not dispatch `docs/prompts/corralio-hotelplanner-phase3b-evidence-diagnostic-prompt.md` as written; see the IN PROGRESS bullet above and `docs/corralio/cpo/2026-09-03-cpo-audit-hotelplanner-phase3b-diagnostic-overtaken.md`.
 
 ---
 
